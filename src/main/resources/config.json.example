@@ -1,0 +1,21 @@
+{
+  "_comment": "RetroMod Configuration - https://github.com/Bownlux/MC-RetroMod",
+  "_comment2": "This file is auto-generated on first launch. Edit values as needed.",
+
+  "use_aot": true,
+  "use_hybrid": true,
+  "instruction_level_granularity": true,
+
+  "transform_mixins": true,
+  "transform_refmaps": true,
+
+  "remap_reflection": true,
+
+  "log_level": "INFO",
+  "log_transformations": false,
+
+  "target_mc_version": "auto",
+
+  "debug": false,
+  "dump_bytecode": false
+}

@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================================
 # RetroMod Build Script
-# Copyright (c) 2026 Bownlux. All Rights Reserved.
+# Copyright (c) 2026 RevivalSMP. MIT License.
 #
 # Builds all RetroMod outputs:
 #   - CLI tool (standalone, all platforms)
@@ -15,7 +15,7 @@ VERSION="1.0.0-beta.1"
 
 echo "============================================"
 echo "  RetroMod Build Script v${VERSION}"
-echo "  Copyright (c) 2026 Bownlux"
+echo "  MIT License - RevivalSMP"
 echo "============================================"
 echo ""
 

@@ -77,6 +77,7 @@ public class RetroModCli {
                 case "legacy" -> legacyCommand(args);
                 case "overrides" -> overridesCommand(args);
                 case "prepare" -> prepareCommand(args);
+                case "devhelp", "migrate" -> devhelpCommand(args);
                 case "help", "-h", "--help" -> printUsage();
                 case "version", "-v", "--version" -> 
                     System.out.println("RetroMod CLI v" + VERSION + " (Target: MC " + TARGET_MC_VERSION + ")");
@@ -876,6 +877,150 @@ public class RetroModCli {
         System.out.println();
     }
     
+    /**
+     * Help mod developers update their own mod to a newer Minecraft version.
+     *
+     * Scans the mod's source JAR, shows every API call that changed between
+     * the mod's target version and the current version, and outputs a
+     * migration guide with find-and-replace suggestions they can apply
+     * to their own source code.
+     */
+    private static void devhelpCommand(String[] args) throws Exception {
+        if (args.length < 2) {
+            System.err.println("Usage: devhelp <mod.jar> [--to <version>]");
+            System.err.println();
+            System.err.println("Scans your mod and tells you exactly what needs to change");
+            System.err.println("to update it to a newer Minecraft version.");
+            System.err.println();
+            System.err.println("Examples:");
+            System.err.println("  retromod devhelp mymod-1.21.4.jar");
+            System.err.println("  retromod devhelp mymod-1.21.4.jar --to 1.21.11");
+            System.exit(1);
+        }
+
+        Path modPath = Path.of(args[1]);
+        if (!Files.exists(modPath)) {
+            System.err.println("File not found: " + modPath);
+            System.exit(1);
+        }
+
+        String targetVersion = TARGET_MC_VERSION;
+        for (int i = 2; i < args.length; i++) {
+            if ("--to".equals(args[i]) && i + 1 < args.length) {
+                targetVersion = args[++i];
+            }
+        }
+
+        System.out.println();
+        System.out.println("=================================================================");
+        System.out.println("  RetroMod Developer Migration Helper");
+        System.out.println("=================================================================");
+        System.out.println();
+
+        // Detect mod info
+        ModVersionInfo info = detector.detectVersion(modPath);
+        if (info == null) {
+            System.err.println("Could not read mod metadata. Is this a valid mod JAR?");
+            System.exit(1);
+        }
+
+        String sourceVersion = info.targetMcVersion();
+        System.out.println("  Mod:    " + info.modId() + " (v" + info.modVersion() + ")");
+        System.out.println("  Loader: " + info.modLoaderType());
+        System.out.println("  From:   MC " + sourceVersion);
+        System.out.println("  To:     MC " + targetVersion);
+        System.out.println();
+
+        if (sourceVersion.equals(targetVersion)) {
+            System.out.println("  Your mod already targets " + targetVersion + ". Nothing to do!");
+            return;
+        }
+
+        // Find shim chain
+        List<VersionShim> chain = shimRegistry.findShimChain(
+            info.modLoaderType(), sourceVersion, targetVersion);
+
+        if (chain.isEmpty()) {
+            System.out.println("  No migration data available for " + sourceVersion + " -> " + targetVersion);
+            return;
+        }
+
+        // Collect all redirects
+        System.out.println("=================================================================");
+        System.out.println("  MIGRATION GUIDE: " + sourceVersion + " -> " + targetVersion);
+        System.out.println("=================================================================");
+        System.out.println();
+
+        int totalMethods = 0;
+        int totalClasses = 0;
+
+        for (VersionShim shim : chain) {
+            RetroModTransformer temp = RetroModTransformer.getInstance();
+            shim.registerRedirects(temp);
+
+            int methods = temp.getMethodRedirectCount();
+            int classes = temp.getClassRedirectCount();
+
+            if (methods > 0 || classes > 0) {
+                System.out.println("--- " + shim.getShimName() + " ---");
+                System.out.println();
+
+                // Show class renames
+                var classRedirects = temp.getClassRedirects();
+                if (classRedirects != null && !classRedirects.isEmpty()) {
+                    System.out.println("  Class renames:");
+                    for (var entry : classRedirects.entrySet()) {
+                        String oldName = entry.getKey().replace('/', '.');
+                        String newName = entry.getValue().replace('/', '.');
+                        System.out.println("    " + oldName);
+                        System.out.println("      -> " + newName);
+                    }
+                    System.out.println();
+                }
+
+                // Show method renames
+                var methodRedirects = temp.getMethodRedirects();
+                if (methodRedirects != null && !methodRedirects.isEmpty()) {
+                    System.out.println("  Method changes:");
+                    for (var entry : methodRedirects.entrySet()) {
+                        System.out.println("    " + entry.getKey());
+                        System.out.println("      -> " + entry.getValue());
+                    }
+                    System.out.println();
+                }
+
+                // Show embedded shims
+                String[] shimClasses = shim.getShimClasses();
+                if (shimClasses.length > 0) {
+                    System.out.println("  New shim classes available:");
+                    for (String cls : shimClasses) {
+                        System.out.println("    " + cls);
+                    }
+                    System.out.println();
+                }
+
+                totalMethods += methods;
+                totalClasses += classes;
+            }
+        }
+
+        System.out.println("=================================================================");
+        System.out.println("  SUMMARY");
+        System.out.println("=================================================================");
+        System.out.println();
+        System.out.println("  " + chain.size() + " version steps");
+        System.out.println("  " + totalClasses + " class renames");
+        System.out.println("  " + totalMethods + " method changes");
+        System.out.println();
+        System.out.println("  To update your mod:");
+        System.out.println("  1. Apply the class/method renames above to your source code");
+        System.out.println("  2. Update your fabric.mod.json / mods.toml version targets");
+        System.out.println("  3. Rebuild against the new Minecraft version");
+        System.out.println();
+        System.out.println("  Or just use RetroMod and skip the manual work :)");
+        System.out.println();
+    }
+
     private static void printUsage() {
         System.out.println();
         System.out.println("=================================================================");
@@ -902,6 +1047,10 @@ public class RetroModCli {
         System.out.println("Legacy Commands (1.8-1.20.x -> 1.21.x):");
         System.out.println("  legacy <mod.jar>               Transform legacy mod to 1.21.x");
         System.out.println();
+        System.out.println("Developer Commands:");
+        System.out.println("  devhelp <mod.jar> [target]     Show what to change when updating your mod");
+        System.out.println("  migrate <mod.jar> [target]     Alias for devhelp");
+        System.out.println();
         System.out.println("Utility Commands:");
         System.out.println("  diff <loader> <v1> <v2>        Show API differences");
         System.out.println("  archive <action>               Manage API archives");
@@ -925,6 +1074,9 @@ public class RetroModCli {
         System.out.println();
         System.out.println("  # Batch process all mods");
         System.out.println("  retromod batch ./mods --aot");
+        System.out.println();
+        System.out.println("  # See what API changes you need for updating your own mod");
+        System.out.println("  retromod devhelp mymod-1.21.4.jar 1.21.11");
         System.out.println();
         System.out.println("Target Minecraft version: " + TARGET_MC_VERSION);
         System.out.println();

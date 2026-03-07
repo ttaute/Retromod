@@ -16,7 +16,7 @@ This document explains the technical possibilities and limitations of mod transf
 // OLD (1.20.4)
 world.setBlockState(pos, state);
 
-// NEW (1.21.11)  
+// NEW (1.21.11)
 world.setBlock(pos, state);
 
 // RETROMOD: Intercepts "setBlockState" → redirects to "setBlock"
@@ -56,13 +56,11 @@ import net.minecraft.core.BlockPos;
 
 ---
 
-## TIER 2: Possible But Complex (Your Ideas!) ⚠️
+## TIER 2: Possible But Complex ⚠️
 
-### 2.1 Mixin "Middle Man" Interceptor ✅ YOUR IDEA!
+### 2.1 Mixin "Middle Man" Interceptor ✅
 
-**Your concept:** RetroMod sits between old Mixin targets and new MC code, translating.
-
-**THIS IS IMPLEMENTABLE!** I created `MixinTargetRedirector.java` that does exactly this:
+RetroMod sits between old Mixin targets and new MC code, translating calls:
 
 ```
 OLD MIXIN CODE                    RETROMOD                         MINECRAFT
@@ -79,11 +77,9 @@ OLD MIXIN CODE                    RETROMOD                         MINECRAFT
 
 **Limitation:** If the new method has COMPLETELY different logic (not just renamed), we can't help.
 
-### 2.2 Internal Class Deobfuscation + Translation ✅ YOUR IDEA!
+### 2.2 Internal Class Deobfuscation + Translation ✅
 
-**Your concept:** Deobfuscate internal classes, translate, send to Minecraft.
-
-**You're partially right!** Here's the full picture:
+Mods are developed against mapped names (not obfuscated), so obfuscation itself isn't the problem:
 
 ```
 OBFUSCATION IS NOT THE PROBLEM:
@@ -128,10 +124,10 @@ Even with perfect deobfuscation, the CODE STRUCTURE changed!
 | Method merged | ❌ Hard | Need custom logic |
 | Logic completely changed | ❌ No | Can't auto-translate logic |
 
-**Implementation idea:**
+**Implementation approach:**
 
 ```java
-// We could build a comprehensive mapping database:
+// A comprehensive mapping database:
 MAPPINGS_1_20_4_TO_1_21_11 = {
     "net/minecraft/client/renderer/chunk/RenderChunk": {
         "newName": "net/minecraft/client/renderer/chunk/SectionCompiler",
@@ -146,16 +142,14 @@ MAPPINGS_1_20_4_TO_1_21_11 = {
 }
 ```
 
-This IS buildable but requires:
+This is buildable but requires:
 1. Analyzing diffs between MC versions
 2. Manual verification of semantic equivalence
-3. Huge mapping database (could be community-contributed)
+3. Large mapping database (could be community-contributed)
 
-### 2.3 AOT Pre-computation of All Transforms ✅ YOUR IDEA!
+### 2.3 AOT Pre-computation of All Transforms ✅
 
-**Your concept:** Do all the heavy work ahead of time, cache it.
-
-**This is GREAT for performance!**
+Do all the heavy work ahead of time and cache it:
 
 ```
 FIRST RUN (slow):
@@ -170,7 +164,7 @@ SUBSEQUENT RUNS (fast):
 2. Done!
 ```
 
-We already have AOT infrastructure - we can enhance it for Mixin redirects.
+AOT infrastructure is already in place and can be enhanced for Mixin redirects.
 
 ---
 
@@ -183,7 +177,7 @@ We already have AOT infrastructure - we can enhance it for Mixin redirects.
 // OLD
 void render(MatrixStack matrices, float delta) { }
 
-// NEW  
+// NEW
 void render(GuiGraphics graphics, int mouseX, float delta) { }
 ```
 
@@ -194,7 +188,7 @@ void render_SHIM(MatrixStack matrices, float delta) {
     // Convert old params to new params
     GuiGraphics graphics = convertMatrixStackToGuiGraphics(matrices);
     int mouseX = 0; // Default value
-    
+
     // Call real method
     render(graphics, mouseX, delta);
 }
@@ -222,7 +216,7 @@ NeoForge.EVENT_BUS.post(new BlockEvent.BreakEvent(level, pos, state, player, dro
 
 ### 3.3 Comprehensive Internal Mapping Database
 
-**The idea:** Build a complete database of all internal changes.
+Build a complete database of all internal changes:
 
 ```
 Sources:
@@ -241,7 +235,7 @@ Database:
 }
 ```
 
-**Status:** Huge undertaking but community could help. Projects like Linkie already have some of this data.
+**Status:** Large undertaking but community could help. Projects like Linkie already have some of this data.
 
 ---
 
@@ -249,25 +243,21 @@ Database:
 
 ### 4.1 Native Code (C++/Rust)
 
-**Why impossible:**
 ```
 Java bytecode:  We can read, analyze, transform
 Native code:    Compiled machine code, different for each OS/CPU
                 We literally cannot parse it as Java
 
-Example: LWJGL (OpenGL bindings) has native components
-         If a mod uses custom native code, we can't touch it
+For example, LWJGL (OpenGL bindings) has native components.
+         If a mod uses custom native code, we can't touch it.
 ```
-
-**Your understanding is correct:** Native code is a different language entirely.
 
 ### 4.2 Shader Code (GLSL/SPIR-V)
 
-**Why impossible:**
 ```
 Java bytecode:  Instructions like INVOKEVIRTUAL, GETFIELD
 GLSL:           Completely different syntax and compilation
-                
+
 Example:
     uniform mat4 modelViewMatrix;  // This is GLSL, not Java
     void main() {
@@ -281,19 +271,18 @@ We can't transform this because it's not Java bytecode.
 
 ### 4.3 Closed Source Mods
 
-**Why impossible:**
 ```
 Open source:   We can see what API calls are made
                We can build compatibility shims
-               
+
 Closed source: We can transform bytecode BUT
                We don't know WHAT the mod is trying to do
                We can't predict all edge cases
                If it breaks, we can't debug it
-               
-Example: OptiFine
+
+An example of this is a mod like OptiFine:
          - We can transform its bytecode
-         - But OptiFine uses SO MANY internal MC classes
+         - But it uses many internal MC classes
          - And has integrity checks
          - And has version-specific optimizations
          - We'd need to reverse-engineer the entire mod
@@ -301,13 +290,12 @@ Example: OptiFine
 
 ### 4.4 Integrity Checks
 
-**Why problematic:**
 ```java
 // Some mods do this:
 public void init() {
     byte[] myCode = readMyOwnBytecode();
     String hash = sha256(myCode);
-    
+
     if (!hash.equals(EXPECTED_HASH)) {
         throw new SecurityException("Modified!");
     }
@@ -329,9 +317,9 @@ public void init() {
 | Public API redirects | ✅ Done | Easy | Core feature |
 | Class package moves | ✅ Done | Easy | Core feature |
 | Simple Mixin redirects | ✅ Done | Easy | Core feature |
-| **Mixin middle-man** | ✅ Added | Medium | Your idea! |
-| **Internal class mapping** | 🔄 Possible | Hard | Needs big database |
-| **AOT caching** | ✅ Done | Medium | Already implemented |
+| Mixin middle-man | ✅ Done | Medium | Intercepts and translates calls |
+| Internal class mapping | 🔄 Possible | Hard | Needs large mapping database |
+| AOT caching | ✅ Done | Medium | Already implemented |
 | Signature changes | 🔄 Possible | Hard | Per-method work |
 | Event system changes | 🔄 Possible | Hard | Known events only |
 | Native code | ❌ Impossible | - | Different language |
@@ -342,7 +330,9 @@ public void init() {
 
 ## What This Means for Complex Mods
 
-### Physics Mod Revisited
+Here's how this breaks down for mods that do more than just use public APIs.
+
+**Example: a mod like Physics Mod**
 
 | Component | Can We Transform? |
 |-----------|-------------------|
@@ -357,37 +347,11 @@ public void init() {
 - Major updates (1.20.4 → 1.21.11): 40% chance
 - Very old (1.19 → 1.21.11): 20% chance
 
-### Fresh Animations Revisited
+**Example: a resource pack like Fresh Animations**
 
 Fresh Animations is a **resource pack** (JSON + textures), not Java code:
 - ✅ We handle resource pack format changes
 - ✅ We update `pack_format`
 - ✅ We rename texture paths
-- The companion mod (Entity Model Features) is separate
+- The companion mod (like Entity Model Features) is separate
 
----
-
-## Future Enhancements Roadmap
-
-| Feature | Version | Description |
-|---------|---------|-------------|
-| Enhanced Mixin redirector | v1.1 | Your middle-man idea |
-| Signature change handling | v1.2 | Auto-generate shims |
-| Internal mapping database | v1.3 | Community-contributed |
-| Event system translation | v1.4 | For known events |
-| AI-assisted mapping | v2.0+ | Detect similar methods |
-
----
-
-## Conclusion
-
-**Your ideas are technically sound!**
-
-1. **Mixin interceptor:** ✅ Implemented in `MixinTargetRedirector.java`
-2. **Deobfuscation + translation:** ✅ Possible with comprehensive mappings
-3. **Native code:** ❌ Correctly identified as impossible
-
-The limitation is not "can we do it" but "how much work is it":
-- Simple transforms: Done
-- Complex transforms: Need mapping database (buildable)
-- Impossible transforms: Native code, shaders, integrity checks

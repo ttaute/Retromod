@@ -319,21 +319,68 @@ public class RetroMod implements ModInitializer {
     }
     
     /**
-     * Load configuration from file.
+     * Load configuration from JSON file.
+     * Auto-generates a default config if one doesn't exist.
      */
     private void loadConfig() {
-        Path configPath = Path.of("config/retromod/config.properties");
+        Path configDir = Path.of("config/retromod");
+        Path configPath = configDir.resolve("config.json");
+
+        try {
+            java.nio.file.Files.createDirectories(configDir);
+        } catch (Exception e) {
+            LOGGER.warn("Could not create config directory", e);
+        }
+
         if (configPath.toFile().exists()) {
             try {
-                var props = new java.util.Properties();
-                props.load(new java.io.FileInputStream(configPath.toFile()));
-                
-                useAotCompilation = Boolean.parseBoolean(props.getProperty("use_aot", "true"));
-                transformMixins = Boolean.parseBoolean(props.getProperty("transform_mixins", "true"));
-                
+                String json = java.nio.file.Files.readString(configPath);
+                var config = new com.google.gson.JsonParser().parse(json).getAsJsonObject();
+
+                if (config.has("use_aot")) useAotCompilation = config.get("use_aot").getAsBoolean();
+                if (config.has("transform_mixins")) transformMixins = config.get("transform_mixins").getAsBoolean();
+
+                LOGGER.info("Loaded config from {}", configPath);
             } catch (Exception e) {
                 LOGGER.warn("Could not load config, using defaults", e);
             }
+        } else {
+            // Auto-generate default config
+            generateDefaultConfig(configPath);
+        }
+    }
+
+    /**
+     * Generate a default config.json with comments explaining each option.
+     */
+    private void generateDefaultConfig(Path configPath) {
+        String defaultConfig = """
+                {
+                  "_comment": "RetroMod Configuration - https://github.com/Bownlux/MC-RetroMod",
+
+                  "use_aot": true,
+                  "use_hybrid": true,
+                  "instruction_level_granularity": true,
+
+                  "transform_mixins": true,
+                  "transform_refmaps": true,
+
+                  "remap_reflection": true,
+
+                  "log_level": "INFO",
+                  "log_transformations": false,
+
+                  "target_mc_version": "auto",
+
+                  "debug": false,
+                  "dump_bytecode": false
+                }
+                """;
+        try {
+            java.nio.file.Files.writeString(configPath, defaultConfig);
+            LOGGER.info("Generated default config at {}", configPath);
+        } catch (Exception e) {
+            LOGGER.warn("Could not generate default config", e);
         }
     }
     

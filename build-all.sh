@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================================
 # RetroMod Multi-Version Build Script
-# Copyright (c) 2026 Bownlux. All Rights Reserved.
+# Copyright (c) 2026 RevivalSMP. MIT License.
 #
 # Builds RetroMod for ALL loaders and ALL 1.21.x versions:
 #   - Fabric (1.21 through 1.21.11)
@@ -16,7 +16,7 @@
 # set -e
 
 VERSION="1.0.0-beta.1"
-MC_VERSIONS=("1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10")
+MC_VERSIONS=("1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11")
 LOADERS=("fabric" "forge" "neoforge")
 
 echo "============================================"
@@ -26,7 +26,7 @@ echo "  MIT License - RevivalSMP"
 echo "============================================"
 echo ""
 echo "Building for:"
-echo "  - ${#MC_VERSIONS[@]} Minecraft versions (1.21 - 1.21.10)"
+echo "  - ${#MC_VERSIONS[@]} Minecraft versions (1.21 - 1.21.11)"
 echo "  - ${#LOADERS[@]} mod loaders (Fabric, Forge, NeoForge)"
 echo "  - Total: $((${#MC_VERSIONS[@]} * ${#LOADERS[@]})) mod JARs + 1 CLI"
 echo ""
@@ -152,8 +152,8 @@ except Exception as e:
             cat > "$TEMP_DIR/META-INF/mods.toml" << TOML
 modLoader = "javafml"
 loaderVersion = "[52,)"
-license = "All Rights Reserved - Copyright (c) 2026 Bownlux"
-issueTrackerURL = "https://github.com/bownlux/retromod/issues"
+license = "MIT"
+issueTrackerURL = "https://github.com/Bownlux/MC-RetroMod/issues"
 
 [[mods]]
 modId = "retromod"
@@ -193,8 +193,8 @@ TOML
             cat > "$TEMP_DIR/META-INF/neoforge.mods.toml" << TOML
 modLoader = "javafml"
 loaderVersion = "[4,)"
-license = "All Rights Reserved - Copyright (c) 2026 Bownlux"
-issueTrackerURL = "https://github.com/bownlux/retromod/issues"
+license = "MIT"
+issueTrackerURL = "https://github.com/Bownlux/MC-RetroMod/issues"
 
 [[mods]]
 modId = "retromod"
@@ -307,7 +307,7 @@ echo "  │   ├── 1.21/"
 echo "  │   │   └── retromod-${VERSION}+1.21.jar"
 echo "  │   ├── 1.21.1/"
 echo "  │   │   └── ..."
-echo "  │   └── 1.21.10/"
+echo "  │   └── 1.21.11/"
 echo "  ├── Forge/"
 echo "  ├── NeoForge/"
 echo "  └── CLI/"

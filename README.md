@@ -67,7 +67,8 @@ Requires **Java 21+** and **Maven 3.8+**.
 ```bash
 git clone https://github.com/Bownlux/MC-RetroMod.git
 cd MC-RetroMod
-./build.sh
+./build.sh          # macOS / Linux
+build.bat           # Windows
 ```
 
 This builds everything and puts the output in `dist/`:
@@ -77,6 +78,8 @@ This builds everything and puts the output in `dist/`:
 | `retromod-*-cli.jar` | CLI tool (standalone, all dependencies included) |
 | `retromod-*-fabric.jar` | Fabric mod — drop in `mods/` |
 | `retromod-*-neoforge.jar` | NeoForge mod — drop in `mods/` |
+
+> There's also `build-all.sh` which builds JARs for **every** MC version (1.21–1.21.11) × every loader (37 JARs total). That's mainly for publishing to Modrinth.
 
 ### Maven Build
 

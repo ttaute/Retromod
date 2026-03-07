@@ -1,6 +1,6 @@
 /*
  * RetroMod - Backwards Compatibility Layer for Minecraft Mods
- * Copyright (c) 2026 Bownlux. Licensed under RetroMod Personal Use License.
+ * Copyright (c) 2026 Bownlux. MIT License.
  */
 package com.retromod.core;
 
@@ -9,6 +9,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.swing.*;
+import java.awt.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -459,18 +461,19 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
     }
     
     /**
-     * Show restart required message.
+     * Show restart required message in logs and as a GUI popup.
      */
     private void showRestartMessage() {
+        // Always log to console
         LOGGER.info("");
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
         LOGGER.info("║                                                            ║");
-        LOGGER.info("║   ⚠️  RESTART REQUIRED!  ⚠️                                ║");
+        LOGGER.info("║   RESTART REQUIRED!                                        ║");
         LOGGER.info("║                                                            ║");
         LOGGER.info("║   RetroMod transformed {} mod(s):                          ║", String.format("%-2d", totalTransformed));
         for (String mod : transformedMods) {
             String display = mod.length() > 48 ? mod.substring(0, 45) + "..." : mod;
-            LOGGER.info("║     • {}║", String.format("%-51s", display));
+            LOGGER.info("║     - {}║", String.format("%-51s", display));
         }
         LOGGER.info("║                                                            ║");
         LOGGER.info("║   Close Minecraft and launch again for mods to load.       ║");
@@ -479,5 +482,46 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
         LOGGER.info("║                                                            ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
         LOGGER.info("");
+
+        // Show GUI popup if we can (client-side, not headless)
+        if (EnvironmentDetector.canShowGui()) {
+            showRestartPopup();
+        }
+    }
+
+    /**
+     * Show a popup dialog telling the user to restart Minecraft.
+     * Runs on a background thread so it doesn't block the main thread during pre-launch.
+     */
+    private void showRestartPopup() {
+        // Run on a separate thread so we don't block Fabric's launch sequence
+        Thread popupThread = new Thread(() -> {
+            try {
+                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            } catch (Exception ignored) {}
+
+            StringBuilder message = new StringBuilder();
+            message.append("RetroMod transformed ").append(totalTransformed).append(" mod(s):\n\n");
+
+            for (String mod : transformedMods) {
+                String display = mod.length() > 50 ? mod.substring(0, 47) + "..." : mod;
+                message.append("  - ").append(display).append("\n");
+            }
+
+            message.append("\nPlease close Minecraft and launch it again\n");
+            message.append("for the transformed mods to load.\n\n");
+            message.append("This only happens the first time. After restarting,\n");
+            message.append("your old mods will work normally.");
+
+            JOptionPane.showMessageDialog(
+                null,
+                message.toString(),
+                "RetroMod - Restart Required",
+                JOptionPane.INFORMATION_MESSAGE
+            );
+        }, "RetroMod-RestartPopup");
+
+        popupThread.setDaemon(true);
+        popupThread.start();
     }
 }
