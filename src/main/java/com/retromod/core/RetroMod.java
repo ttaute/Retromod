@@ -373,7 +373,9 @@ public class RetroMod implements ModInitializer {
                   "target_mc_version": "auto",
 
                   "debug": false,
-                  "dump_bytecode": false
+                  "dump_bytecode": false,
+
+                  "force_translate_complex": false
                 }
                 """;
         try {

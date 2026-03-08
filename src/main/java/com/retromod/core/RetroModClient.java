@@ -56,28 +56,18 @@ public class RetroModClient implements ClientModInitializer {
     }
     
     /**
-     * Initialize GUI components (file picker, floating button).
+     * Initialize GUI components.
+     *
+     * The old Swing-based GUI (floating "Add Mods" button + file picker outside
+     * Minecraft) has been replaced with a Minecraft-native screen accessible via
+     * a Mixin-injected button on the title screen.
+     *
+     * See: TitleScreenMixin, RetroModScreen
      */
     private void initializeGui(Path gameDir) {
-        try {
-            if (!EnvironmentDetector.isHeadless()) {
-                RetroModGui gui = new RetroModGui(gameDir);
-                
-                if (gui.isFirstRun()) {
-                    // First time - show welcome dialog
-                    LOGGER.info("First run detected - showing setup dialog");
-                    gui.showFirstRunDialog();
-                } else {
-                    // Show floating "Add Mods" button
-                    gui.showAddModsButton();
-                }
-            } else {
-                LOGGER.info("Headless mode detected - skipping GUI initialization");
-            }
-        } catch (Exception e) {
-            LOGGER.warn("Could not initialize GUI: {}", e.getMessage());
-            LOGGER.info("GUI features disabled. Use CLI instead.");
-        }
+        LOGGER.info("RetroMod GUI available via title screen button (Mixin-injected)");
+        // No Swing GUI initialization needed — the TitleScreenMixin adds a button
+        // to the Minecraft title screen that opens RetroModScreen.
     }
     
     /**

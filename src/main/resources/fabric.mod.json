@@ -19,7 +19,7 @@
     "server": ["com.retromod.core.RetroModServer"],
     "preLaunch": ["com.retromod.core.RetroModPreLaunch"]
   },
-  "mixins": [],
+  "mixins": ["retromod.mixins.json"],
   "depends": {
     "fabricloader": ">=0.16.0",
     "minecraft": ">=1.21",

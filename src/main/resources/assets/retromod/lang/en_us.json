@@ -1,0 +1,10 @@
+{
+  "retromod.title_screen.button": "RetroMod",
+  "retromod.screen.title": "RetroMod - Mod Manager",
+  "retromod.screen.add_mods": "Add Mods to Transform",
+  "retromod.screen.full_aot": "Full AOT Mode (slower compile, faster gameplay)",
+  "retromod.screen.complexity_warning": "RetroMod did not translate %s because it is unlikely to work. Enable \"force_translate_complex\" in config/retromod/config.json to force translation.",
+  "retromod.screen.transform_complete": "Transformation complete! Restart Minecraft for changes.",
+  "retromod.screen.no_mods": "No mods selected.",
+  "retromod.screen.transforming": "Transforming: %s"
+}

@@ -65,6 +65,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
     // Track transformation results
     private static int totalTransformed = 0;
     private static List<String> transformedMods = new ArrayList<>();
+    private static List<String> skippedComplexMods = new ArrayList<>();
     
     @Override
     public void onPreLaunch() {
@@ -105,6 +106,11 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
             // Step 3: Show restart message if we transformed anything
             if (totalTransformed > 0) {
                 showRestartMessage();
+            }
+
+            // Step 4: Show complexity warnings for skipped mods
+            if (!skippedComplexMods.isEmpty()) {
+                showComplexityWarning();
             }
 
             LOGGER.info("RetroMod pre-launch complete!");
@@ -355,22 +361,45 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
             // Create transformer
             FabricModTransformer transformer = new FabricModTransformer(targetVersion);
             
+            // Check if force_translate_complex is enabled
+            boolean forceComplex = isForceTranslateEnabled();
+
             for (Path modJar : modsToTransform) {
                 try {
                     String fileName = modJar.getFileName().toString();
                     String modVersion = extractModMinecraftVersion(modJar);
-                    
+
                     LOGGER.info("┌─ Processing: {}", fileName);
                     LOGGER.info("│  Mod version: {}", modVersion != null ? modVersion : "unknown");
                     LOGGER.info("│  Target: {}", targetVersion);
-                    
+
+                    // Complexity check — warn if mod is unlikely to work
+                    com.retromod.gui.ModComplexityAnalyzer analyzer =
+                        new com.retromod.gui.ModComplexityAnalyzer();
+                    com.retromod.gui.ModComplexityAnalyzer.ComplexityReport report =
+                        analyzer.analyze(modJar);
+
+                    if (report.isUnlikelyToWork() && !forceComplex) {
+                        LOGGER.warn("│  ⚠ SKIPPED: Mod is unlikely to work (complexity score: {})", report.score());
+                        LOGGER.warn("│  Reason: {}", report.reason());
+                        LOGGER.warn("│  To force, set \"force_translate_complex\": true in config.json");
+                        LOGGER.info("└─ Skipped (too complex)");
+                        skippedComplexMods.add(fileName);
+                        // DON'T move to processed — leave it for the user to decide
+                        continue;
+                    }
+
+                    if (report.isUnlikelyToWork() && forceComplex) {
+                        LOGGER.warn("│  ⚠ Force mode: proceeding despite high complexity ({})", report.score());
+                    }
+
                     // ALWAYS transform unless EXACT match
                     boolean needsTransform = !isExactVersionMatch(modVersion, targetVersion);
-                    
+
                     if (!needsTransform) {
                         LOGGER.info("│  Status: Already compatible (exact match)");
                         LOGGER.info("└─ Copying directly to mods/");
-                        Files.copy(modJar, outputFolder.resolve(fileName), 
+                        Files.copy(modJar, outputFolder.resolve(fileName),
                             StandardCopyOption.REPLACE_EXISTING);
                     } else {
                         LOGGER.info("│  Status: Needs transformation");
@@ -523,5 +552,75 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
 
         popupThread.setDaemon(true);
         popupThread.start();
+    }
+
+    /**
+     * Check if force_translate_complex is enabled in config.
+     */
+    private boolean isForceTranslateEnabled() {
+        try {
+            Path configPath = Path.of("config/retromod/config.json");
+            if (Files.exists(configPath)) {
+                String json = Files.readString(configPath);
+                return json.contains("\"force_translate_complex\": true") ||
+                       json.contains("\"force_translate_complex\":true");
+            }
+        } catch (Exception e) {
+            // Default to false
+        }
+        return false;
+    }
+
+    /**
+     * Show warning about mods that were skipped due to high complexity.
+     */
+    private void showComplexityWarning() {
+        LOGGER.warn("");
+        LOGGER.warn("╔════════════════════════════════════════════════════════════╗");
+        LOGGER.warn("║   MODS SKIPPED (UNLIKELY TO WORK)                          ║");
+        LOGGER.warn("╠════════════════════════════════════════════════════════════╣");
+        for (String mod : skippedComplexMods) {
+            String display = mod.length() > 51 ? mod.substring(0, 48) + "..." : mod;
+            LOGGER.warn("║   ⚠ {}║", String.format("%-54s", display));
+        }
+        LOGGER.warn("╠════════════════════════════════════════════════════════════╣");
+        LOGGER.warn("║   These mods were NOT translated because they use          ║");
+        LOGGER.warn("║   features RetroMod cannot fully transform (coremods,      ║");
+        LOGGER.warn("║   heavy reflection, ASM manipulation, etc.).               ║");
+        LOGGER.warn("║                                                            ║");
+        LOGGER.warn("║   To try anyway, set in config/retromod/config.json:       ║");
+        LOGGER.warn("║     \"force_translate_complex\": true                       ║");
+        LOGGER.warn("╚════════════════════════════════════════════════════════════╝");
+        LOGGER.warn("");
+
+        // GUI warning if possible
+        if (EnvironmentDetector.canShowGui()) {
+            Thread warningThread = new Thread(() -> {
+                try {
+                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                } catch (Exception ignored) {}
+
+                StringBuilder msg = new StringBuilder();
+                msg.append("RetroMod skipped ").append(skippedComplexMods.size())
+                   .append(" mod(s) because they are unlikely to work:\n\n");
+                for (String mod : skippedComplexMods) {
+                    msg.append("  - ").append(mod).append("\n");
+                }
+                msg.append("\nThese mods use features that RetroMod cannot fully\n");
+                msg.append("transform (coremods, heavy reflection, ASM, etc.).\n\n");
+                msg.append("To force translation anyway, set:\n");
+                msg.append("  \"force_translate_complex\": true\n");
+                msg.append("in config/retromod/config.json");
+
+                JOptionPane.showMessageDialog(
+                    null,
+                    msg.toString(),
+                    "RetroMod - Mods Skipped",
+                    JOptionPane.WARNING_MESSAGE
+                );
+            }, "RetroMod-ComplexityWarning");
+            warningThread.setDaemon(true);
+            warningThread.start();
+        }
     }
 }

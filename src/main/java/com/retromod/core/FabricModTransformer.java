@@ -16,25 +16,89 @@ import java.util.regex.*;
 
 /**
  * Transforms Fabric mods to work on newer Minecraft versions.
- * 
+ *
  * APPROACH:
  * Instead of using fabric_loader_dependencies.json (which has timing issues),
  * we directly modify the mod's fabric.mod.json to say it supports the target version.
- * 
+ *
  * This is the same approach used for Forge/NeoForge mods and avoids the need
  * for any global config files.
- * 
+ *
  * Steps:
  * 1. Extract mod JAR to temp directory
  * 2. Transform all class files (bytecode)
- * 3. Update fabric.mod.json to support target version
+ * 3. Update fabric.mod.json to support target version (including API dependencies)
  * 4. Repackage as new JAR with -retromod suffix
  * 5. Copy to mods folder
  */
 public class FabricModTransformer {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-FabricTransform");
-    
+
+    /**
+     * Fabric mod IDs for APIs that RetroMod provides compatibility shims for.
+     * When a mod declares a dependency on one of these with a restrictive version
+     * range (e.g., "cloth-config2": ">=6.0.0 <7.0.0"), Fabric Loader will block
+     * the mod from loading if the installed version doesn't match.
+     *
+     * Since RetroMod transforms the bytecode to work with the newer API versions,
+     * we also need to relax these dependency constraints in fabric.mod.json.
+     */
+    private static final Set<String> SHIMMED_API_MOD_IDS = Set.of(
+        // Config libraries
+        "cloth-config", "cloth-config2",
+        "yacl", "yet-another-config-lib", "yet_another_config_lib",
+        "forge-config-api-port", "forge_config_api_port",
+
+        // Menu / UI libraries
+        "modmenu", "mod-menu",
+        "libgui", "lib-gui",
+        "owo-lib", "owo_lib",
+
+        // Recipe viewers
+        "roughlyenoughitems", "rei",
+        "emi",
+        "jei", "just-enough-items",
+
+        // Equipment / trinkets
+        "trinkets",
+        "curios", "curiosapi",
+
+        // Component / data libraries
+        "cardinal-components", "cardinal-components-api",
+        "cardinal-components-base", "cardinal-components-entity",
+        "cardinal-components-block", "cardinal-components-world",
+
+        // Rendering / performance
+        "sodium", "iris",
+        "fabric-rendering-v1", "fabric-rendering-data-attachment-v1",
+
+        // Animation / model libraries
+        "geckolib", "geckolib3", "geckolib4",
+
+        // Cross-platform
+        "architectury", "architectury-api",
+
+        // Guide / documentation
+        "patchouli",
+
+        // Tech mod APIs
+        "ae2", "appliedenergistics2",
+        "botania",
+        "create",
+        "mekanism",
+        "thermal", "thermal_foundation", "thermal_expansion",
+
+        // Tooltips / overlays
+        "jade", "waila", "wthit",
+
+        // Compatibility / utility
+        "fabric-shield-lib", "fabricshieldlib",
+        "lba", "libblockattributes",
+        "mixinextras", "mixin-extras",
+        "autoreglib", "auto-reg-lib"
+    );
+
     private final String targetMcVersion;
     private final RetroModTransformer bytecodeTransformer;
     
@@ -524,8 +588,18 @@ public class FabricModTransformer {
     
     /**
      * Update version requirements in fabric.mod.json.
-     * 
+     *
      * CRITICAL: This must set the EXACT target version or Fabric will reject the mod!
+     *
+     * In addition to relaxing minecraft/fabricloader/fabric-api versions, this also
+     * relaxes version constraints for third-party APIs that RetroMod has shims for.
+     * Without this, Fabric Loader would block the mod at startup even though RetroMod
+     * has already transformed the bytecode to work with the newer API versions.
+     *
+     * Example: A mod declares "cloth-config2": ">=6.0.0 <7.0.0" but the installed
+     * Cloth Config is v11.x. Without relaxation, Fabric blocks the mod immediately.
+     * With relaxation, the mod loads and RetroMod's bytecode transforms handle the
+     * API differences at runtime.
      */
     private String updateVersionRequirements(String json, String originalVersion) {
         // Replace minecraft dependency with EXACT target version
@@ -534,12 +608,12 @@ public class FabricModTransformer {
             "(\"minecraft\"\\s*:\\s*)\"[^\"]+\"",
             Pattern.MULTILINE
         );
-        
+
         // Use exact version match - most reliable
         String updated = minecraftPattern.matcher(json).replaceAll(
             "$1\"" + targetMcVersion + "\""
         );
-        
+
         // Update fabricloader to be more permissive (many versions work)
         Pattern loaderPattern = Pattern.compile(
             "(\"fabricloader\"\\s*:\\s*)\"[^\"]+\"",
@@ -548,7 +622,7 @@ public class FabricModTransformer {
         updated = loaderPattern.matcher(updated).replaceAll(
             "$1\">=0.14.0\""
         );
-        
+
         // Update fabric-api to be more permissive
         Pattern fabricApiPattern = Pattern.compile(
             "(\"fabric-api\"\\s*:\\s*)\"[^\"]+\"",
@@ -557,7 +631,7 @@ public class FabricModTransformer {
         updated = fabricApiPattern.matcher(updated).replaceAll(
             "$1\"*\""
         );
-        
+
         // Update fabric (alternative fabric-api name)
         Pattern fabricPattern = Pattern.compile(
             "(\"fabric\"\\s*:\\s*)\"[^\"]+\"",
@@ -566,7 +640,16 @@ public class FabricModTransformer {
         updated = fabricPattern.matcher(updated).replaceAll(
             "$1\"*\""
         );
-        
+
+        // Relax ALL shimmed third-party API dependencies
+        // RetroMod provides bytecode shims for these APIs, so the version constraint
+        // in fabric.mod.json is no longer needed — the transformed code will work
+        // with whatever version is installed.
+        updated = relaxShimmedApiDependencies(updated);
+
+        // Also move strict API deps from "depends" to "suggests" if they'd still block
+        updated = moveBlockingDepsToSuggests(updated);
+
         // Add RetroMod transformation marker
         if (!updated.contains("\"retromod_transformed\"")) {
             updated = updated.replaceFirst(
@@ -574,8 +657,102 @@ public class FabricModTransformer {
                 ",\n  \"custom\": {\n    \"retromod_transformed\": true,\n    \"original_mc_version\": \"" + originalVersion + "\",\n    \"target_mc_version\": \"" + targetMcVersion + "\"\n  }\n}"
             );
         }
-        
+
         return updated;
+    }
+
+    /**
+     * Relax version constraints for third-party APIs that RetroMod has shims for.
+     *
+     * Scans the JSON for any dependency key that matches a known shimmed API mod ID
+     * and replaces its version constraint with "*" (any version).
+     *
+     * This handles cases like:
+     *   "cloth-config2": ">=6.0.0 <7.0.0"  →  "cloth-config2": "*"
+     *   "rei": ">=8.0.0"                   →  "rei": "*"
+     *   "trinkets": ">=3.4.0 <3.5.0"       →  "trinkets": "*"
+     */
+    private String relaxShimmedApiDependencies(String json) {
+        String updated = json;
+        int relaxedCount = 0;
+
+        for (String modId : SHIMMED_API_MOD_IDS) {
+            // Match "mod-id": "any version constraint"
+            // Uses negative lookbehind to avoid matching inside other strings
+            Pattern apiPattern = Pattern.compile(
+                "(\"" + Pattern.quote(modId) + "\"\\s*:\\s*)\"[^\"]+\"",
+                Pattern.MULTILINE
+            );
+
+            Matcher matcher = apiPattern.matcher(updated);
+            if (matcher.find()) {
+                String originalConstraint = matcher.group(0);
+                String relaxed = matcher.replaceAll("$1\"*\"");
+
+                if (!relaxed.equals(updated)) {
+                    LOGGER.info("  Relaxed API dependency: {} → \"*\" (RetroMod has shims)", modId);
+                    updated = relaxed;
+                    relaxedCount++;
+                }
+            }
+        }
+
+        if (relaxedCount > 0) {
+            LOGGER.info("Relaxed {} third-party API version constraint(s)", relaxedCount);
+        }
+
+        return updated;
+    }
+
+    /**
+     * Move any remaining strict API dependencies from "depends" to "suggests".
+     *
+     * Some mods use dependency IDs we don't have in our known list (e.g., sub-modules
+     * of Cardinal Components like "cardinal-components-item"). This method catches
+     * any non-standard dependency that might still block loading by looking for
+     * patterns that suggest an API version constraint (ranges with upper bounds).
+     *
+     * It converts entries like:
+     *   "depends": { "some-api": ">=1.0.0 <2.0.0" }
+     * to:
+     *   "depends": { "some-api": "*" }
+     *
+     * This is safe because RetroMod's bytecode transformation handles API changes,
+     * and we've already pinned minecraft/fabricloader/fabric-api correctly.
+     */
+    private String moveBlockingDepsToSuggests(String json) {
+        // Find dependencies with upper-bounded version ranges that aren't
+        // minecraft, fabricloader, fabric-api, fabric, or java
+        // These are likely API version pins that would block loading
+        Set<String> keepStrict = Set.of(
+            "minecraft", "fabricloader", "fabric-api", "fabric", "java"
+        );
+
+        String updated = json;
+
+        // Match any "modid": "version" pairs that have upper-bound constraints
+        // like "<X.Y.Z" or version ranges that would block newer versions
+        Pattern depPattern = Pattern.compile(
+            "\"([a-z0-9_-]+)\"\\s*:\\s*\"([^\"]*<[^\"]+)\"",
+            Pattern.MULTILINE
+        );
+
+        Matcher matcher = depPattern.matcher(updated);
+        StringBuffer sb = new StringBuffer();
+
+        while (matcher.find()) {
+            String depId = matcher.group(1);
+            String constraint = matcher.group(2);
+
+            if (!keepStrict.contains(depId) && !SHIMMED_API_MOD_IDS.contains(depId)) {
+                // This is an unknown API with an upper-bounded version — relax it
+                LOGGER.info("  Relaxed unknown API dependency: {} (was: {})", depId, constraint);
+                matcher.appendReplacement(sb, "\"" + depId + "\": \"*\"");
+            }
+        }
+        matcher.appendTail(sb);
+
+        return sb.toString();
     }
     
     /**

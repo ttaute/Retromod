@@ -227,37 +227,111 @@ public class RetroModCli {
         }
         
         System.out.println("└──────────────────────────────────────────────────────┘");
+
+        // Complexity analysis - warn before transforming
+        System.out.println();
+        System.out.println("┌─ Complexity Analysis ───────────────────────────────┐");
+
+        com.retromod.gui.ModComplexityAnalyzer complexityAnalyzer =
+            new com.retromod.gui.ModComplexityAnalyzer();
+        com.retromod.gui.ModComplexityAnalyzer.ComplexityReport complexityReport =
+            complexityAnalyzer.analyze(modPath);
+
+        System.out.printf("│ Complexity Score: %-36d │%n", complexityReport.score());
+
+        if (complexityReport.isUnlikelyToWork()) {
+            System.out.println("│                                                      │");
+            System.out.println("│ ⚠  WARNING: This mod is UNLIKELY TO WORK            │");
+            System.out.println("│    after transformation. Risk factors:                │");
+            for (String factor : complexityReport.riskFactors()) {
+                String truncated = factor.length() > 50 ? factor.substring(0, 47) + "..." : factor;
+                System.out.printf("│    • %-50s │%n", truncated);
+            }
+            System.out.println("│                                                      │");
+            System.out.println("│    You can still try with: aot --force <mod.jar>     │");
+        } else {
+            System.out.println("│ ✓  Mod appears suitable for transformation          │");
+            if (!complexityReport.riskFactors().isEmpty()) {
+                System.out.println("│    Minor risk factors:                                │");
+                for (String factor : complexityReport.riskFactors()) {
+                    String truncated = factor.length() > 50 ? factor.substring(0, 47) + "..." : factor;
+                    System.out.printf("│    • %-50s │%n", truncated);
+                }
+            }
+        }
+
+        System.out.println("└──────────────────────────────────────────────────────┘");
         System.out.println();
     }
-    
+
     /**
      * AOT compile a mod - the preferred transformation method.
      */
     private static void aotCommand(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("Usage: aot <mod.jar> [--output <output.jar>]");
+            System.err.println("Usage: aot [--force] <mod.jar> [--output <output.jar>]");
             System.exit(1);
         }
-        
-        Path modPath = Path.of(args[1]);
+
+        boolean forceTranslate = false;
+        Path modPath = null;
         Path outputPath = null;
-        
-        for (int i = 2; i < args.length; i++) {
-            if ("--output".equals(args[i]) && i + 1 < args.length) {
+
+        for (int i = 1; i < args.length; i++) {
+            if ("--force".equals(args[i])) {
+                forceTranslate = true;
+            } else if ("--output".equals(args[i]) && i + 1 < args.length) {
                 outputPath = Path.of(args[++i]);
+            } else if (modPath == null) {
+                modPath = Path.of(args[i]);
             }
         }
-        
+
+        if (modPath == null) {
+            System.err.println("Usage: aot [--force] <mod.jar> [--output <output.jar>]");
+            System.exit(1);
+        }
+
         System.out.println();
         System.out.println("╔══════════════════════════════════════════════════════╗");
         System.out.println("║           RetroMod AOT Compilation                   ║");
         System.out.println("╚══════════════════════════════════════════════════════╝");
         System.out.println();
-        
+
+        // Complexity check BEFORE transforming
+        com.retromod.gui.ModComplexityAnalyzer complexityAnalyzer =
+            new com.retromod.gui.ModComplexityAnalyzer();
+        com.retromod.gui.ModComplexityAnalyzer.ComplexityReport complexityReport =
+            complexityAnalyzer.analyze(modPath);
+
+        if (complexityReport.isUnlikelyToWork() && !forceTranslate) {
+            System.out.println("⚠  WARNING: This mod is UNLIKELY TO WORK after transformation.");
+            System.out.println();
+            System.out.println("Risk factors:");
+            for (String factor : complexityReport.riskFactors()) {
+                System.out.println("  • " + factor);
+            }
+            System.out.println();
+            System.out.println("Complexity score: " + complexityReport.score() + "/100");
+            System.out.println();
+            System.out.println("The mod uses features that RetroMod cannot fully transform.");
+            System.out.println("It will likely crash or behave incorrectly.");
+            System.out.println();
+            System.out.println("To try anyway, use:  aot --force " + modPath.getFileName());
+            System.out.println();
+            return;
+        }
+
+        if (complexityReport.isUnlikelyToWork() && forceTranslate) {
+            System.out.println("⚠  Force mode: proceeding despite high complexity score ("
+                + complexityReport.score() + ")");
+            System.out.println();
+        }
+
         AotCompiler compiler = new AotCompiler(shimRegistry, TARGET_MC_VERSION);
-        
+
         System.out.println("Input:  " + modPath.getFileName());
-        
+
         long startTime = System.currentTimeMillis();
         Path result = compiler.compileModAot(modPath);
         long duration = System.currentTimeMillis() - startTime;

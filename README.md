@@ -54,6 +54,7 @@ RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 - **API Embedding** — Removed APIs are bundled as shim classes directly into mod JARs
 - **Mixin Compatibility** — Transforms `@Inject`, `@Redirect`, `@Shadow`, `@Accessor` targets
 - **Reflection Remapping** — Intercepts `Class.forName()` and `Method.invoke()` calls
+- **API Version Relaxation** — Automatically updates version constraints so mods requiring old API versions (e.g., Cloth Config 6.x) work with newer ones
 - **Multi-Loader** — Fabric, NeoForge, and Forge (experimental Forge→NeoForge migration for simple mods)
 - **Multi-Architecture** — x86_64, ARM64/Apple Silicon, and more
 - **Rendering Future-Proofing** — Ready for Vulkan, Metal, and DirectX transitions
@@ -79,6 +80,23 @@ Shims are **chainable** — a 1.12.2 Forge mod can run on 1.21.11 by applying ea
 RetroMod supports **34+ popular modding APIs** — both actively maintained and legacy/unmaintained. See [API_COMPATIBILITY.md](API_COMPATIBILITY.md) for the full list.
 
 Highlights: Fabric API, Mod Menu, Cloth Config, REI, Trinkets, JEI, Curios, GeckoLib, Architectury, Create, and legacy APIs like Baubles, NEI, Thermal/RF, and old WAILA. When a mod uses an unmaintained API, RetroMod embeds a compatibility shim that bridges old API calls to their modern equivalent.
+
+### API Version Relaxation
+
+When a mod declares it requires a specific API version — for example, `"cloth-config2": ">=6.0.0 <7.0.0"` — the mod loader (Fabric/Forge/NeoForge) will block the mod from loading if the installed API version doesn't match, even though RetroMod can handle the API differences. RetroMod fixes this by automatically relaxing those version constraints during transformation.
+
+This covers **60+ known API mod IDs** including all variants of Cloth Config, Mod Menu, REI, Trinkets, Cardinal Components, GeckoLib, JEI, Curios, and many more. For unknown API dependencies with strict upper-bound version ranges, RetroMod also relaxes those as a safety net.
+
+> **Example:** Your friend's mod requires Cloth Config 6.x, but you have Cloth Config 11.x installed. Without RetroMod, Fabric immediately crashes with a dependency error. With RetroMod, the version constraint is relaxed to `"*"` and the bytecode is transformed to work with the newer API — the mod loads and runs normally.
+
+## Resource Pack & Data Pack Conversion (Alpha)
+
+RetroMod can also transform **resource packs** and **data packs** for version compatibility. It automatically:
+- Updates `pack.mcmeta` pack format numbers
+- Renames old texture paths (e.g., `textures/blocks/` → `textures/block/` from The Flattening)
+- Adjusts data pack namespaces for version changes
+
+> **This feature is in alpha.** It works for simple resource/data packs, but complex packs with custom shaders, model overrides, or heavy use of predicates may not convert correctly. Always keep backups of your original packs.
 
 ---
 
@@ -236,9 +254,20 @@ Auto-generated on first launch at `config/retromod/config.json`:
   "log_transformations": false,
   "target_mc_version": "auto",
   "debug": false,
-  "dump_bytecode": false
+  "dump_bytecode": false,
+  "force_translate_complex": false
 }
 ```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `use_aot` | `true` | Pre-transform mods ahead-of-time on first launch |
+| `use_hybrid` | `true` | Use hybrid AOT/JIT mode (JIT fills in what AOT misses) |
+| `transform_mixins` | `true` | Rewrite Mixin annotation targets for version compatibility |
+| `remap_reflection` | `true` | Intercept reflection calls (Class.forName, Method.invoke) and remap class names |
+| `force_translate_complex` | `false` | Force-translate mods that RetroMod deems "unlikely to work" (high complexity score). Enable this if a mod was skipped and you want to try it anyway. |
+| `log_level` | `"INFO"` | Logging verbosity: `ERROR`, `WARN`, `INFO`, `DEBUG` |
+| `dump_bytecode` | `false` | Dump transformed bytecode to disk for debugging |
 
 ---
 
@@ -314,6 +343,9 @@ public class Fabric_X_to_Y implements VersionShim {
 | `NoSuchMethodError` at runtime | Run `retromod analyze yourmod.jar` to check compatibility |
 | Mod loads but features broken | Some APIs were removed without replacement — check shim tables |
 | Stale/broken transforms | Run `retromod clean` to clear AOT cache |
+| Crash with "error code 1" and no text | Check `config/retromod/crash-log.txt` — RetroMod now writes crash details there. Also check your launcher's logs (`logs/latest.log`). |
+| Fabric crashes with "mod requires cloth-config 6.x" (or similar API version) | RetroMod handles this — put the mod in `retromod-input/` so it gets transformed. If dropped directly in `mods/`, Fabric checks versions before RetroMod can fix them. |
+| Mod was skipped as "unlikely to work" | Set `"force_translate_complex": true` in config.json to override |
 | Debug logging | Set `"log_level": "DEBUG"` and `"dump_bytecode": true` in config.json |
 
 ## Known Limitations
@@ -331,6 +363,8 @@ public class Fabric_X_to_Y implements VersionShim {
 7. Very old mods using Java 8 reflection patterns may need additional shim work
 8. **RetroMod cannot fix Java version mismatches.** If a mod was compiled for a newer Java version than you have installed (e.g., a mod requiring Java 25 on a Java 21 system), the JVM will refuse to load it with `UnsupportedClassVersionError` before RetroMod can do anything. RetroMod transforms Minecraft API changes, not Java version differences. You need the correct Java version installed.
 9. **Mod configs** generally work, but if a mod's config system changed between versions (e.g., old Forge `.cfg` → new `.toml`), you may need to delete the old config file and let the mod regenerate it
+10. **Complex mods may be skipped.** RetroMod analyzes each mod's complexity (reflection usage, ASM manipulation, coremods, NMS access, etc.) and warns you if a mod is "unlikely to work." If a mod was skipped, set `"force_translate_complex": true` in `config/retromod/config.json` to force it. The CLI's `aot` command also supports `--force` for this.
+11. **Resource/data pack conversion is alpha.** Simple packs work, but packs with custom shaders, model predicates, or heavy overlays may not convert correctly.
 
 ## Contributing
 

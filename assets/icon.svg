@@ -74,8 +74,8 @@
   </g>
   
   <!-- Version numbers floating (1.8, 1.12, 1.21) -->
-  <text x="90" y="420" fill="#7B5BA0" font-family="monospace" font-size="24" font-weight="bold">1.8</text>
-  <text x="220" y="440" fill="#9B7BD0" font-family="monospace" font-size="28" font-weight="bold">1.14</text>
+  <text x="90" y="420" fill="#7B5BA0" font-family="monospace" font-size="24" font-weight="bold">1.12</text>
+  <text x="220" y="440" fill="#9B7BD0" font-family="monospace" font-size="28" font-weight="bold">1.18</text>
   <text x="360" y="420" fill="#50E3C2" font-family="monospace" font-size="32" font-weight="bold">1.21</text>
   
   <!-- Connecting dots -->

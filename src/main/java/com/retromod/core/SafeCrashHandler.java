@@ -118,24 +118,75 @@ public class SafeCrashHandler {
      * Only intercepts exceptions from classes we KNOW are RetroMod-transformed
      * (i.e. present in classToModMap). All other exceptions are forwarded to the
      * previous handler so Minecraft's own crash handling works normally.
+     *
+     * NOTE: This handler ALWAYS logs full exception details to both the logger
+     * and stderr, and writes a crash-log.txt file. This prevents the "error
+     * code 1 with no text" problem where exceptions are swallowed silently.
      */
     private void handleUncaughtException(Thread thread, Throwable error) {
-        // Only handle if the exception comes from a class we explicitly transformed
+        // ALWAYS log the full exception first — before anything else.
+        // This prevents the "crash error 1 with no text" problem.
+        LOGGER.error("Uncaught exception on thread '{}': {}", thread.getName(), error.getMessage());
+        LOGGER.error("Full stack trace:", error);
+        System.err.println("[RetroMod] Uncaught exception on thread \"" + thread.getName() + "\": " + error);
+        error.printStackTrace(System.err);
+
+        // Write crash log to file so the user always has something to report
+        writeCrashLog(thread, error);
+
+        // Now check if it's from a RetroMod-transformed class
         String modId = identifyConfirmedModFromStackTrace(error);
 
         if (modId != null) {
-            LOGGER.error("Uncaught exception from transformed mod '{}' on thread '{}'",
-                modId, thread.getName(), error);
+            LOGGER.error("Crash caused by RetroMod-transformed mod: '{}'", modId);
             triggerSafeCrash(modId, null, error);
         } else {
             // Not from a RetroMod-transformed class - delegate to previous handler
             if (previousHandler != null) {
                 previousHandler.uncaughtException(thread, error);
             } else {
-                // No previous handler - use default JVM behavior
-                System.err.println("Exception in thread \"" + thread.getName() + "\" " + error);
-                error.printStackTrace();
+                // No previous handler - use default JVM behavior (already logged above)
             }
+        }
+    }
+
+    /**
+     * Write crash details to config/retromod/crash-log.txt so the user always
+     * has something to report even if the console window vanishes (e.g., Windows).
+     */
+    private void writeCrashLog(Thread thread, Throwable error) {
+        try {
+            java.nio.file.Path crashLogDir = java.nio.file.Path.of("config/retromod");
+            java.nio.file.Files.createDirectories(crashLogDir);
+            java.nio.file.Path crashLog = crashLogDir.resolve("crash-log.txt");
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("=== RetroMod Crash Log ===\n");
+            sb.append("Time: ").append(java.time.LocalDateTime.now()).append("\n");
+            sb.append("Thread: ").append(thread.getName()).append("\n");
+            sb.append("Error: ").append(error.getClass().getName())
+              .append(": ").append(error.getMessage()).append("\n");
+            sb.append("\nStack trace:\n");
+            for (StackTraceElement el : error.getStackTrace()) {
+                sb.append("  at ").append(el).append("\n");
+            }
+            if (error.getCause() != null) {
+                sb.append("\nCaused by: ").append(error.getCause()).append("\n");
+                for (StackTraceElement el : error.getCause().getStackTrace()) {
+                    sb.append("  at ").append(el).append("\n");
+                }
+            }
+            sb.append("\nJava: ").append(System.getProperty("java.version")).append("\n");
+            sb.append("OS: ").append(System.getProperty("os.name")).append(" ")
+              .append(System.getProperty("os.version")).append("\n");
+            sb.append("RetroMod: 1.0.0-beta.1\n");
+            sb.append("\nPlease report this at: https://github.com/Bownlux/MC-RetroMod/issues\n");
+
+            java.nio.file.Files.writeString(crashLog, sb.toString());
+            LOGGER.info("Crash details written to {}", crashLog.toAbsolutePath());
+        } catch (Exception e) {
+            // Can't write crash log - at least we already logged to stderr
+            LOGGER.warn("Could not write crash log file: {}", e.getMessage());
         }
     }
 

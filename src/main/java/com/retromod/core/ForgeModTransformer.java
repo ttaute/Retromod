@@ -31,6 +31,47 @@ public class ForgeModTransformer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeTransform");
 
+    /**
+     * Forge/NeoForge mod IDs for APIs that RetroMod provides compatibility shims for.
+     * When a mod declares a dependency with a restrictive versionRange in mods.toml,
+     * the mod loader will block the mod from loading. Since RetroMod transforms the
+     * bytecode, we also relax these constraints.
+     */
+    private static final Set<String> SHIMMED_API_MOD_IDS = Set.of(
+        // Tech / content mod APIs
+        "mekanism", "mekanismapi",
+        "ae2", "appliedenergistics2",
+        "botania", "botania_api",
+        "create",
+        "thermal", "thermal_foundation", "thermal_expansion", "cofh_core",
+
+        // Equipment
+        "curios", "curiosapi",
+        "baubles",
+
+        // Recipe viewers
+        "jei", "just_enough_items",
+        "nei",
+
+        // Tooltips / overlays
+        "jade", "waila", "wthit",
+
+        // Config libraries
+        "cloth_config", "cloth-config",
+
+        // Animation / model
+        "geckolib", "geckolib3", "geckolib4",
+
+        // Cross-platform
+        "architectury",
+
+        // Guide
+        "patchouli",
+
+        // Utility
+        "autoreglib"
+    );
+
     private final String targetMcVersion;
     private final RetroModTransformer bytecodeTransformer;
 
@@ -207,36 +248,66 @@ public class ForgeModTransformer {
      * Update the minecraft versionRange in TOML content.
      * Finds the [[dependencies.xxx]] block with modId = "minecraft" and
      * updates its versionRange to the target version.
+     *
+     * Also relaxes version ranges for third-party APIs that RetroMod has shims for.
+     * Without this, the mod loader would block the mod at startup even though
+     * RetroMod has already transformed the bytecode to work with newer API versions.
      */
     private String updateMinecraftVersionRange(String toml) {
-        // Find all versionRange entries that follow a modId = "minecraft" line
         // TOML structure:
         //   [[dependencies.modname]]
         //   modId = "minecraft"
-        //   ...
+        //   mandatory = true
         //   versionRange = "[1.20.6]"
+        //
+        //   [[dependencies.modname]]
+        //   modId = "cloth_config"
+        //   mandatory = true
+        //   versionRange = "[6.0,7.0)"
 
         StringBuilder result = new StringBuilder();
         String[] lines = toml.split("\n");
-        boolean inMinecraftDep = false;
+        String currentDepModId = null;
 
         for (String line : lines) {
             String trimmed = line.trim();
 
             // Detect start of a new dependency block
             if (trimmed.startsWith("[[dependencies")) {
-                inMinecraftDep = false;
+                currentDepModId = null;
             }
 
-            // Detect modId = "minecraft"
-            if (trimmed.matches("modId\\s*=\\s*\"minecraft\"")) {
-                inMinecraftDep = true;
+            // Detect modId = "xxx"
+            Pattern modIdPattern = Pattern.compile("modId\\s*=\\s*\"([^\"]+)\"");
+            Matcher modIdMatcher = modIdPattern.matcher(trimmed);
+            if (modIdMatcher.matches()) {
+                currentDepModId = modIdMatcher.group(1);
             }
 
-            // If we're in the minecraft dependency block, update versionRange
-            if (inMinecraftDep && trimmed.startsWith("versionRange")) {
-                result.append("versionRange = \"[").append(targetMcVersion).append(",)\"\n");
-                inMinecraftDep = false; // Done with this block
+            // If we're in a dependency block, check if we should update versionRange
+            if (currentDepModId != null && trimmed.startsWith("versionRange")) {
+                if ("minecraft".equals(currentDepModId)) {
+                    // Minecraft dependency: set to target version
+                    result.append("versionRange = \"[").append(targetMcVersion).append(",)\"\n");
+                    LOGGER.info("  Updated minecraft versionRange -> [{},...)", targetMcVersion);
+                    currentDepModId = null;
+                } else if (SHIMMED_API_MOD_IDS.contains(currentDepModId)) {
+                    // Shimmed API dependency: relax to accept any version
+                    result.append("versionRange = \"[0,)\"\n");
+                    LOGGER.info("  Relaxed API dependency: {} -> [0,...) (RetroMod has shims)", currentDepModId);
+                    currentDepModId = null;
+                } else if ("forge".equals(currentDepModId) || "neoforge".equals(currentDepModId)) {
+                    // Forge/NeoForge loader: also relax
+                    result.append("versionRange = \"[0,)\"\n");
+                    currentDepModId = null;
+                } else {
+                    // Unknown dependency: make non-mandatory if it has a strict range
+                    result.append(line).append("\n");
+                }
+            } else if (currentDepModId != null && SHIMMED_API_MOD_IDS.contains(currentDepModId)
+                       && trimmed.startsWith("mandatory")) {
+                // Make shimmed API dependencies non-mandatory as a safety net
+                result.append("mandatory = false\n");
             } else {
                 result.append(line).append("\n");
             }
