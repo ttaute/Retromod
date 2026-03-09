@@ -4,9 +4,10 @@
  */
 package com.retromod.embedder;
 
-import com.retromod.core.RetroMod;
 import com.retromod.core.RetroModTransformer;
 import org.objectweb.asm.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.net.URI;
@@ -34,7 +35,9 @@ import java.util.zip.*;
  * 6. Redirect the mod's calls to use the embedded version
  */
 public class ApiEmbedder {
-    
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Embedder");
+
     // Location of archived mod loader sources (extracted from old versions)
     private static final Path API_ARCHIVE_DIR = Path.of("config/retromod/api-archive");
     
@@ -100,7 +103,7 @@ public class ApiEmbedder {
             for (ApiDependency dep : dependencies) {
                 if (isRemovedApi(dep)) {
                     removedDeps.add(dep);
-                    RetroMod.LOGGER.info("Mod uses removed API: {}.{}", 
+                    LOGGER.info("Mod uses removed API: {}.{}", 
                             dep.className(), dep.methodName());
                 }
             }
@@ -113,7 +116,7 @@ public class ApiEmbedder {
             embedApisIntoJar(modJarPath, removedDeps);
             
         } catch (Exception e) {
-            RetroMod.LOGGER.error("Failed to embed shims into: {}", modJarPath, e);
+            LOGGER.error("Failed to embed shims into: {}", modJarPath, e);
         }
     }
     
@@ -253,7 +256,7 @@ public class ApiEmbedder {
             newJar.closeEntry();
         }
         
-        RetroMod.LOGGER.info("Created RetroMod-enhanced JAR: {} ({} embedded classes)",
+        LOGGER.info("Created RetroMod-enhanced JAR: {} ({} embedded classes)",
                 outputPath.getFileName(), classesToEmbed.size());
     }
     
@@ -279,7 +282,7 @@ public class ApiEmbedder {
             // Try to load from archive
             byte[] classBytes = loadFromArchive(apiInfo.archiveVersion(), className);
             if (classBytes == null) {
-                RetroMod.LOGGER.warn("Could not find archived class: {}", className);
+                LOGGER.warn("Could not find archived class: {}", className);
                 continue;
             }
             
@@ -338,8 +341,8 @@ public class ApiEmbedder {
     private boolean downloadArchive(String version, Path targetPath) {
         // In a real implementation, this would download from Maven Central
         // or a RetroMod archive server
-        RetroMod.LOGGER.info("Archive not found locally: {}. Please download manually.", version);
-        RetroMod.LOGGER.info("Expected location: {}", targetPath);
+        LOGGER.info("Archive not found locally: {}. Please download manually.", version);
+        LOGGER.info("Expected location: {}", targetPath);
         return false;
     }
     

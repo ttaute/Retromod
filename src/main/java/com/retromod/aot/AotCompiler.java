@@ -367,7 +367,7 @@ public class AotCompiler {
             
             // Log compilation mode breakdown
             if (result.methodsPartialAot() > 0 || result.methodsJitOnly() > 0) {
-                RetroMod.LOGGER.debug("Class {} compiled: {} full AOT, {} partial, {} JIT-only methods",
+                LOGGER.debug("Class {} compiled: {} full AOT, {} partial, {} JIT-only methods",
                     className, result.methodsFullyAot(), result.methodsPartialAot(), result.methodsJitOnly());
             }
             
@@ -375,7 +375,7 @@ public class AotCompiler {
             
         } catch (Exception e) {
             // Fallback to simple transformation
-            RetroMod.LOGGER.warn("Hybrid compilation failed for {}, using simple transform", className);
+            LOGGER.warn("Hybrid compilation failed for {}, using simple transform", className);
             return transformClassSimple(classBytes, className);
         }
     }

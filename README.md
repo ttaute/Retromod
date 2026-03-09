@@ -135,30 +135,48 @@ This is what `build.sh` / `build.bat` use internally. Output goes to both `targe
 
 ## CLI Tool
 
-RetroMod includes a standalone CLI for transforming mods outside of Minecraft.
+RetroMod includes a standalone CLI for transforming mods outside of Minecraft. The build outputs a `retromod` wrapper script so you don't need to type `java -jar ...` every time.
+
+### Setup
+
+After building, the `dist/` folder contains `retromod` (macOS/Linux) and `retromod.bat` (Windows). Add it to your PATH:
+
+```bash
+# macOS / Linux
+export PATH="$PATH:/path/to/retromod/dist"
+
+# Windows (PowerShell)
+$env:PATH += ";C:\path\to\retromod\dist"
+```
+
+Or just run it from the dist directory directly.
+
+### Commands
 
 ```bash
 # Analyze a mod's compatibility
-java -jar retromod-cli.jar analyze mymod.jar
+retromod analyze mymod.jar
 
 # AOT compile a mod (recommended)
-java -jar retromod-cli.jar aot mymod.jar
+retromod aot mymod.jar
 
 # Batch process all mods in a folder
-java -jar retromod-cli.jar batch mods/ --aot
+retromod batch mods/ --aot
 
 # Full prep: overrides + transform everything
-java -jar retromod-cli.jar prepare ~/.minecraft --aot
+retromod prepare ~/.minecraft --aot
 
 # Transform a legacy mod (1.8-1.20.x) to 1.21.x
-java -jar retromod-cli.jar legacy oldmod-1.12.2.jar
+retromod legacy oldmod-1.12.2.jar
 
 # Show API differences between versions
-java -jar retromod-cli.jar diff fabric 1.21.8 1.21.9
+retromod diff fabric 1.21.8 1.21.9
 
 # Developer migration helper — shows what API changes to make
-java -jar retromod-cli.jar devhelp mymod-1.21.4.jar 1.21.11
+retromod devhelp mymod-1.21.4.jar 1.21.11
 ```
+
+> You can also use `java -jar retromod-*-cli.jar <command>` directly if you prefer.
 
 ### Java Agent Mode
 

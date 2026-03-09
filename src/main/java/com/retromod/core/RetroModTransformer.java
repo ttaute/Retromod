@@ -10,6 +10,8 @@ package com.retromod.core;
 import org.objectweb.asm.*;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.Remapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
@@ -20,15 +22,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Core transformer that rewrites bytecode at class load time.
  * OPTIMIZED: Uses caching and efficient lookup structures.
- * 
+ *
  * This handles:
  * 1. Method renames (e.g., getWorld -> getEntityWorld)
  * 2. Method removals (redirect to embedded shims)
  * 3. Class relocations (package changes between versions)
  * 4. Signature changes (parameter/return type modifications)
+ *
+ * IMPORTANT: This class must NOT reference RetroMod directly (which implements
+ * ModInitializer) because the transformer is also used by the standalone CLI
+ * where Fabric classes are not on the classpath. Use the local LOGGER instead
+ * of LOGGER.
  */
 public class RetroModTransformer implements ClassFileTransformer {
-    
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Transformer");
     private static final RetroModTransformer INSTANCE = new RetroModTransformer();
     
     // Maps: oldOwner/oldName/oldDesc -> newOwner/newName/newDesc
@@ -76,7 +84,7 @@ public class RetroModTransformer implements ClassFileTransformer {
         methodRedirects.put(key, target);
         methodRedirectOwners.add(oldOwner); // OPTIMIZATION: track owners
         
-        RetroMod.LOGGER.debug("Registered method redirect: {}.{}{} -> {}.{}{}",
+        LOGGER.debug("Registered method redirect: {}.{}{} -> {}.{}{}",
                 oldOwner, oldName, oldDesc, newOwner, newName, newDesc);
     }
     
@@ -87,7 +95,7 @@ public class RetroModTransformer implements ClassFileTransformer {
         classRedirects.put(oldClass, newClass);
         classRedirectsVersion.incrementAndGet(); // Invalidate cached remapper
         cachedRemapper = null;
-        RetroMod.LOGGER.debug("Registered class redirect: {} -> {}", oldClass, newClass);
+        LOGGER.debug("Registered class redirect: {} -> {}", oldClass, newClass);
     }
     
     /**
@@ -115,7 +123,7 @@ public class RetroModTransformer implements ClassFileTransformer {
         FieldTarget target = new FieldTarget(newOwner, newName, oldDesc, newDesc);
         fieldRedirects.put(key, target);
         
-        RetroMod.LOGGER.debug("Registered field redirect: {}.{} {} -> {}.{} {}",
+        LOGGER.debug("Registered field redirect: {}.{} {} -> {}.{} {}",
                 oldOwner, oldName, oldDesc, newOwner, newName, newDesc);
     }
     
@@ -158,7 +166,7 @@ public class RetroModTransformer implements ClassFileTransformer {
             String modId = guessModFromClass(className);
             return hybrid.transform(className, classfileBuffer, modId);
         } catch (Exception e) {
-            RetroMod.LOGGER.error("Failed to transform class: {}", className, e);
+            LOGGER.error("Failed to transform class: {}", className, e);
             return null;
         }
     }
@@ -240,7 +248,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                 reader.accept(fallbackVisitor, 0);
                 return fallbackWriter.toByteArray();
             } catch (Exception e2) {
-                RetroMod.LOGGER.warn("Transform failed for {}, returning original", className);
+                LOGGER.warn("Transform failed for {}, returning original", className);
                 return originalBytes;
             }
         }
@@ -317,7 +325,7 @@ public class RetroModTransformer implements ClassFileTransformer {
             
             if (target != null) {
                 // Redirect the call
-                RetroMod.LOGGER.trace("Redirecting {}.{}{} -> {}.{}{}",
+                LOGGER.trace("Redirecting {}.{}{} -> {}.{}{}",
                         owner, name, descriptor,
                         target.owner, target.name, target.desc);
                 
@@ -342,7 +350,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                     // (Field access becomes a static method call that returns the value)
                     int newOpcode = Opcodes.INVOKESTATIC;
                     super.visitMethodInsn(newOpcode, target.owner, target.name, target.newDesc, false);
-                    RetroMod.LOGGER.trace("Redirected field {}.{} -> method {}.{}{}",
+                    LOGGER.trace("Redirected field {}.{} -> method {}.{}{}",
                             owner, name, target.owner, target.name, target.newDesc);
                 } else {
                     // Standard field-to-field redirect

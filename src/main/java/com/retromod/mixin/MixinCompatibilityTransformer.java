@@ -4,7 +4,6 @@
  */
 package com.retromod.mixin;
 
-import com.retromod.core.RetroMod;
 import com.retromod.core.RetroModTransformer;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;

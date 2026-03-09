@@ -110,6 +110,23 @@ echo   + NeoForge mod: dist\retromod-%VERSION%-neoforge.jar
 REM Copy icon to dist
 if exist "assets\icon_512.png" copy "assets\icon_512.png" dist\ >nul
 
+REM Create CLI wrapper scripts
+(
+echo @echo off
+echo setlocal enabledelayedexpansion
+echo set "SCRIPT_DIR=%%~dp0"
+echo for %%%%f in ^("%%SCRIPT_DIR%%retromod-*-cli.jar"^) do ^(set "CLI_JAR=%%%%f" ^& goto :found^)
+echo for %%%%f in ^("%%SCRIPT_DIR%%CLI\retromod-*-cli.jar"^) do ^(set "CLI_JAR=%%%%f" ^& goto :found^)
+echo for %%%%f in ^("retromod-*-cli.jar"^) do ^(set "CLI_JAR=%%%%f" ^& goto :found^)
+echo for %%%%f in ^("dist\retromod-*-cli.jar"^) do ^(set "CLI_JAR=%%%%f" ^& goto :found^)
+echo for %%%%f in ^("dist\CLI\retromod-*-cli.jar"^) do ^(set "CLI_JAR=%%%%f" ^& goto :found^)
+echo echo Error: Could not find retromod CLI JAR.
+echo exit /b 1
+echo :found
+echo java -jar "%%CLI_JAR%%" %%*
+) > dist\retromod.bat
+echo   + CLI wrapper: dist\retromod.bat
+
 echo.
 echo ============================================
 echo   Build Complete!
@@ -118,14 +135,9 @@ echo.
 echo Output files in dist\:
 dir /b dist\
 echo.
-echo Upload to Modrinth:
-echo   - Fabric users:   retromod-%VERSION%-fabric.jar
-echo   - NeoForge users: retromod-%VERSION%-neoforge.jar
-echo.
-echo For CLI users (power users):
-echo   - All platforms:  retromod-%VERSION%-cli.jar
-echo.
 echo Usage:
-echo   CLI:      java -jar retromod-%VERSION%-cli.jar ^<command^>
-echo   Fabric:   Drop in mods\ folder with Fabric Loader
-echo   NeoForge: Drop in mods\ folder with NeoForge
+echo   CLI:      retromod ^<command^>  (or: java -jar retromod-%VERSION%-cli.jar ^<command^>)
+echo   Fabric:   Drop retromod-%VERSION%-fabric.jar in mods\
+echo   NeoForge: Drop retromod-%VERSION%-neoforge.jar in mods\
+echo.
+echo To use 'retromod' from anywhere, add dist\ to your PATH.

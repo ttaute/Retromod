@@ -121,6 +121,46 @@ if [ -f "assets/icon_512.png" ]; then
     cp assets/icon_512.png dist/
 fi
 
+# Create CLI wrapper scripts
+cat > "dist/retromod" << 'WRAPPER'
+#!/bin/bash
+# RetroMod CLI wrapper — use "retromod" instead of "java -jar retromod-cli.jar"
+set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+find_jar() {
+    for jar in "$SCRIPT_DIR"/retromod-*-cli.jar; do [ -f "$jar" ] && echo "$jar" && return; done
+    for jar in "$SCRIPT_DIR"/CLI/retromod-*-cli.jar; do [ -f "$jar" ] && echo "$jar" && return; done
+    for jar in retromod-*-cli.jar; do [ -f "$jar" ] && echo "$jar" && return; done
+    for jar in dist/retromod-*-cli.jar dist/CLI/retromod-*-cli.jar; do [ -f "$jar" ] && echo "$jar" && return; done
+    return 1
+}
+CLI_JAR=$(find_jar 2>/dev/null)
+if [ -z "$CLI_JAR" ]; then
+    echo "Error: Could not find retromod CLI JAR."
+    echo "Make sure retromod-*-cli.jar is next to this script or in the current directory."
+    exit 1
+fi
+exec java -jar "$CLI_JAR" "$@"
+WRAPPER
+chmod +x "dist/retromod"
+echo "  ✓ CLI wrapper: dist/retromod (macOS/Linux)"
+
+cat > "dist/retromod.bat" << 'WRAPPER'
+@echo off
+setlocal enabledelayedexpansion
+set "SCRIPT_DIR=%~dp0"
+for %%f in ("%SCRIPT_DIR%retromod-*-cli.jar") do (set "CLI_JAR=%%f" & goto :found)
+for %%f in ("%SCRIPT_DIR%CLI\retromod-*-cli.jar") do (set "CLI_JAR=%%f" & goto :found)
+for %%f in ("retromod-*-cli.jar") do (set "CLI_JAR=%%f" & goto :found)
+for %%f in ("dist\retromod-*-cli.jar") do (set "CLI_JAR=%%f" & goto :found)
+for %%f in ("dist\CLI\retromod-*-cli.jar") do (set "CLI_JAR=%%f" & goto :found)
+echo Error: Could not find retromod CLI JAR.
+exit /b 1
+:found
+java -jar "%CLI_JAR%" %*
+WRAPPER
+echo "  ✓ CLI wrapper: dist/retromod.bat (Windows)"
+
 echo ""
 echo "============================================"
 echo "  Build Complete!"
@@ -130,6 +170,9 @@ echo "Output files in dist/:"
 ls -lh dist/
 echo ""
 echo "Usage:"
-echo "  CLI:      java -jar dist/retromod-${VERSION}-cli.jar <command>"
+echo "  CLI:      retromod <command>  (or: java -jar dist/retromod-${VERSION}-cli.jar <command>)"
 echo "  Fabric:   Drop dist/retromod-${VERSION}-fabric.jar in mods/"
 echo "  NeoForge: Drop dist/retromod-${VERSION}-neoforge.jar in mods/"
+echo ""
+echo "To add 'retromod' to your PATH:"
+echo "  export PATH=\"\$PATH:$(pwd)/dist\""

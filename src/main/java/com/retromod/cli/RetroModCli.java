@@ -1105,7 +1105,7 @@ public class RetroModCli {
         System.out.println("   Versions: 1.8 -> 1.21.11");
         System.out.println("=================================================================");
         System.out.println();
-        System.out.println("Usage: java -jar retromod-cli.jar <command> [options]");
+        System.out.println("Usage: retromod <command> [options]");
         System.out.println();
         System.out.println("Modern Commands (1.21.x):");
         System.out.println("  analyze <mod.jar>              Analyze a mod's compatibility");
