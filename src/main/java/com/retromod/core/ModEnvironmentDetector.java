@@ -33,6 +33,10 @@ import java.util.zip.ZipEntry;
 public class ModEnvironmentDetector {
     
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-EnvDetect");
+
+    private static final Pattern PAT_FABRIC_ENV = Pattern.compile("\"environment\"\\s*:\\s*\"([^\"]+)\"");
+    private static final Pattern PAT_FORGE_SIDE = Pattern.compile(
+        "side\\s*=\\s*\"?(BOTH|CLIENT|SERVER|DEDICATED_SERVER)\"?", Pattern.CASE_INSENSITIVE);
     
     /**
      * Environment types for mods.
@@ -98,8 +102,7 @@ public class ModEnvironmentDetector {
      * Format: "environment": "*" | "client" | "server"
      */
     private static ModEnvironment parseFabricEnvironment(String json) {
-        Pattern pattern = Pattern.compile("\"environment\"\\s*:\\s*\"([^\"]+)\"");
-        Matcher matcher = pattern.matcher(json);
+        Matcher matcher = PAT_FABRIC_ENV.matcher(json);
         
         if (matcher.find()) {
             String env = matcher.group(1).toLowerCase();
@@ -121,9 +124,7 @@ public class ModEnvironmentDetector {
      */
     private static ModEnvironment parseForgeEnvironment(String toml) {
         // Look for side in dependencies section
-        Pattern pattern = Pattern.compile("side\\s*=\\s*\"?(BOTH|CLIENT|SERVER|DEDICATED_SERVER)\"?", 
-            Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(toml);
+        Matcher matcher = PAT_FORGE_SIDE.matcher(toml);
         
         if (matcher.find()) {
             String side = matcher.group(1).toUpperCase();

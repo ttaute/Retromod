@@ -5,6 +5,8 @@
 package com.retromod.virtual;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Virtual replacement for OreDictionary.
@@ -12,10 +14,11 @@ import java.util.*;
  * This bridges old ore dict names to modern tag system.
  */
 public class VirtualOreDictionary {
-    
-    private static final Map<String, List<Object>> ORE_NAMES = new HashMap<>();
-    private static final Map<Object, List<String>> ITEM_NAMES = new HashMap<>();
-    private static final Map<String, String> ORE_TO_TAG = new HashMap<>();
+
+    // Thread-safe maps — multiple legacy mods may register concurrently
+    private static final Map<String, List<Object>> ORE_NAMES = new ConcurrentHashMap<>();
+    private static final Map<Object, List<String>> ITEM_NAMES = new ConcurrentHashMap<>();
+    private static final Map<String, String> ORE_TO_TAG = new ConcurrentHashMap<>();
     
     public static final int WILDCARD_VALUE = Short.MAX_VALUE;
     
@@ -116,8 +119,8 @@ public class VirtualOreDictionary {
     }
     
     public static void registerOre(String name, Object ore) {
-        ORE_NAMES.computeIfAbsent(name, k -> new ArrayList<>()).add(ore);
-        ITEM_NAMES.computeIfAbsent(ore, k -> new ArrayList<>()).add(name);
+        ORE_NAMES.computeIfAbsent(name, k -> new CopyOnWriteArrayList<>()).add(ore);
+        ITEM_NAMES.computeIfAbsent(ore, k -> new CopyOnWriteArrayList<>()).add(name);
         
         String tagName = convertToTag(name);
         System.out.println("RetroMod: Bridging ore dict '" + name + "' to tag '" + tagName + "'");
@@ -129,7 +132,7 @@ public class VirtualOreDictionary {
     
     public static List<Object> getOres(String name, boolean alwaysCreateEntry) {
         if (alwaysCreateEntry) {
-            return ORE_NAMES.computeIfAbsent(name, k -> new ArrayList<>());
+            return ORE_NAMES.computeIfAbsent(name, k -> new CopyOnWriteArrayList<>());
         }
         return getOres(name);
     }

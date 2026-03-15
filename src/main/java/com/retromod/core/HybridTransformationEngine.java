@@ -4,7 +4,6 @@
  */
 package com.retromod.core;
 
-import com.retromod.aot.AotCompiler;
 import com.retromod.shim.ShimRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -176,17 +176,23 @@ public class InstructionLevelTransformer {
     }
     
     private InstructionDecision analyzeFieldInsn(FieldInsnNode insn) {
+        // Check actual field redirects first
+        var fieldKey = new RetroModTransformer.FieldKey(insn.owner, insn.name);
+        if (transformer.getFieldRedirects().containsKey(fieldKey)) {
+            return new InstructionDecision(TransformAction.AOT_TRANSFORM, null);
+        }
+
         if (transformer.getClassRedirects().containsKey(insn.owner)) {
             return new InstructionDecision(TransformAction.AOT_TRANSFORM, null);
         }
-        
+
         if (isObfuscatedTarget(insn.owner, insn.name)) {
             return new InstructionDecision(
                 TransformAction.JIT_WRAP,
                 "Obfuscated field: " + insn.owner + "." + insn.name
             );
         }
-        
+
         return new InstructionDecision(TransformAction.KEEP_UNCHANGED, null);
     }
     
@@ -226,6 +232,12 @@ public class InstructionLevelTransformer {
                 }
                 if (arg instanceof Handle handle) {
                     if (transformer.getClassRedirects().containsKey(handle.getOwner())) {
+                        needsTransform = true;
+                        break;
+                    }
+                    // Also check if the Handle's method needs a redirect
+                    var handleKey = new RetroModTransformer.MethodKey(handle.getOwner(), handle.getName(), handle.getDesc());
+                    if (transformer.getMethodRedirects().containsKey(handleKey)) {
                         needsTransform = true;
                         break;
                     }
@@ -326,45 +338,55 @@ public class InstructionLevelTransformer {
         switch (insn.getType()) {
             case AbstractInsnNode.METHOD_INSN -> {
                 MethodInsnNode methodInsn = (MethodInsnNode) insn;
-                MethodInsnNode transformed = new MethodInsnNode(
-                    methodInsn.getOpcode(),
-                    methodInsn.owner,
-                    methodInsn.name,
-                    methodInsn.desc,
-                    methodInsn.itf
-                );
-                
+
                 // Apply redirects
                 var key = new RetroModTransformer.MethodKey(
-                    transformed.owner, transformed.name, transformed.desc
+                    methodInsn.owner, methodInsn.name, methodInsn.desc
                 );
                 var target = transformer.getMethodRedirects().get(key);
-                
+
                 if (target != null) {
-                    transformed.owner = target.owner();
-                    transformed.name = target.name();
-                    transformed.desc = target.desc();
-                } else {
-                    String newOwner = transformer.getClassRedirects().get(transformed.owner);
-                    if (newOwner != null) {
-                        transformed.owner = newOwner;
+                    // Determine correct opcode (instance→static redirect)
+                    int newOpcode = methodInsn.getOpcode();
+                    boolean newItf = methodInsn.itf;
+                    if ((newOpcode == Opcodes.INVOKEVIRTUAL || newOpcode == Opcodes.INVOKEINTERFACE)
+                            && target.isInstanceToStatic(methodInsn.desc)) {
+                        newOpcode = Opcodes.INVOKESTATIC;
+                        newItf = false;
                     }
+                    return new MethodInsnNode(newOpcode, target.owner(), target.name(), target.desc(), newItf);
+                } else {
+                    String newOwner = transformer.getClassRedirects().getOrDefault(methodInsn.owner, methodInsn.owner);
+                    return new MethodInsnNode(methodInsn.getOpcode(), newOwner, methodInsn.name, methodInsn.desc, methodInsn.itf);
                 }
-                
-                return transformed;
             }
-            
+
             case AbstractInsnNode.FIELD_INSN -> {
                 FieldInsnNode fieldInsn = (FieldInsnNode) insn;
+
+                // Check field redirects first (more specific)
+                var fieldKey = new RetroModTransformer.FieldKey(fieldInsn.owner, fieldInsn.name);
+                var fieldTarget = transformer.getFieldRedirects().get(fieldKey);
+                if (fieldTarget != null) {
+                    // Check if this is a field-to-method redirect
+                    if (fieldTarget.newDesc() != null && fieldTarget.newDesc().startsWith("(")) {
+                        // Convert field access to method call
+                        return new MethodInsnNode(
+                            Opcodes.INVOKESTATIC,
+                            fieldTarget.owner(),
+                            fieldTarget.name(),
+                            fieldTarget.newDesc(),
+                            false
+                        );
+                    }
+                    String desc = (fieldTarget.newDesc() != null) ? fieldTarget.newDesc() : fieldInsn.desc;
+                    return new FieldInsnNode(fieldInsn.getOpcode(), fieldTarget.owner(), fieldTarget.name(), desc);
+                }
+
+                // Fall back to class redirect on owner
                 String newOwner = transformer.getClassRedirects()
                     .getOrDefault(fieldInsn.owner, fieldInsn.owner);
-                
-                return new FieldInsnNode(
-                    fieldInsn.getOpcode(),
-                    newOwner,
-                    fieldInsn.name,
-                    fieldInsn.desc
-                );
+                return new FieldInsnNode(fieldInsn.getOpcode(), newOwner, fieldInsn.name, fieldInsn.desc);
             }
             
             case AbstractInsnNode.TYPE_INSN -> {
@@ -432,6 +454,28 @@ public class InstructionLevelTransformer {
             }
             
             if (arg instanceof Handle handle) {
+                // Check for method redirect on this Handle
+                var handleKey = new RetroModTransformer.MethodKey(handle.getOwner(), handle.getName(), handle.getDesc());
+                var handleTarget = transformer.getMethodRedirects().get(handleKey);
+                if (handleTarget != null) {
+                    // Determine Handle tag: if instance→static, change to H_INVOKESTATIC
+                    int newTag = handle.getTag();
+                    if ((newTag == Opcodes.H_INVOKEVIRTUAL || newTag == Opcodes.H_INVOKEINTERFACE)
+                            && handleTarget.isInstanceToStatic(handle.getDesc())) {
+                        newTag = Opcodes.H_INVOKESTATIC;
+                    }
+                    newArgs[i] = new Handle(
+                        newTag,
+                        handleTarget.owner(),
+                        handleTarget.name(),
+                        handleTarget.desc(),
+                        newTag == Opcodes.H_INVOKEINTERFACE
+                    );
+                    changed = true;
+                    continue;
+                }
+
+                // Fall back to class redirect on owner
                 String newOwner = transformer.getClassRedirects().get(handle.getOwner());
                 if (newOwner != null) {
                     newArgs[i] = new Handle(
@@ -552,15 +596,28 @@ public class InstructionLevelTransformer {
         return result;
     }
     
+    /** Pattern matching class type references in descriptors (e.g., Lcom/example/Foo;) */
+    private static final java.util.regex.Pattern CLASS_TYPE_IN_DESC =
+        java.util.regex.Pattern.compile("L([^;]+);");
+
     private String redirectDescriptor(String descriptor) {
-        String result = descriptor;
-        for (var entry : transformer.getClassRedirects().entrySet()) {
-            result = result.replace(
-                "L" + entry.getKey() + ";",
-                "L" + entry.getValue() + ";"
-            );
+        Map<String, String> redirects = transformer.getClassRedirects();
+        if (redirects.isEmpty()) return descriptor;
+
+        // Single-pass replacement using regex (avoids N×M String.replace calls)
+        java.util.regex.Matcher m = CLASS_TYPE_IN_DESC.matcher(descriptor);
+        StringBuilder sb = null;
+        while (m.find()) {
+            String className = m.group(1);
+            String redirect = redirects.get(className);
+            if (redirect != null) {
+                if (sb == null) sb = new StringBuilder(descriptor.length());
+                m.appendReplacement(sb, "L" + redirect + ";");
+            }
         }
-        return result;
+        if (sb == null) return descriptor; // No changes
+        m.appendTail(sb);
+        return sb.toString();
     }
     
     /**

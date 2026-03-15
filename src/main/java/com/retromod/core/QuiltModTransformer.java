@@ -27,7 +27,10 @@ import java.util.regex.*;
 public class QuiltModTransformer {
     
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Quilt");
-    
+
+    private static final Pattern PAT_MC_VERSION_REPLACE = Pattern.compile("(\"minecraft\"\\s*:\\s*\")([^\"]+)(\")");
+    private static final Pattern PAT_MC_VERSION_EXTRACT = Pattern.compile("\"minecraft\"\\s*:\\s*\"([^\"]+)\"");
+
     private final String targetMcVersion;
     private final FabricModTransformer fabricTransformer;
     
@@ -129,8 +132,7 @@ public class QuiltModTransformer {
         // Update to target version
         
         // Pattern for "minecraft": "version" or "minecraft": ">=version"
-        Pattern p = Pattern.compile("(\"minecraft\"\\s*:\\s*\")([^\"]+)(\")");
-        Matcher m = p.matcher(content);
+        Matcher m = PAT_MC_VERSION_REPLACE.matcher(content);
         
         if (m.find()) {
             String oldVersion = m.group(2);
@@ -150,8 +152,7 @@ public class QuiltModTransformer {
             var entry = jar.getEntry("quilt.mod.json");
             if (entry != null) {
                 String content = new String(jar.getInputStream(entry).readAllBytes());
-                Pattern p = Pattern.compile("\"minecraft\"\\s*:\\s*\"([^\"]+)\"");
-                Matcher m = p.matcher(content);
+                Matcher m = PAT_MC_VERSION_EXTRACT.matcher(content);
                 if (m.find()) {
                     return m.group(1);
                 }

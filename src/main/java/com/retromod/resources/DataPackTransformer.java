@@ -42,6 +42,7 @@ import java.util.regex.*;
 public class DataPackTransformer {
     
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-DataPacks");
+    private static final Pattern PAT_PACK_FORMAT = Pattern.compile("\"pack_format\"\\s*:\\s*(\\d+)");
     
     // Data pack format for target MC versions
     private static final Map<String, Integer> DATA_FORMATS = new HashMap<>();
@@ -114,8 +115,7 @@ public class DataPackTransformer {
         try {
             String mcmeta = readPackMcmeta(packPath);
             if (mcmeta != null) {
-                Pattern p = Pattern.compile("\"pack_format\"\\s*:\\s*(\\d+)");
-                Matcher m = p.matcher(mcmeta);
+                Matcher m = PAT_PACK_FORMAT.matcher(mcmeta);
                 if (m.find()) {
                     return Integer.parseInt(m.group(1));
                 }

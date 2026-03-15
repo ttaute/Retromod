@@ -14,9 +14,10 @@ import com.retromod.polyfill.PolyfillProvider;
  * and was removed in newer Fabric Loader versions. Mods like
  * Not Enough Crashes used TinyVisitor for stack trace deobfuscation.
  *
- * The polyfill provides stub interfaces so the classes can be found,
- * preventing ClassNotFoundException at startup. The actual mapping
- * reading functionality is not replicated (stubs are no-ops).
+ * The polyfill provides full reimplementations of the TinyV2 mapping
+ * parser so NEC's stack trace deobfuscation actually works. The
+ * TinyMappingFactory and TinyV2Factory classes parse real mapping files
+ * and invoke TinyVisitor callbacks with actual mapping names.
  */
 public class TinyMappingPolyfill implements PolyfillProvider {
 
@@ -36,6 +37,7 @@ public class TinyMappingPolyfill implements PolyfillProvider {
             "net/fabricmc/mapping/reader/v2/TinyVisitor",
             "net/fabricmc/mapping/reader/v2/TinyV2Visitor",
             "net/fabricmc/mapping/reader/v2/TinyMappingFactory",
+            "net/fabricmc/mapping/reader/v2/TinyV2Factory",
             "net/fabricmc/mapping/reader/v2/TinyMetadataConsumer"
         };
     }
@@ -47,6 +49,7 @@ public class TinyMappingPolyfill implements PolyfillProvider {
             "net.fabricmc.mapping.reader.v2.TinyVisitor",
             "net.fabricmc.mapping.reader.v2.TinyV2Visitor",
             "net.fabricmc.mapping.reader.v2.TinyMappingFactory",
+            "net.fabricmc.mapping.reader.v2.TinyV2Factory",
             "net.fabricmc.mapping.reader.v2.TinyMetadata",
             "net.fabricmc.mapping.reader.v2.MappingGetter"
         };

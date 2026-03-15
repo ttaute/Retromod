@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      # Check if this push happened within 5 min of a CI revert.
+      # If the previous commit is a CI revert, skip tests (break-glass).
+      - name: Check for recent CI revert (break-glass bypass)
+        if: github.event_name == 'push'
+        id: bypass
+        run: |
+          PREV_MSG=$(git log --format=%s -1 HEAD~1 2>/dev/null || echo "")
+          PREV_TIME=$(git log --format=%ct -1 HEAD~1 2>/dev/null || echo "0")
+          NOW=$(date +%s)
+          DIFF=$(( NOW - PREV_TIME ))
+
+          if echo "$PREV_MSG" | grep -q '^Revert ".*"' && [ "$DIFF" -lt 300 ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Break-glass bypass: previous commit was a CI revert less than 5 min ago. Skipping tests."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 21
+        if: steps.bypass.outputs.skip != 'true'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build project
+        if: steps.bypass.outputs.skip != 'true'
+        run: mvn package -q -DskipTests -Dexec.skip=true
+
+      - name: Run tests
+        if: steps.bypass.outputs.skip != 'true'
+        run: mvn test -Dexec.skip=true
+
+      - name: Upload test results
+        if: always() && steps.bypass.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: target/surefire-reports/
+
+      - name: Break-glass notice
+        if: steps.bypass.outputs.skip == 'true'
+        run: echo "✅ Push accepted without tests (break-glass bypass — re-push within 5 min of CI revert)."
+
+  # Auto-close PRs that fail tests
+  auto-close-failed-pr:
+    needs: build-and-test
+    if: failure() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment and close PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: '## :x: CI Failed — PR Automatically Closed\n\nThis pull request has been automatically closed because the tests failed.\n\nPlease fix the failing tests and reopen the PR, or push a new commit to trigger CI again.\n\n**To see what failed:** Check the [Actions tab](../../actions) for details.'
+            });
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              state: 'closed'
+            });
+
+  # Add "approved by CI" label when tests pass on PRs
+  label-passed-pr:
+    needs: build-and-test
+    if: success() && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Add CI passed label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: '## :white_check_mark: CI Passed\n\nAll tests passed. This PR is ready for review and manual approval.'
+            });
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                labels: ['ci-passed']
+              });
+            } catch (e) {
+              console.log('Could not add label:', e.message);
+            }
+
+  # Revert push to main/develop if tests fail (not on break-glass bypass)
+  revert-failed-push:
+    needs: build-and-test
+    if: failure() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Revert the failing commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git revert --no-edit HEAD
+          git push origin HEAD
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

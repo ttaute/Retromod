@@ -7,7 +7,6 @@ package com.retromod.core;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.*;
 import java.awt.*;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -33,7 +32,11 @@ import java.util.zip.ZipEntry;
 public class ModrinthVersionChecker {
     
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Modrinth");
-    
+
+    private static final Pattern PAT_MOD_ID_TOML = Pattern.compile("modId\\s*=\\s*\"([^\"]+)\"");
+    private static final Pattern PAT_DISPLAY_NAME_TOML = Pattern.compile("displayName\\s*=\\s*\"([^\"]+)\"");
+    private static final java.util.concurrent.ConcurrentHashMap<String, Pattern> JSON_FIELD_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
     private static final String MODRINTH_API = "https://api.modrinth.com/v2";
     private static final String USER_AGENT = "RetroMod/1.0.0 (bownlux)";
     
@@ -133,8 +136,8 @@ public class ModrinthVersionChecker {
     
     private static ModInfo parseModsToml(String toml) {
         // Parse TOML for modId
-        Pattern idPattern = Pattern.compile("modId\\s*=\\s*\"([^\"]+)\"");
-        Pattern namePattern = Pattern.compile("displayName\\s*=\\s*\"([^\"]+)\"");
+        Pattern idPattern = PAT_MOD_ID_TOML;
+        Pattern namePattern = PAT_DISPLAY_NAME_TOML;
         
         Matcher idMatcher = idPattern.matcher(toml);
         Matcher nameMatcher = namePattern.matcher(toml);
@@ -153,7 +156,8 @@ public class ModrinthVersionChecker {
     }
     
     private static String extractJsonField(String json, String field) {
-        Pattern pattern = Pattern.compile("\"" + field + "\"\\s*:\\s*\"([^\"]+)\"");
+        Pattern pattern = JSON_FIELD_CACHE.computeIfAbsent(field,
+            f -> Pattern.compile("\"" + f + "\"\\s*:\\s*\"([^\"]+)\""));
         Matcher matcher = pattern.matcher(json);
         return matcher.find() ? matcher.group(1) : null;
     }
@@ -233,18 +237,19 @@ public class ModrinthVersionChecker {
      * Fetch URL content.
      */
     private static String fetchUrl(String urlString) {
+        HttpURLConnection conn = null;
         try {
             URL url = URI.create(urlString).toURL();
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("User-Agent", USER_AGENT);
             conn.setConnectTimeout(5000);
             conn.setReadTimeout(5000);
-            
+
             if (conn.getResponseCode() != 200) {
                 return null;
             }
-            
+
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(conn.getInputStream()))) {
                 StringBuilder sb = new StringBuilder();
@@ -254,67 +259,41 @@ public class ModrinthVersionChecker {
                 }
                 return sb.toString();
             }
-            
+
         } catch (Exception e) {
             return null;
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
     }
     
     /**
-     * Show dialog offering to download native version.
-     * Returns true if user chooses to skip transformation.
+     * Check if a native version is available and log it.
+     * Returns false (always transforms) — native version info is queued as notification.
      */
     public static boolean offerNativeVersion(ModrinthResult result, String modFileName) {
-        if (!result.found() || !EnvironmentDetector.canShowGui()) {
+        if (!result.found()) {
             return false;
         }
-        
-        String message = String.format("""
-            Good news! There's a newer version of this mod
-            that works with your Minecraft version natively!
-            
-            ═══════════════════════════════════════
-            
-            Mod: %s
-            File: %s
-            
-            Native version available: %s
-            
-            ═══════════════════════════════════════
-            
-            You can download the native version from Modrinth
-            instead of using RetroMod to transform it.
-            
-            Native versions usually work better than transformed ones!
-            
-            What would you like to do?
-            """,
-            result.projectName(),
-            modFileName,
-            result.versionNumber()
+
+        String message = String.format(
+            "Mod: %s (%s)\n\n" +
+            "A native version (%s) is available on Modrinth\n" +
+            "that works with your Minecraft version natively!\n\n" +
+            "Native versions usually work better than transformed ones.\n" +
+            "Visit: %s",
+            result.projectName(), modFileName,
+            result.versionNumber(), result.pageUrl()
         );
-        
-        int choice = JOptionPane.showOptionDialog(
-            null,
-            message,
-            "RetroMod - Native Version Available!",
-            JOptionPane.YES_NO_CANCEL_OPTION,
-            JOptionPane.INFORMATION_MESSAGE,
-            null,
-            new String[]{"Open Modrinth", "Transform Anyway", "Skip This Mod"},
-            "Open Modrinth"
-        );
-        
-        if (choice == 0) {
-            // Open Modrinth page
-            openBrowser(result.pageUrl());
-            return true; // Skip transformation
-        } else if (choice == 2) {
-            // Skip
-            return true;
-        }
-        
-        // Transform anyway
+
+        LOGGER.info("Native version available for {}: {} ({})",
+            modFileName, result.versionNumber(), result.pageUrl());
+        com.retromod.gui.InGameNotificationManager.queue(
+            "Native Version Available", message);
+
+        // Don't skip — transform anyway, just inform the user
         return false;
     }
     
@@ -331,13 +310,7 @@ public class ModrinthVersionChecker {
             }
         } catch (Exception e) {
             LOGGER.warn("Could not open browser: {}", e.getMessage());
-            // Show URL in dialog
-            JOptionPane.showMessageDialog(
-                null,
-                "Please open this URL in your browser:\n\n" + url,
-                "Open Modrinth",
-                JOptionPane.INFORMATION_MESSAGE
-            );
+            LOGGER.info("Please visit: {}", url);
         }
     }
     
