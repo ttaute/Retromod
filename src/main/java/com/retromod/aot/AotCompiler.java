@@ -352,6 +352,18 @@ public class AotCompiler {
                     }
                 }
 
+                // Relax version constraints in mod metadata for 26.1+
+                if (targetMcVersion != null && targetMcVersion.startsWith("26.")) {
+                    if (entry.getKey().equals("fabric.mod.json") || entry.getKey().equals("quilt.mod.json")) {
+                        data = relaxFabricModDependencies(data);
+                        LOGGER.info("Patched Fabric metadata: {}", entry.getKey());
+                    } else if (entry.getKey().equals("META-INF/mods.toml") ||
+                               entry.getKey().equals("META-INF/neoforge.mods.toml")) {
+                        data = relaxNeoForgeDependencies(data);
+                        LOGGER.info("Patched NeoForge/Forge metadata: {}", entry.getKey());
+                    }
+                }
+
                 jos.putNextEntry(new JarEntry(entry.getKey()));
                 jos.write(data);
                 jos.closeEntry();
@@ -751,6 +763,73 @@ public class AotCompiler {
             CACHED,
             SKIPPED,
             FAILED
+        }
+    }
+
+    /**
+     * Relax Fabric mod version constraints for 26.1+ compatibility.
+     */
+    private static byte[] relaxFabricModDependencies(byte[] jsonData) {
+        try {
+            String json = new String(jsonData, java.nio.charset.StandardCharsets.UTF_8);
+            json = json.replaceAll(
+                "(\"minecraft\"\\s*:\\s*)(?:\"[^\"]*\"|\\[[^\\]]*\\]|\\{[^}]*\\})",
+                "$1\"*\""
+            );
+            json = json.replaceAll(
+                "(\"fabricloader\"\\s*:\\s*)\"[^\"]*\"",
+                "$1\">=0.14.0\""
+            );
+            json = json.replaceAll(
+                "(\"fabric-[a-z-]+(?:-v[0-9]+)?\"\\s*:\\s*)\"(?:>=)?[0-9][^\"]*\"",
+                "$1\"*\""
+            );
+            return json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return jsonData;
+        }
+    }
+
+    /**
+     * Relax NeoForge/Forge mod version constraints for 26.1+ compatibility.
+     */
+    private static byte[] relaxNeoForgeDependencies(byte[] tomlData) {
+        try {
+            String toml = new String(tomlData, java.nio.charset.StandardCharsets.UTF_8);
+            StringBuilder result = new StringBuilder();
+            String[] blocks = toml.split("(?=\\[\\[dependencies\\.)");
+
+            for (String block : blocks) {
+                if (!block.contains("modId")) {
+                    result.append(block);
+                    continue;
+                }
+
+                boolean isCoreDependent = block.contains("\"minecraft\"") ||
+                    block.contains("\"neoforge\"") || block.contains("\"forge\"");
+
+                // Widen Maven version ranges: [1.21,1.21.1) -> [1.21,)
+                block = block.replaceAll(
+                    "(versionRange\\s*=\\s*\")\\[([^,\"]+),[^\"]*\"",
+                    "$1[$2,)\""
+                );
+                // Handle bare version: "1.21.8" -> "[1.21.8,)"
+                block = block.replaceAll(
+                    "(versionRange\\s*=\\s*\")([0-9][^\"\\[\\]]*)\"",
+                    "$1[$2,)\""
+                );
+
+                if (!isCoreDependent) {
+                    block = block.replaceAll("(type\\s*=\\s*\")required\"", "$1optional\"");
+                    block = block.replaceAll("(mandatory\\s*=\\s*)true", "$1false");
+                }
+
+                result.append(block);
+            }
+
+            return result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return tomlData;
         }
     }
 }

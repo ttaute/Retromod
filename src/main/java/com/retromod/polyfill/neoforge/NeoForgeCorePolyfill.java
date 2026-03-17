@@ -39,9 +39,9 @@ public class NeoForgeCorePolyfill implements PolyfillProvider {
     @Override
     public String[] getPolyfillClasses() {
         return new String[]{
-            "net.neoforged.neoforge.items.ItemStackHandler",
-            "net.neoforged.neoforge.items.ComponentItemHandler",
-            "net.neoforged.neoforge.client.event.RenderHighlightEvent",
+            // Stubs relocated to com.retromod.shim.neoforge.embedded to avoid
+            // JPMS split-package conflicts on NeoForge 26.1+
+            "com.retromod.shim.neoforge.embedded.IItemHandlerShim",
             "javax.annotation.Nullable",
             "javax.annotation.Nonnull"
         };
@@ -49,6 +49,17 @@ public class NeoForgeCorePolyfill implements PolyfillProvider {
 
     @Override
     public void registerPolyfills(RetroModTransformer transformer) {
+        // Register class redirects so the transformer rewrites references
+        // from removed NeoForge classes to our embedded shim implementations
+        transformer.registerClassRedirect(
+            "net/neoforged/neoforge/items/ItemStackHandler",
+            "com/retromod/shim/neoforge/embedded/IItemHandlerShim"
+        );
+        transformer.registerClassRedirect(
+            "net/neoforged/neoforge/items/ComponentItemHandler",
+            "com/retromod/shim/neoforge/embedded/IItemHandlerShim"
+        );
+
         for (String cls : getPolyfillClasses()) {
             transformer.registerEmbeddedShim(cls);
         }

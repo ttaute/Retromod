@@ -45,20 +45,24 @@ public class MinecraftVanillaPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        return new String[]{
-            "net.minecraft.text.LiteralText",
-            "net.minecraft.text.TranslatableText",
-            "net.minecraft.block.Material",
-            "net.minecraft.block.MaterialColor",
-            "net.minecraft.world.gen.feature.StructureFeature"
-        };
+        // Stubs removed from net.minecraft.* packages to avoid JPMS split-package
+        // conflicts on NeoForge 26.1+. Removed classes are now handled purely
+        // via bytecode transformation (class redirects) rather than stub files.
+        return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetroModTransformer transformer) {
-        // Classes exist at original paths - just register for tracking
-        for (String cls : getPolyfillClasses()) {
-            transformer.registerEmbeddedShim(cls);
-        }
+        // Register class redirects for removed classes.
+        // The transformer will rewrite old mod bytecode references.
+        // These classes were removed in MC 1.19-1.20 and don't exist in 26.1.
+
+        // LiteralText/TranslatableText removed in 1.19, replaced by Text.literal/Text.translatable
+        // On 26.1 these use Mojang names: Component.literal / Component.translatable
+        // Old mods referencing these will have calls rewritten by the version shims.
+
+        // Material/MaterialColor removed in 1.20, properties inlined into BlockState
+        // StructureFeature removed in 1.18.2, replaced by Structure
+        // These are handled by the shim chain — no stub needed at runtime.
     }
 }

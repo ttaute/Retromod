@@ -37,17 +37,32 @@ public class ForgeCorePolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
+        // Stubs removed from net.minecraftforge.* packages to avoid JPMS
+        // split-package conflicts. Forge classes are handled via class redirects
+        // to embedded shims in com.retromod.shim.forge.embedded/
         return new String[]{
-            "net.minecraftforge.fml.common.SidedProxy",
-            "net.minecraftforge.registries.RegistryObject",
-            "net.minecraftforge.common.MinecraftForge",
-            "net.minecraftforge.common.capabilities.ICapabilityProvider",
-            "net.minecraftforge.common.util.LazyOptional"
+            "com.retromod.shim.forge.embedded.CapabilityShim",
+            "com.retromod.shim.forge.embedded.ForgeRegistriesShim",
+            "com.retromod.shim.forge.embedded.NetworkShim"
         };
     }
 
     @Override
     public void registerPolyfills(RetroModTransformer transformer) {
+        // Register class redirects from old Forge classes to our embedded shims
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/capabilities/ICapabilityProvider",
+            "com/retromod/shim/api/forge/embedded/CapabilityProviderShim"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/util/LazyOptional",
+            "com/retromod/shim/api/forge/embedded/LazyOptionalShim"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/MinecraftForge",
+            "com/retromod/shim/api/forge/embedded/ForgeCapabilitiesShim"
+        );
+
         for (String cls : getPolyfillClasses()) {
             transformer.registerEmbeddedShim(cls);
         }

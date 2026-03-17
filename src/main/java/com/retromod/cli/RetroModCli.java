@@ -37,7 +37,7 @@ import java.util.*;
 public class RetroModCli {
     
     private static final String VERSION = "1.0.0-beta.1";
-    private static final String TARGET_MC_VERSION = "1.21.11";
+    private static final String TARGET_MC_VERSION = "26.1";
     
     private static ShimRegistry shimRegistry;
     private static ModVersionDetector detector;
@@ -99,7 +99,7 @@ public class RetroModCli {
     }
     
     private static void registerAllShims() {
-        // Fabric shims - complete 1.14.4 to 1.21.11 chain
+        // Fabric shims - complete 1.14.4 to 26.1 chain
         shimRegistry.register(new Fabric_1_14_4_to_1_15_2());
         shimRegistry.register(new Fabric_1_15_2_to_1_16_5());
         shimRegistry.register(new Fabric_1_16_5_to_1_17());
@@ -132,7 +132,7 @@ public class RetroModCli {
         shimRegistry.register(new Fabric_1_21_9_to_1_21_10());
         shimRegistry.register(new Fabric_1_21_10_to_1_21_11());
         
-        // NeoForge shims - complete 1.21 to 1.21.11 chain (step by step)
+        // NeoForge shims - complete 1.21 to 26.1 chain (step by step)
         shimRegistry.register(new NeoForge_1_21_to_1_21_1());
         shimRegistry.register(new NeoForge_1_21_1_to_1_21_2());
         shimRegistry.register(new NeoForge_1_21_2_to_1_21_3());
@@ -145,7 +145,7 @@ public class RetroModCli {
         shimRegistry.register(new NeoForge_1_21_9_to_1_21_10());
         shimRegistry.register(new NeoForge_1_21_10_to_1_21_11());
         
-        // Forge shims - complete 1.21 to 1.21.11 chain (step by step)
+        // Forge shims - complete 1.21 to 26.1 chain (step by step)
         shimRegistry.register(new Forge_1_21_to_1_21_1());
         shimRegistry.register(new Forge_1_21_1_to_1_21_2());
         shimRegistry.register(new Forge_1_21_2_to_1_21_3());
@@ -522,38 +522,55 @@ public class RetroModCli {
                     continue;
                 }
                 
-                if (!info.needsTransformation(TARGET_MC_VERSION)) {
-                    // Copy unchanged
-                    Files.copy(modFile.toPath(), 
-                        outputFolder.resolve(modFile.getName()),
+                // For 26.1+, ALL mods get metadata patching regardless
+                // of whether bytecode transformation is needed
+                boolean needs26Patch = TARGET_MC_VERSION.startsWith("26.");
+                boolean needsBytecodeTransform = info.needsTransformation(TARGET_MC_VERSION);
+
+                Path outputPath = outputFolder.resolve(modFile.getName());
+                String status;
+
+                if (needsBytecodeTransform) {
+                    if (useAot) {
+                        Path result = aotCompiler.compileModAot(modFile.toPath());
+                        // Copy AOT result; we'll post-process for metadata
+                        outputPath = outputFolder.resolve(
+                            modFile.getName().replace(".jar", "-aot.jar"));
+                        Files.copy(result, outputPath,
+                            StandardCopyOption.REPLACE_EXISTING);
+                    } else {
+                        // JIT transform
+                        RetroModTransformer transformer = RetroModTransformer.getInstance();
+                        List<VersionShim> chain = shimRegistry.findShimChain(
+                            info.modLoaderType(), info.targetMcVersion(), TARGET_MC_VERSION);
+                        for (VersionShim shim : chain) {
+                            shim.registerRedirects(transformer);
+                        }
+                        transformJar(modFile.toPath(), outputPath, transformer, info);
+                    }
+                    status = "OK";
+                } else if (!needs26Patch) {
+                    // No transformation or patching needed
+                    Files.copy(modFile.toPath(), outputPath,
                         StandardCopyOption.REPLACE_EXISTING);
                     System.out.println("COPIED (already compatible)");
                     skipped++;
                     continue;
-                }
-                
-                if (useAot) {
-                    Path result = aotCompiler.compileModAot(modFile.toPath());
-                    Files.copy(result, 
-                        outputFolder.resolve(modFile.getName().replace(".jar", "-aot.jar")),
-                        StandardCopyOption.REPLACE_EXISTING);
                 } else {
-                    // JIT transform
-                    Path output = outputFolder.resolve(modFile.getName());
-                    RetroModTransformer transformer = RetroModTransformer.getInstance();
-                    
-                    List<VersionShim> chain = shimRegistry.findShimChain(
-                        info.modLoaderType(), info.targetMcVersion(), TARGET_MC_VERSION);
-                    for (VersionShim shim : chain) {
-                        shim.registerRedirects(transformer);
-                    }
-                    
-                    transformJar(modFile.toPath(), output, transformer, info);
+                    // Copy first, then patch metadata
+                    Files.copy(modFile.toPath(), outputPath,
+                        StandardCopyOption.REPLACE_EXISTING);
+                    status = "PATCHED (version constraints)";
                 }
-                
+
+                // Post-process: patch mod metadata for 26.1+ compatibility
+                if (needs26Patch) {
+                    patchModMetadata(outputPath);
+                }
+
                 long elapsed = System.currentTimeMillis() - start;
                 totalTime += elapsed;
-                System.out.printf("OK (%d ms)%n", elapsed);
+                System.out.printf("%s (%d ms)%n", status, elapsed);
                 processed++;
                 
             } catch (Exception e) {
@@ -724,6 +741,10 @@ public class RetroModCli {
                         } else if (entry.getName().equals("quilt.mod.json")) {
                             // Relax Quilt version dependencies too
                             data = relaxFabricModDependencies(data);
+                        } else if (entry.getName().equals("META-INF/mods.toml") ||
+                                   entry.getName().equals("META-INF/neoforge.mods.toml")) {
+                            // Relax NeoForge/Forge version dependencies
+                            data = relaxNeoForgeDependencies(data);
                         }
 
                         outJar.write(data);
@@ -771,7 +792,108 @@ public class RetroModCli {
             return jsonData;
         }
     }
-    
+
+    /**
+     * Relax version constraints in mods.toml / neoforge.mods.toml so the mod
+     * can load on 26.1+. Patches minecraft, neoforge, and forge version ranges
+     * to be permissive, and makes non-core dependencies optional.
+     */
+    private static byte[] relaxNeoForgeDependencies(byte[] tomlData) {
+        try {
+            String toml = new String(tomlData, java.nio.charset.StandardCharsets.UTF_8);
+
+            // Split by [[dependencies. headers and process each block
+            StringBuilder result = new StringBuilder();
+            String[] blocks = toml.split("(?=\\[\\[dependencies\\.)");
+
+            for (String block : blocks) {
+                if (!block.contains("modId") && !block.contains("modId")) {
+                    // Preamble or non-dependency block - keep as-is
+                    result.append(block);
+                    continue;
+                }
+
+                boolean isMinecraft = block.contains("\"minecraft\"");
+                boolean isNeoForge = block.contains("\"neoforge\"");
+                boolean isForge = block.contains("\"forge\"");
+                boolean isCoreDependent = isMinecraft || isNeoForge || isForge;
+
+                // Patch version ranges for all dependencies
+                // Handle Maven range format: [1.21,1.21.1) or [1.21.8,1.22)
+                block = block.replaceAll(
+                    "(versionRange\\s*=\\s*\")\\[([^,\"]+),[^\"]*\"",
+                    "$1[$2,)\""
+                );
+
+                // Handle bare version format: "1.21.8" (no brackets)
+                block = block.replaceAll(
+                    "(versionRange\\s*=\\s*\")([0-9][^\"\\[\\]]*)\"",
+                    "$1[$2,)\""
+                );
+
+                // Make non-core dependencies optional
+                if (!isCoreDependent) {
+                    // Change type="required" to type="optional"
+                    block = block.replaceAll(
+                        "(type\\s*=\\s*\")required\"",
+                        "$1optional\""
+                    );
+                    // Also handle old mandatory=true format
+                    block = block.replaceAll(
+                        "(mandatory\\s*=\\s*)true",
+                        "$1false"
+                    );
+                }
+
+                result.append(block);
+            }
+
+            return result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return tomlData;
+        }
+    }
+
+    /**
+     * Post-process a JAR to patch mod metadata (version constraints) in-place.
+     * Rewrites fabric.mod.json, quilt.mod.json, mods.toml, neoforge.mods.toml
+     * to relax version ranges for 26.1+ compatibility.
+     */
+    private static void patchModMetadata(Path jarPath) throws Exception {
+        Path tempJar = jarPath.resolveSibling(jarPath.getFileName() + ".tmp");
+
+        try (var inJar = new java.util.jar.JarFile(jarPath.toFile());
+             var outJar = new java.util.jar.JarOutputStream(
+                     new FileOutputStream(tempJar.toFile()))) {
+
+            var entries = inJar.entries();
+            while (entries.hasMoreElements()) {
+                var entry = entries.nextElement();
+                outJar.putNextEntry(new java.util.jar.JarEntry(entry.getName()));
+
+                if (!entry.isDirectory()) {
+                    try (var is = inJar.getInputStream(entry)) {
+                        byte[] data = is.readAllBytes();
+
+                        if (entry.getName().equals("fabric.mod.json") ||
+                                entry.getName().equals("quilt.mod.json")) {
+                            data = relaxFabricModDependencies(data);
+                        } else if (entry.getName().equals("META-INF/mods.toml") ||
+                                   entry.getName().equals("META-INF/neoforge.mods.toml")) {
+                            data = relaxNeoForgeDependencies(data);
+                        }
+
+                        outJar.write(data);
+                    }
+                }
+
+                outJar.closeEntry();
+            }
+        }
+
+        // Replace original with patched version
+        Files.move(tempJar, jarPath, StandardCopyOption.REPLACE_EXISTING);
+    }
 
     private static boolean shouldTransformClass(String entryName, ModVersionInfo info) {
         String pkg = entryName.substring(0, Math.max(0, entryName.lastIndexOf('/') + 1));
@@ -1044,7 +1166,7 @@ public class RetroModCli {
             System.err.println();
             System.err.println("Examples:");
             System.err.println("  retromod devhelp mymod-1.21.4.jar");
-            System.err.println("  retromod devhelp mymod-1.21.4.jar --to 1.21.11");
+            System.err.println("  retromod devhelp mymod-1.21.4.jar --to 26.1");
             System.exit(1);
         }
 
@@ -1178,7 +1300,7 @@ public class RetroModCli {
         System.out.println("   Backwards Compatibility Layer for Minecraft Mods");
         System.out.println("");
         System.out.println("   Supports: Fabric, Forge, NeoForge");
-        System.out.println("   Versions: 1.8 -> 1.21.11");
+        System.out.println("   Versions: 1.8 -> 26.1");
         System.out.println("=================================================================");
         System.out.println();
         System.out.println("Usage: retromod <command> [options]");
@@ -1194,8 +1316,8 @@ public class RetroModCli {
         System.out.println("  prepare <mc-dir> [--aot]       Full prep: overrides + transform");
         System.out.println("  overrides <mc-dir>             Generate dependency overrides only");
         System.out.println();
-        System.out.println("Legacy Commands (1.8-1.20.x -> 1.21.x):");
-        System.out.println("  legacy <mod.jar>               Transform legacy mod to 1.21.x");
+        System.out.println("Legacy Commands (1.8-1.20.x -> 26.1):");
+        System.out.println("  legacy <mod.jar>               Transform legacy mod to 26.1");
         System.out.println();
         System.out.println("Developer Commands:");
         System.out.println("  devhelp <mod.jar> [target]     Show what to change when updating your mod");
@@ -1216,10 +1338,10 @@ public class RetroModCli {
         System.out.println("  # RECOMMENDED: Full preparation for running old mods");
         System.out.println("  retromod prepare ~/.minecraft --aot");
         System.out.println();
-        System.out.println("  # Transform a 1.21.8 Fabric mod to 1.21.11");
+        System.out.println("  # Transform a 1.21.8 Fabric mod to 26.1");
         System.out.println("  retromod aot mymod-1.21.8.jar");
         System.out.println();
-        System.out.println("  # Transform a legacy 1.12.2 Forge mod to 1.21.11");
+        System.out.println("  # Transform a legacy 1.12.2 Forge mod to 26.1");
         System.out.println("  retromod legacy oldmod-1.12.2.jar");
         System.out.println();
         System.out.println("  # Batch process all mods");

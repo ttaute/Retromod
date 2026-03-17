@@ -2,8 +2,8 @@
 
 > Run older Minecraft mods on newer versions through bytecode transformation and API shimming.
 
-[![Java 21+](https://img.shields.io/badge/Java-21+-blue.svg)](https://adoptium.net/)
-[![Minecraft 1.21.x](https://img.shields.io/badge/Minecraft-1.21.x-green.svg)](https://minecraft.net/)
+[![Java 25+](https://img.shields.io/badge/Java-25+-blue.svg)](https://adoptium.net/)
+[![Minecraft 26.1](https://img.shields.io/badge/Minecraft-26.1-green.svg)](https://minecraft.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Beta](https://img.shields.io/badge/Status-Beta-orange.svg)]()
 
@@ -11,7 +11,9 @@
 
 > **This project is currently in beta.** It works for many mods, but some complex mods may still have issues. Always keep backups of your original mod files. Please report bugs on [GitHub Issues](https://github.com/Bownlux/MC-RetroMod/issues).
 
-RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load time — rewriting renamed methods, redirecting removed APIs, and patching Mixin targets — so old mods just work. Supports **Fabric**, **NeoForge**, and **Forge** with version shims covering Minecraft 1.12.2 all the way through 1.21.11.
+RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load time — rewriting renamed methods, redirecting removed APIs, and patching Mixin targets — so old mods just work. Supports **Fabric**, **NeoForge**, and **Forge** with version shims covering Minecraft 1.12.2 all the way through 26.1.
+
+> **26.1 Update:** Mojang removed all code obfuscation in Minecraft 26.1. RetroMod automatically maps old intermediary names (`class_XXXX`, `method_XXXX`, `field_XXXX`) to Mojang's official human-readable names, so mods built for 1.21.x and earlier work seamlessly on 26.1+.
 
 ---
 
@@ -62,15 +64,15 @@ RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 
 ## Supported Versions
 
-Shims are **chainable** — a 1.12.2 Forge mod can run on 1.21.11 by applying each shim in sequence. **All intermediate versions** (1.16.2, 1.14.1, 1.15.1, etc.) are supported via fuzzy version matching — mods targeting any version within a range are automatically handled.
+Shims are **chainable** — a 1.12.2 Forge mod can run on 26.1 by applying each shim in sequence. **All intermediate versions** (1.16.2, 1.14.1, 1.15.1, etc.) are supported via fuzzy version matching — mods targeting any version within a range are automatically handled.
 
 | Loader | Shims | Range | Stability |
 |--------|-------|-------|-----------|
-| **Fabric** | 31 | 1.14 → ... → 1.21.11 | 1.16.5+: Beta, 1.14–1.15: Alpha |
-| **NeoForge** | 17 | 1.20.1 → ... → 1.21.11 | Beta |
-| **Forge** | 27 | 1.12.2 → ... → 1.20 → 1.21 (NeoForge*) → ... → 1.21.11 | 1.16.5+: Beta, 1.12–1.15: Alpha |
+| **Fabric** | 32 | 1.14 → ... → 26.1 → 26.1 | 1.16.5+: Beta, 1.14–1.15: Alpha |
+| **NeoForge** | 18 | 1.20.1 → ... → 26.1 → 26.1 | Beta |
+| **Forge** | 28 | 1.12.2 → ... → 1.20 → 1.21 (NeoForge*) → ... → 26.1 → 26.1 | 1.16.5+: Beta, 1.12–1.15: Alpha |
 
-> **Fuzzy version matching:** If a mod targets an intermediate version like 1.16.2 or 1.14.3, RetroMod automatically resolves it to the nearest milestone shim. This means every MC version from 1.12.2 to 1.21.11 is supported, even versions without their own dedicated shim.
+> **Fuzzy version matching:** If a mod targets an intermediate version like 1.16.2 or 1.14.3, RetroMod automatically resolves it to the nearest milestone shim. This means every MC version from 1.12.2 to 26.1 is supported, even versions without their own dedicated shim.
 
 > **Alpha versions (1.12.2–1.15.2):** These cover massive Minecraft changes like "The Flattening" (1.12→1.13) where every block ID, entity name, and NBT class was renamed. Mods from these versions may not fully work and could be unstable. Use at your own risk.
 >
@@ -103,7 +105,7 @@ RetroMod can also transform **resource packs** and **data packs** for version co
 
 ## Building
 
-Requires **Java 21+** and **Maven 3.8+**.
+Requires **Java 25+** and **Maven 3.8+**.
 
 ### Easy Build (Recommended)
 
@@ -174,7 +176,7 @@ retromod legacy oldmod-1.12.2.jar
 retromod diff fabric 1.21.8 1.21.9
 
 # Developer migration helper — shows what API changes to make
-retromod devhelp mymod-1.21.4.jar 1.21.11
+retromod devhelp mymod-1.21.4.jar 26.1
 ```
 
 > You can also use `java -jar retromod-*-cli.jar <command>` directly if you prefer.
@@ -350,7 +352,7 @@ MOD JAR (old version)
   ↓
 CLASS ANALYSIS — detect loader type, MC version, scan bytecode
   ↓
-SHIM CHAIN — find path: e.g. 1.21 → 1.21.1 → ... → 1.21.11
+SHIM CHAIN — find path: e.g. 1.21 → 1.21.1 → ... → 26.1
   ↓
 BYTECODE TRANSFORMATION — AOT, partial AOT, or JIT
   ↓
@@ -388,7 +390,7 @@ boolean retroModPresent = FabricLoader.getInstance().isModLoaded("retromod");
 Use `devhelp` to see exactly what API changes you need when updating your mod:
 
 ```bash
-java -jar retromod-cli.jar devhelp your-mod.jar 1.21.11
+java -jar retromod-cli.jar devhelp your-mod.jar 26.1
 ```
 
 This scans your mod, finds the version gap, and prints a list of every class rename, method rename, and field change you need to make.

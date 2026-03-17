@@ -113,7 +113,7 @@ public class RetroModForge {
             Path modsFolder = gameDir.resolve("mods");
             
             HybridTransformationEngine hybrid = HybridTransformationEngine.getInstance();
-            hybrid.initialize(modsFolder, "1.21.11");
+            hybrid.initialize(modsFolder, RetroMod.TARGET_MC_VERSION);
             
             LOGGER.info("Hybrid AOT/JIT engine initialized");
         } catch (Exception e) {
@@ -199,7 +199,7 @@ public class RetroModForge {
 
             if (jars.isEmpty()) return 0;
 
-            ForgeModTransformer transformer = new ForgeModTransformer("1.21.11");
+            ForgeModTransformer transformer = new ForgeModTransformer(RetroMod.TARGET_MC_VERSION);
 
             for (Path modJar : jars) {
                 try {
@@ -238,7 +238,7 @@ public class RetroModForge {
 
             if (!Files.isDirectory(modsDir)) return 0;
 
-            ForgeModTransformer transformer = new ForgeModTransformer("1.21.11");
+            ForgeModTransformer transformer = new ForgeModTransformer(RetroMod.TARGET_MC_VERSION);
             ModVersionDetector detector = new ModVersionDetector();
 
             java.util.List<Path> jars;
@@ -253,7 +253,7 @@ public class RetroModForge {
             for (Path modJar : jars) {
                 try {
                     var info = detector.detectVersion(modJar);
-                    if (info != null && info.needsTransformation("1.21.11")) {
+                    if (info != null && info.needsTransformation(RetroMod.TARGET_MC_VERSION)) {
                         String fileName = modJar.getFileName().toString();
                         LOGGER.info("Found incompatible mod in mods/: {} ({})", fileName, info.targetMcVersion());
 
@@ -322,7 +322,7 @@ public class RetroModForge {
             for (java.io.File modFile : modFiles) {
                 try {
                     var info = detector.detectVersion(modFile.toPath());
-                    if (info != null && info.needsTransformation("1.21.11")) {
+                    if (info != null && info.needsTransformation(RetroMod.TARGET_MC_VERSION)) {
                         String sourceVersion = info.targetMcVersion();
                         
                         // Only runtime-transform minor version diffs

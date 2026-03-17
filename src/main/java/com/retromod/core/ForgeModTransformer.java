@@ -157,7 +157,7 @@ public class ForgeModTransformer {
                 // Skip the first match (usually forge/neoforge version), find minecraft
                 while (m.find()) {
                     String version = m.group(1);
-                    if (version.startsWith("1.")) {
+                    if (version.startsWith("1.") || version.matches("\\d{2,}\\..*")) {
                         return version;
                     }
                 }
@@ -300,14 +300,26 @@ public class ForgeModTransformer {
                     // Forge/NeoForge loader: also relax
                     result.append("versionRange = \"[0,)\"\n");
                     currentDepModId = null;
+                } else if (targetMcVersion.startsWith("26.")) {
+                    // For 26.1+, relax ALL non-core dependencies since most
+                    // old mod versions won't be available
+                    result.append("versionRange = \"[0,)\"\n");
+                    LOGGER.info("  Relaxed dependency: {} -> [0,...) (26.1+ compat)", currentDepModId);
+                    currentDepModId = null;
                 } else {
-                    // Unknown dependency: make non-mandatory if it has a strict range
+                    // Unknown dependency: keep as-is
                     result.append(line).append("\n");
                 }
-            } else if (currentDepModId != null && SHIMMED_API_MOD_IDS.contains(currentDepModId)
+            } else if (currentDepModId != null &&
+                       !("minecraft".equals(currentDepModId) || "neoforge".equals(currentDepModId) || "forge".equals(currentDepModId))
                        && trimmed.startsWith("mandatory")) {
-                // Make shimmed API dependencies non-mandatory as a safety net
+                // Make non-core dependencies non-mandatory
                 result.append("mandatory = false\n");
+            } else if (currentDepModId != null &&
+                       !("minecraft".equals(currentDepModId) || "neoforge".equals(currentDepModId) || "forge".equals(currentDepModId))
+                       && trimmed.matches("type\\s*=\\s*\"required\".*")) {
+                // For NeoForge format: change type="required" to type="optional"
+                result.append(line.replaceFirst("\"required\"", "\"optional\"")).append("\n");
             } else {
                 result.append(line).append("\n");
             }

@@ -53,24 +53,29 @@ public class FabricApiPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
+        // Stubs removed from net.fabricmc.* packages to avoid JPMS
+        // split-package conflicts. Fabric API classes are handled via
+        // class redirects to embedded shims in com.retromod.shim.api.fabric.embedded/
         return new String[]{
-            "net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroupBuilder",
-            "net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder",
-            "net.fabricmc.fabric.api.client.rendering.v1.BlockEntityRendererRegistry",
-            "net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry",
-            "net.fabricmc.fabric.api.dimension.v1.FabricDimensions",
-            "net.fabricmc.fabric.api.renderer.v1.material.MaterialFinder",
-            "net.fabricmc.fabric.api.renderer.v1.material.RenderMaterial",
-            "net.fabricmc.fabric.api.loot.v2.LootTableLoadingCallback",
-            "net.fabricmc.fabric.api.item.v1.FabricItemSettings"
+            "com.retromod.shim.api.fabric.embedded.FabricItemGroupBuilderShim",
+            "com.retromod.shim.api.fabric.embedded.TextShim",
+            "com.retromod.shim.api.fabric.embedded.ScreenEventsShim"
         };
     }
 
     @Override
     public void registerPolyfills(RetroModTransformer transformer) {
-        // Register all polyfill classes as embedded shims for tracking.
-        // The stub classes are placed at the original package paths so
-        // they are found directly by the classloader.
+        // Register class redirects from removed Fabric API classes to our shims.
+        // The bytecode transformer rewrites old mod references before loading.
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/client/itemgroup/FabricItemGroupBuilder",
+            "com/retromod/shim/api/fabric/embedded/FabricItemGroupBuilderShim"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/item/v1/FabricItemSettings",
+            "com/retromod/shim/api/fabric/embedded/FabricItemGroupBuilderShim"
+        );
+
         for (String cls : getPolyfillClasses()) {
             transformer.registerEmbeddedShim(cls);
         }

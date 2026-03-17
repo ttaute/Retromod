@@ -165,17 +165,26 @@ public class ModVersionDetector {
     private ModVersionInfo parseForgeMod(JarFile jar, JarEntry entry) throws IOException {
         try (InputStream is = jar.getInputStream(entry);
              BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-            
-            Map<String, String> toml = parseSimpleToml(reader);
-            
+
+            // Read full content for regex-based MC version extraction
+            StringBuilder fullContent = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                fullContent.append(line).append("\n");
+            }
+            String tomlContent = fullContent.toString();
+
+            Map<String, String> toml = parseSimpleToml(
+                new BufferedReader(new java.io.StringReader(tomlContent)));
+
             String modId = toml.getOrDefault("modId", "unknown");
             String modVersion = toml.getOrDefault("version", "unknown");
-            String mcVersion = toml.get("minecraft");  // From dependencies
+            String mcVersion = extractMcVersionFromToml(tomlContent);
             String forgeVersion = toml.get("forge");
-            
+
             Set<String> packages = scanModPackages(jar, modId);
             Set<String> apiDeps = scanApiDependencies(jar);
-            
+
             return new ModVersionInfo(
                 modId,
                 modVersion,
@@ -225,8 +234,93 @@ public class ModVersionDetector {
      * Parse NeoForge mod metadata.
      */
     private ModVersionInfo parseNeoForgeMod(JarFile jar, JarEntry entry) throws IOException {
-        // NeoForge uses similar TOML format to Forge
-        return parseForgeMod(jar, entry);  // Reuse Forge parser
+        try (InputStream is = jar.getInputStream(entry);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+
+            // Read the full TOML content for regex-based MC version extraction
+            StringBuilder fullContent = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                fullContent.append(line).append("\n");
+            }
+            String tomlContent = fullContent.toString();
+
+            // Parse basic fields with simple TOML parser
+            Map<String, String> toml = parseSimpleToml(
+                new BufferedReader(new java.io.StringReader(tomlContent)));
+
+            String modId = toml.getOrDefault("modId", "unknown");
+            String modVersion = toml.getOrDefault("version", "unknown");
+
+            // Extract MC version from dependencies using regex
+            // Looks for [[dependencies.xxx]] blocks where modId = "minecraft"
+            String mcVersion = extractMcVersionFromToml(tomlContent);
+
+            String neoforgeVersion = toml.get("neoforge");
+
+            Set<String> packages = scanModPackages(jar, modId);
+            Set<String> apiDeps = scanApiDependencies(jar);
+
+            return new ModVersionInfo(
+                modId,
+                modVersion,
+                mcVersion,
+                "neoforge",
+                neoforgeVersion,
+                packages,
+                apiDeps,
+                checkForRemovedApis(apiDeps)
+            );
+        }
+    }
+
+    /**
+     * Extract Minecraft version from TOML dependency blocks using regex.
+     * Handles [[dependencies.xxx]] sections where modId = "minecraft".
+     */
+    private String extractMcVersionFromToml(String tomlContent) {
+        // Split into dependency blocks at [[dependencies. headers
+        String[] blocks = tomlContent.split("(?=\\[\\[dependencies\\.)");
+
+        for (String block : blocks) {
+            // Check if this block has modId = "minecraft"
+            if (block.contains("modId") && block.contains("minecraft")) {
+                // Use regex to check modId value
+                java.util.regex.Matcher idMatcher = java.util.regex.Pattern
+                    .compile("modId\\s*=\\s*\"minecraft\"")
+                    .matcher(block);
+
+                if (idMatcher.find()) {
+                    // Extract versionRange from this block
+                    java.util.regex.Matcher rangeMatcher = java.util.regex.Pattern
+                        .compile("versionRange\\s*=\\s*\"([^\"]+)\"")
+                        .matcher(block);
+
+                    if (rangeMatcher.find()) {
+                        String range = rangeMatcher.group(1);
+                        // Parse Maven version range like [1.21,1.21.1) or [1.21.8,)
+                        return parseMavenVersionRange(range);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse a Maven-style version range to extract the lower bound version.
+     * Examples: "[1.21,1.21.1)" -> "1.21", "[1.21.8,)" -> "1.21.8", "[1.21,)" -> "1.21"
+     */
+    private String parseMavenVersionRange(String range) {
+        // Remove brackets
+        String clean = range.replaceAll("[\\[\\]()\\s]", "");
+        // Take the first part (lower bound)
+        String[] parts = clean.split(",");
+        if (parts.length > 0 && !parts[0].isEmpty()) {
+            return parts[0];
+        }
+        return null;
     }
     
     /**

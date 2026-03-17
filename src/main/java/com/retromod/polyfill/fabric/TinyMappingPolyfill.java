@@ -42,25 +42,40 @@ public class TinyMappingPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
+        // Stubs relocated to com.retromod.polyfill.fabric.embedded to avoid
+        // JPMS split-package conflicts on 26.1+
         return new String[]{
-            // Classes at original package path (no redirect needed - direct classpath presence)
-            "net.fabricmc.mapping.reader.v2.TinyVisitor",
-            "net.fabricmc.mapping.reader.v2.TinyV2Visitor",
-            "net.fabricmc.mapping.reader.v2.TinyMappingFactory",
-            "net.fabricmc.mapping.reader.v2.TinyMetadata",
-            "net.fabricmc.mapping.reader.v2.MappingGetter"
+            "com.retromod.polyfill.fabric.embedded.TinyVisitor",
+            "com.retromod.polyfill.fabric.embedded.TinyV2Visitor",
+            "com.retromod.polyfill.fabric.embedded.TinyMappingFactory"
         };
     }
 
     @Override
     public void registerPolyfills(RetroModTransformer transformer) {
-        // These polyfill classes are placed at the ORIGINAL package path
-        // (net.fabricmc.mapping.reader.v2.*) so they are found directly
-        // by the classloader without needing bytecode redirects.
-        // This is necessary because mixin code uses these classes via
-        // direct references that bypass RetroMod's transformer.
+        // Register class redirects from removed Fabric mapping classes
+        // to our relocated stubs in com.retromod.polyfill.fabric.embedded
+        transformer.registerClassRedirect(
+            "net/fabricmc/mapping/reader/v2/TinyVisitor",
+            "com/retromod/polyfill/fabric/embedded/TinyVisitor"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/mapping/reader/v2/TinyV2Visitor",
+            "com/retromod/polyfill/fabric/embedded/TinyV2Visitor"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/mapping/reader/v2/TinyMappingFactory",
+            "com/retromod/polyfill/fabric/embedded/TinyMappingFactory"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/mapping/reader/v2/TinyMetadata",
+            "com/retromod/polyfill/fabric/embedded/TinyVisitor$TinyMetadata"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/mapping/reader/v2/MappingGetter",
+            "com/retromod/polyfill/fabric/embedded/TinyVisitor$MappingGetter"
+        );
 
-        // Register as embedded shims for logging/tracking
         for (String cls : getPolyfillClasses()) {
             transformer.registerEmbeddedShim(cls);
         }
