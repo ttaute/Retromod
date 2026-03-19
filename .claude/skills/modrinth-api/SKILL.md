@@ -1,7 +1,7 @@
 ---
 name: modrinth-api
 description: Search, download, and work with mods from Modrinth. Use when downloading test mods, checking mod compatibility, or finding mods for a specific MC version and loader.
-argument-hint: <search-query> [loader] [mc-version] (e.g. "sodium fabric 1.21.1", "jei neoforge")
+argument-hint: "search-query loader mc-version (e.g. sodium fabric 1.21.1, jei neoforge)"
 ---
 
 # Modrinth API

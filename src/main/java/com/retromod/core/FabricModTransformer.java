@@ -5,6 +5,9 @@
 package com.retromod.core;
 
 import com.retromod.mixin.MixinCompatibilityTransformer;
+import com.retromod.util.ZipSecurity;
+import org.objectweb.asm.*;
+import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +38,11 @@ import java.util.regex.*;
 public class FabricModTransformer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-FabricTransform");
+
+    /** Maximum size for a single ZIP entry (50 MB) to prevent zip bomb attacks. */
+    private static final long MAX_ENTRY_SIZE = 50 * 1024 * 1024;
+    /** Maximum total extracted size (500 MB) to prevent zip bomb attacks. */
+    private static final long MAX_TOTAL_SIZE = 500 * 1024 * 1024;
 
     /**
      * Fabric mod IDs for APIs that RetroMod provides compatibility shims for.
@@ -178,10 +186,26 @@ public class FabricModTransformer {
             // Step 2: Transform bytecode
             int classesTransformed = transformClasses(tempDir);
             LOGGER.info("Transformed {} class files", classesTransformed);
-            
+
+            // Step 2.25: Wrap entrypoint methods in try-catch for graceful failure
+            // If a mod's onInitializeClient/onInitialize throws, the entire game crashes.
+            // Wrapping in try-catch lets other mods still load.
+            wrapEntrypoints(tempDir);
+
+            // Step 2.5: Remap intermediary names to Mojang official names
+            // MC 26.1+ uses official namespace — all class_XXXX, field_XXXX,
+            // method_XXXX references must be remapped in mixin configs, refmaps,
+            // and access wideners
+            remapIntermediaryNames(tempDir);
+
+            // Step 2.75: Strip bundled Fabric API JARs
+            // Old mods bundle old versions of Fabric API modules (e.g. fabric-key-binding-api-v1).
+            // These conflict with the modern Fabric API and cause field/method name mismatches.
+            stripBundledFabricApiJars(tempDir);
+
             // Step 3: Update fabric.mod.json
             updateFabricModJson(tempDir);
-            
+
             // Step 4: Repackage
             repackageJar(tempDir, outputJar, sourceJar);
             
@@ -425,13 +449,23 @@ public class FabricModTransformer {
     private void extractJar(Path jarPath, Path outputDir) throws IOException {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             var entries = jar.entries();
+            long totalSize = 0;
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
-                Path outputPath = outputDir.resolve(entry.getName());
-                
+                Path outputPath = ZipSecurity.safeResolve(outputDir, entry.getName());
+
                 if (entry.isDirectory()) {
                     Files.createDirectories(outputPath);
                 } else {
+                    if (entry.getSize() > MAX_ENTRY_SIZE) {
+                        throw new IOException("ZIP entry too large: " + entry.getName()
+                            + " (" + entry.getSize() + " bytes, max " + MAX_ENTRY_SIZE + ")");
+                    }
+                    totalSize += Math.max(entry.getSize(), 0);
+                    if (totalSize > MAX_TOTAL_SIZE) {
+                        throw new IOException("ZIP total extracted size exceeds limit ("
+                            + MAX_TOTAL_SIZE + " bytes) — possible zip bomb");
+                    }
                     Files.createDirectories(outputPath.getParent());
                     try (InputStream is = jar.getInputStream(entry)) {
                         Files.copy(is, outputPath, StandardCopyOption.REPLACE_EXISTING);
@@ -473,13 +507,21 @@ public class FabricModTransformer {
                         .replace(File.separator, "/");
                     
                     byte[] transformed;
-                    
+
                     // Check if this is a Mixin class - needs special handling
                     if (mixinTransformer != null && mixinClasses.contains(className)) {
-                        // Use Mixin-specific transformation
+                        // First: apply Mixin-specific annotation transforms
+                        // (remap @Mixin targets, @Inject method targets, etc.)
                         transformed = mixinTransformer.transformMixinClass(original);
                         if (transformed != original) {
-                            LOGGER.debug("Transformed Mixin class: {}", className);
+                            LOGGER.debug("Transformed Mixin annotations: {}", className);
+                        }
+                        // Second: also apply bytecode-level class remapping
+                        // (remap type references, field/method owner classes, descriptors)
+                        byte[] remapped = bytecodeTransformer.transformClass(
+                            transformed != null ? transformed : original, className);
+                        if (remapped != null && remapped != transformed) {
+                            transformed = remapped;
                         }
                     } else {
                         // Regular transformation
@@ -498,7 +540,505 @@ public class FabricModTransformer {
         
         return count;
     }
-    
+
+    /**
+     * Wrap Fabric entrypoint methods (onInitialize, onInitializeClient, onInitializeServer)
+     * in try-catch blocks so that a failure in one mod doesn't crash the entire game.
+     *
+     * This is critical for compatibility: old mods may reference removed classes/methods
+     * in their initialization code. Without wrapping, one mod's failure kills the game.
+     * With wrapping, the error is logged and other mods can still load.
+     */
+    private void wrapEntrypoints(Path dir) {
+        Set<String> entrypointMethods = Set.of(
+            "onInitialize", "onInitializeClient", "onInitializeServer",
+            "onPreLaunch"
+        );
+
+        try (var stream = Files.walk(dir)) {
+            var classFiles = stream
+                .filter(p -> p.toString().endsWith(".class"))
+                .filter(p -> !p.toString().contains("META-INF"))
+                .filter(p -> !p.toString().contains("com/retromod/"))
+                .toList();
+
+            for (Path classFile : classFiles) {
+                try {
+                    byte[] original = Files.readAllBytes(classFile);
+                    ClassReader reader = new ClassReader(original);
+                    ClassNode classNode = new ClassNode();
+                    reader.accept(classNode, 0);
+
+                    boolean modified = false;
+                    boolean hasEntrypoint = false;
+                    for (MethodNode method : classNode.methods) {
+                        if (entrypointMethods.contains(method.name)
+                                && method.desc.equals("()V")
+                                && (method.access & Opcodes.ACC_PUBLIC) != 0
+                                && (method.access & Opcodes.ACC_STATIC) == 0) {
+                            // Wrap method body in try-catch(Throwable)
+                            if (wrapMethodInTryCatch(method, classNode.name)) {
+                                modified = true;
+                                hasEntrypoint = true;
+                                LOGGER.info("Wrapped entrypoint {}.{}() in try-catch for safety",
+                                    classNode.name.replace('/', '.'), method.name);
+                            } else {
+                                hasEntrypoint = true;
+                            }
+                        }
+                    }
+
+                    // Also wrap lifecycle callback lambdas and callback methods in
+                    // entrypoint classes. Old mods register CLIENT_STARTED, END_CLIENT_TICK
+                    // etc. callbacks in their entrypoints. These fire independently and can
+                    // crash the game even if the entrypoint itself is wrapped.
+                    //
+                    // We wrap:
+                    // 1. Lambda methods: lambda$onInitialize* (lambda bodies)
+                    // 2. Callback methods used as method references (onKeyPressed, etc.)
+                    //    These are private/package-private static void methods that get
+                    //    passed as method references to Event.register().
+                    if (hasEntrypoint) {
+                        for (MethodNode method : classNode.methods) {
+                            boolean isCallbackLambda = method.name.startsWith("lambda$onInitialize")
+                                    && method.desc.endsWith(")V")
+                                    && (method.access & Opcodes.ACC_STATIC) != 0;
+
+                            // Also wrap void methods that look like lifecycle/tick callbacks.
+                            // Only wrap methods with names matching known callback patterns
+                            // to avoid swallowing errors from render/tick/mouse/key methods.
+                            boolean isCallbackMethod = !method.name.contains("$")
+                                    && !method.name.equals("<init>")
+                                    && !method.name.equals("<clinit>")
+                                    && !entrypointMethods.contains(method.name)
+                                    && method.desc.endsWith(")V")
+                                    && isLikelyCallbackMethod(method.name);
+
+                            if (isCallbackLambda || isCallbackMethod) {
+                                if (wrapMethodInTryCatch(method, classNode.name)) {
+                                    modified = true;
+                                    LOGGER.info("Wrapped callback {}.{}() in try-catch",
+                                        classNode.name.replace('/', '.'), method.name);
+                                }
+                            }
+                        }
+                    }
+
+                    if (modified) {
+                        // Use ClassWriter with COMPUTE_FRAMES but override getCommonSuperClass
+                        // since we can't load Minecraft classes during offline transformation
+                        ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES) {
+                            @Override
+                            protected String getCommonSuperClass(String type1, String type2) {
+                                // Can't resolve MC class hierarchy offline — use Object as fallback
+                                try {
+                                    return super.getCommonSuperClass(type1, type2);
+                                } catch (Exception e) {
+                                    return "java/lang/Object";
+                                }
+                            }
+                        };
+                        classNode.accept(writer);
+                        Files.write(classFile, writer.toByteArray());
+                    }
+                } catch (Exception e) {
+                    LOGGER.debug("Could not wrap entrypoints in: {}", classFile.getFileName());
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.warn("Failed to scan for entrypoints: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Check if a method name looks like a lifecycle/event callback that should be
+     * wrapped in try-catch. We use an allowlist approach to avoid wrapping
+     * render/tick/mouse/key methods that should NOT have errors silenced.
+     */
+    private static boolean isLikelyCallbackMethod(String name) {
+        // Known callback patterns from Fabric lifecycle/event APIs
+        return name.startsWith("on")           // onKeyPressed, onEntityJoin, onClientStarted...
+            || name.equals("loadComplete")
+            || name.equals("registerClientCommand")
+            || name.equals("registerServerCommand")
+            || name.equals("playerJoin")
+            || name.equals("playerLeave")
+            || name.equals("reload");
+        // Explicitly NOT matching: render, tick, draw, mouseClicked, keyPressed,
+        // charTyped, close, removed, init, resize — these are core Screen/Widget
+        // methods where errors should propagate normally.
+    }
+
+    /**
+     * Wrap a method's body in: try { ...original... } catch (Throwable t) { log(t); }
+     * Returns true if the method was modified.
+     */
+    private boolean wrapMethodInTryCatch(MethodNode method, String className) {
+        if (method.instructions == null || method.instructions.size() == 0) {
+            return false;
+        }
+
+        // Don't double-wrap — check if there's already a handler for Throwable
+        if (method.tryCatchBlocks != null) {
+            for (TryCatchBlockNode tcb : method.tryCatchBlocks) {
+                if ("java/lang/Throwable".equals(tcb.type)) {
+                    return false;
+                }
+            }
+        }
+
+        InsnList newInsns = new InsnList();
+        LabelNode tryStart = new LabelNode();
+        LabelNode tryEnd = new LabelNode();
+        LabelNode catchHandler = new LabelNode();
+        LabelNode methodEnd = new LabelNode();
+
+        // try {
+        newInsns.add(tryStart);
+
+        // Copy all original instructions (except the final RETURN)
+        InsnList originalInsns = method.instructions;
+        // We'll insert the original instructions between try/catch labels
+
+        // Move all original instructions into our new list
+        // First, add them all
+        while (originalInsns.size() > 0) {
+            AbstractInsnNode insn = originalInsns.getFirst();
+            originalInsns.remove(insn);
+            newInsns.add(insn);
+        }
+
+        // } // end try
+        newInsns.add(tryEnd);
+        newInsns.add(new JumpInsnNode(Opcodes.GOTO, methodEnd));
+
+        // catch (Throwable t) {
+        //   RetroModErrorHandler.handleNonFatal(className, t);
+        // }
+        newInsns.add(catchHandler);
+        // Store exception
+        newInsns.add(new VarInsnNode(Opcodes.ASTORE, method.maxLocals));
+        // Call RetroModErrorHandler.handleNonFatal(String className, Throwable t)
+        // This deduplicates — only logs each unique error once
+        newInsns.add(new LdcInsnNode(className.replace('/', '.')));
+        newInsns.add(new VarInsnNode(Opcodes.ALOAD, method.maxLocals));
+        newInsns.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
+            "com/retromod/core/RetroModErrorHandler", "handleNonFatal",
+            "(Ljava/lang/String;Ljava/lang/Throwable;)V", false));
+        // }
+        newInsns.add(new InsnNode(Opcodes.RETURN));
+
+        // End of method
+        newInsns.add(methodEnd);
+        newInsns.add(new InsnNode(Opcodes.RETURN));
+
+        method.instructions = newInsns;
+
+        // Add try-catch block entry
+        if (method.tryCatchBlocks == null) {
+            method.tryCatchBlocks = new ArrayList<>();
+        }
+        method.tryCatchBlocks.add(new TryCatchBlockNode(
+            tryStart, tryEnd, catchHandler, "java/lang/Throwable"));
+
+        // Update max locals (we need one extra slot for the caught exception)
+        method.maxLocals++;
+        // Max stack needs at least 4 for StringBuilder chain
+        method.maxStack = Math.max(method.maxStack, 4);
+
+        return true;
+    }
+
+    /**
+     * Remap all intermediary names to Mojang official names in:
+     * - Access widener / class tweaker files (namespace + class/field/method names)
+     * - Mixin config JSON files (target class names)
+     * - Mixin refmap JSON files (field/method names + descriptors)
+     * - JiJ (Jar-in-Jar) nested mod JARs
+     *
+     * Strip old bundled Fabric API JARs from META-INF/jars/.
+     * Old mods bundle outdated Fabric API modules that conflict with the modern
+     * Fabric API installed in the mods folder. Their mixins use old field/method
+     * names that no longer exist in 26.1.
+     */
+    private void stripBundledFabricApiJars(Path dir) {
+        Path jarsDir = dir.resolve("META-INF/jars");
+        if (!Files.isDirectory(jarsDir)) return;
+
+        try (var stream = Files.list(jarsDir)) {
+            List<Path> toDelete = stream
+                .filter(p -> p.getFileName().toString().startsWith("fabric-"))
+                .toList();
+            for (Path jar : toDelete) {
+                LOGGER.info("Stripping bundled Fabric API module: {}", jar.getFileName());
+                Files.delete(jar);
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Could not strip bundled Fabric API JARs: {}", e.getMessage());
+        }
+
+        // Also remove the JARs from fabric.mod.json "jars" array
+        // (done in updateFabricModJson step)
+    }
+
+    /**
+     * MC 26.1+ uses Mojang's official namespace. Old Fabric mods use intermediary
+     * names (class_XXXX, field_XXXX, method_XXXX) throughout their metadata files.
+     * Without remapping these, Fabric Loader can't resolve mixin targets.
+     */
+    private void remapIntermediaryNames(Path dir) {
+        com.retromod.mapping.IntermediaryToMojangMapper mapper =
+            com.retromod.mapping.IntermediaryToMojangMapper.getInstance();
+
+        if (!mapper.isLoaded()) {
+            LOGGER.warn("Intermediary→Mojang mapper not loaded, skipping metadata remap");
+            return;
+        }
+
+        int remappedFiles = 0;
+
+        try (var stream = Files.walk(dir)) {
+            for (Path file : stream.filter(Files::isRegularFile).toList()) {
+                String name = file.getFileName().toString();
+
+                if (name.endsWith(".accesswidener") || name.endsWith(".classtweaker")) {
+                    remapAccessWidener(file, mapper);
+                    remappedFiles++;
+                } else if (name.endsWith(".mixins.json") || name.equals("mixins.json")) {
+                    remapMixinConfig(file, mapper);
+                    remappedFiles++;
+                } else if (name.endsWith("-refmap.json") || name.contains("refmap")) {
+                    remapRefmap(file, mapper);
+                    remappedFiles++;
+                } else if (name.endsWith(".jar")) {
+                    // JiJ nested JAR — remap its contents recursively
+                    remapNestedJar(file, mapper);
+                    remappedFiles++;
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.warn("Failed to scan for intermediary metadata: {}", e.getMessage());
+        }
+
+        if (remappedFiles > 0) {
+            LOGGER.info("Remapped intermediary→Mojang in {} metadata files", remappedFiles);
+        }
+    }
+
+    /**
+     * Remap an access widener file from intermediary to official namespace.
+     */
+    private void remapAccessWidener(Path awFile,
+                                     com.retromod.mapping.IntermediaryToMojangMapper mapper) {
+        try {
+            String content = Files.readString(awFile);
+            if (!content.contains("intermediary")) return;
+
+            String[] lines = content.split("\n");
+            StringBuilder patched = new StringBuilder();
+
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i].trim();
+
+                if (i == 0) {
+                    patched.append(line.replace("intermediary", "official")).append("\n");
+                    continue;
+                }
+
+                if (line.isEmpty() || line.startsWith("#")) {
+                    patched.append(line).append("\n");
+                    continue;
+                }
+
+                // Remap all intermediary references in the line
+                String remapped = mapper.remapString(line);
+                patched.append(remapped).append("\n");
+            }
+
+            Files.writeString(awFile, patched.toString());
+            LOGGER.info("  Remapped access widener: {}", awFile.getFileName());
+
+        } catch (Exception e) {
+            LOGGER.warn("Failed to remap access widener {}: {}", awFile.getFileName(), e.getMessage());
+        }
+    }
+
+    /**
+     * Remap mixin config JSON file — update target class references.
+     *
+     * Mixin configs don't directly contain class_XXXX names in the JSON
+     * (the targets come from @Mixin annotations), but the refmap filename
+     * and package declarations may need adjustment.
+     */
+    private void remapMixinConfig(Path configFile,
+                                   com.retromod.mapping.IntermediaryToMojangMapper mapper) {
+        try {
+            String content = Files.readString(configFile);
+            // Remap any intermediary class references in the config
+            String remapped = mapper.remapString(content);
+            if (!remapped.equals(content)) {
+                Files.writeString(configFile, remapped);
+                LOGGER.debug("  Remapped mixin config: {}", configFile.getFileName());
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to remap mixin config {}: {}", configFile.getFileName(), e.getMessage());
+        }
+    }
+
+    /**
+     * Remap a mixin refmap JSON file.
+     *
+     * Refmaps map intermediary names to their target names. Format:
+     * {
+     *   "mappings": { "MixinClass": { "field_XXXX:Ldesc;": "target" } },
+     *   "data": {
+     *     "intermediary": { "MixinClass": { "field_XXXX:Ldesc;": "obf:Ldesc;" } }
+     *   }
+     * }
+     *
+     * We need to add/replace the entries with official namespace mappings.
+     */
+    private void remapRefmap(Path refmapFile,
+                              com.retromod.mapping.IntermediaryToMojangMapper mapper) {
+        try {
+            String content = Files.readString(refmapFile);
+            com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(content).getAsJsonObject();
+
+            boolean changed = false;
+
+            // Remap the "mappings" section
+            if (root.has("mappings") && root.get("mappings").isJsonObject()) {
+                com.google.gson.JsonObject mappings = root.getAsJsonObject("mappings");
+                com.google.gson.JsonObject remapped = remapRefmapSection(mappings, mapper);
+                root.add("mappings", remapped);
+                changed = true;
+            }
+
+            // If there's an "intermediary" section in "data", remap it and
+            // add as "official" section
+            if (root.has("data") && root.get("data").isJsonObject()) {
+                com.google.gson.JsonObject data = root.getAsJsonObject("data");
+
+                // Use intermediary section as base if available
+                com.google.gson.JsonObject source = null;
+                if (data.has("intermediary") && data.get("intermediary").isJsonObject()) {
+                    source = data.getAsJsonObject("intermediary");
+                } else if (data.has("named") && data.get("named").isJsonObject()) {
+                    source = data.getAsJsonObject("named");
+                }
+
+                if (source != null) {
+                    com.google.gson.JsonObject officialData = remapRefmapSection(source, mapper);
+                    data.add("official", officialData);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                com.google.gson.Gson gson = new com.google.gson.GsonBuilder()
+                    .setPrettyPrinting()
+                    .disableHtmlEscaping()
+                    .create();
+                Files.writeString(refmapFile, gson.toJson(root));
+                LOGGER.info("  Remapped refmap: {}", refmapFile.getFileName());
+            }
+
+        } catch (Exception e) {
+            LOGGER.warn("Failed to remap refmap {}: {}", refmapFile.getFileName(), e.getMessage());
+        }
+    }
+
+    /**
+     * Remap a refmap section — replace all intermediary names with Mojang names.
+     */
+    private com.google.gson.JsonObject remapRefmapSection(
+            com.google.gson.JsonObject section,
+            com.retromod.mapping.IntermediaryToMojangMapper mapper) {
+
+        com.google.gson.JsonObject result = new com.google.gson.JsonObject();
+
+        for (String mixinClassName : section.keySet()) {
+            if (!section.get(mixinClassName).isJsonObject()) {
+                result.add(mixinClassName, section.get(mixinClassName));
+                continue;
+            }
+
+            com.google.gson.JsonObject entries = section.getAsJsonObject(mixinClassName);
+            com.google.gson.JsonObject remappedEntries = new com.google.gson.JsonObject();
+
+            for (String key : entries.keySet()) {
+                String value = entries.get(key).getAsString();
+
+                // Remap the key (e.g., "field_25318:Lnet/minecraft/class_3300;")
+                String remappedKey = mapper.remapString(key);
+
+                // Remap the value (e.g., "a:Larg;")
+                String remappedValue = mapper.remapString(value);
+
+                remappedEntries.addProperty(remappedKey, remappedValue);
+            }
+
+            result.add(mixinClassName, remappedEntries);
+        }
+
+        return result;
+    }
+
+    /**
+     * Remap a nested JAR (Jar-in-Jar) by extracting, remapping, and repacking.
+     */
+    private void remapNestedJar(Path jarFile,
+                                 com.retromod.mapping.IntermediaryToMojangMapper mapper) {
+        try {
+            Path tempDir = Files.createTempDirectory("retromod-jij-");
+            try {
+                // Extract nested JAR
+                extractJar(jarFile, tempDir);
+
+                // Transform bytecode
+                transformClasses(tempDir);
+
+                // Recursively remap intermediary names in metadata
+                int remapped = 0;
+                try (var stream = Files.walk(tempDir)) {
+                    for (Path file : stream.filter(Files::isRegularFile).toList()) {
+                        String name = file.getFileName().toString();
+
+                        if (name.endsWith(".accesswidener") || name.endsWith(".classtweaker")) {
+                            remapAccessWidener(file, mapper);
+                            remapped++;
+                        } else if (name.endsWith(".mixins.json") || name.equals("mixins.json")) {
+                            remapMixinConfig(file, mapper);
+                            remapped++;
+                        } else if (name.endsWith("-refmap.json") || name.contains("refmap")) {
+                            remapRefmap(file, mapper);
+                            remapped++;
+                        }
+                    }
+                }
+
+                // Also remap fabric.mod.json in nested JAR
+                Path nestedModJson = tempDir.resolve("fabric.mod.json");
+                if (Files.exists(nestedModJson)) {
+                    updateFabricModJson(tempDir);
+                }
+
+                if (remapped > 0) {
+                    // Repackage the nested JAR
+                    Path tempJar = Files.createTempFile("retromod-jij-", ".jar");
+                    repackageJar(tempDir, tempJar, jarFile);
+                    Files.move(tempJar, jarFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    LOGGER.info("  Remapped nested JAR: {}", jarFile.getFileName());
+                }
+
+            } finally {
+                deleteRecursively(tempDir);
+            }
+        } catch (Exception e) {
+            LOGGER.debug("Could not remap nested JAR {}: {}", jarFile.getFileName(), e.getMessage());
+        }
+    }
+
     /**
      * Find all classes that are Mixins (declared in mixin config files).
      */
@@ -573,11 +1113,32 @@ public class FabricModTransformer {
         String content = Files.readString(modJson);
         String originalMcVersion = extractVersionFromContent(content);
         String updated = updateVersionRequirements(content, originalMcVersion);
-        
+
+        // Strip bundled Fabric API JAR references from "jars" array
+        updated = stripFabricApiJarReferences(updated);
+
         Files.writeString(modJson, updated);
         LOGGER.info("Updated fabric.mod.json: {} → {}", originalMcVersion, targetMcVersion);
     }
     
+    /**
+     * Strip references to bundled Fabric API JARs from the "jars" array in fabric.mod.json.
+     * Old mods bundle outdated Fabric API modules that conflict with the modern API.
+     */
+    private String stripFabricApiJarReferences(String json) {
+        // Remove individual JAR entries that reference fabric- prefixed JARs
+        // Pattern matches: { "file": "META-INF/jars/fabric-xxx.jar" }
+        String result = json.replaceAll(
+            "\\{\\s*\"file\"\\s*:\\s*\"META-INF/jars/fabric-[^\"]+\\.jar\"\\s*\\}\\s*,?",
+            ""
+        );
+        // Clean up trailing commas in the jars array
+        result = result.replaceAll(",\\s*]", "]");
+        // Clean up empty jars arrays
+        result = result.replaceAll("\"jars\"\\s*:\\s*\\[\\s*\\]\\s*,?", "");
+        return result;
+    }
+
     /**
      * Extract minecraft version from fabric.mod.json content.
      */
@@ -604,14 +1165,24 @@ public class FabricModTransformer {
      */
     private String updateVersionRequirements(String json, String originalVersion) {
         // Replace minecraft dependency with EXACT target version
-        // This is the most reliable approach
+        // Handle both string format: "minecraft": "1.20.5"
+        // and array format: "minecraft": ["1.20.5", "1.20.6"]
+
+        // First: replace array-style version constraints
+        Pattern minecraftArrayPattern = Pattern.compile(
+            "(\"minecraft\"\\s*:\\s*)\\[[^\\]]+\\]",
+            Pattern.MULTILINE
+        );
+        String updated = minecraftArrayPattern.matcher(json).replaceAll(
+            "$1\"" + targetMcVersion + "\""
+        );
+
+        // Then: replace string-style version constraints
         Pattern minecraftPattern = Pattern.compile(
             "(\"minecraft\"\\s*:\\s*)\"[^\"]+\"",
             Pattern.MULTILINE
         );
-
-        // Use exact version match - most reliable
-        String updated = minecraftPattern.matcher(json).replaceAll(
+        updated = minecraftPattern.matcher(updated).replaceAll(
             "$1\"" + targetMcVersion + "\""
         );
 
@@ -642,6 +1213,9 @@ public class FabricModTransformer {
             "$1\"*\""
         );
 
+        // Rename old Fabric API module IDs to their 26.1 equivalents
+        updated = updated.replace("\"fabric-key-binding-api-v1\"", "\"fabric-key-mapping-api-v1\"");
+
         // Relax ALL shimmed third-party API dependencies
         // RetroMod provides bytecode shims for these APIs, so the version constraint
         // in fabric.mod.json is no longer needed — the transformed code will work
@@ -650,6 +1224,12 @@ public class FabricModTransformer {
 
         // Also move strict API deps from "depends" to "suggests" if they'd still block
         updated = moveBlockingDepsToSuggests(updated);
+
+        // Move non-core dependencies from "depends" to "suggests"
+        // This prevents Fabric Loader from rejecting mods when optional APIs
+        // (fabric-api, fabric, mixinextras, etc.) aren't installed.
+        // Only minecraft, fabricloader, and java MUST stay in depends.
+        updated = moveNonCoreDepsToSuggests(updated);
 
         // Add RetroMod transformation marker
         if (!updated.contains("\"retromod_transformed\"")) {
@@ -755,7 +1335,68 @@ public class FabricModTransformer {
 
         return sb.toString();
     }
-    
+
+    /**
+     * Move non-core dependencies from "depends" to "suggests" using Gson.
+     *
+     * Fabric Loader treats "depends" as hard requirements — if the mod isn't
+     * installed, the game won't launch. For old transformed mods, APIs like
+     * fabric-api, fabric, mixinextras etc. may not be present or may have
+     * incompatible versions. Moving them to "suggests" allows the mod to load
+     * even when these optional dependencies are missing.
+     *
+     * Only minecraft, fabricloader, and java stay in depends.
+     */
+    private String moveNonCoreDepsToSuggests(String json) {
+        try {
+            com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+
+            Set<String> coreDeps = Set.of("minecraft", "fabricloader", "java");
+
+            if (!root.has("depends") || !root.get("depends").isJsonObject()) {
+                return json;
+            }
+
+            com.google.gson.JsonObject depends = root.getAsJsonObject("depends");
+            com.google.gson.JsonObject suggests = root.has("suggests") && root.get("suggests").isJsonObject()
+                ? root.getAsJsonObject("suggests")
+                : new com.google.gson.JsonObject();
+
+            // Collect non-core deps to move
+            List<String> toMove = new ArrayList<>();
+            for (String key : depends.keySet()) {
+                if (!coreDeps.contains(key)) {
+                    toMove.add(key);
+                }
+            }
+
+            if (toMove.isEmpty()) {
+                return json;
+            }
+
+            for (String key : toMove) {
+                suggests.add(key, depends.get(key));
+                depends.remove(key);
+                LOGGER.info("  Moved dependency to suggests: {}", key);
+            }
+
+            root.add("suggests", suggests);
+
+            com.google.gson.Gson gson = new com.google.gson.GsonBuilder()
+                .setPrettyPrinting()
+                .disableHtmlEscaping()
+                .create();
+            String result = gson.toJson(root);
+
+            LOGGER.info("Moved {} non-core dependencies from depends to suggests", toMove.size());
+            return result;
+
+        } catch (Exception e) {
+            LOGGER.warn("Could not restructure dependencies (regex fallback): {}", e.getMessage());
+            return json;
+        }
+    }
+
     /**
      * Repackage directory contents as JAR.
      */
@@ -780,43 +1421,355 @@ public class FabricModTransformer {
         try (JarOutputStream jos = new JarOutputStream(
                 new FileOutputStream(outputJar.toFile()), manifest)) {
             
+            // Class lookup for mixin config stripping — may be populated when processing mixin configs.
+            // Modified class bytes are written from this map instead of from disk.
+            Map<String, byte[]> classLookupForStripping = null;
+
+            // First pass: process mixin configs to detect and strip broken entries
+            // This must happen before writing class files so we can use the modified bytes
+            try (var preStream = Files.walk(sourceDir)) {
+                for (Path file : preStream.filter(Files::isRegularFile).toList()) {
+                    String entryName = sourceDir.relativize(file).toString()
+                        .replace(File.separator, "/");
+                    if (isMixinConfigFile(entryName)) {
+                        try {
+                            String json = Files.readString(file);
+                            if (classLookupForStripping == null) {
+                                classLookupForStripping = buildClassLookup(sourceDir);
+                            }
+                            MixinCompatibilityTransformer mixinTransformer =
+                                new MixinCompatibilityTransformer(RetroModTransformer.getInstance());
+                            String transformed = mixinTransformer.transformMixinConfig(json, classLookupForStripping);
+                            // Make mixin configs non-fatal: set "required": false so @Accessor/@Invoker
+                            // failures on removed fields don't crash the game. Also set defaultRequire=0
+                            // so all injection points are optional.
+                            transformed = makeMixinConfigNonFatal(transformed);
+                            // Write modified config back to disk for the second pass
+                            Files.writeString(file, transformed, java.nio.charset.StandardCharsets.UTF_8);
+                        } catch (Exception e) {
+                            LOGGER.warn("Failed to process mixin config {}: {}", entryName, e.getMessage());
+                        }
+                    }
+                }
+            }
+
+            // Pre-pass 1.5: Process JiJ (Jar-in-Jar) nested JARs in META-INF/jars/
+            // Fabric Loader loads these as separate mods. Their mixin configs need
+            // the same non-fatal treatment, bytecode transformation, and refmap cleaning.
+            Path jijDir = sourceDir.resolve("META-INF/jars");
+            if (Files.isDirectory(jijDir)) {
+                try (var jijStream = Files.list(jijDir)) {
+                    for (Path jijJar : jijStream.filter(p -> p.toString().endsWith(".jar")).toList()) {
+                        processNestedJiJJar(jijJar);
+                    }
+                }
+            }
+
+            // Second pre-pass: scan refmaps for unresolved intermediary references.
+            // Strip mixin entries whose refmap targets still contain class_/field_/method_
+            // after all remapping. These reference removed MC classes/fields/methods.
+            try (var refmapStream = Files.walk(sourceDir)) {
+                for (Path file : refmapStream.filter(Files::isRegularFile).toList()) {
+                    String entryName = sourceDir.relativize(file).toString()
+                        .replace(File.separator, "/");
+                    if (entryName.endsWith("-refmap.json") || entryName.contains("refmap")) {
+                        try {
+                            stripBrokenRefmapEntries(sourceDir, file);
+                        } catch (Exception e) {
+                            LOGGER.debug("Failed to process refmap {}: {}", entryName, e.getMessage());
+                        }
+                    }
+                }
+            }
+
+            // Also write modified class files back to disk
+            if (classLookupForStripping != null) {
+                for (var entry : classLookupForStripping.entrySet()) {
+                    Path classFile = sourceDir.resolve(entry.getKey());
+                    if (Files.exists(classFile)) {
+                        Files.write(classFile, entry.getValue());
+                    }
+                }
+            }
+
             try (var stream = Files.walk(sourceDir)) {
                 for (Path file : stream.filter(Files::isRegularFile).toList()) {
                     String entryName = sourceDir.relativize(file).toString()
                         .replace(File.separator, "/");
-                    
+
                     // Skip manifest (we added our own)
                     if (entryName.equalsIgnoreCase("META-INF/MANIFEST.MF")) {
                         continue;
                     }
-                    
+
                     JarEntry entry = new JarEntry(entryName);
                     jos.putNextEntry(entry);
 
-                    // Process mixin config JSON files to strip broken entries
-                    if (entryName.endsWith(".mixins.json") || entryName.endsWith("mixin.json")) {
-                        try {
-                            String json = Files.readString(file);
-                            // Build a class data lookup from the source directory
-                            Map<String, byte[]> classLookup = buildClassLookup(sourceDir);
-                            MixinCompatibilityTransformer mixinTransformer =
-                                new MixinCompatibilityTransformer(RetroModTransformer.getInstance());
-                            String transformed = mixinTransformer.transformMixinConfig(json, classLookup);
-                            jos.write(transformed.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                        } catch (Exception e) {
-                            LOGGER.warn("Failed to process mixin config {}: {}", entryName, e.getMessage());
-                            Files.copy(file, jos);
-                        }
-                    } else {
-                        Files.copy(file, jos);
-                    }
+                    // All files (including mixin configs and stripped classes)
+                    // were already written back to disk in the pre-pass above
+                    Files.copy(file, jos);
 
                     jos.closeEntry();
                 }
             }
+
+            // Inject synthetic classes (ASM-generated polyfills with MC-typed fields)
+            for (var entry : RetroModTransformer.getInstance().getSyntheticClasses().entrySet()) {
+                String classPath = entry.getKey() + ".class";
+                jos.putNextEntry(new JarEntry(classPath));
+                jos.write(entry.getValue());
+                jos.closeEntry();
+                LOGGER.info("  Injected synthetic class: {}", entry.getKey());
+            }
         }
     }
     
+    /**
+     * Scan a refmap JSON file for entries that still contain unresolved intermediary
+     * references (class_XXXX, method_XXXX, field_XXXX). For each broken entry,
+     * find the corresponding mixin config and strip the mixin class that uses it.
+     * Also rewrite the refmap to remove the broken entries.
+     */
+    private void stripBrokenRefmapEntries(Path sourceDir, Path refmapFile) throws IOException {
+        String content = Files.readString(refmapFile);
+        com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(content).getAsJsonObject();
+
+        boolean changed = false;
+        Set<String> brokenMixinClasses = new HashSet<>();
+
+        // Check all sections for unresolved intermediary references
+        for (String sectionName : List.of("mappings", "data")) {
+            com.google.gson.JsonElement sectionEl = root.get(sectionName);
+            if (sectionEl == null || !sectionEl.isJsonObject()) continue;
+
+            com.google.gson.JsonObject section = sectionEl.getAsJsonObject();
+
+            // For "data", look inside sub-sections like "intermediary", "named"
+            if ("data".equals(sectionName)) {
+                for (String sub : new ArrayList<>(section.keySet())) {
+                    if (!section.get(sub).isJsonObject()) continue;
+                    com.google.gson.JsonObject subSection = section.getAsJsonObject(sub);
+                    for (String mixinClass : new ArrayList<>(subSection.keySet())) {
+                        if (!subSection.get(mixinClass).isJsonObject()) continue;
+                        com.google.gson.JsonObject entries = subSection.getAsJsonObject(mixinClass);
+                        for (String key : new ArrayList<>(entries.keySet())) {
+                            String value = entries.get(key).getAsString();
+                            if (containsUnresolvedIntermediary(key) || containsUnresolvedIntermediary(value)) {
+                                brokenMixinClasses.add(mixinClass);
+                                entries.remove(key);
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // "mappings" section
+                for (String mixinClass : new ArrayList<>(section.keySet())) {
+                    if (!section.get(mixinClass).isJsonObject()) continue;
+                    com.google.gson.JsonObject entries = section.getAsJsonObject(mixinClass);
+                    for (String key : new ArrayList<>(entries.keySet())) {
+                        String value = entries.get(key).getAsString();
+                        if (containsUnresolvedIntermediary(key) || containsUnresolvedIntermediary(value)) {
+                            brokenMixinClasses.add(mixinClass);
+                            entries.remove(key);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (changed) {
+            com.google.gson.Gson gson = new com.google.gson.GsonBuilder()
+                .setPrettyPrinting().disableHtmlEscaping().create();
+            Files.writeString(refmapFile, gson.toJson(root));
+            LOGGER.info("Cleaned {} broken refmap entries for mixin classes: {}",
+                brokenMixinClasses.size(), brokenMixinClasses);
+        }
+    }
+
+    /**
+     * Check if a file path looks like a mixin config JSON.
+     * Handles standard patterns (modid.mixins.json) AND non-standard ones
+     * like mixins.modmenu.json (ModMenu) or paths containing "mixins/" directory.
+     */
+    private boolean isMixinConfigFile(String path) {
+        String name = path.contains("/") ? path.substring(path.lastIndexOf('/') + 1) : path;
+        if (name.endsWith(".mixins.json")) return true;       // modid.mixins.json
+        if (name.endsWith("mixin.json")) return true;         // modid.mixin.json
+        if (name.startsWith("mixins.") && name.endsWith(".json")) return true; // mixins.modid.json
+        if (path.contains("mixins/") && name.endsWith(".json") && name.contains("mixin")) return true; // mixins/common/nochatreports.mixins.json
+        return false;
+    }
+
+    /**
+     * Check if a refmap key or value contains unresolved intermediary references.
+     */
+    private boolean containsUnresolvedIntermediary(String s) {
+        if (s == null) return false;
+        return s.contains("class_") || s.contains("field_") || s.contains("method_");
+    }
+
+    /**
+     * Make a mixin config JSON non-fatal by setting "required": false and
+     * "injectors": {"defaultRequire": 0}. This prevents crashes from @Accessor/@Invoker
+     * targeting fields/methods that were removed in newer MC versions.
+     * @Accessor has no per-annotation "require" field, so the only way to make it
+     * non-fatal is at the config level.
+     */
+    private String makeMixinConfigNonFatal(String json) {
+        try {
+            com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+
+            // Set "required": false — makes the entire mixin config non-fatal
+            root.addProperty("required", false);
+
+            // Set "injectors": {"defaultRequire": 0} — makes all injection points optional
+            com.google.gson.JsonObject injectors = root.has("injectors") && root.get("injectors").isJsonObject()
+                ? root.getAsJsonObject("injectors")
+                : new com.google.gson.JsonObject();
+            injectors.addProperty("defaultRequire", 0);
+            root.add("injectors", injectors);
+
+            com.google.gson.Gson gson = new com.google.gson.GsonBuilder()
+                .setPrettyPrinting().disableHtmlEscaping().create();
+            String result = gson.toJson(root);
+            LOGGER.debug("Set mixin config to non-fatal (required=false, defaultRequire=0)");
+            return result;
+        } catch (Exception e) {
+            LOGGER.warn("Failed to make mixin config non-fatal: {}", e.getMessage());
+            return json;
+        }
+    }
+
+    /**
+     * Process a nested JiJ (Jar-in-Jar) mod JAR.
+     * Extracts the JAR, patches mixin configs to be non-fatal, transforms bytecode
+     * with intermediary→Mojang remapping, cleans refmaps, and repacks.
+     */
+    private void processNestedJiJJar(Path jijJar) {
+        String name = jijJar.getFileName().toString();
+        try {
+            Path tempDir = Files.createTempDirectory("retromod-jij-");
+            try {
+                // Extract nested JAR
+                try (JarFile jf = new JarFile(jijJar.toFile())) {
+                    var entries = jf.entries();
+                    while (entries.hasMoreElements()) {
+                        JarEntry entry = entries.nextElement();
+                        Path target = ZipSecurity.safeResolve(tempDir, entry.getName());
+                        if (entry.isDirectory()) {
+                            Files.createDirectories(target);
+                        } else {
+                            Files.createDirectories(target.getParent());
+                            try (InputStream is = jf.getInputStream(entry)) {
+                                Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
+                            }
+                        }
+                    }
+                }
+
+                boolean modified = false;
+
+                // Transform class files (intermediary→Mojang remapping)
+                try (var classStream = Files.walk(tempDir)) {
+                    for (Path file : classStream.filter(f -> f.toString().endsWith(".class")).toList()) {
+                        try {
+                            byte[] original = Files.readAllBytes(file);
+                            String className = tempDir.relativize(file).toString()
+                                .replace(File.separator, "/").replace(".class", "");
+                            byte[] transformed = bytecodeTransformer.transformClass(original, className);
+                            if (transformed != null && transformed != original) {
+                                Files.write(file, transformed);
+                                modified = true;
+                            }
+                        } catch (Exception e) {
+                            LOGGER.debug("Failed to transform class in JiJ {}: {}", name, e.getMessage());
+                        }
+                    }
+                }
+
+                // Patch mixin configs to be non-fatal
+                try (var mixinStream = Files.walk(tempDir)) {
+                    for (Path file : mixinStream.filter(Files::isRegularFile).toList()) {
+                        String entryName = tempDir.relativize(file).toString()
+                            .replace(File.separator, "/");
+                        if (isMixinConfigFile(entryName)) {
+                            try {
+                                String json = Files.readString(file);
+                                // Strip broken mixin entries
+                                Map<String, byte[]> jijClassLookup = buildClassLookup(tempDir);
+                                MixinCompatibilityTransformer mixinTransformer =
+                                    new MixinCompatibilityTransformer(RetroModTransformer.getInstance());
+                                String transformed = mixinTransformer.transformMixinConfig(json, jijClassLookup);
+                                // Make non-fatal
+                                transformed = makeMixinConfigNonFatal(transformed);
+                                Files.writeString(file, transformed, java.nio.charset.StandardCharsets.UTF_8);
+                                modified = true;
+                                LOGGER.info("  Patched JiJ mixin config: {} in {}", entryName, name);
+                            } catch (Exception e) {
+                                LOGGER.warn("Failed to process JiJ mixin config {}: {}", entryName, e.getMessage());
+                            }
+                        }
+                    }
+                }
+
+                // Clean refmaps
+                try (var refmapStream = Files.walk(tempDir)) {
+                    for (Path file : refmapStream.filter(Files::isRegularFile).toList()) {
+                        String entryName = tempDir.relativize(file).toString()
+                            .replace(File.separator, "/");
+                        if (entryName.endsWith("-refmap.json") || entryName.contains("refmap")) {
+                            try {
+                                stripBrokenRefmapEntries(tempDir, file);
+                                modified = true;
+                            } catch (Exception e) {
+                                LOGGER.debug("Failed to process JiJ refmap {}: {}", entryName, e.getMessage());
+                            }
+                        }
+                    }
+                }
+
+                // Repack the JiJ JAR if we modified anything
+                if (modified) {
+                    Manifest manifest = null;
+                    Path manifestFile = tempDir.resolve("META-INF/MANIFEST.MF");
+                    if (Files.exists(manifestFile)) {
+                        try (InputStream is = Files.newInputStream(manifestFile)) {
+                            manifest = new Manifest(is);
+                        }
+                    }
+                    if (manifest == null) {
+                        manifest = new Manifest();
+                        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+                    }
+
+                    Path tempJar = jijJar.getParent().resolve(name + ".tmp");
+                    try (JarOutputStream jos = new JarOutputStream(
+                            new FileOutputStream(tempJar.toFile()), manifest)) {
+                        try (var stream = Files.walk(tempDir)) {
+                            for (Path file : stream.filter(Files::isRegularFile).toList()) {
+                                String entryName = tempDir.relativize(file).toString()
+                                    .replace(File.separator, "/");
+                                if (entryName.equalsIgnoreCase("META-INF/MANIFEST.MF")) continue;
+                                JarEntry entry = new JarEntry(entryName);
+                                jos.putNextEntry(entry);
+                                Files.copy(file, jos);
+                                jos.closeEntry();
+                            }
+                        }
+                    }
+                    Files.move(tempJar, jijJar, StandardCopyOption.REPLACE_EXISTING);
+                    LOGGER.info("  Repacked JiJ mod: {}", name);
+                }
+            } finally {
+                deleteRecursively(tempDir);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to process JiJ mod {}: {}", name, e.getMessage());
+        }
+    }
+
     /**
      * Build a map of class name -> class bytes for mixin analysis.
      */

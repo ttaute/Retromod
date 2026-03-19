@@ -20,7 +20,10 @@ public class Fabric_1_19_to_1_19_1 implements VersionShim {
 
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
-        // Minor bugfix release - minimal API changes
+        // No redirects needed — 1.19.1 added chat signing (new classes) but
+        // removed nothing. No API renames, removals, or signature changes.
+        // This shim exists solely for BFS chain continuity (ShimRegistry needs
+        // a connected path from any version to 26.1).
     }
 
     @Override

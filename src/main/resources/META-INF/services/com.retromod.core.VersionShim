@@ -38,6 +38,9 @@ com.retromod.shim.fabric.Fabric_1_21_8_to_1_21_9
 com.retromod.shim.fabric.Fabric_1_21_9_to_1_21_10
 com.retromod.shim.fabric.Fabric_1_21_10_to_1_21_11
 
+# Fabric shim (1.21.11 → 26.1 — the big unobfuscation jump)
+com.retromod.shim.fabric.Fabric_1_21_11_to_26_1
+
 # ============================================================
 # NEOFORGE SHIMS - Legacy versions (1.20.1 → 1.21)
 # NeoForge started at 1.20.1 when it forked from Forge
@@ -61,6 +64,9 @@ com.retromod.shim.neoforge.NeoForge_1_21_7_to_1_21_8
 com.retromod.shim.neoforge.NeoForge_1_21_8_to_1_21_9
 com.retromod.shim.neoforge.NeoForge_1_21_9_to_1_21_10
 com.retromod.shim.neoforge.NeoForge_1_21_10_to_1_21_11
+
+# NeoForge shim (1.21.11 → 26.1 — the big unobfuscation jump)
+com.retromod.shim.neoforge.NeoForge_1_21_11_to_26_1
 
 # ============================================================
 # FORGE SHIMS - Legacy versions (1.12.2 → 1.20)
@@ -98,6 +104,9 @@ com.retromod.shim.forge.Forge_1_21_7_to_1_21_8
 com.retromod.shim.forge.Forge_1_21_8_to_1_21_9
 com.retromod.shim.forge.Forge_1_21_9_to_1_21_10
 com.retromod.shim.forge.Forge_1_21_10_to_1_21_11
+
+# Forge shim (1.21.11 → 26.1 — the big unobfuscation jump)
+com.retromod.shim.forge.Forge_1_21_11_to_26_1
 
 # ============================================================
 # POPULAR API SHIMS

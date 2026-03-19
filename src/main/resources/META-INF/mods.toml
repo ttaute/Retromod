@@ -1,7 +1,7 @@
 modLoader = "javafml"
 loaderVersion = "[52,)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Bownlux/MC-RetroMod/issues"
+issueTrackerURL = "https://github.com/Bownlux/RetroMod/issues"
 
 [[mods]]
 modId = "retromod"
@@ -20,7 +20,7 @@ Supports:
 
 Just drop your old mods in retromod-input/ - RetroMod transforms them!
 
-Bug reports: github.com/Bownlux/MC-RetroMod/issues
+Bug reports: github.com/Bownlux/RetroMod/issues
 
 Made by the Developers of revivalsmp.net
 '''

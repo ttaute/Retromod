@@ -42,7 +42,6 @@ public class RenderingCompat {
      * Thread-safe render system assertion.
      * Works on all backends (OpenGL, Vulkan, Metal).
      */
-    @SuppressWarnings("unchecked")
     public static void assertRenderThread(Supplier<?> supplier) {
         // On Vulkan/Metal, rendering MUST happen on the render thread.
         // On OpenGL, it's more lenient. We log warnings but don't crash.

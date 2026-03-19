@@ -14,6 +14,15 @@ com.retromod.polyfill.fabric.TinyMappingPolyfill
 # Fabric API polyfills (removed Fabric API modules/classes)
 com.retromod.polyfill.fabric.FabricApiPolyfill
 
+# Fabric Networking API polyfills (PacketByteBuf -> PacketCodec in 1.20.5)
+com.retromod.polyfill.fabric.FabricNetworkingPolyfill
+
+# Fabric Rendering API polyfills (HudRenderCallback, model loading, sprite registry)
+com.retromod.polyfill.fabric.FabricRenderingPolyfill
+
+# Fabric Registry API polyfills (FabricBlockSettings, FabricRegistryBuilder, FuelRegistry)
+com.retromod.polyfill.fabric.FabricRegistryPolyfill
+
 # ============================================================
 # MINECRAFT VANILLA POLYFILLS
 # ============================================================
@@ -24,6 +33,51 @@ com.retromod.polyfill.minecraft.mixin.MixinTargetPolyfill
 # Vanilla MC API polyfills (Material, LiteralText, etc.)
 com.retromod.polyfill.minecraft.vanilla.MinecraftVanillaPolyfill
 
+# Entity class renames (The Flattening 1.13 through 1.21)
+com.retromod.polyfill.minecraft.entity.EntityPolyfill
+
+# NBT API class and method renames (1.13+)
+com.retromod.polyfill.minecraft.nbt.NbtPolyfill
+
+# Text/Chat API renames (Forge pre-1.13, Fabric pre-1.19.1)
+com.retromod.polyfill.minecraft.text.TextPolyfill
+
+# Rendering API polyfills (GlStateManager, GuiComponent, RenderType changes)
+com.retromod.polyfill.minecraft.rendering.RenderingPolyfill
+
+# Block class renames (The Flattening: BlockContainer -> BaseEntityBlock, etc.)
+com.retromod.polyfill.minecraft.block.BlockPolyfill
+
+# Item class renames (ItemSword -> SwordItem, ItemStack NBT methods, etc.)
+com.retromod.polyfill.minecraft.item.ItemPolyfill
+
+# TileEntity -> BlockEntity renames
+com.retromod.polyfill.minecraft.tileentity.TileEntityPolyfill
+
+# Registry, utility, and core class renames (EnumFacing -> Direction, etc.)
+com.retromod.polyfill.minecraft.registry.RegistryPolyfill
+
+# World/dimension class renames (World -> Level, WorldServer -> ServerLevel, etc.)
+com.retromod.polyfill.minecraft.world.WorldPolyfill
+
+# GUI/Screen class renames (GuiScreen -> Screen, Container -> Menu, etc.)
+com.retromod.polyfill.minecraft.gui.GuiPolyfill
+
+# Network/Packet class renames (CPacket/SPacket -> Serverbound/Clientbound)
+com.retromod.polyfill.minecraft.network.NetworkPolyfill
+
+# Item component system (NBT -> DataComponents, 1.20.5+)
+com.retromod.polyfill.minecraft.item.ItemComponentPolyfill
+
+# Tag system changes (Tag -> TagKey, 1.18.2)
+com.retromod.polyfill.minecraft.tag.TagPolyfill
+
+# Math/Vector class changes (Vec3f -> JOML Vector3f, MathHelper -> Mth)
+com.retromod.polyfill.minecraft.math.MathPolyfill
+
+# Annotation changes (javax.annotation -> jspecify, Forge -> NeoForge distmarker)
+com.retromod.polyfill.minecraft.annotation.AnnotationPolyfill
+
 # ============================================================
 # FORGE POLYFILLS
 # ============================================================
@@ -31,12 +85,18 @@ com.retromod.polyfill.minecraft.vanilla.MinecraftVanillaPolyfill
 # Forge core (SidedProxy, RegistryObject, LazyOptional, capabilities)
 com.retromod.polyfill.forge.ForgeCorePolyfill
 
+# Forge registry system (GameRegistry, FML events, OreDictionary, Side)
+com.retromod.polyfill.forge.ForgeRegistryPolyfill
+
 # ============================================================
 # NEOFORGE POLYFILLS
 # ============================================================
 
 # NeoForge core (Transfer API, RenderHighlightEvent, annotations)
 com.retromod.polyfill.neoforge.NeoForgeCorePolyfill
+
+# NeoForge Transfer API rework (IItemHandler/IFluidHandler/IEnergyStorage)
+com.retromod.polyfill.neoforge.NeoForgeTransferPolyfill
 
 # ============================================================
 # THIRD-PARTY MOD API POLYFILLS

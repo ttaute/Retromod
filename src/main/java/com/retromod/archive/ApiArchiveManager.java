@@ -143,7 +143,7 @@ public class ApiArchiveManager {
         LOGGER.info("Downloading archive: {}", url);
         
         try {
-            URL downloadUrl = new URL(url);
+            URL downloadUrl = URI.create(url).toURL();
             HttpURLConnection conn = (HttpURLConnection) downloadUrl.openConnection();
             conn.setRequestProperty("User-Agent", "RetroMod/1.0");
             conn.setConnectTimeout(30000);

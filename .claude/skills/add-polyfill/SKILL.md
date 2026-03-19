@@ -1,12 +1,12 @@
 ---
 name: add-polyfill
-description: Create a polyfill provider that re-implements a removed API as a lightweight stub. Use when mods crash with ClassNotFoundException or NoSuchMethodError for completely removed classes.
-argument-hint: <api-name> (e.g. "baubles", "nei", "old-fabric-api-module")
+description: Create a polyfill provider that re-implements a removed API so old mods still work. Use when mods crash with ClassNotFoundException or NoSuchMethodError for completely removed classes.
+argument-hint: "api-name (e.g. baubles, nei, old-fabric-api-module)"
 ---
 
 # Add Polyfill Provider
 
-Creates a `PolyfillProvider` that provides stub implementations for APIs that were completely removed from Minecraft or a mod loader, with no direct replacement.
+Creates a `PolyfillProvider` that re-implements removed APIs using modern equivalents so old mods actually work, not just load without crashing.
 
 ## When to Use
 
@@ -19,20 +19,25 @@ Creates a `PolyfillProvider` that provides stub implementations for APIs that we
 
 1. **Identify the removed API** — Find which classes/methods were removed and what (if anything) replaced them. Check crash logs for the exact class names and packages.
 
-2. **Create stub classes** — For each removed class, create a minimal stub at the ORIGINAL package path:
+2. **Create polyfill classes** — For each removed class, create a reimplementation at the ORIGINAL package path that delegates to modern equivalents:
    ```java
    // At the original package path so ClassNotFoundException is resolved
    package the.original.package;
 
    /**
-    * Polyfill stub for removed class.
-    * Provides no-op implementations so mods don't crash.
+    * Polyfill for removed class — delegates to modern API.
     */
    public class RemovedClass {
-       // Stub methods that return sensible defaults
-       public void removedMethod() { /* no-op */ }
-       public Object getData() { return null; }
-       public boolean isAvailable() { return false; }
+       // Reimplement methods using the modern equivalent API
+       public void removedMethod() {
+           // Delegate to the new API that replaced this
+           ModernApi.doTheThing();
+       }
+       public Object getData() {
+           // Bridge to the modern data source
+           return ModernDataProvider.get();
+       }
+       public boolean isAvailable() { return true; }
    }
    ```
 
@@ -97,7 +102,7 @@ Creates a `PolyfillProvider` that provides stub implementations for APIs that we
 - `entity` — Removed entity APIs
 
 ## Important Notes
-- Stubs should be NO-OP — return null, 0, false, empty collections
-- Stubs prevent crashes but the polyfilled feature won't do anything
+- Polyfills should delegate to modern equivalent APIs wherever possible — the goal is mods that WORK, not just load
+- Only fall back to no-op returns when there is genuinely no modern equivalent
 - Users can toggle polyfill categories in config.json
-- There are currently 72+ polyfill stubs across 10 providers
+- There are currently 72+ polyfill reimplementations across 10 providers

@@ -1,0 +1,190 @@
+/*
+ * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Copyright (c) 2026 Bownlux
+ */
+package com.retromod.polyfill.minecraft.rendering;
+
+import com.retromod.core.RetroModTransformer;
+import com.retromod.polyfill.PolyfillProvider;
+
+/**
+ * Polyfill for removed/refactored rendering APIs across major MC versions.
+ *
+ * Covers three major rendering API migrations:
+ * 1. GlStateManager → RenderSystem (1.17+): Fixed-function GL calls replaced
+ *    by shader-based RenderSystem. Many GlStateManager methods become no-ops
+ *    because core GL profile has no fixed-function pipeline.
+ * 2. GuiComponent/PoseStack → GuiGraphics (1.20+): All 2D GUI drawing moved
+ *    from static GuiComponent methods + PoseStack to the GuiGraphics context.
+ * 3. RenderType → RenderTypes (26.1): Static render type accessors moved to
+ *    a new RenderTypes class as part of the rendering cleanup.
+ */
+public class RenderingPolyfill implements PolyfillProvider {
+
+    @Override
+    public String getName() {
+        return "Minecraft Rendering API Changes";
+    }
+
+    @Override
+    public String getCategory() {
+        return "rendering";
+    }
+
+    @Override
+    public String[] getRemovedClasses() {
+        return new String[]{
+            "com/mojang/blaze3d/platform/GlStateManager",
+            "net/minecraft/client/gui/GuiComponent",
+            "net/minecraft/client/gui/components/AbstractWidget"
+        };
+    }
+
+    @Override
+    public String[] getPolyfillClasses() {
+        return new String[]{
+            "com.retromod.polyfill.minecraft.rendering.embedded.GlStateManagerShim",
+            "com.retromod.polyfill.minecraft.rendering.embedded.GuiComponentShim",
+            "com.retromod.polyfill.minecraft.rendering.embedded.RenderTypeShim"
+        };
+    }
+
+    @Override
+    public void registerPolyfills(RetroModTransformer transformer) {
+        // Register embedded shim classes so they get injected into transformed mod JARs
+        for (String cls : getPolyfillClasses()) {
+            transformer.registerEmbeddedShim(cls);
+        }
+
+        // =====================================================================
+        // GlStateManager → RenderSystem redirects (1.17+)
+        // =====================================================================
+
+        // Color state: delegates to RenderSystem.setShaderColor
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "color", "(FFFF)V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "color", "(FFFF)V"
+        );
+
+        // Alpha test: no-ops in core profile (always enabled)
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "enableAlpha", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "enableAlpha", "()V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "disableAlpha", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "disableAlpha", "()V"
+        );
+
+        // Blend: delegates to RenderSystem
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "enableBlend", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "enableBlend", "()V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "disableBlend", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "disableBlend", "()V"
+        );
+
+        // Depth test: delegates to RenderSystem
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "enableDepthTest", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "enableDepthTest", "()V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "disableDepthTest", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "disableDepthTest", "()V"
+        );
+
+        // Lighting: no-ops (no fixed-function lighting in core profile)
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "enableLighting", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "enableLighting", "()V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "disableLighting", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "disableLighting", "()V"
+        );
+
+        // Texture state: no-ops (always enabled in shader pipeline)
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "enableTexture", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "enableTexture", "()V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "disableTexture", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "disableTexture", "()V"
+        );
+
+        // Matrix stack: no-ops (use PoseStack / GuiGraphics instead)
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "pushMatrix", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "pushMatrix", "()V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "popMatrix", "()V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "popMatrix", "()V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "translate", "(DDD)V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "translate", "(DDD)V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "rotate", "(FFFF)V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "rotate", "(FFFF)V"
+        );
+        transformer.registerMethodRedirect(
+            "com/mojang/blaze3d/platform/GlStateManager", "scale", "(DDD)V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "scale", "(DDD)V"
+        );
+
+        // =====================================================================
+        // GuiComponent → GuiGraphics redirects (1.20+)
+        // =====================================================================
+
+        // GuiComponent.fill(PoseStack, int, int, int, int, int) → shim that delegates to GuiGraphics
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/gui/GuiComponent", "fill",
+            "(Lcom/mojang/blaze3d/vertex/PoseStack;IIIII)V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GuiComponentShim", "fill",
+            "(Ljava/lang/Object;IIIII)V"
+        );
+
+        // GuiComponent.drawString(Font, String, int, int, int) → shim
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/gui/GuiComponent", "drawString",
+            "(Lnet/minecraft/client/gui/Font;Ljava/lang/String;III)V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GuiComponentShim", "drawString",
+            "(Ljava/lang/Object;Ljava/lang/String;III)V"
+        );
+
+        // GuiComponent.blit(PoseStack, int, int, int, int, int, int) → shim
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/gui/GuiComponent", "blit",
+            "(Lcom/mojang/blaze3d/vertex/PoseStack;IIIIII)V",
+            "com/retromod/polyfill/minecraft/rendering/embedded/GuiComponentShim", "blit",
+            "(Ljava/lang/Object;IIIIII)V"
+        );
+
+        // =====================================================================
+        // RenderType → RenderTypes redirects (26.1)
+        // =====================================================================
+
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/renderer/RenderType", "solid", "()Lnet/minecraft/client/renderer/RenderType;",
+            "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "solid", "()Ljava/lang/Object;"
+        );
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/renderer/RenderType", "cutout", "()Lnet/minecraft/client/renderer/RenderType;",
+            "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "cutout", "()Ljava/lang/Object;"
+        );
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/renderer/RenderType", "cutoutMipped", "()Lnet/minecraft/client/renderer/RenderType;",
+            "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "cutoutMipped", "()Ljava/lang/Object;"
+        );
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/renderer/RenderType", "translucent", "()Lnet/minecraft/client/renderer/RenderType;",
+            "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "translucent", "()Ljava/lang/Object;"
+        );
+    }
+}

@@ -99,8 +99,11 @@ public class MixinCompatibilityTransformer {
         LOGGER.debug("Transforming Mixin class: {}", classNode.name);
         
         // Transform class-level annotations (@Mixin targets)
-        if (classNode.visibleAnnotations != null) {
-            for (AnnotationNode annotation : classNode.visibleAnnotations) {
+        // Check BOTH visible and invisible — @Mixin is RuntimeInvisibleAnnotation
+        for (List<AnnotationNode> annotations : List.of(
+                classNode.visibleAnnotations != null ? classNode.visibleAnnotations : List.<AnnotationNode>of(),
+                classNode.invisibleAnnotations != null ? classNode.invisibleAnnotations : List.<AnnotationNode>of())) {
+            for (AnnotationNode annotation : annotations) {
                 if (MIXIN_DESC.equals(annotation.desc)) {
                     modified |= transformMixinAnnotation(annotation);
                 }
@@ -131,29 +134,75 @@ public class MixinCompatibilityTransformer {
      * Check if a class is a Mixin.
      */
     private boolean isMixinClass(ClassNode classNode) {
-        if (classNode.visibleAnnotations == null) return false;
-        
-        for (AnnotationNode annotation : classNode.visibleAnnotations) {
-            if (MIXIN_DESC.equals(annotation.desc)) {
-                return true;
+        // Check both visible and invisible annotations
+        // @Mixin is typically stored as RuntimeInvisibleAnnotation
+        if (classNode.visibleAnnotations != null) {
+            for (AnnotationNode annotation : classNode.visibleAnnotations) {
+                if (MIXIN_DESC.equals(annotation.desc)) return true;
+            }
+        }
+        if (classNode.invisibleAnnotations != null) {
+            for (AnnotationNode annotation : classNode.invisibleAnnotations) {
+                if (MIXIN_DESC.equals(annotation.desc)) return true;
             }
         }
         return false;
     }
-    
+
+    /**
+     * Check if a class node is an interface mixin (e.g., @Accessor/@Invoker interfaces).
+     */
+    private boolean isInterfaceMixin(ClassNode classNode) {
+        return (classNode.access & Opcodes.ACC_INTERFACE) != 0 && isMixinClass(classNode);
+    }
+
+    /**
+     * Count the number of parameter slots in a method descriptor.
+     * Doubles and longs take 2 slots, everything else takes 1.
+     */
+    private int countParameterSlots(String desc) {
+        int slots = 0;
+        int i = 1; // skip '('
+        while (i < desc.length() && desc.charAt(i) != ')') {
+            char c = desc.charAt(i);
+            if (c == 'D' || c == 'J') {
+                slots += 2;
+                i++;
+            } else if (c == 'L') {
+                slots++;
+                i = desc.indexOf(';', i) + 1;
+            } else if (c == '[') {
+                i++;
+                // Skip array dimensions
+                while (i < desc.length() && desc.charAt(i) == '[') i++;
+                if (i < desc.length() && desc.charAt(i) == 'L') {
+                    i = desc.indexOf(';', i) + 1;
+                } else {
+                    i++; // primitive array
+                }
+                slots++;
+            } else {
+                slots++;
+                i++;
+            }
+        }
+        return slots;
+    }
+
     /**
      * Transform @Mixin annotation targets.
      */
     private boolean transformMixinAnnotation(AnnotationNode annotation) {
         boolean modified = false;
-        
+
         if (annotation.values == null) return false;
-        
+
         for (int i = 0; i < annotation.values.size(); i += 2) {
             String key = (String) annotation.values.get(i);
             Object value = annotation.values.get(i + 1);
-            
+
             if ("targets".equals(key) && value instanceof List<?> targets) {
+                // String-based targets: @Mixin(targets = {"net.minecraft.class_310"})
                 List<String> newTargets = new ArrayList<>();
                 for (Object target : targets) {
                     if (target instanceof String s) {
@@ -168,9 +217,30 @@ public class MixinCompatibilityTransformer {
                     }
                 }
                 annotation.values.set(i + 1, newTargets);
+            } else if ("value".equals(key) && value instanceof List<?> values) {
+                // Type-based targets: @Mixin(value = {class_310.class})
+                // In ASM, class references in annotations are stored as Type objects
+                List<Object> newValues = new ArrayList<>();
+                for (Object v : values) {
+                    if (v instanceof org.objectweb.asm.Type type) {
+                        String internal = type.getInternalName();
+                        String redirected = transformer.getClassRedirects()
+                            .getOrDefault(internal, internal);
+                        if (!internal.equals(redirected)) {
+                            newValues.add(org.objectweb.asm.Type.getObjectType(redirected));
+                            modified = true;
+                            LOGGER.debug("Redirected Mixin value target: {} -> {}", internal, redirected);
+                        } else {
+                            newValues.add(v);
+                        }
+                    } else {
+                        newValues.add(v);
+                    }
+                }
+                annotation.values.set(i + 1, newValues);
             }
         }
-        
+
         return modified;
     }
     
@@ -179,22 +249,26 @@ public class MixinCompatibilityTransformer {
      */
     private boolean transformMethodAnnotations(MethodNode method) {
         boolean modified = false;
-        
-        if (method.visibleAnnotations == null) return false;
-        
-        for (AnnotationNode annotation : method.visibleAnnotations) {
-            String desc = annotation.desc;
-            
-            if (INJECT_DESC.equals(desc) || REDIRECT_DESC.equals(desc) ||
-                MODIFY_ARG_DESC.equals(desc) || MODIFY_VAR_DESC.equals(desc)) {
-                modified |= transformInjectionAnnotation(annotation);
-            } else if (SHADOW_DESC.equals(desc) || OVERWRITE_DESC.equals(desc)) {
-                modified |= transformShadowAnnotation(annotation, method);
-            } else if (ACCESSOR_DESC.equals(desc) || INVOKER_DESC.equals(desc)) {
-                modified |= transformAccessorAnnotation(annotation, method);
+
+        // Check BOTH visible and invisible annotations
+        // Mixin annotations can be in either category
+        for (List<AnnotationNode> annotations : List.of(
+                method.visibleAnnotations != null ? method.visibleAnnotations : List.<AnnotationNode>of(),
+                method.invisibleAnnotations != null ? method.invisibleAnnotations : List.<AnnotationNode>of())) {
+            for (AnnotationNode annotation : annotations) {
+                String desc = annotation.desc;
+
+                if (INJECT_DESC.equals(desc) || REDIRECT_DESC.equals(desc) ||
+                    MODIFY_ARG_DESC.equals(desc) || MODIFY_VAR_DESC.equals(desc)) {
+                    modified |= transformInjectionAnnotation(annotation);
+                } else if (SHADOW_DESC.equals(desc) || OVERWRITE_DESC.equals(desc)) {
+                    modified |= transformShadowAnnotation(annotation, method);
+                } else if (ACCESSOR_DESC.equals(desc) || INVOKER_DESC.equals(desc)) {
+                    modified |= transformAccessorAnnotation(annotation, method);
+                }
             }
         }
-        
+
         return modified;
     }
     
@@ -203,13 +277,21 @@ public class MixinCompatibilityTransformer {
      */
     private boolean transformInjectionAnnotation(AnnotationNode annotation) {
         boolean modified = false;
-        
-        if (annotation.values == null) return false;
-        
+
+        if (annotation.values == null) {
+            annotation.values = new ArrayList<>();
+        }
+
+        boolean hasRequire = false;
+
         for (int i = 0; i < annotation.values.size(); i += 2) {
             String key = (String) annotation.values.get(i);
             Object value = annotation.values.get(i + 1);
-            
+
+            if ("require".equals(key)) {
+                hasRequire = true;
+            }
+
             // Transform "method" targets
             if ("method".equals(key)) {
                 if (value instanceof List<?> methods) {
@@ -233,7 +315,7 @@ public class MixinCompatibilityTransformer {
                     }
                 }
             }
-            
+
             // Transform @At annotations
             if ("at".equals(key)) {
                 if (value instanceof AnnotationNode at) {
@@ -247,7 +329,16 @@ public class MixinCompatibilityTransformer {
                 }
             }
         }
-        
+
+        // Set require=0 on all injection annotations to make them soft-fail.
+        // Old mods on new MC versions should best-effort, not hard-crash when a
+        // target method no longer exists.
+        if (!hasRequire) {
+            annotation.values.add("require");
+            annotation.values.add(0);
+            modified = true;
+        }
+
         return modified;
     }
     
@@ -283,14 +374,14 @@ public class MixinCompatibilityTransformer {
     private boolean transformShadowAnnotation(AnnotationNode annotation, MethodNode method) {
         // For @Shadow, the method name itself might need changing
         String oldName = method.name;
-        String newName = methodTargetRedirects.get(oldName);
-        
-        if (newName != null && !newName.equals(oldName)) {
+        String newName = remapMethodName(oldName);
+
+        if (!newName.equals(oldName)) {
             method.name = newName;
             LOGGER.debug("Renamed @Shadow method: {} -> {}", oldName, newName);
             return true;
         }
-        
+
         return false;
     }
     
@@ -299,24 +390,65 @@ public class MixinCompatibilityTransformer {
      */
     private boolean transformAccessorAnnotation(AnnotationNode annotation, MethodNode method) {
         boolean modified = false;
-        
-        if (annotation.values == null) return false;
-        
-        for (int i = 0; i < annotation.values.size(); i += 2) {
-            String key = (String) annotation.values.get(i);
-            Object value = annotation.values.get(i + 1);
-            
-            // Transform "value" which is the target name
-            if ("value".equals(key) && value instanceof String s) {
-                String redirected = methodTargetRedirects.getOrDefault(s, s);
-                if (!s.equals(redirected)) {
-                    annotation.values.set(i + 1, redirected);
-                    modified = true;
-                    LOGGER.debug("Redirected @Accessor/Invoker: {} -> {}", s, redirected);
+
+        // Check if annotation has explicit "value" parameter
+        boolean hasExplicitValue = false;
+        if (annotation.values != null) {
+            for (int i = 0; i < annotation.values.size(); i += 2) {
+                String key = (String) annotation.values.get(i);
+                Object value = annotation.values.get(i + 1);
+
+                if ("value".equals(key) && value instanceof String s) {
+                    hasExplicitValue = true;
+                    String redirected = remapMethodName(s);
+                    if (redirected.equals(s)) {
+                        redirected = remapFieldName(s);
+                    }
+                    if (!s.equals(redirected)) {
+                        annotation.values.set(i + 1, redirected);
+                        modified = true;
+                        LOGGER.debug("Redirected @Accessor/Invoker: {} -> {}", s, redirected);
+                    }
                 }
             }
         }
-        
+
+        // If no explicit value, derive target from method name and check for redirects
+        if (!hasExplicitValue) {
+            String methodName = method.name;
+            String target = null;
+            boolean isInvoker = INVOKER_DESC.equals(annotation.desc);
+
+            if (isInvoker && methodName.startsWith("invoke")) {
+                // @Invoker: invokeFindSlot → findSlot
+                target = Character.toLowerCase(methodName.charAt(6)) + methodName.substring(7);
+            } else if (methodName.startsWith("get")) {
+                // @Accessor getter: getBoundKey → boundKey
+                target = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
+            } else if (methodName.startsWith("set")) {
+                // @Accessor setter: setBoundKey → boundKey
+                target = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
+            } else if (methodName.startsWith("is")) {
+                // @Accessor boolean getter: isQuickCrafting → quickCrafting (or isQuickCrafting)
+                target = methodName; // Keep as-is, try both forms
+            }
+
+            if (target != null) {
+                String redirected = isInvoker ? remapMethodName(target) : remapFieldName(target);
+                if (!redirected.equals(target)) {
+                    // Add explicit value parameter with the redirected name
+                    if (annotation.values == null) {
+                        annotation.values = new ArrayList<>();
+                    }
+                    annotation.values.add("value");
+                    annotation.values.add(redirected);
+                    modified = true;
+                    LOGGER.debug("Added @{} value: {} -> {} (from method {})",
+                            isInvoker ? "Invoker" : "Accessor", target, redirected, methodName);
+                }
+            }
+        }
+
         return modified;
     }
     
@@ -324,9 +456,25 @@ public class MixinCompatibilityTransformer {
      * Transform field annotations.
      */
     private boolean transformFieldAnnotations(FieldNode field) {
-        // Similar to method annotations for @Shadow fields
-        // Implementation similar to transformShadowAnnotation
-        return false;
+        boolean modified = false;
+        // Check both visible and invisible annotations for @Shadow fields
+        for (List<AnnotationNode> annotations : List.of(
+                field.visibleAnnotations != null ? field.visibleAnnotations : List.<AnnotationNode>of(),
+                field.invisibleAnnotations != null ? field.invisibleAnnotations : List.<AnnotationNode>of())) {
+            for (AnnotationNode annotation : annotations) {
+                if (SHADOW_DESC.equals(annotation.desc)) {
+                    // Remap field name if it's an intermediary name
+                    String oldName = field.name;
+                    String newName = remapFieldName(oldName);
+                    if (!newName.equals(oldName)) {
+                        field.name = newName;
+                        LOGGER.debug("Renamed @Shadow field: {} -> {}", oldName, newName);
+                        modified = true;
+                    }
+                }
+            }
+        }
+        return modified;
     }
     
     /**
@@ -351,44 +499,120 @@ public class MixinCompatibilityTransformer {
         // Try direct lookup first
         String direct = methodTargetRedirects.get(target);
         if (direct != null) {
-            return direct;
+            return remapDescriptorClasses(direct);
         }
-        
+
         // Parse and redirect parts
         // Format: [Lowner;]methodName[(descriptor)]
-        
+
         // Check if it contains owner
         if (target.startsWith("L") && target.contains(";")) {
             int semiIdx = target.indexOf(';');
             String owner = target.substring(1, semiIdx);
             String rest = target.substring(semiIdx + 1);
-            
+
             // Redirect owner
             String newOwner = transformer.getClassRedirects().getOrDefault(owner, owner);
-            
+
             // Extract method name
             int descIdx = rest.indexOf('(');
             String methodName = descIdx >= 0 ? rest.substring(0, descIdx) : rest;
             String desc = descIdx >= 0 ? rest.substring(descIdx) : "";
-            
-            // Redirect method name
-            String newMethod = methodTargetRedirects.getOrDefault(methodName, methodName);
-            
+
+            // Redirect method name (check shim redirects, then intermediary names)
+            String newMethod = remapMethodName(methodName);
+
+            // Remap class references within the descriptor
+            desc = remapDescriptorClasses(desc);
+
             return "L" + newOwner + ";" + newMethod + desc;
         }
-        
+
         // Check if it has a descriptor
         int descIdx = target.indexOf('(');
         if (descIdx >= 0) {
             String methodName = target.substring(0, descIdx);
             String desc = target.substring(descIdx);
-            
-            String newMethod = methodTargetRedirects.getOrDefault(methodName, methodName);
+
+            // Never rename constructors/static initializers
+            String newMethod = methodName.startsWith("<")
+                ? methodName
+                : remapMethodName(methodName);
+            // Remap class references within the descriptor
+            desc = remapDescriptorClasses(desc);
             return newMethod + desc;
         }
-        
-        // Simple name - direct lookup
-        return methodTargetRedirects.getOrDefault(target, target);
+
+        // Simple name - direct lookup (never rename constructors)
+        if (target.startsWith("<")) return target;
+        return remapMethodName(target);
+    }
+
+    /**
+     * Remap a method name using shim redirects first, then intermediary→Mojang mappings.
+     */
+    private String remapMethodName(String methodName) {
+        // Check shim-based redirects first
+        String redirected = methodTargetRedirects.get(methodName);
+        if (redirected != null) return redirected;
+
+        // Check intermediary method names (method_XXXX → Mojang name)
+        if (methodName.startsWith("method_")) {
+            Map<String, String> intermediaryMethods = transformer.getIntermediaryMethodNames();
+            String mojang = intermediaryMethods.get(methodName);
+            if (mojang != null) return mojang;
+        }
+
+        return methodName;
+    }
+
+    /**
+     * Remap a field name using intermediary→Mojang mappings and shim field redirects.
+     */
+    private String remapFieldName(String fieldName) {
+        if (fieldName.startsWith("field_")) {
+            Map<String, String> intermediaryFields = transformer.getIntermediaryFieldNames();
+            String mojang = intermediaryFields.get(fieldName);
+            if (mojang != null) return mojang;
+        }
+        // Also check shim-registered field redirects (e.g. boundKey → key)
+        for (var entry : transformer.getFieldRedirects().entrySet()) {
+            if (entry.getKey().name().equals(fieldName)) {
+                return entry.getValue().name();
+            }
+        }
+        return fieldName;
+    }
+
+    /**
+     * Remap intermediary class references within a descriptor string.
+     * E.g. "(Lnet/minecraft/class_542;)V" → "(Lnet/minecraft/client/main/GameConfig;)V"
+     */
+    private String remapDescriptorClasses(String descriptor) {
+        if (descriptor == null || !descriptor.contains("class_")) return descriptor;
+
+        Map<String, String> classRedirects = transformer.getClassRedirects();
+        StringBuilder result = new StringBuilder(descriptor.length());
+        int i = 0;
+        while (i < descriptor.length()) {
+            if (descriptor.charAt(i) == 'L') {
+                // Found a class reference — find the semicolon
+                int semi = descriptor.indexOf(';', i);
+                if (semi > 0) {
+                    String className = descriptor.substring(i + 1, semi);
+                    String remapped = classRedirects.getOrDefault(className, className);
+                    result.append('L').append(remapped).append(';');
+                    i = semi + 1;
+                } else {
+                    result.append(descriptor.charAt(i));
+                    i++;
+                }
+            } else {
+                result.append(descriptor.charAt(i));
+                i++;
+            }
+        }
+        return result.toString();
     }
     
     /**
@@ -507,8 +731,11 @@ public class MixinCompatibilityTransformer {
             PartialStripResult stripResult = partialStripMixin(
                 wasRelocated ? relocatedData : classData, fullClassPath);
 
-            if (stripResult.allBroken) {
+            if (stripResult.allBroken && !stripResult.isAccessorMixin) {
                 // Phase 3: FULL STRIP — entire mixin is unsalvageable
+                // NEVER strip accessor/invoker mixins (interfaces) — stripping them causes
+                // IllegalClassLoadError when code references the mixin class directly.
+                // With required=false, the mixin just fails to apply gracefully instead.
                 removedEntries.add(mixinClassName);
                 LOGGER.warn("Fully stripping mixin '{}' (all targets removed/broken)", mixinClassName);
             } else {
@@ -567,8 +794,13 @@ public class MixinCompatibilityTransformer {
         boolean allBroken,      // true if ALL mixin methods are broken → full strip
         byte[] modifiedData,    // modified class bytes (null if no changes)
         int strippedMethods,    // number of methods removed
-        int keptMethods         // number of methods preserved
-    ) {}
+        int keptMethods,        // number of methods preserved
+        boolean isAccessorMixin // true if mixin is an interface (@Accessor/@Invoker only)
+    ) {
+        PartialStripResult(boolean allBroken, byte[] modifiedData, int strippedMethods, int keptMethods) {
+            this(allBroken, modifiedData, strippedMethods, keptMethods, false);
+        }
+    }
 
     /**
      * Relocate a mixin class by rewriting its annotation targets using the redirect maps.
@@ -628,7 +860,8 @@ public class MixinCompatibilityTransformer {
             if (brokenMethods.isEmpty()) {
                 // Nothing broken — check class-level issues (superclass, @Shadow fields)
                 if (hasClassLevelBreakage(classNode)) {
-                    return new PartialStripResult(true, null, 0, 0);
+                    boolean isAccessor = (classNode.access & Opcodes.ACC_INTERFACE) != 0;
+                    return new PartialStripResult(true, null, 0, 0, isAccessor);
                 }
                 return new PartialStripResult(false, null, 0, workingMethods.size());
             }
@@ -640,7 +873,9 @@ public class MixinCompatibilityTransformer {
 
             if (workingHandlers == 0) {
                 // All handlers are broken — full strip
-                return new PartialStripResult(true, null, brokenMethods.size(), 0);
+                // But check if it's an accessor mixin (interface with only abstract methods)
+                boolean isAccessor = (classNode.access & Opcodes.ACC_INTERFACE) != 0;
+                return new PartialStripResult(true, null, brokenMethods.size(), 0, isAccessor);
             }
 
             // Partial strip — remove broken methods, keep working ones
@@ -681,23 +916,57 @@ public class MixinCompatibilityTransformer {
             }
         }
 
-        // Check mixin annotation targets
-        if (method.visibleAnnotations != null) {
-            for (AnnotationNode ann : method.visibleAnnotations) {
+        // Check mixin annotation targets — BOTH visible and invisible
+        for (List<AnnotationNode> annotations : List.of(
+                method.visibleAnnotations != null ? method.visibleAnnotations : List.<AnnotationNode>of(),
+                method.invisibleAnnotations != null ? method.invisibleAnnotations : List.<AnnotationNode>of())) {
+            for (AnnotationNode ann : annotations) {
                 if (INJECT_DESC.equals(ann.desc) || REDIRECT_DESC.equals(ann.desc) ||
                     MODIFY_ARG_DESC.equals(ann.desc) || MODIFY_VAR_DESC.equals(ann.desc)) {
                     List<String> targets = extractAnnotationMethodTargets(ann);
                     for (String target : targets) {
                         if (isKnownRemovedMethod("." + target)) return true;
+                        // Detect unresolved intermediary method names (not in our mapping)
+                        if (hasUnresolvedIntermediaryName(target)) return true;
                     }
                     List<String> atTargets = extractAtTargets(ann);
                     for (String atTarget : atTargets) {
                         if (isKnownRemovedMethod(atTarget.replace(";", "."))) return true;
+                        if (hasUnresolvedIntermediaryName(atTarget)) return true;
                     }
                 }
                 // @Overwrite on removed method
                 if (OVERWRITE_DESC.equals(ann.desc)) {
                     if (isKnownRemovedMethod("." + method.name)) return true;
+                }
+                // @Shadow on unresolved intermediary method
+                if (SHADOW_DESC.equals(ann.desc)) {
+                    if (method.name.startsWith("method_") || method.name.startsWith("field_")) {
+                        return true;
+                    }
+                }
+                // @Accessor/@Invoker with unresolved intermediary or removed targets
+                if (ACCESSOR_DESC.equals(ann.desc) || INVOKER_DESC.equals(ann.desc)) {
+                    // Check the "value" field if present
+                    if (ann.values != null) {
+                        for (int ai = 0; ai < ann.values.size(); ai += 2) {
+                            if ("value".equals(ann.values.get(ai)) && ann.values.get(ai + 1) instanceof String val) {
+                                if (val.startsWith("method_") || val.startsWith("field_")) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                    // Also check the method's return type for removed classes
+                    if (method.desc != null && method.desc.contains("class_")) {
+                        return true;
+                    }
+                    // If the accessor/invoker descriptor references a polyfill embedded class,
+                    // the original type was removed/changed and the accessor won't match
+                    // the target field's type in the new MC version.
+                    if (method.desc != null && method.desc.contains("com/retromod/polyfill/")) {
+                        return true;
+                    }
                 }
             }
         }
@@ -727,12 +996,16 @@ public class MixinCompatibilityTransformer {
             return true;
         }
 
-        // Check @Shadow fields referencing removed types
+        // Check @Shadow fields referencing removed types — check both visible and invisible
         for (FieldNode field : classNode.fields) {
-            if (field.visibleAnnotations != null) {
-                for (AnnotationNode ann : field.visibleAnnotations) {
+            for (List<AnnotationNode> annotations : List.of(
+                    field.visibleAnnotations != null ? field.visibleAnnotations : List.<AnnotationNode>of(),
+                    field.invisibleAnnotations != null ? field.invisibleAnnotations : List.<AnnotationNode>of())) {
+                for (AnnotationNode ann : annotations) {
                     if (SHADOW_DESC.equals(ann.desc)) {
                         if (isKnownRemovedField("." + field.name)) return true;
+                        // Unresolved intermediary field names
+                        if (field.name.startsWith("field_")) return true;
                         if (field.desc != null && field.desc.startsWith("L") && field.desc.endsWith(";")) {
                             String fieldType = field.desc.substring(1, field.desc.length() - 1);
                             if (isKnownRemovedClass(fieldType)) return true;
@@ -1055,6 +1328,28 @@ public class MixinCompatibilityTransformer {
             }
         }
         return false;
+    }
+
+    /**
+     * Check if a method target string contains unresolved intermediary names.
+     * If a method_XXXX or class_XXXX name survived all remapping passes, it means
+     * the target was removed from Minecraft and the reference is broken.
+     */
+    private boolean hasUnresolvedIntermediaryName(String target) {
+        if (target == null) return false;
+        // Check for unresolved class_XXXX in any part of the string (including descriptors)
+        if (target.contains("class_")) return true;
+        // Extract method name part (before descriptor)
+        int descIdx = target.indexOf('(');
+        String methodPart;
+        if (target.contains(";") && target.startsWith("L")) {
+            // Full reference: Lowner;methodName(desc)
+            int semiIdx = target.indexOf(';');
+            methodPart = descIdx >= 0 ? target.substring(semiIdx + 1, descIdx) : target.substring(semiIdx + 1);
+        } else {
+            methodPart = descIdx >= 0 ? target.substring(0, descIdx) : target;
+        }
+        return methodPart.startsWith("method_") || methodPart.startsWith("field_");
     }
 
     /**

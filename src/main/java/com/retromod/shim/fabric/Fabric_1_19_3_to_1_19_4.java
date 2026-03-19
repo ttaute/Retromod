@@ -50,6 +50,38 @@ public class Fabric_1_19_3_to_1_19_4 implements VersionShim {
             "com/retromod/shim/fabric/embedded/RecipeShim", "getFirstMatch",
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/util/Optional;"
         );
+
+        // ItemTransforms$TransformType renamed to ItemDisplayContext (1.19.4 display context rework)
+        transformer.registerClassRedirect(
+            "net/minecraft/client/renderer/block/model/ItemTransforms$TransformType",
+            "net/minecraft/world/item/ItemDisplayContext"
+        );
+        // Wearable interface renamed to Equipable
+        transformer.registerClassRedirect(
+            "net/minecraft/world/item/Wearable",
+            "net/minecraft/world/item/Equipable"
+        );
+        // Biome.isHumid() renamed to hasPrecipitation()
+        transformer.registerMethodRedirect(
+            "net/minecraft/world/level/biome/Biome", "isHumid",
+            "()Z",
+            "net/minecraft/world/level/biome/Biome", "hasPrecipitation",
+            "()Z"
+        );
+        // AbstractWidget.renderButton() renamed to renderWidget()
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/gui/components/AbstractWidget", "renderButton",
+            "(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
+            "net/minecraft/client/gui/components/AbstractWidget", "renderWidget",
+            "(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"
+        );
+        // Entity.rideableUnderWater() renamed to dismountsUnderwater()
+        transformer.registerMethodRedirect(
+            "net/minecraft/world/entity/Entity", "rideableUnderWater",
+            "()Z",
+            "net/minecraft/world/entity/Entity", "dismountsUnderwater",
+            "()Z"
+        );
     }
 
     @Override

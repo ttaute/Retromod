@@ -1,7 +1,7 @@
 ---
 name: build-and-deploy
 description: Build RetroMod from source and deploy it to a Minecraft installation for testing. Use when you need to rebuild after code changes and test in-game.
-argument-hint: [--skip-tests] [--deploy]
+argument-hint: "--skip-tests or --deploy"
 ---
 
 # Build and Deploy
@@ -12,10 +12,10 @@ Build RetroMod and optionally deploy to the local Minecraft installation.
 
 ```bash
 # Full build with tests
-mvn -f /Users/rossi/Development/Minecraft/RetroMod/MC-RetroMod/pom.xml package
+mvn package
 
 # Quick build (skip tests)
-mvn -f /Users/rossi/Development/Minecraft/RetroMod/MC-RetroMod/pom.xml package -DskipTests -Dexec.skip=true -q
+mvn package -DskipTests -Dexec.skip=true -q
 ```
 
 Output: `target/retromod-1.0.0-beta.1.jar`
@@ -55,7 +55,7 @@ mvn -f pom.xml exec:java \
 ## Project Structure
 
 ```
-MC-RetroMod/
+RetroMod/
 ├── pom.xml                          # Maven build config (Java 21 target, ASM 9.7)
 ├── src/main/java/com/retromod/
 │   ├── core/                        # Core runtime (RetroMod, Transformer, Detectors)

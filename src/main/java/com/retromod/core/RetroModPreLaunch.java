@@ -9,6 +9,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.retromod.util.ZipSecurity;
 import javax.swing.*;
 import java.awt.*;
 import java.nio.file.Files;
@@ -63,10 +64,25 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
     private static final String SECONDARY_INPUT = "mods/retromod-input";
     private static final String PROCESSED_SUFFIX = "/processed";
     
-    // Track transformation results
+    // Track transformation results (accessible for in-game notification)
     private static int totalTransformed = 0;
     private static List<String> transformedMods = new ArrayList<>();
     private static List<String> skippedComplexMods = new ArrayList<>();
+
+    /** Check if mods were transformed this launch (for in-game restart screen). */
+    public static boolean hasPendingRestart() {
+        return totalTransformed > 0;
+    }
+
+    /** Get the list of mod filenames that were transformed this launch. */
+    public static List<String> getTransformedMods() {
+        return List.copyOf(transformedMods);
+    }
+
+    /** Get the total number of mods transformed this launch. */
+    public static int getTotalTransformed() {
+        return totalTransformed;
+    }
     
     @Override
     public void onPreLaunch() {
@@ -136,7 +152,15 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
             // Load version shims via ServiceLoader
             ServiceLoader<VersionShim> shims = ServiceLoader.load(VersionShim.class);
             int shimCount = 0;
-            for (VersionShim shim : shims) {
+            java.util.Iterator<VersionShim> shimIt = shims.iterator();
+            while (shimIt.hasNext()) {
+                VersionShim shim;
+                try {
+                    shim = shimIt.next();
+                } catch (java.util.ServiceConfigurationError e) {
+                    // Class not found — expected in lite builds
+                    continue;
+                }
                 try {
                     shim.registerRedirects(transformer);
                     shimCount++;
@@ -146,12 +170,77 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
             }
             LOGGER.info("Registered {} version shims for transformation", shimCount);
 
+            // Register intermediary→Mojang class mappings for bytecode remapping
+            // MC 26.1+ uses official names — all class_XXXX references in bytecode
+            // must be remapped to their Mojang official names
+            try {
+                com.retromod.mapping.IntermediaryToMojangMapper mapper =
+                    com.retromod.mapping.IntermediaryToMojangMapper.getInstance();
+                if (mapper.isLoaded()) {
+                    // IMPORTANT: ASM ClassRemapper is single-pass, so we must compose
+                    // intermediary→Mojang with class moves to get intermediary→final26.1 names.
+                    // Otherwise class_4064→CycleOption stops there, but CycleOption→OptionInstance
+                    // never fires because the bytecode had class_4064, not CycleOption.
+                    java.util.Map<String, String> classMoveMap = mapper.getClassMoves();
+
+                    // First: register intermediary→Mojang, but if the Mojang target was
+                    // itself moved in 26.1, point directly to the final name
+                    int classRedirects = 0;
+                    int composed = 0;
+                    for (java.util.Map.Entry<String, String> entry : mapper.getClassMap().entrySet()) {
+                        String intermediary = entry.getKey();
+                        String mojang = entry.getValue();
+                        // Check if this Mojang name was moved in 26.1
+                        String finalName = classMoveMap.getOrDefault(mojang, mojang);
+                        if (!finalName.equals(mojang)) composed++;
+                        transformer.registerClassRedirect(intermediary, finalName);
+                        classRedirects++;
+                    }
+                    // Also register method and field name mappings
+                    transformer.registerIntermediaryNameMappings(
+                        mapper.getMethodMap(), mapper.getFieldMap());
+                    // Also register 26.1 class moves directly (for mods that already
+                    // use Mojang names, e.g. Jade targeting 1.20+ with GuiGraphics)
+                    int classMoves = 0;
+                    for (java.util.Map.Entry<String, String> entry : classMoveMap.entrySet()) {
+                        transformer.registerClassRedirect(entry.getKey(), entry.getValue());
+                        classMoves++;
+                    }
+                    LOGGER.info("Composed {}/{} intermediary mappings with class moves", composed, classRedirects);
+                    // Register constructor→factory redirects for 26.1 API changes
+                    // ResourceLocation(String) → Identifier.parse(String)
+                    transformer.registerConstructorRedirect(
+                        "net/minecraft/resources/Identifier", "(Ljava/lang/String;)V",
+                        "net/minecraft/resources/Identifier", "parse",
+                        "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
+                    // ResourceLocation(String, String) → Identifier.fromNamespaceAndPath(String, String)
+                    transformer.registerConstructorRedirect(
+                        "net/minecraft/resources/Identifier", "(Ljava/lang/String;Ljava/lang/String;)V",
+                        "net/minecraft/resources/Identifier", "fromNamespaceAndPath",
+                        "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
+                    LOGGER.info("Registered {} intermediary→Mojang class redirects + {} class moves + 2 constructor redirects",
+                        classRedirects, classMoves);
+                } else {
+                    LOGGER.warn("IntermediaryToMojangMapper not loaded — bytecode class remapping disabled");
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Could not register intermediary→Mojang mappings: {}", e.getMessage());
+            }
+
             // Load polyfill providers via ServiceLoader
             try {
                 ServiceLoader<com.retromod.polyfill.PolyfillProvider> polyfills =
                     ServiceLoader.load(com.retromod.polyfill.PolyfillProvider.class);
                 int polyfillCount = 0;
-                for (com.retromod.polyfill.PolyfillProvider provider : polyfills) {
+                java.util.Iterator<com.retromod.polyfill.PolyfillProvider> polyfillIt = polyfills.iterator();
+                while (polyfillIt.hasNext()) {
+                    com.retromod.polyfill.PolyfillProvider provider;
+                    try {
+                        provider = polyfillIt.next();
+                    } catch (java.util.ServiceConfigurationError e) {
+                        // Class not found — expected in lite builds
+                        continue;
+                    }
                     try {
                         provider.registerPolyfills(transformer);
                         polyfillCount++;
@@ -369,7 +458,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                 ║                                                            ║
                 ╚════════════════════════════════════════════════════════════╝
                 
-                Need help? Visit: github.com/Bownlux/MC-RetroMod/issues
+                Need help? Visit: github.com/Bownlux/RetroMod/issues
                 """);
             
         } catch (Exception e) {
@@ -380,9 +469,18 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
     /**
      * Transform all mods from a specific input folder.
      */
-    private int transformModsFromFolder(Path inputFolder, Path processedFolder, 
+    private int transformModsFromFolder(Path inputFolder, Path processedFolder,
                                         Path outputFolder, String targetVersion) {
         if (!Files.exists(inputFolder)) {
+            return 0;
+        }
+
+        // Validate directories are not symlinks (prevent symlink attacks)
+        try {
+            ZipSecurity.validateNotSymlink(inputFolder);
+            ZipSecurity.validateNotSymlink(outputFolder);
+        } catch (java.io.IOException e) {
+            LOGGER.error("Security check failed: {}", e.getMessage());
             return 0;
         }
         
@@ -540,10 +638,10 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
     }
     
     /**
-     * Show restart required message in logs and as a GUI popup.
+     * Show restart required message in logs.
+     * The in-game screen is shown later by RetroMod.onInitialize() via InGameScreenFactory.
      */
     private void showRestartMessage() {
-        // Always log to console
         LOGGER.info("");
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
         LOGGER.info("║                                                            ║");
@@ -561,47 +659,6 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
         LOGGER.info("║                                                            ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
         LOGGER.info("");
-
-        // Show GUI popup if we can (client-side, not headless)
-        if (EnvironmentDetector.canShowGui()) {
-            showRestartPopup();
-        }
-    }
-
-    /**
-     * Show a popup dialog telling the user to restart Minecraft.
-     * Runs on a background thread so it doesn't block the main thread during pre-launch.
-     */
-    private void showRestartPopup() {
-        // Run on a separate thread so we don't block Fabric's launch sequence
-        Thread popupThread = new Thread(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception ignored) {}
-
-            StringBuilder message = new StringBuilder();
-            message.append("RetroMod transformed ").append(totalTransformed).append(" mod(s):\n\n");
-
-            for (String mod : transformedMods) {
-                String display = mod.length() > 50 ? mod.substring(0, 47) + "..." : mod;
-                message.append("  - ").append(display).append("\n");
-            }
-
-            message.append("\nPlease close Minecraft and launch it again\n");
-            message.append("for the transformed mods to load.\n\n");
-            message.append("This only happens the first time. After restarting,\n");
-            message.append("your old mods will work normally.");
-
-            JOptionPane.showMessageDialog(
-                null,
-                message.toString(),
-                "RetroMod - Restart Required",
-                JOptionPane.INFORMATION_MESSAGE
-            );
-        }, "RetroMod-RestartPopup");
-
-        popupThread.setDaemon(true);
-        popupThread.start();
     }
 
     /**

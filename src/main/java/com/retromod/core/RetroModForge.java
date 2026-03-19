@@ -6,6 +6,7 @@ package com.retromod.core;
 
 import com.retromod.gui.RetroModGui;
 import com.retromod.gui.TitleScreenButtonInjector;
+import com.retromod.util.ZipSecurity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -161,7 +162,15 @@ public class RetroModForge {
                 java.util.ServiceLoader.load(VersionShim.class);
             
             int count = 0;
-            for (VersionShim shim : loader) {
+            java.util.Iterator<VersionShim> it = loader.iterator();
+            while (it.hasNext()) {
+                VersionShim shim;
+                try {
+                    shim = it.next();
+                } catch (java.util.ServiceConfigurationError e) {
+                    // Class not found — expected in lite builds
+                    continue;
+                }
                 String loaderType = shim.getModLoaderType();
                 if ("forge".equals(loaderType) || "common".equals(loaderType)) {
                     shim.registerRedirects(transformer);
@@ -185,6 +194,10 @@ public class RetroModForge {
             Path inputDir = gameDir.resolve("retromod-input");
             Path modsDir = gameDir.resolve("mods");
             Path processedDir = inputDir.resolve("processed");
+
+            // Validate directories are not symlinks
+            ZipSecurity.validateNotSymlink(inputDir);
+            ZipSecurity.validateNotSymlink(modsDir);
 
             Files.createDirectories(inputDir);
             Files.createDirectories(processedDir);
@@ -235,6 +248,10 @@ public class RetroModForge {
             Path gameDir = Paths.get(".").toAbsolutePath().normalize();
             Path modsDir = gameDir.resolve("mods");
             Path backupDir = modsDir.resolve("retromod-backups");
+
+            // Validate directories are not symlinks
+            ZipSecurity.validateNotSymlink(modsDir);
+            ZipSecurity.validateNotSymlink(backupDir);
 
             if (!Files.isDirectory(modsDir)) return 0;
 
@@ -325,10 +342,10 @@ public class RetroModForge {
                     if (info != null && info.needsTransformation(RetroMod.TARGET_MC_VERSION)) {
                         String sourceVersion = info.targetMcVersion();
                         
-                        // Only runtime-transform minor version diffs
-                        if (sourceVersion != null && sourceVersion.startsWith("1.21")) {
-                            LOGGER.info("Runtime transforming: {} ({} -> 1.21.11)", 
-                                modFile.getName(), sourceVersion);
+                        // Runtime-transform Forge mods that need it
+                        if (sourceVersion != null) {
+                            LOGGER.info("Runtime transforming: {} ({} -> {})",
+                                modFile.getName(), sourceVersion, RetroMod.TARGET_MC_VERSION);
                             
                             for (String pkg : info.modPackages()) {
                                 RetroModTransformer.getInstance().addTransformablePackage(pkg);

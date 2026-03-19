@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.ServiceConfigurationError;
 
 /**
  * Registry that discovers and manages polyfill providers.
@@ -66,12 +67,25 @@ public class PolyfillRegistry {
         }
 
         // Discover providers via ServiceLoader
+        // Uses iterator with error handling to support lite builds where some
+        // provider classes may be excluded from the JAR
         ServiceLoader<PolyfillProvider> loader = ServiceLoader.load(PolyfillProvider.class);
 
         int registered = 0;
         int skipped = 0;
 
-        for (PolyfillProvider provider : loader) {
+        Iterator<PolyfillProvider> it = loader.iterator();
+        while (it.hasNext()) {
+            PolyfillProvider provider;
+            try {
+                provider = it.next();
+            } catch (ServiceConfigurationError e) {
+                // Class not found — expected in lite builds where some providers are excluded
+                LOGGER.debug("Skipping unavailable polyfill provider: {}", e.getMessage());
+                skipped++;
+                continue;
+            }
+
             providers.add(provider);
 
             if (enabledCategories.contains(provider.getCategory())) {

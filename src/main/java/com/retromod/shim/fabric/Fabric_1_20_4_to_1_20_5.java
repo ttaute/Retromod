@@ -73,6 +73,39 @@ public class Fabric_1_20_4_to_1_20_5 implements VersionShim {
             "com/retromod/shim/fabric/embedded/FoodComponentShim", "food",
             "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
         );
+
+        // BlockPathTypes renamed to PathType (1.20.5 pathfinder cleanup)
+        transformer.registerClassRedirect(
+            "net/minecraft/world/level/pathfinder/BlockPathTypes",
+            "net/minecraft/world/level/pathfinder/PathType"
+        );
+        // BootstapContext typo fix -> BootstrapContext
+        transformer.registerClassRedirect(
+            "net/minecraft/data/worldgen/BootstapContext",
+            "net/minecraft/data/worldgen/BootstrapContext"
+        );
+        // Entity.setSecondsOnFire() renamed to igniteForSeconds()
+        transformer.registerMethodRedirect(
+            "net/minecraft/world/entity/Entity", "setSecondsOnFire",
+            "(I)V",
+            "net/minecraft/world/entity/Entity", "igniteForSeconds",
+            "(I)V"
+        );
+        // ItemStack.isSameItemSameTags() renamed to isSameItemSameComponents() (NBT -> components migration)
+        transformer.registerMethodRedirect(
+            "net/minecraft/world/item/ItemStack", "isSameItemSameTags",
+            "(Lnet/minecraft/world/item/ItemStack;)Z",
+            "net/minecraft/world/item/ItemStack", "isSameItemSameComponents",
+            "(Lnet/minecraft/world/item/ItemStack;)Z"
+        );
+        // Screen.renderDirtBackground() renamed to renderMenuBackground()
+        // NOTE: descriptor may vary between versions - using void return
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/gui/screens/Screen", "renderDirtBackground",
+            "()V",
+            "net/minecraft/client/gui/screens/Screen", "renderMenuBackground",
+            "()V"
+        );
     }
 
     @Override

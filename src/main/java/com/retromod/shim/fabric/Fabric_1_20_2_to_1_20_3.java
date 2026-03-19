@@ -21,6 +21,22 @@ public class Fabric_1_20_2_to_1_20_3 implements VersionShim {
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
         // Minor bugfix release - minimal API changes
+
+        // GravelBlock merged into ColoredFallingBlock
+        transformer.registerClassRedirect(
+            "net/minecraft/world/level/block/GravelBlock",
+            "net/minecraft/world/level/block/ColoredFallingBlock"
+        );
+        // SandBlock merged into ColoredFallingBlock
+        transformer.registerClassRedirect(
+            "net/minecraft/world/level/block/SandBlock",
+            "net/minecraft/world/level/block/ColoredFallingBlock"
+        );
+        // FernBlock renamed to ShortPlantBlock
+        transformer.registerClassRedirect(
+            "net/minecraft/world/level/block/FernBlock",
+            "net/minecraft/world/level/block/ShortPlantBlock"
+        );
     }
 
     @Override

@@ -200,7 +200,6 @@ public final class TitleScreenButtonInjector {
             Object normalPriority = priorityClass.getField("NORMAL").get(null);
 
             // Create a Consumer proxy
-            @SuppressWarnings("unchecked")
             Consumer<Object> consumer = event -> handleForgeScreenEvent(event);
 
             // Call: eventBus.addListener(NORMAL, false, screenEventClass, consumer)
@@ -261,7 +260,6 @@ public final class TitleScreenButtonInjector {
             Object normalPriority = priorityClass.getField("NORMAL").get(null);
 
             // Create a Consumer proxy
-            @SuppressWarnings("unchecked")
             Consumer<Object> consumer = event -> handleForgeScreenEvent(event);
 
             // Call: eventBus.addListener(NORMAL, false, screenEventClass, consumer)

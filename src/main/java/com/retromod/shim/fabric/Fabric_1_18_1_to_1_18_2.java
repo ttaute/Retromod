@@ -26,6 +26,12 @@ public class Fabric_1_18_1_to_1_18_2 implements VersionShim {
             "com/retromod/shim/fabric/embedded/PlacedFeatureShim", "register",
             "(Ljava/lang/String;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;"
         );
+
+        // StructureSettings moved to structure sub-package in 1.18.2
+        transformer.registerClassRedirect(
+            "net/minecraft/world/level/levelgen/StructureSettings",
+            "net/minecraft/world/level/levelgen/structure/StructureSettings"
+        );
     }
 
     @Override

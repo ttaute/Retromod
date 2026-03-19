@@ -18,7 +18,10 @@ public class Fabric_1_21_7_to_1_21_8 implements VersionShim {
     
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
-        // 1.21.7 to 1.21.8 - minor stabilization before major 1.21.9 changes
+        // No redirects needed — 1.21.8 is a hotfix with no API renames,
+        // removals, or signature changes. This shim exists solely for BFS
+        // chain continuity (ShimRegistry needs a connected path from any
+        // version to 26.1).
     }
     
     @Override public String[] getShimClasses() { return new String[0]; }

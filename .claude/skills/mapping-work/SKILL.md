@@ -1,7 +1,7 @@
 ---
 name: mapping-work
 description: Work with Minecraft name mappings — intermediary, Mojang official, SRG, and Yarn. Use when adding new mappings to IntermediaryToMojangMapper, generating mapping files with MappingComposer, or debugging name mismatches.
-argument-hint: <task> (e.g. "add class mapping class_1234 Entity", "generate mappings from tinyv2")
+argument-hint: "task (e.g. add class mapping class_1234 Entity, generate mappings from tinyv2)"
 ---
 
 # Mapping Work

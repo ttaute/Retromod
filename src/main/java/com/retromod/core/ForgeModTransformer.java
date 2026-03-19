@@ -4,6 +4,7 @@
  */
 package com.retromod.core;
 
+import com.retromod.util.ZipSecurity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +31,11 @@ import java.util.regex.*;
 public class ForgeModTransformer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeTransform");
+
+    /** Maximum size for a single ZIP entry (50 MB) to prevent zip bomb attacks. */
+    private static final long MAX_ENTRY_SIZE = 50 * 1024 * 1024;
+    /** Maximum total extracted size (500 MB) to prevent zip bomb attacks. */
+    private static final long MAX_TOTAL_SIZE = 500 * 1024 * 1024;
 
     /**
      * Forge/NeoForge mod IDs for APIs that RetroMod provides compatibility shims for.
@@ -171,13 +177,23 @@ public class ForgeModTransformer {
     private void extractJar(Path jarPath, Path outputDir) throws IOException {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             var entries = jar.entries();
+            long totalSize = 0;
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
-                Path outputPath = outputDir.resolve(entry.getName());
+                Path outputPath = ZipSecurity.safeResolve(outputDir, entry.getName());
 
                 if (entry.isDirectory()) {
                     Files.createDirectories(outputPath);
                 } else {
+                    if (entry.getSize() > MAX_ENTRY_SIZE) {
+                        throw new IOException("ZIP entry too large: " + entry.getName()
+                            + " (" + entry.getSize() + " bytes, max " + MAX_ENTRY_SIZE + ")");
+                    }
+                    totalSize += Math.max(entry.getSize(), 0);
+                    if (totalSize > MAX_TOTAL_SIZE) {
+                        throw new IOException("ZIP total extracted size exceeds limit ("
+                            + MAX_TOTAL_SIZE + " bytes) — possible zip bomb");
+                    }
                     Files.createDirectories(outputPath.getParent());
                     try (InputStream is = jar.getInputStream(entry)) {
                         Files.copy(is, outputPath, StandardCopyOption.REPLACE_EXISTING);

@@ -75,11 +75,8 @@ public class JadeWailaApiShim implements VersionShim {
         // JADE INTERFACE CHANGES
         // ============================================================
         
-        // IWailaPlugin -> IWailaClientPlugin / IWailaCommonPlugin
-        transformer.registerClassRedirect(
-            "snownee/jade/api/IWailaPlugin",
-            "snownee/jade/api/IWailaClientPlugin"
-        );
+        // IWailaPlugin is still IWailaPlugin in Jade 11.x — no rename needed
+        // (IWailaClientPlugin does not exist in Jade 11.x)
         
         // IBlockComponentProvider
         transformer.registerClassRedirect(

@@ -134,7 +134,7 @@ public class ModHealthChecker {
                 ═══════════════════════════════════════════════════════════════
                 
                 Report bugs on GitHub:
-                https://github.com/Bownlux/MC-RetroMod/issues
+                https://github.com/Bownlux/RetroMod/issues
 
                 - Open an issue for bug reports
                 - Ask questions
@@ -245,7 +245,7 @@ public class ModHealthChecker {
         LOGGER.error("  This might be a RetroMod compatibility issue.");
         LOGGER.error("");
         LOGGER.error("  PLEASE REPORT THIS BUG:");
-        LOGGER.error("  → https://github.com/Bownlux/MC-RetroMod/issues");
+        LOGGER.error("  → https://github.com/Bownlux/RetroMod/issues");
         LOGGER.error("");
         LOGGER.error("  Recent errors:");
         for (String err : errors) {
@@ -276,7 +276,7 @@ public class ModHealthChecker {
             message.append("working correctly after transformation.\n\n");
             message.append("═══════════════════════════════════════\n\n");
             message.append("Please report this bug on GitHub:\n");
-            message.append("→ github.com/Bownlux/MC-RetroMod/issues\n\n");
+            message.append("→ github.com/Bownlux/RetroMod/issues\n\n");
             message.append("═══════════════════════════════════════\n\n");
             message.append("Recent errors:\n");
             for (int i = 0; i < Math.min(3, errors.size()); i++) {
@@ -353,7 +353,7 @@ public class ModHealthChecker {
      */
     private static void openGitHub() {
         try {
-            String url = "https://github.com/Bownlux/MC-RetroMod/issues/new?title=Bug%20Report%20-%20Mod%20Not%20Working";
+            String url = "https://github.com/Bownlux/RetroMod/issues/new?title=Bug%20Report%20-%20Mod%20Not%20Working";
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(java.net.URI.create(url));
             } else {

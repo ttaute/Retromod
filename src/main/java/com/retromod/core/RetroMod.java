@@ -102,11 +102,13 @@ public class RetroMod implements ModInitializer {
     
     // Supported target versions (add new MC versions here)
     public static final String[] SUPPORTED_TARGET_VERSIONS = {
-        "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5", 
+        "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5",
         "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11",
-        // Future versions - ready when MC releases them
-        "1.22", "1.22.1", "1.22.2",
-        "26.1.0", "26.1.1", "26.1.2", "26.2.0" // Future 2026 versions
+        // 26.1 — first unobfuscated MC version
+        "26.1", "26.1-pre.1", "26.1-pre.2", "26.1-pre-1", "26.1-pre-2",
+        "26.1.0", "26.1.1", "26.1.2",
+        // Future versions
+        "26.2", "26.2.0", "26.2.1"
     };
     
     @Override
@@ -215,9 +217,50 @@ public class RetroMod implements ModInitializer {
             LOGGER.warn("Could not scan/compile mods", e);
         }
 
+        // Bridge old HUD callbacks to new HudElementRegistry API (26.1+)
+        try {
+            com.retromod.shim.fabric.embedded.HudRenderCallbackShim.bridgeToNewApi();
+        } catch (Throwable e) {
+            // Catch Throwable — ExceptionInInitializerError from IdentifierShim
+            // is an Error, not Exception. Non-critical, don't crash RetroMod.
+            LOGGER.warn("Could not bridge HUD callbacks: {}", e.getMessage());
+        }
+
+        // Show in-game restart screen if mods were transformed during pre-launch
+        try {
+            if (RetroModPreLaunch.hasPendingRestart()) {
+                scheduleRestartScreen();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Could not show restart screen: {}", e.getMessage());
+        }
+
         LOGGER.info("RetroMod initialized - {} method redirects, {} class redirects registered",
                 RetroModTransformer.getInstance().getMethodRedirectCount(),
                 RetroModTransformer.getInstance().getClassRedirectCount());
+    }
+
+    /**
+     * Schedule the in-game restart screen to appear once the MC client is ready.
+     * Deferred so the title screen has time to initialize first.
+     */
+    private void scheduleRestartScreen() {
+        Thread screenThread = new Thread(() -> {
+            // Wait for MC client to initialize (title screen must be up)
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException ignored) {}
+
+            List<String> mods = RetroModPreLaunch.getTransformedMods();
+            List<String> results = new java.util.ArrayList<>();
+            for (String mod : mods) {
+                results.add(mod);
+            }
+
+            com.retromod.gui.InGameScreenFactory.showTransformResults(results, true);
+        }, "RetroMod-RestartScreen");
+        screenThread.setDaemon(true);
+        screenThread.start();
     }
     
     /**
@@ -282,7 +325,7 @@ public class RetroMod implements ModInitializer {
             ═══════════════════════════════════════════════════════════════
             
             Report bugs on GitHub:
-            https://github.com/Bownlux/MC-RetroMod/issues
+            https://github.com/Bownlux/RetroMod/issues
             
             ═══════════════════════════════════════════════════════════════
             """;
@@ -343,7 +386,7 @@ public class RetroMod implements ModInitializer {
         if (configPath.toFile().exists()) {
             try {
                 String json = java.nio.file.Files.readString(configPath);
-                var config = new com.google.gson.JsonParser().parse(json).getAsJsonObject();
+                var config = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
 
                 if (config.has("use_aot")) useAotCompilation = config.get("use_aot").getAsBoolean();
                 if (config.has("transform_mixins")) transformMixins = config.get("transform_mixins").getAsBoolean();
@@ -365,7 +408,7 @@ public class RetroMod implements ModInitializer {
     private void generateDefaultConfig(Path configPath) {
         String defaultConfig = """
                 {
-                  "_comment": "RetroMod Configuration - https://github.com/Bownlux/MC-RetroMod",
+                  "_comment": "RetroMod Configuration - https://github.com/Bownlux/RetroMod",
 
                   "use_aot": true,
                   "use_hybrid": true,
@@ -526,9 +569,20 @@ public class RetroMod implements ModInitializer {
     private void registerShims() {
         // Load shims via ServiceLoader (allows external shim packs)
         ServiceLoader<VersionShim> shims = ServiceLoader.load(VersionShim.class);
-        
-        for (VersionShim shim : shims) {
-            LOGGER.info("Loading shim: {} ({} -> {})", 
+
+        // Use iterator with error handling to support lite builds where some
+        // shim classes may be excluded from the JAR
+        java.util.Iterator<VersionShim> it = shims.iterator();
+        while (it.hasNext()) {
+            VersionShim shim;
+            try {
+                shim = it.next();
+            } catch (java.util.ServiceConfigurationError e) {
+                // Class not found — expected in lite builds
+                LOGGER.debug("Skipping unavailable shim: {}", e.getMessage());
+                continue;
+            }
+            LOGGER.info("Loading shim: {} ({} -> {})",
                     shim.getShimName(), shim.getSourceVersion(), shim.getTargetVersion());
             shim.registerRedirects(RetroModTransformer.getInstance());
             shimRegistry.register(shim);

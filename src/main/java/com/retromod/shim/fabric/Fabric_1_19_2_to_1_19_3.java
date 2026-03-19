@@ -57,6 +57,21 @@ public class Fabric_1_19_2_to_1_19_3 implements VersionShim {
             "net/minecraft/resource/featuretoggle/FeatureFlags",
             "net/minecraft/world/flag/FeatureFlags"
         );
+
+        // Widget renamed to Renderable (1.19.3 rendering interface rename)
+        transformer.registerClassRedirect(
+            "net/minecraft/client/gui/components/Widget",
+            "net/minecraft/client/gui/components/Renderable"
+        );
+        // Loot table class renames - split into sub-providers
+        transformer.registerClassRedirect(
+            "net/minecraft/data/loot/BlockLoot",
+            "net/minecraft/data/loot/BlockLootSubProvider"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraft/data/loot/EntityLoot",
+            "net/minecraft/data/loot/EntityLootSubProvider"
+        );
     }
 
     @Override

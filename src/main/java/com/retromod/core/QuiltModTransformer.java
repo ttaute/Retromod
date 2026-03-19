@@ -4,6 +4,7 @@
  */
 package com.retromod.core;
 
+import com.retromod.util.ZipSecurity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,7 +91,7 @@ public class QuiltModTransformer {
                 var entries = jar.entries();
                 while (entries.hasMoreElements()) {
                     JarEntry entry = entries.nextElement();
-                    Path outPath = tempDir.resolve(entry.getName());
+                    Path outPath = ZipSecurity.safeResolve(tempDir, entry.getName());
                     if (entry.isDirectory()) {
                         Files.createDirectories(outPath);
                     } else {

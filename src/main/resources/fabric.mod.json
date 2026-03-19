@@ -7,8 +7,8 @@
   "authors": ["Bownlux"],
   "contact": {
     "homepage": "https://modrinth.com/mod/retromod",
-    "sources": "https://github.com/Bownlux/MC-RetroMod",
-    "issues": "https://github.com/Bownlux/MC-RetroMod/issues"
+    "sources": "https://github.com/Bownlux/RetroMod",
+    "issues": "https://github.com/Bownlux/RetroMod/issues"
   },
   "license": "MIT",
   "icon": "assets/retromod/icon.png",
@@ -30,8 +30,8 @@
   "custom": {
     "modmenu": {
       "links": {
-        "modmenu.discord": "https://github.com/Bownlux/MC-RetroMod",
-        "modmenu.issues": "https://github.com/Bownlux/MC-RetroMod/issues"
+        "modmenu.discord": "https://github.com/Bownlux/RetroMod",
+        "modmenu.issues": "https://github.com/Bownlux/RetroMod/issues"
       }
     },
     "retromod": {

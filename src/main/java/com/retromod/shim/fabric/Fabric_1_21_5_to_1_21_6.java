@@ -111,6 +111,31 @@ public class Fabric_1_21_5_to_1_21_6 implements VersionShim {
         
         // Mods can still use Item#appendTooltip but should migrate
         // We provide a bridge to the new API
+
+        // ============================================================
+        // LAYERED DRAW REMOVED
+        // LayeredDraw was removed in 1.21.6 with no direct replacement.
+        // The HUD rendering system was completely rewritten to use
+        // HudElementRegistry instead. Mods using LayeredDraw need to
+        // migrate to the new HudElementRegistry API.
+        // We redirect to a stub that logs a deprecation warning.
+        // ============================================================
+
+        transformer.registerClassRedirect(
+            "net/minecraft/client/gui/LayeredDraw",
+            "com/retromod/shim/fabric/embedded/LayeredDrawStub"
+        );
+
+        // ============================================================
+        // FONT DRAW IN BATCH RETURN TYPE CHANGE
+        // Font.drawInBatch return type changed from int to float in 1.21.6.
+        // A simple redirect won't work due to the return type difference.
+        // Mods calling drawInBatch and using the int return value will need
+        // a polyfill that casts the float result. For mods that discard the
+        // return value, no redirect is needed (JVM handles it).
+        // ============================================================
+        // NOTE: No redirect registered — return type mismatch requires a
+        // polyfill rather than a simple method redirect.
     }
     
     @Override
@@ -120,7 +145,8 @@ public class Fabric_1_21_5_to_1_21_6 implements VersionShim {
             "com.retromod.shim.fabric.embedded.MaterialFinderShim",
             "com.retromod.shim.fabric.embedded.RenderMaterialShim",
             "com.retromod.shim.fabric.embedded.CoreShaderRegistrationCallbackShim",
-            "com.retromod.shim.fabric.embedded.WorldRendererShim"
+            "com.retromod.shim.fabric.embedded.WorldRendererShim",
+            "com.retromod.shim.fabric.embedded.LayeredDrawStub"
         };
     }
 }

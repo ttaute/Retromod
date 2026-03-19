@@ -1,7 +1,7 @@
 ---
 name: debug-crash
 description: Debug a Minecraft crash caused by a mod that RetroMod transformed. Use when a mod crashes after transformation and you need to find and fix the root cause.
-argument-hint: (no args needed — reads latest.log automatically)
+argument-hint: "no args needed - reads latest.log automatically"
 ---
 
 # Debug Crash

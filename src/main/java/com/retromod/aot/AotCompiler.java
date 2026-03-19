@@ -149,11 +149,9 @@ public class AotCompiler {
             String fileName = modJar.getFileName().toString();
             Path backupPath = backupFolder.resolve(fileName);
             
-            // Don't overwrite existing backups
-            if (!Files.exists(backupPath)) {
-                Files.copy(modJar, backupPath);
-                LOGGER.info("Created backup: {}", backupPath);
-            }
+            // Use atomic copy to avoid TOCTOU race between exists-check and copy
+            Files.copy(modJar, backupPath, StandardCopyOption.REPLACE_EXISTING);
+            LOGGER.info("Created backup: {}", backupPath);
         } catch (Exception e) {
             LOGGER.warn("Could not create backup for: {}", modJar.getFileName(), e);
         }
@@ -170,10 +168,11 @@ public class AotCompiler {
             try {
                 File[] modFiles = modsFolder.toFile().listFiles(
                     (dir, name) -> name.endsWith(".jar") && !name.contains("-aot")
+                            && !name.startsWith("retromod-")
                 );
-                
+
                 if (modFiles == null) return compiled;
-                
+
                 for (File modFile : modFiles) {
                     try {
                         Path result = compileModAot(modFile.toPath());
@@ -200,12 +199,13 @@ public class AotCompiler {
         
         File[] modFiles = modsFolder.toFile().listFiles(
             (dir, name) -> name.endsWith(".jar") && !name.contains("-aot")
+                    && !name.startsWith("retromod-")
         );
-        
+
         if (modFiles == null || modFiles.length == 0) {
             return results;
         }
-        
+
         int total = modFiles.length;
         int current = 0;
         
@@ -636,10 +636,13 @@ public class AotCompiler {
                 }
             }
         }
-        
+
+        // Include synthetic classes (ASM-generated polyfills with MC-typed fields)
+        shims.putAll(transformer.getSyntheticClasses());
+
         return shims;
     }
-    
+
     /**
      * Write AOT metadata file to the JAR.
      */

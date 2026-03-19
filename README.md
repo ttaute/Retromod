@@ -9,7 +9,7 @@
 
 **Made by the developers of [RevivalSMP.net](https://revivalsmp.net)**
 
-> **This project is currently in beta.** It works for many mods, but some complex mods may still have issues. Always keep backups of your original mod files. Please report bugs on [GitHub Issues](https://github.com/Bownlux/MC-RetroMod/issues).
+> **This project is currently in beta.** It works for many mods, but some complex mods may still have issues. Always keep backups of your original mod files. Please report bugs on [GitHub Issues](https://github.com/Bownlux/RetroMod/issues).
 
 RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load time — rewriting renamed methods, redirecting removed APIs, and patching Mixin targets — so old mods just work. Supports **Fabric**, **NeoForge**, and **Forge** with version shims covering Minecraft 1.12.2 all the way through 26.1.
 
@@ -54,7 +54,7 @@ RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 - **Hybrid AOT/JIT** — Pre-transforms mods at first launch, JIT fallback for edge cases
 - **Instruction-Level Granularity** — Only specific bytecode instructions get transformed
 - **API Embedding** — Removed APIs are bundled as shim classes directly into mod JARs
-- **Polyfill System** — 72+ stub implementations for completely removed APIs across Fabric, Forge, NeoForge, vanilla MC, and third-party mods (Baubles, NEI, CoFH, WAILA)
+- **Polyfill System** — 72+ reimplementations of removed APIs that delegate to modern equivalents across Fabric, Forge, NeoForge, vanilla MC, and third-party mods (Baubles, NEI, CoFH, WAILA)
 - **Mixin Compatibility** — Transforms `@Inject`, `@Redirect`, `@Shadow`, `@Accessor` targets
 - **Reflection Remapping** — Intercepts `Class.forName()` and `Method.invoke()` calls
 - **API Version Relaxation** — Automatically updates version constraints so mods requiring old API versions (e.g., Cloth Config 6.x) work with newer ones
@@ -110,8 +110,8 @@ Requires **Java 25+** and **Maven 3.8+**.
 ### Easy Build (Recommended)
 
 ```bash
-git clone https://github.com/Bownlux/MC-RetroMod.git
-cd MC-RetroMod
+git clone https://github.com/Bownlux/RetroMod.git
+cd RetroMod
 ./build.sh          # macOS / Linux
 build.bat           # Windows
 ```
@@ -263,11 +263,11 @@ For most users, **gameplay performance is identical to running native mods.** Th
 
 RetroMod's shims handle API **renames and relocations** — when a method or class was moved or renamed between versions. But sometimes APIs are **completely removed** with no direct replacement. When that happens, mods crash with `ClassNotFoundException`, `NoSuchMethodError`, or mixin hierarchy failures.
 
-The **polyfill system** solves this by re-implementing removed APIs as lightweight compatibility stubs. These stubs provide just enough of the original API surface so that mods referencing removed classes don't crash. Polyfills are loaded automatically via ServiceLoader and can be toggled per-category in config.
+The **polyfill system** solves this by re-implementing removed APIs using their modern equivalents. These polyfills provide the original API surface but delegate to the new code under the hood, so mods that depend on removed APIs still **work correctly** — not just load. Polyfills are loaded automatically via ServiceLoader and can be toggled per-category in config.
 
 ### What's Covered
 
-RetroMod ships with **72+ polyfill stubs** across 10 providers covering every major modding ecosystem:
+RetroMod ships with **72+ polyfill reimplementations** across 10 providers covering every major modding ecosystem:
 
 | Category | Examples | Fixes |
 |----------|----------|-------|
@@ -306,7 +306,7 @@ Polyfills are **enabled by default**. You can toggle the entire system or indivi
 }
 ```
 
-> **Note:** Polyfill stubs are lightweight no-op implementations. They prevent crashes and let mods load, but the polyfilled functionality itself won't do anything meaningful — the point is that the mod doesn't crash and its other features still work.
+> **Note:** Polyfills reimplement removed APIs by delegating to their modern equivalents. Old API calls are intercepted and bridged to the new code, so mods that depend on them still function correctly. In rare cases where an API was removed with no replacement at all, a minimal fallback is provided.
 
 ---
 
@@ -338,7 +338,7 @@ Auto-generated on first launch at `config/retromod/config.json`:
 | `use_hybrid` | `true` | Use hybrid AOT/JIT mode (JIT fills in what AOT misses) |
 | `transform_mixins` | `true` | Rewrite Mixin annotation targets for version compatibility |
 | `remap_reflection` | `true` | Intercept reflection calls (Class.forName, Method.invoke) and remap class names |
-| `polyfills_enabled` | `true` | Enable the polyfill system — re-implements removed APIs as compatibility stubs so old mods don't crash |
+| `polyfills_enabled` | `true` | Enable the polyfill system — reimplements removed APIs using modern equivalents so old mods work correctly |
 | `force_translate_complex` | `false` | Force-translate mods that RetroMod deems "unlikely to work" (high complexity score). Enable this if a mod was skipped and you want to try it anyway. |
 | `log_level` | `"INFO"` | Logging verbosity: `ERROR`, `WARN`, `INFO`, `DEBUG` |
 | `dump_bytecode` | `false` | Dump transformed bytecode to disk for debugging |
@@ -356,11 +356,11 @@ SHIM CHAIN — find path: e.g. 1.21 → 1.21.1 → ... → 26.1
   ↓
 BYTECODE TRANSFORMATION — AOT, partial AOT, or JIT
   ↓
-POLYFILL INJECTION — stub removed APIs (Fabric, Forge, NeoForge, vanilla, third-party)
+POLYFILL INJECTION — reimplement removed APIs (Fabric, Forge, NeoForge, vanilla, third-party)
   ↓
 SUPERCLASS REDIRECTS — rewrite class hierarchy for class→interface migrations
   ↓
-OUTPUT — rewritten bytecode, embedded API shims, polyfill stubs, updated Mixins
+OUTPUT — rewritten bytecode, embedded API shims, polyfill reimplementations, updated Mixins
 ```
 
 ### Core Components
@@ -449,7 +449,7 @@ public class Fabric_X_to_Y implements VersionShim {
 
 **Adding a shim:** Fork → add shim in `src/main/java/com/retromod/shim/` → register in `META-INF/services/com.retromod.core.VersionShim` → add tests → PR.
 
-**Adding a polyfill:** Fork → create a `PolyfillProvider` in `src/main/java/com/retromod/polyfill/` → add stub classes at the original package path → register in `META-INF/services/com.retromod.polyfill.PolyfillProvider` → PR.
+**Adding a polyfill:** Fork → create a `PolyfillProvider` in `src/main/java/com/retromod/polyfill/` → add reimplementation classes at the original package path that delegate to modern APIs → register in `META-INF/services/com.retromod.polyfill.PolyfillProvider` → PR.
 
 ## License
 

@@ -41,6 +41,18 @@ public class Forge_1_17_1_to_1_18 implements VersionShim {
             "com/retromod/shim/forge/embedded/ChunkShim", "getHighestSection",
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
+
+        // RenderWorldLastEvent renamed to RenderLevelLastEvent in 1.18
+        // (reflects the World→Level rename throughout the codebase)
+        transformer.registerClassRedirect(
+            "net/minecraftforge/client/event/RenderWorldLastEvent",
+            "net/minecraftforge/client/event/RenderLevelLastEvent"
+        );
+        // fmllegacy package removed in Forge 1.18; RegistryObject moved back to registries package
+        transformer.registerClassRedirect(
+            "net/minecraftforge/fmllegacy/RegistryObject",
+            "net/minecraftforge/registries/RegistryObject"
+        );
     }
 
     @Override

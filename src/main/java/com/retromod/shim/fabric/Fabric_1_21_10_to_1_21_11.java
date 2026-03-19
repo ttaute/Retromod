@@ -94,6 +94,28 @@ public class Fabric_1_21_10_to_1_21_11 implements VersionShim {
         
         // This shim primarily helps bridge the final obfuscated version
         // to prepare for the transition
+
+        // ============================================================
+        // RESOURCE LOCATION -> IDENTIFIER RENAME
+        // Mojang renamed ResourceLocation to Identifier in vanilla 1.21.11.
+        // All references to the old class name must be updated.
+        // ============================================================
+
+        transformer.registerClassRedirect(
+            "net/minecraft/resources/ResourceLocation",
+            "net/minecraft/resources/Identifier"
+        );
+
+        // ============================================================
+        // RENDER TYPE METHOD REORGANIZATION
+        // Some static methods from RenderType moved to RenderTypes (plural).
+        // Both classes still exist, but factory methods were split out.
+        // ============================================================
+
+        transformer.registerClassRedirect(
+            "net/minecraft/client/renderer/RenderType",
+            "net/minecraft/client/renderer/RenderTypes"
+        );
     }
     
     @Override

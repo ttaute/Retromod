@@ -52,6 +52,32 @@ public class Fabric_1_20_6_to_1_21 implements VersionShim {
             "net/minecraft/entity/mob/BreezeEntity",
             "net/minecraft/entity/mob/BreezeEntity"
         );
+
+        // ============================================================
+        // RESOURCE LOCATION CONSTRUCTOR CHANGES
+        // new ResourceLocation(namespace, path) -> ResourceLocation.fromNamespaceAndPath(namespace, path)
+        // The two-arg constructor was removed in 1.21; use the static factory instead.
+        // ============================================================
+
+        transformer.registerConstructorRedirect(
+            "net/minecraft/resources/ResourceLocation",
+            "(Ljava/lang/String;Ljava/lang/String;)V",
+            "net/minecraft/resources/ResourceLocation", "fromNamespaceAndPath",
+            "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;"
+        );
+
+        // ============================================================
+        // ENTITY DIMENSION CHANGE
+        // Entity.changeDimension(ServerLevel) -> Entity.teleportTo(ServerLevel)
+        // Method renamed in 1.21 to better reflect its purpose.
+        // ============================================================
+
+        transformer.registerMethodRedirect(
+            "net/minecraft/world/entity/Entity", "changeDimension",
+            "(Lnet/minecraft/server/level/ServerLevel;)Lnet/minecraft/world/entity/Entity;",
+            "net/minecraft/world/entity/Entity", "teleportTo",
+            "(Lnet/minecraft/server/level/ServerLevel;)Lnet/minecraft/world/entity/Entity;"
+        );
     }
 
     @Override

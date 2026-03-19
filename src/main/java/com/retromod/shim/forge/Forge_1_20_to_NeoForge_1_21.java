@@ -88,14 +88,48 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "java/util/Optional"
         );
         
-        // Config system
+        // Config system: ForgeConfigSpec → ModConfigSpec (NeoForge config system rename)
         transformer.registerClassRedirect(
             "net/minecraftforge/common/ForgeConfigSpec",
             "net/neoforged/neoforge/common/ModConfigSpec"
         );
         transformer.registerClassRedirect(
+            "net/minecraftforge/common/ForgeConfigSpec$Builder",
+            "net/neoforged/neoforge/common/ModConfigSpec$Builder"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/ForgeConfigSpec$ConfigValue",
+            "net/neoforged/neoforge/common/ModConfigSpec$ConfigValue"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/ForgeConfigSpec$BooleanValue",
+            "net/neoforged/neoforge/common/ModConfigSpec$BooleanValue"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/ForgeConfigSpec$IntValue",
+            "net/neoforged/neoforge/common/ModConfigSpec$IntValue"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/ForgeConfigSpec$DoubleValue",
+            "net/neoforged/neoforge/common/ModConfigSpec$DoubleValue"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/ForgeConfigSpec$LongValue",
+            "net/neoforged/neoforge/common/ModConfigSpec$LongValue"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/ForgeConfigSpec$EnumValue",
+            "net/neoforged/neoforge/common/ModConfigSpec$EnumValue"
+        );
+
+        // FML class renames
+        transformer.registerClassRedirect(
             "net/minecraftforge/fml/ModLoadingContext",
-            "net/neoforged/fml/ModContainer"
+            "net/neoforged/fml/ModLoadingContext"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/fml/loading/FMLPaths",
+            "net/neoforged/fml/loading/FMLPaths"
         );
         
         // Network

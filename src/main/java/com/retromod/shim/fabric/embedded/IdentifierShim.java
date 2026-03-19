@@ -35,8 +35,9 @@ public final class IdentifierShim {
             // mojang: net.minecraft.resources.ResourceLocation
             // intermediary: resolved via MappingResolver
             identifierClass = McReflect.findClass(
+                "net.minecraft.resources.Identifier",      // mojang 26.1+ (renamed from ResourceLocation)
                 "net.minecraft.util.Identifier",           // yarn
-                "net.minecraft.resources.ResourceLocation" // mojang
+                "net.minecraft.resources.ResourceLocation" // mojang pre-26.1
             );
 
             if (identifierClass == null) {

@@ -4,6 +4,7 @@
  */
 package com.retromod.resources;
 
+import com.retromod.util.ZipSecurity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -307,7 +308,7 @@ public class ResourcePackTransformer {
             var entries = zip.entries();
             while (entries.hasMoreElements()) {
                 ZipEntry entry = entries.nextElement();
-                Path outPath = outputDir.resolve(entry.getName());
+                Path outPath = ZipSecurity.safeResolve(outputDir, entry.getName());
                 if (entry.isDirectory()) {
                     Files.createDirectories(outPath);
                 } else {

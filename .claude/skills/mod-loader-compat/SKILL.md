@@ -1,7 +1,7 @@
 ---
 name: mod-loader-compat
 description: Work on mod loader compatibility — Fabric, NeoForge, Forge runtime integration, version constraint relaxation, and mod metadata patching. Use when fixing mod loading issues, version rejection errors, or adding support for a new loader version.
-argument-hint: <loader> <issue> (e.g. "neoforge version-range-too-strict", "fabric dependency-rejected")
+argument-hint: "loader issue (e.g. neoforge version-range-too-strict, fabric dependency-rejected)"
 ---
 
 # Mod Loader Compatibility
@@ -51,8 +51,8 @@ RetroMod runs as a mod on each loader and intercepts mod loading:
 ### NeoForge/Forge (`ForgeModTransformer`)
 - Updates minecraft `versionRange` to `[<target>,)`
 - Relaxes forge/neoforge version range to `[0,)`
-- For 26.1+: relaxes ALL non-core deps to `[0,)`
-- Makes non-core deps `type="optional"` / `mandatory=false`
+- For 26.1+: relaxes ALL dependency version constraints to `[0,)` so they accept any version
+- Only falls back to `type="optional"` / `mandatory=false` if the dep mod has no polyfill and isn't installed
 - Handles both bracket ranges (`[1.21,1.21.1)`) and bare versions (`"1.21.8"`)
 
 ## Common Issues
@@ -62,9 +62,10 @@ RetroMod runs as a mod on each loader and intercepts mod loading:
 - Fix: Ensure `ForgeModTransformer.updateMinecraftVersionRange()` or `FabricModTransformer.updateVersionRequirements()` is catching the format
 
 ### "Missing mandatory dependency: balm/cloth-config/etc"
-- A mod requires another mod that isn't installed
-- Fix: The dependency should be made optional (`type="optional"` or `mandatory=false`)
-- Check if the dep is in `SHIMMED_API_MOD_IDS` set
+- A mod requires another mod that isn't installed, or the installed version is rejected due to version constraints
+- Fix: Relax the dependency's version constraint to accept any version (`"*"` for Fabric, `[0,)` for NeoForge/Forge) so it works across MC versions
+- If the dep mod genuinely isn't installed and has no polyfill, THEN make it optional as a fallback
+- Check if the dep is in `SHIMMED_API_MOD_IDS` set — shimmed deps get their versions relaxed automatically
 
 ### "Mod detected as already compatible but crashes"
 - `needsTransformation()` returns false (null target version or same version)

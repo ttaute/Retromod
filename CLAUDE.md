@@ -1,13 +1,13 @@
 # RetroMod - Claude Development Guide
 
-RetroMod transforms older Minecraft mod bytecode so old mods work on newer MC versions. It supports Fabric, NeoForge, and Forge with 145 version shims and 55 polyfill providers.
+RetroMod transforms older Minecraft mod bytecode so old mods work on newer MC versions. It supports Fabric, NeoForge, and Forge with 145 version shims and 30 polyfill providers (328 redirects).
 
-**Repository:** https://github.com/Bownlux/MC-RetroMod.git
+**Repository:** https://github.com/Bownlux/RetroMod.git
 
 ## Critical Context
 
 - **Target MC version:** 26.1 (Mojang removed ALL code obfuscation)
-- **Java:** Compiles with Java 21 target, but MC 26.1 requires Java 25 at runtime. CI uses Java 25.
+- **Java:** Compiles and runs with Java 25. ASM 9.8 required for Java 25 class file support (major version 69).
 - **Intermediary names are dead in 26.1+.** All `class_XXXX`, `method_XXXX`, `field_XXXX` must map to Mojang official names.
 - **NeoForge already uses Mojang names** since 1.17 — NeoForge mods mainly need metadata patching, not name remapping.
 - **Fabric mods use intermediary names** — they need full intermediary→Mojang remapping for 26.1+.
@@ -25,7 +25,7 @@ src/main/java/com/retromod/
 │   └── ShimRegistry.java   BFS-based shim chain finder with version aliases
 ├── mapping/        IntermediaryToMojangMapper, MappingComposer (26.1 core feature)
 ├── mixin/          Mixin compatibility: MixinCompatibilityTransformer, MixinTargetRedirector
-├── polyfill/       Removed API stubs (72+ stubs across 10 providers)
+├── polyfill/       Removed API reimplementations (72+ polyfills across 10 providers)
 ├── embedder/       API embedding into mod JARs, ModVersionInfo record
 ├── resources/      Resource/data pack transforms
 ├── gui/            In-game GUI (title screen button, file picker, restart popup)
@@ -48,6 +48,9 @@ mvn package -Dexec.skip=true
 
 # Run tests only
 mvn test -Dexec.skip=true
+
+# Lite build (1.20+ only, smaller JAR, no legacy/third-party polyfills)
+mvn package -P lite -DskipTests -Dexec.skip=true
 
 # Run CLI command (deps not bundled in JAR, must use mvn exec)
 mvn exec:java -Dexec.mainClass="com.retromod.cli.RetroModCli" -Dexec.args="<command>" -q
@@ -141,7 +144,7 @@ When adding a new shim or polyfill, ALWAYS register it in the corresponding serv
 
 | Dependency | Version | Purpose |
 |-----------|---------|---------|
-| ASM | 9.7 | Bytecode manipulation |
+| ASM | 9.8 | Bytecode manipulation (9.8 required for Java 25) |
 | Gson | 2.10.1 | JSON parsing |
 | SLF4J | 2.0.9 | Logging |
 | JUnit 5 | 5.10.1 | Testing |
@@ -155,7 +158,7 @@ Development skills are in `.claude/skills/`:
 | Skill | Use when... |
 |-------|-------------|
 | `add-version-shim` | Adding support for a new MC version transition |
-| `add-polyfill` | Stubbing out a removed API |
+| `add-polyfill` | Reimplementing a removed API using modern equivalents |
 | `mapping-work` | Working with intermediary/Mojang/SRG name mappings |
 | `mod-loader-compat` | Fixing Fabric/NeoForge/Forge loading issues |
 | `test-mod-transform` | Testing mod transforms end-to-end |

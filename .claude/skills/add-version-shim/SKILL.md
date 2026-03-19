@@ -1,7 +1,7 @@
 ---
 name: add-version-shim
 description: Create a new version shim to add support for transforming mods between two Minecraft versions. Use when adding support for a new MC version or filling gaps in the shim chain.
-argument-hint: <source-version> <target-version> <loader> (e.g. "1.21.11 26.1 fabric")
+argument-hint: "source-version target-version loader (e.g. 1.21.11 26.1 fabric)"
 ---
 
 # Add Version Shim

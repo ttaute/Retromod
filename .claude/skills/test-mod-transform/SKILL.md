@@ -1,7 +1,7 @@
 ---
 name: test-mod-transform
 description: Test that RetroMod correctly transforms mods for a target Minecraft version. Use when verifying transforms work, testing new shims, or debugging mod compatibility.
-argument-hint: <mod-jar-or-modrinth-slug> [target-version] (e.g. "sodium 26.1", "jei", "path/to/mod.jar")
+argument-hint: "mod-jar-or-slug target-version (e.g. sodium 26.1, jei, path/to/mod.jar)"
 ---
 
 # Test Mod Transform

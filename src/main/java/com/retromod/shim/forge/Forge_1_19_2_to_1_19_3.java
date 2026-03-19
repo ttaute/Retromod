@@ -44,6 +44,42 @@ public class Forge_1_19_2_to_1_19_3 implements VersionShim {
             "com/retromod/shim/forge/embedded/RenderShim", "getGuiGraphics",
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
+
+        // Widget interface renamed to Renderable in 1.19.3
+        transformer.registerClassRedirect(
+            "net/minecraft/client/gui/components/Widget",
+            "net/minecraft/client/gui/components/Renderable"
+        );
+
+        // Loot table provider classes renamed to sub-provider pattern
+        transformer.registerClassRedirect(
+            "net/minecraft/data/loot/BlockLoot",
+            "net/minecraft/data/loot/BlockLootSubProvider"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraft/data/loot/EntityLoot",
+            "net/minecraft/data/loot/EntityLootSubProvider"
+        );
+
+        // ForgeRegistries field renames in 1.19.3
+        transformer.registerFieldRedirect(
+            "net/minecraftforge/registries/ForgeRegistries", "CONTAINERS",
+            "Lnet/minecraftforge/registries/IForgeRegistry;",
+            "net/minecraftforge/registries/ForgeRegistries", "MENU_TYPES",
+            "Lnet/minecraftforge/registries/IForgeRegistry;"
+        );
+        transformer.registerFieldRedirect(
+            "net/minecraftforge/registries/ForgeRegistries", "BLOCK_ENTITIES",
+            "Lnet/minecraftforge/registries/IForgeRegistry;",
+            "net/minecraftforge/registries/ForgeRegistries", "BLOCK_ENTITY_TYPES",
+            "Lnet/minecraftforge/registries/IForgeRegistry;"
+        );
+        transformer.registerFieldRedirect(
+            "net/minecraftforge/registries/ForgeRegistries", "ENTITIES",
+            "Lnet/minecraftforge/registries/IForgeRegistry;",
+            "net/minecraftforge/registries/ForgeRegistries", "ENTITY_TYPES",
+            "Lnet/minecraftforge/registries/IForgeRegistry;"
+        );
     }
 
     @Override

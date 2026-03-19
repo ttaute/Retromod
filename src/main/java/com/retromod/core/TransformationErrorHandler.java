@@ -29,8 +29,8 @@ public class TransformationErrorHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Error");
     
     // GitHub for bug reports
-    public static final String GITHUB_URL = "https://github.com/Bownlux/MC-RetroMod";
-    public static final String GITHUB_ISSUES_URL = "https://github.com/Bownlux/MC-RetroMod/issues/new?title=Bug%20Report";
+    public static final String GITHUB_URL = "https://github.com/Bownlux/RetroMod";
+    public static final String GITHUB_ISSUES_URL = "https://github.com/Bownlux/RetroMod/issues/new?title=Bug%20Report";
     
     // Track failed mods for summary
     private static final List<FailedMod> failedMods = new ArrayList<>();
@@ -115,7 +115,7 @@ public class TransformationErrorHandler {
                 
                 Please report this bug so we can fix it!
                 
-                → GitHub: github.com/Bownlux/MC-RetroMod/issues
+                → GitHub: github.com/Bownlux/RetroMod/issues
 
                 Click "Copy Bug Report" to copy a template,
                 then paste it when creating a new issue on GitHub.
@@ -257,7 +257,7 @@ public class TransformationErrorHandler {
         LOGGER.error("╔══════════════════════════════════════════════════════════╗");
         LOGGER.error("║          PLEASE REPORT THIS BUG ON GITHUB!               ║");
         LOGGER.error("╠══════════════════════════════════════════════════════════╣");
-        LOGGER.error("║  → github.com/Bownlux/MC-RetroMod/issues                ║");
+        LOGGER.error("║  → github.com/Bownlux/RetroMod/issues                ║");
         LOGGER.error("╠══════════════════════════════════════════════════════════╣");
         LOGGER.error("║  Copy this bug report:                                   ║");
         LOGGER.error("╚══════════════════════════════════════════════════════════╝");
@@ -328,7 +328,7 @@ public class TransformationErrorHandler {
         
         LOGGER.error("╠══════════════════════════════════════════════════════════╣");
         LOGGER.error("║  Please report these bugs on GitHub so we can fix them!   ║");
-        LOGGER.error("║  → github.com/Bownlux/MC-RetroMod/issues                ║");
+        LOGGER.error("║  → github.com/Bownlux/RetroMod/issues                ║");
         LOGGER.error("╚══════════════════════════════════════════════════════════╝");
         LOGGER.error("");
     }

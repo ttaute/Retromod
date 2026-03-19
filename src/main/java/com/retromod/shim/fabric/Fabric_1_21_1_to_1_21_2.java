@@ -50,45 +50,44 @@ public class Fabric_1_21_1_to_1_21_2 implements VersionShim {
 
         // ============================================================
         // GAME VERSION CHANGES
-        // GameVersion (class_6489) became a record — getName()/getId()
-        // replaced with record component accessors comp_4025/comp_4024
+        // WorldVersion (intermediary: class_6489) became a record in 1.21.2.
+        // Getter-style methods renamed to record-style accessors.
+        // Uses post-remapping Mojang names (ClassRemapper runs first).
         // ============================================================
 
-        // getName() -> comp_4025() (version display name, e.g. "1.21.2")
+        // getName() -> name()
         transformer.registerMethodRedirect(
-            "net/minecraft/class_6489", "getName", "()Ljava/lang/String;",
-            "net/minecraft/class_6489", "comp_4025", "()Ljava/lang/String;"
+            "net/minecraft/WorldVersion", "getName", "()Ljava/lang/String;",
+            "net/minecraft/WorldVersion", "name", "()Ljava/lang/String;"
         );
 
-        // getId() -> comp_4024() (version id)
+        // getId() -> id()
         transformer.registerMethodRedirect(
-            "net/minecraft/class_6489", "getId", "()Ljava/lang/String;",
-            "net/minecraft/class_6489", "comp_4024", "()Ljava/lang/String;"
+            "net/minecraft/WorldVersion", "getId", "()Ljava/lang/String;",
+            "net/minecraft/WorldVersion", "id", "()Ljava/lang/String;"
         );
 
-        // getReleaseTarget() -> comp_4025() (closest equivalent)
+        // getReleaseTarget() -> name() (closest equivalent)
         transformer.registerMethodRedirect(
-            "net/minecraft/class_6489", "getReleaseTarget", "()Ljava/lang/String;",
-            "net/minecraft/class_6489", "comp_4025", "()Ljava/lang/String;"
+            "net/minecraft/WorldVersion", "getReleaseTarget", "()Ljava/lang/String;",
+            "net/minecraft/WorldVersion", "name", "()Ljava/lang/String;"
         );
 
-        // getWorldVersion() -> comp_4027() (data version int)
+        // getBuildTime() -> buildTime()
         transformer.registerMethodRedirect(
-            "net/minecraft/class_6489", "getWorldVersion", "()I",
-            "net/minecraft/class_6489", "comp_4027", "()I"
+            "net/minecraft/WorldVersion", "getBuildTime", "()Ljava/util/Date;",
+            "net/minecraft/WorldVersion", "buildTime", "()Ljava/util/Date;"
         );
 
-        // getBuildTime() -> comp_4030()
+        // isStable() -> stable()
         transformer.registerMethodRedirect(
-            "net/minecraft/class_6489", "getBuildTime", "()Ljava/util/Date;",
-            "net/minecraft/class_6489", "comp_4030", "()Ljava/util/Date;"
+            "net/minecraft/WorldVersion", "isStable", "()Z",
+            "net/minecraft/WorldVersion", "stable", "()Z"
         );
 
-        // isStable() -> comp_4031()
-        transformer.registerMethodRedirect(
-            "net/minecraft/class_6489", "isStable", "()Z",
-            "net/minecraft/class_6489", "comp_4031", "()Z"
-        );
+        // NOTE: getWorldVersion() -> dataVersion() has a return type change
+        // (int -> DataVersion record), so a simple redirect won't work.
+        // Mods calling getWorldVersion() would need a polyfill.
 
         // ============================================================
         // IDENTIFIER CHANGES
@@ -166,6 +165,130 @@ public class Fabric_1_21_1_to_1_21_2 implements VersionShim {
             "(Lnet/minecraft/registry/DynamicRegistryManager;)Z",
             "com/retromod/shim/fabric/embedded/ResourceConditionShim", "test",
             "(Ljava/lang/Object;Lnet/minecraft/registry/DynamicRegistryManager;)Z"
+        );
+
+        // ============================================================
+        // INTERACTION RESULT CONSOLIDATION
+        // InteractionResultHolder and ItemInteractionResult merged into InteractionResult
+        // ============================================================
+
+        // InteractionResultHolder<T> replaced by InteractionResult (no longer generic)
+        transformer.registerClassRedirect(
+            "net/minecraft/world/InteractionResultHolder",
+            "net/minecraft/world/InteractionResult"
+        );
+
+        // ItemInteractionResult merged into InteractionResult
+        transformer.registerClassRedirect(
+            "net/minecraft/world/ItemInteractionResult",
+            "net/minecraft/world/InteractionResult"
+        );
+
+        // ============================================================
+        // REGISTRY METHOD RENAMES
+        // Getter methods renamed for consistency
+        // ============================================================
+
+        // Registry.getHolderOrThrow(ResourceKey) -> Registry.getOrThrow(ResourceKey)
+        transformer.registerMethodRedirect(
+            "net/minecraft/core/Registry", "getHolderOrThrow",
+            "(Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/core/Holder$Reference;",
+            "net/minecraft/core/Registry", "getOrThrow",
+            "(Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/core/Holder$Reference;"
+        );
+
+        // Registry.getOptional(ResourceLocation) -> Registry.getOptionalValue(ResourceLocation)
+        transformer.registerMethodRedirect(
+            "net/minecraft/core/Registry", "getOptional",
+            "(Lnet/minecraft/resources/ResourceLocation;)Ljava/util/Optional;",
+            "net/minecraft/core/Registry", "getOptionalValue",
+            "(Lnet/minecraft/resources/ResourceLocation;)Ljava/util/Optional;"
+        );
+
+        // ============================================================
+        // ATTRIBUTE FIELD RENAMES
+        // GENERIC_ prefix removed from all attribute constants in 1.21.2
+        // All fields have descriptor Lnet/minecraft/core/Holder;
+        // ============================================================
+
+        // GENERIC_MAX_HEALTH -> MAX_HEALTH
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_MAX_HEALTH",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "MAX_HEALTH",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_MOVEMENT_SPEED -> MOVEMENT_SPEED
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_MOVEMENT_SPEED",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "MOVEMENT_SPEED",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_ATTACK_DAMAGE -> ATTACK_DAMAGE
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_ATTACK_DAMAGE",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "ATTACK_DAMAGE",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_ATTACK_SPEED -> ATTACK_SPEED
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_ATTACK_SPEED",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "ATTACK_SPEED",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_ARMOR -> ARMOR
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_ARMOR",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "ARMOR",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_ARMOR_TOUGHNESS -> ARMOR_TOUGHNESS
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_ARMOR_TOUGHNESS",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "ARMOR_TOUGHNESS",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_KNOCKBACK_RESISTANCE -> KNOCKBACK_RESISTANCE
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_KNOCKBACK_RESISTANCE",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "KNOCKBACK_RESISTANCE",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_ATTACK_KNOCKBACK -> ATTACK_KNOCKBACK
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_ATTACK_KNOCKBACK",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "ATTACK_KNOCKBACK",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_LUCK -> LUCK
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_LUCK",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "LUCK",
+            "Lnet/minecraft/core/Holder;"
+        );
+
+        // GENERIC_MAX_ABSORPTION -> MAX_ABSORPTION
+        transformer.registerFieldRedirect(
+            "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_MAX_ABSORPTION",
+            "Lnet/minecraft/core/Holder;",
+            "net/minecraft/world/entity/ai/attributes/Attributes", "MAX_ABSORPTION",
+            "Lnet/minecraft/core/Holder;"
         );
     }
     

@@ -8,7 +8,6 @@ import com.retromod.core.*;
 import com.retromod.embedder.*;
 import com.retromod.aot.AotCompiler;
 import com.retromod.archive.ApiArchiveManager;
-import com.retromod.mixin.MixinCompatibilityTransformer;
 import com.retromod.shim.ShimRegistry;
 import com.retromod.shim.fabric.*;
 import com.retromod.shim.neoforge.*;
@@ -77,6 +76,7 @@ public class RetroModCli {
                 case "legacy" -> legacyCommand(args);
                 case "overrides" -> overridesCommand(args);
                 case "prepare" -> prepareCommand(args);
+                case "score" -> scoreCommand(args);
                 case "devhelp", "migrate" -> devhelpCommand(args);
                 case "help", "-h", "--help" -> printUsage();
                 case "version", "-v", "--version" -> 
@@ -131,7 +131,8 @@ public class RetroModCli {
         shimRegistry.register(new Fabric_1_21_8_to_1_21_9());
         shimRegistry.register(new Fabric_1_21_9_to_1_21_10());
         shimRegistry.register(new Fabric_1_21_10_to_1_21_11());
-        
+        shimRegistry.register(new Fabric_1_21_11_to_26_1());
+
         // NeoForge shims - complete 1.21 to 26.1 chain (step by step)
         shimRegistry.register(new NeoForge_1_21_to_1_21_1());
         shimRegistry.register(new NeoForge_1_21_1_to_1_21_2());
@@ -745,6 +746,17 @@ public class RetroModCli {
                                    entry.getName().equals("META-INF/neoforge.mods.toml")) {
                             // Relax NeoForge/Forge version dependencies
                             data = relaxNeoForgeDependencies(data);
+                        } else if (entry.getName().endsWith(".mixins.json") ||
+                                   entry.getName().endsWith("mixin.json") ||
+                                   (entry.getName().contains("mixin") && entry.getName().endsWith(".json"))) {
+                            // Make mixin configs non-fatal so @Accessor/@Invoker
+                            // on removed fields don't crash the game
+                            data = makeMixinConfigNonFatal(data);
+                        } else if (entry.getName().startsWith("META-INF/jars/") &&
+                                   entry.getName().endsWith(".jar")) {
+                            // Process JiJ (Jar-in-Jar) nested JARs — patch their
+                            // mixin configs and fabric.mod.json too
+                            data = transformNestedJar(data);
                         }
 
                         outJar.write(data);
@@ -790,6 +802,80 @@ public class RetroModCli {
         } catch (Exception e) {
             // If anything goes wrong, return the original data
             return jsonData;
+        }
+    }
+
+    /**
+     * Make a mixin config JSON non-fatal by setting "required": false and
+     * "injectors": {"defaultRequire": 0}. This prevents crashes from @Accessor/@Invoker
+     * targeting fields/methods removed in newer MC versions.
+     */
+    private static byte[] makeMixinConfigNonFatal(byte[] jsonData) {
+        try {
+            String json = new String(jsonData, java.nio.charset.StandardCharsets.UTF_8);
+            com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+
+            // Only process actual mixin configs (must have "package" field)
+            if (!root.has("package")) return jsonData;
+
+            root.addProperty("required", false);
+
+            com.google.gson.JsonObject injectors = root.has("injectors") && root.get("injectors").isJsonObject()
+                ? root.getAsJsonObject("injectors")
+                : new com.google.gson.JsonObject();
+            injectors.addProperty("defaultRequire", 0);
+            root.add("injectors", injectors);
+
+            com.google.gson.Gson gson = new com.google.gson.GsonBuilder()
+                .setPrettyPrinting().disableHtmlEscaping().create();
+            return gson.toJson(root).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return jsonData;
+        }
+    }
+
+    /**
+     * Transform a nested JAR (Jar-in-Jar / JiJ) by processing its mixin configs
+     * and fabric.mod.json. This handles bundled Fabric API modules that contain
+     * @Accessor/@Invoker targeting removed fields.
+     */
+    private static byte[] transformNestedJar(byte[] jarData) {
+        try {
+            var bais = new java.io.ByteArrayInputStream(jarData);
+            var baos = new java.io.ByteArrayOutputStream(jarData.length);
+            boolean modified = false;
+
+            try (var jis = new java.util.jar.JarInputStream(bais);
+                 var jos = new java.util.jar.JarOutputStream(baos)) {
+
+                java.util.jar.JarEntry entry;
+                while ((entry = jis.getNextJarEntry()) != null) {
+                    jos.putNextEntry(new java.util.jar.JarEntry(entry.getName()));
+
+                    if (!entry.isDirectory()) {
+                        byte[] data = jis.readAllBytes();
+
+                        if (entry.getName().endsWith(".mixins.json") ||
+                            entry.getName().endsWith("mixin.json") ||
+                            (entry.getName().contains("mixin") && entry.getName().endsWith(".json"))) {
+                            byte[] patched = makeMixinConfigNonFatal(data);
+                            if (patched != data) modified = true;
+                            data = patched;
+                        } else if (entry.getName().equals("fabric.mod.json")) {
+                            data = relaxFabricModDependencies(data);
+                            modified = true;
+                        }
+
+                        jos.write(data);
+                    }
+
+                    jos.closeEntry();
+                }
+            }
+
+            return modified ? baos.toByteArray() : jarData;
+        } catch (Exception e) {
+            return jarData; // Return original on any error
         }
     }
 
@@ -1293,6 +1379,220 @@ public class RetroModCli {
         System.out.println();
     }
 
+    /**
+     * Score a mod JAR for compatibility with the target MC version.
+     * Usage: score <mod.jar> [--mc-jar <path>] [--fabric-api <path>] [--verbose]
+     */
+    private static void scoreCommand(String[] args) throws Exception {
+        if (args.length < 2) {
+            System.err.println("Usage: score <mod.jar> [--mc-jar <path>] [--fabric-api <path>] [--verbose]");
+            System.exit(1);
+        }
+
+        Path modPath = Path.of(args[1]);
+        if (!Files.exists(modPath)) {
+            System.err.println("File not found: " + modPath);
+            System.exit(1);
+        }
+
+        // Parse options
+        boolean verbose = false;
+        Path mcJarPath = null;
+        Path fabricApiPath = null;
+
+        for (int i = 2; i < args.length; i++) {
+            switch (args[i]) {
+                case "--verbose", "-v" -> verbose = true;
+                case "--mc-jar" -> {
+                    if (i + 1 < args.length) mcJarPath = Path.of(args[++i]);
+                }
+                case "--fabric-api" -> {
+                    if (i + 1 < args.length) fabricApiPath = Path.of(args[++i]);
+                }
+            }
+        }
+
+        // Auto-detect MC JAR if not specified
+        if (mcJarPath == null) {
+            mcJarPath = Path.of(System.getProperty("user.home"),
+                    "Library/Application Support/PrismLauncher/libraries/com/mojang/minecraft/26.1-pre-2/minecraft-26.1-pre-2-client.jar");
+            if (!Files.exists(mcJarPath)) {
+                // Try common alternative locations
+                Path altPath = Path.of(System.getProperty("user.home"),
+                        ".minecraft/versions/26.1/26.1.jar");
+                if (Files.exists(altPath)) {
+                    mcJarPath = altPath;
+                }
+            }
+        }
+
+        // Auto-detect Fabric API JAR if not specified
+        if (fabricApiPath == null) {
+            fabricApiPath = Path.of(System.getProperty("user.home"),
+                    "Library/Application Support/PrismLauncher/instances/26.1-pre-2-fabric/minecraft/mods/fabric-api-0.143.14+26.1.jar");
+        }
+
+        // Initialize transformer and load all shims + polyfills
+        RetroModTransformer transformer = RetroModTransformer.getInstance();
+        for (VersionShim shim : shimRegistry.getAllShims()) {
+            shim.registerRedirects(transformer);
+        }
+        // Load polyfills via ServiceLoader
+        com.retromod.polyfill.PolyfillRegistry polyfillRegistry = new com.retromod.polyfill.PolyfillRegistry();
+        polyfillRegistry.loadAndRegister(transformer);
+
+        // Create scorer and load target version index
+        ModScorer scorer = new ModScorer(transformer);
+
+        if (Files.exists(mcJarPath)) {
+            System.err.println("Loading MC index from: " + mcJarPath.getFileName());
+            scorer.loadMcJar(mcJarPath);
+        } else {
+            System.err.println("Warning: MC JAR not found at " + mcJarPath);
+            System.err.println("  Use --mc-jar <path> to specify the Minecraft client JAR");
+        }
+
+        if (fabricApiPath != null && Files.exists(fabricApiPath)) {
+            System.err.println("Loading Fabric API index from: " + fabricApiPath.getFileName());
+            scorer.loadFabricApiJar(fabricApiPath);
+        }
+
+        // Detect mod info
+        ModVersionInfo info = detector.detectVersion(modPath);
+
+        // Run analysis
+        System.err.println("Analyzing: " + modPath.getFileName());
+        ModScorer.ScoreResult result = scorer.analyze(modPath, info);
+
+        // Print report
+        String modName = info != null && info.modId() != null
+                ? info.modId() + " " + (info.modVersion() != null ? info.modVersion() : "")
+                : modPath.getFileName().toString();
+        String sourceLine = info != null && info.targetMcVersion() != null
+                ? info.modLoaderType() + " " + info.targetMcVersion()
+                : "unknown";
+
+        int W = 60; // box width
+        System.out.println();
+        printBoxTop(W);
+        printBoxLine(W, "  RetroMod Compatibility Score");
+        printBoxSep(W);
+        printBoxLine(W, "  Mod: " + modName.trim());
+        printBoxLine(W, "  Source: " + sourceLine);
+        printBoxLine(W, "  Target: MC " + TARGET_MC_VERSION);
+        printBoxSep(W);
+        printBoxLine(W, "  Overall Score: " + result.overallScore + "/100");
+        printBoxLine(W, "");
+
+        String clsIcon = result.classScore >= 75 ? "OK" : (result.classScore >= 50 ? "!!" : "XX");
+        String mtdIcon = result.methodScore >= 75 ? "OK" : (result.methodScore >= 50 ? "!!" : "XX");
+        String fldIcon = result.fieldScore >= 75 ? "OK" : (result.fieldScore >= 50 ? "!!" : "XX");
+        String mixIcon = result.mixinScore >= 75 ? "OK" : (result.mixinScore >= 50 ? "!!" : "XX");
+
+        printBoxLine(W, String.format("  [%s] Class references:  %d/%d resolvable (%d%%)",
+                clsIcon, result.resolvableClasses, result.totalClasses, result.classScore));
+        printBoxLine(W, String.format("  [%s] Method calls:      %d/%d redirectable (%d%%)",
+                mtdIcon, result.resolvableMethods + result.redirectedMethods, result.totalMethods, result.methodScore));
+        printBoxLine(W, String.format("  [%s] Field accesses:    %d/%d resolvable (%d%%)",
+                fldIcon, result.resolvableFields + result.redirectedFields, result.totalFields, result.fieldScore));
+        printBoxLine(W, String.format("  [%s] Mixin targets:     %d/%d valid (%d%%)",
+                mixIcon, result.validMixins, result.totalMixins, result.mixinScore));
+        printBoxLine(W, "");
+        printBoxLine(W, "  Estimated: " + result.getVerdict());
+        printBoxBottom(W);
+        System.out.println();
+
+        // Verbose output
+        if (verbose) {
+            if (!result.missingClasses.isEmpty()) {
+                System.out.println("Missing Classes (" + result.missingClasses.size() + "):");
+                for (String cls : result.missingClasses) {
+                    System.out.println("  - " + cls.replace('/', '.'));
+                }
+                System.out.println();
+            }
+
+            if (!result.missingMethods.isEmpty()) {
+                System.out.println("Unresolvable Method Calls (" + result.missingMethods.size() + "):");
+                int shown = 0;
+                for (String m : result.missingMethods) {
+                    System.out.println("  - " + m);
+                    if (++shown >= 50) {
+                        System.out.println("  ... and " + (result.missingMethods.size() - shown) + " more");
+                        break;
+                    }
+                }
+                System.out.println();
+            }
+
+            if (!result.missingFields.isEmpty()) {
+                System.out.println("Unresolvable Field Accesses (" + result.missingFields.size() + "):");
+                for (String f : result.missingFields) {
+                    System.out.println("  - " + f);
+                }
+                System.out.println();
+            }
+
+            if (!result.brokenMixins.isEmpty()) {
+                System.out.println("Broken Mixin Targets (" + result.brokenMixins.size() + "):");
+                for (String m : result.brokenMixins) {
+                    System.out.println("  - " + m);
+                }
+                System.out.println();
+            }
+
+            // Suggestions
+            if (!result.missingClasses.isEmpty() || !result.missingMethods.isEmpty()) {
+                System.out.println("Suggestions:");
+                boolean hasFabricMissing = result.missingClasses.stream()
+                        .anyMatch(c -> c.startsWith("net/fabricmc/"));
+                boolean hasNbtMissing = result.missingClasses.stream()
+                        .anyMatch(c -> c.contains("nbt") || c.contains("Nbt"));
+                boolean hasRenderMissing = result.missingMethods.stream()
+                        .anyMatch(m -> m.contains("render") || m.contains("Render") || m.contains("GlStateManager"));
+
+                if (hasFabricMissing) {
+                    System.out.println("  - Enable Fabric API polyfills (fabric_api category)");
+                }
+                if (hasNbtMissing) {
+                    System.out.println("  - Enable NBT polyfill for removed NBT classes");
+                }
+                if (hasRenderMissing) {
+                    System.out.println("  - Enable rendering polyfill for GlStateManager/RenderType changes");
+                }
+                if (result.missingClasses.size() > 10) {
+                    System.out.println("  - This mod may need manual porting for heavily changed APIs");
+                }
+                System.out.println();
+            }
+        }
+    }
+
+    // --- Box drawing helpers for score output ---
+
+    private static void printBoxTop(int w) {
+        System.out.print("+");
+        System.out.print("=".repeat(w));
+        System.out.println("+");
+    }
+
+    private static void printBoxSep(int w) {
+        System.out.print("+");
+        System.out.print("-".repeat(w));
+        System.out.println("+");
+    }
+
+    private static void printBoxBottom(int w) {
+        System.out.print("+");
+        System.out.print("=".repeat(w));
+        System.out.println("+");
+    }
+
+    private static void printBoxLine(int w, String text) {
+        if (text.length() > w - 2) text = text.substring(0, w - 2);
+        System.out.printf("| %-" + (w - 2) + "s |%n", text);
+    }
+
     private static void printUsage() {
         System.out.println();
         System.out.println("=================================================================");
@@ -1322,6 +1622,9 @@ public class RetroModCli {
         System.out.println("Developer Commands:");
         System.out.println("  devhelp <mod.jar> [target]     Show what to change when updating your mod");
         System.out.println("  migrate <mod.jar> [target]     Alias for devhelp");
+        System.out.println();
+        System.out.println("Analysis Commands:");
+        System.out.println("  score <mod.jar> [options]      Score mod compatibility with 26.1");
         System.out.println();
         System.out.println("Utility Commands:");
         System.out.println("  diff <loader> <v1> <v2>        Show API differences");
