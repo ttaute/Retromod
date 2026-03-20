@@ -5,6 +5,19 @@ dist/
 out/
 *.jar
 
+# Junk directories created by accidental shell commands
+-d/
+-la/
+-q/
+-name/
+-D*/
+exec:java/
+find/
+ls/
+me/
+unzip/
+JsonConfig*/
+
 # Gradle (project uses Maven, not Gradle)
 .gradle/
 gradle/

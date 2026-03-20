@@ -51,13 +51,15 @@ RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 
 ## Key Features
 
+- **534+ Bytecode Redirects** — Class, method, field, constructor, and field-to-accessor redirects across all three loaders
+- **Polyfill System** — 72+ reimplementations of removed APIs across Fabric, Forge, NeoForge, vanilla MC, and third-party mods
+- **Font & Rendering Bridge** — Old Font.draw/drawShadow and RenderSystem calls bridged to 26.1's new rendering APIs
+- **Compatibility Score** — CLI tool (`retromod score <mod.jar>`) analyzes any Fabric/Forge/NeoForge mod and shows a compatibility percentage
+- **Mixin Compatibility** — Transforms `@Inject`, `@Redirect`, `@Shadow`, `@Accessor` targets to match renamed classes
 - **Hybrid AOT/JIT** — Pre-transforms mods at first launch, JIT fallback for edge cases
-- **Instruction-Level Granularity** — Only specific bytecode instructions get transformed
 - **API Embedding** — Removed APIs are bundled as shim classes directly into mod JARs
-- **Polyfill System** — 72+ reimplementations of removed APIs that delegate to modern equivalents across Fabric, Forge, NeoForge, vanilla MC, and third-party mods (Baubles, NEI, CoFH, WAILA)
-- **Mixin Compatibility** — Transforms `@Inject`, `@Redirect`, `@Shadow`, `@Accessor` targets
 - **Reflection Remapping** — Intercepts `Class.forName()` and `Method.invoke()` calls
-- **API Version Relaxation** — Automatically updates version constraints so mods requiring old API versions (e.g., Cloth Config 6.x) work with newer ones
+- **API Version Relaxation** — Updates version constraints so mods requiring old API versions work with newer ones
 - **Multi-Loader** — Fabric, NeoForge, and Forge (experimental Forge→NeoForge migration for simple mods)
 - **Multi-Architecture** — x86_64, ARM64/Apple Silicon, and more
 - **Rendering Future-Proofing** — Ready for Vulkan, Metal, and DirectX transitions
