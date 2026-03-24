@@ -3,17 +3,19 @@ REM ============================================================================
 REM RetroMod Multi-Version Build Script (Windows)
 REM Copyright (c) 2026 RevivalSMP. MIT License.
 REM
-REM Builds RetroMod for ALL loaders and ALL supported MC versions:
-REM   - Fabric (1.14 through 1.21.11)
-REM   - Forge (1.12.2 through 1.21.11)
-REM   - NeoForge (1.20.1 through 1.21.11)
+REM Builds RetroMod for ALL loaders and supported MC versions (1.20+):
+REM   - Fabric (1.20 through 26.1)
+REM   - Forge (1.20 through 26.1)
+REM   - NeoForge (1.20.1 through 26.1)
 REM   - CLI tool (standalone)
+REM Older versions (1.12-1.19) are translated BY RetroMod, not hosted separately.
 REM ============================================================================
 
 setlocal enabledelayedexpansion
 
 set VERSION=1.0.0-beta.1
-set MC_VERSIONS=1.12.2 1.13 1.13.1 1.13.2 1.14 1.14.1 1.14.2 1.14.3 1.14.4 1.15 1.15.1 1.15.2 1.16 1.16.1 1.16.2 1.16.3 1.16.4 1.16.5 1.17 1.17.1 1.18 1.18.1 1.18.2 1.19 1.19.1 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.3 1.20.4 1.20.5 1.20.6 1.21 1.21.1 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11
+REM Only build for 1.20+ — older mods are translated BY RetroMod, not hosted separately.
+set MC_VERSIONS=1.20 1.20.1 1.20.2 1.20.3 1.20.4 1.20.5 1.20.6 1.21 1.21.1 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11 26.1
 set LOADERS=fabric forge neoforge
 
 echo ============================================
@@ -28,6 +30,21 @@ where mvn >nul 2>nul
 if %ERRORLEVEL% neq 0 (
     echo ERROR: Maven not found!
     echo Install: https://maven.apache.org/install.html
+    exit /b 1
+)
+
+REM Check for Java 25+
+where java >nul 2>nul
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Java not found! Java 25+ is required.
+    echo Install from: https://adoptium.net/
+    exit /b 1
+)
+for /f "tokens=3" %%i in ('java -version 2^>^&1 ^| findstr /i "version"') do set JAVA_VER_STR=%%~i
+for /f "tokens=1 delims=." %%j in ("%JAVA_VER_STR%") do set JAVA_VER=%%j
+if %JAVA_VER% LSS 25 (
+    echo ERROR: Java 25 or later is required! You have Java %JAVA_VER%.
+    echo Install from: https://adoptium.net/
     exit /b 1
 )
 

@@ -12,9 +12,7 @@ If you discover a security vulnerability in RetroMod, please report it responsib
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, please email: **security@revivalsmp.com**
-
-Or use [GitHub's private vulnerability reporting](https://github.com/Bownlux/RetroMod/security/advisories/new).
+Instead, please email: **security@revivalsmp.net**
 
 ### What to include
 

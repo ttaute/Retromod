@@ -5,49 +5,69 @@
 package com.retromod.polyfill.minecraft.text.embedded;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 
 /**
- * Factory shim for TranslatableContents constructor changes.
+ * Factory shim for TranslatableContents/TranslatableText constructor changes.
  *
- * Pre-1.19.3: TranslatableContents(String key) or TranslatableContents(String key, Object[] args)
- * Post-1.19.3: TranslatableContents(String key, String fallback, Object[] args)
+ * In old MC (pre-1.19.1), TranslatableText WAS a Component — you could do:
+ *   Component text = new TranslatableText("key");
  *
- * This class provides static factory methods that bridge the old 1-arg and 2-arg
- * constructors to the new 3-arg constructor using reflection (since we can't
- * compile against Minecraft classes directly).
+ * In 26.1, TranslatableContents is NOT a Component — it's the inner contents.
+ * You need: Component text = MutableComponent.create(new TranslatableContents(key, null, args));
+ *
+ * This shim returns a MutableComponent (which IS a Component) wrapping the
+ * TranslatableContents, so old mods that assign the result to a Component field work.
  */
 public class TranslatableContentsShim {
 
     private static volatile Constructor<?> threeArgConstructor;
+    private static volatile Method mutableComponentCreate;
 
     /**
-     * Factory for old 1-arg constructor: new TranslatableContents(key)
-     * Maps to: new TranslatableContents(key, null, new Object[0])
+     * Factory for old 1-arg constructor: new TranslatableText(key)
+     * Returns a MutableComponent wrapping TranslatableContents(key, null, new Object[0])
      */
     public static Object create(String key) {
         return createWithArgs(key, new Object[0]);
     }
 
     /**
-     * Factory for old 2-arg constructor: new TranslatableContents(key, args)
-     * Maps to: new TranslatableContents(key, null, args)
+     * Factory for old 2-arg constructor: new TranslatableText(key, args)
+     * Returns a MutableComponent wrapping TranslatableContents(key, null, args)
      */
     public static Object createWithArgs(String key, Object[] args) {
         try {
             if (threeArgConstructor == null) {
                 synchronized (TranslatableContentsShim.class) {
                     if (threeArgConstructor == null) {
-                        Class<?> clazz = Class.forName(
+                        Class<?> contentsClass = Class.forName(
                             "net.minecraft.network.chat.contents.TranslatableContents");
-                        threeArgConstructor = clazz.getConstructor(
+                        threeArgConstructor = contentsClass.getConstructor(
                             String.class, String.class, Object[].class);
+
+                        // MutableComponent.create(ComponentContents) -> MutableComponent
+                        Class<?> mcClass = Class.forName(
+                            "net.minecraft.network.chat.MutableComponent");
+                        Class<?> contentsInterface = Class.forName(
+                            "net.minecraft.network.chat.ComponentContents");
+                        mutableComponentCreate = mcClass.getMethod("create", contentsInterface);
                     }
                 }
             }
-            return threeArgConstructor.newInstance(key, null, args);
+            // Create TranslatableContents then wrap in MutableComponent
+            Object contents = threeArgConstructor.newInstance(key, null, args);
+            return mutableComponentCreate.invoke(null, contents);
         } catch (Exception e) {
-            throw new RuntimeException(
-                "RetroMod: Failed to create TranslatableContents for key '" + key + "'", e);
+            // Fallback: try Component.translatable(key)
+            try {
+                Class<?> componentClass = Class.forName("net.minecraft.network.chat.Component");
+                return componentClass.getMethod("translatable", String.class, Object[].class)
+                    .invoke(null, key, args);
+            } catch (Exception e2) {
+                throw new RuntimeException(
+                    "RetroMod: Failed to create translatable text for key '" + key + "'", e);
+            }
         }
     }
 }
