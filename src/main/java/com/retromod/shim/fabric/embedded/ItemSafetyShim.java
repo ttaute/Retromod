@@ -29,7 +29,9 @@ public class ItemSafetyShim {
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ItemSafety");
     private static volatile boolean warned = false;
 
-    // Cached reflection lookups (initialized lazily, thread-safe via volatile)
+    // Cached reflection lookups (initialized lazily, thread-safe via volatile).
+    // We use reflection because MC classes aren't on the compile classpath — this
+    // shim is compiled as part of RetroMod, not against a specific MC version.
     private static volatile Method getDefaultInstanceMethod;
     private static volatile Object itemStackEmpty;
     private static volatile boolean emptyResolved = false;
@@ -165,7 +167,10 @@ public class ItemSafetyShim {
     // Screen mouse event dummy — prevents AbstractMethodError on click
     // ================================================================
 
-    // Cache of dummy Events per listener type (singleton, never fires)
+    // Cache of dummy Events per listener type (singleton, never fires).
+    // Old mods call EVENT.register(listener) — if the event interface changed signature,
+    // we give them a dummy Event that silently accepts registrations but never invokes
+    // the callback. This prevents AbstractMethodError at registration time.
     private static final java.util.concurrent.ConcurrentHashMap<String, Object> dummyEvents =
         new java.util.concurrent.ConcurrentHashMap<>();
 

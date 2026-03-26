@@ -266,25 +266,22 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "Lnet/minecraft/client/gui/components/Button$CreateNarration;"
         );
 
-        // TranslatableContents constructor redirect.
-        // Old mods call `new TranslatableContents("key")` or `new TranslatableText("key")`.
-        // In 26.1, TranslatableContents(String) constructor was removed — now requires
-        // TranslatableContents(String key, String fallback, Object[] args).
-        // Redirect to a factory that calls the 3-arg constructor.
-        // NOTE: We do NOT redirect the class itself (TranslatableContents → MutableComponent)
-        // because that breaks constructor calls. The class stays as TranslatableContents.
-        transformer.registerConstructorRedirect(
+        // TranslatableContents constructor descriptor change.
+        // Old: TranslatableContents(String key) — 1-arg, removed in 26.1
+        // New: TranslatableContents(String key, String fallback, Object[] args) — 3-arg
+        // We use super constructor redirect to transform the INVOKESPECIAL <init> call
+        // by inserting the missing parameters (null fallback, empty args array).
+        // This keeps the NEW/DUP/INVOKESPECIAL pattern intact so the verifier is happy
+        // — the result IS a real TranslatableContents, not a wrapped MutableComponent.
+        transformer.registerSuperConstructorRedirect(
             "net/minecraft/network/chat/contents/TranslatableContents",
             "(Ljava/lang/String;)V",
-            "com/retromod/polyfill/minecraft/text/embedded/TranslatableContentsShim", "create",
-            "(Ljava/lang/String;)Ljava/lang/Object;"
+            "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V"
         );
-        // Also redirect the 2-arg constructor: TranslatableContents(String, Object[])
-        transformer.registerConstructorRedirect(
+        transformer.registerSuperConstructorRedirect(
             "net/minecraft/network/chat/contents/TranslatableContents",
             "(Ljava/lang/String;[Ljava/lang/Object;)V",
-            "com/retromod/polyfill/minecraft/text/embedded/TranslatableContentsShim", "createWithArgs",
-            "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;"
+            "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V"
         );
 
         // --- Window: getWindow() → handle() ---
@@ -533,7 +530,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/client/item/v1/ItemTooltipCallback", "EVENT",
             "Lnet/fabricmc/fabric/api/event/Event;",
             "com/retromod/shim/fabric/embedded/ItemSafetyShim", "getDummyTooltipEvent",
-            "()Lnet/fabricmc/fabric/api/event/Event;"
+            "()Ljava/lang/Object;"
         );
 
         // ============================================================

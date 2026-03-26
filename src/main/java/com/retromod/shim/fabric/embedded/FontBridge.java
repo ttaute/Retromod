@@ -40,11 +40,16 @@ public final class FontBridge {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-FontBridge");
 
-    // Cached reflection lookups (thread-safe via volatile)
+    // All MC method handles are resolved via reflection because MC classes aren't on
+    // RetroMod's compile classpath. We use Double-Checked Locking (DCL) with volatile
+    // fields for thread-safe lazy initialization — text rendering can be called from
+    // the render thread at any point after mod init.
     private static volatile boolean initialized = false;
     private static volatile boolean initFailed = false;
 
-    // PoseStack → Matrix4f extraction (volatile for thread-safety in DCL pattern)
+    // PoseStack → Matrix4f extraction chain:
+    // Old mods pass a PoseStack, but drawInBatch needs the raw Matrix4f.
+    // We call poseStack.last().pose() to extract it.
     private static volatile Method poseStackLast;       // PoseStack.last() -> Pose
     private static volatile Method posePose;            // Pose.pose() -> Matrix4f
 
@@ -61,10 +66,10 @@ public final class FontBridge {
 
     // Font.DisplayMode enum constants
     private static volatile Object displayModeNormal;
-    private static Object displayModeSeeThrough;
+    private static volatile Object displayModeSeeThrough;
 
     // Component.getString() for Component→String fallback
-    private static Method componentGetString;
+    private static volatile Method componentGetString;
 
     // FormattedCharSequence handling — we convert to String via reflection
     private static boolean hasFCSeqMethod = false;

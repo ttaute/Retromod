@@ -20,70 +20,124 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Core transformer that rewrites bytecode at class load time.
- * OPTIMIZED: Uses caching and efficient lookup structures.
+ * Core ASM bytecode transformer that rewrites class/method/field references at load time.
  *
- * This handles:
- * 1. Method renames (e.g., getWorld -> getEntityWorld)
- * 2. Method removals (redirect to embedded shims)
- * 3. Class relocations (package changes between versions)
- * 4. Signature changes (parameter/return type modifications)
+ * <h2>What it does</h2>
+ * When old mods reference Minecraft classes, methods, or fields that have been renamed,
+ * moved, or removed in newer versions, this transformer rewrites that bytecode so the
+ * references point to the correct modern targets. It handles:
+ * <ol>
+ *   <li><b>Method renames</b> (e.g., {@code getWorld} -> {@code getEntityWorld})</li>
+ *   <li><b>Method removals</b> (redirect to embedded shim bridge methods)</li>
+ *   <li><b>Class relocations</b> (package changes between MC versions)</li>
+ *   <li><b>Signature changes</b> (parameter/return type modifications)</li>
+ *   <li><b>Constructor-to-factory</b> ({@code new Foo(args)} -> {@code Foo.create(args)})</li>
+ *   <li><b>Field accessor wrapping</b> (public field -> getter/setter method)</li>
+ *   <li><b>Intermediary name remapping</b> ({@code method_XXXX} -> Mojang official names)</li>
+ * </ol>
  *
- * IMPORTANT: This class must NOT reference RetroMod directly (which implements
- * ModInitializer) because the transformer is also used by the standalone CLI
- * where Fabric classes are not on the classpath. Use the local LOGGER instead
- * of LOGGER.
+ * <h2>ASM visitor chain</h2>
+ * The transformation pipeline uses a chain of ASM visitors:
+ * <pre>
+ *   ClassReader
+ *     -> ClassRemapper (handles class renames + intermediary->Mojang name mapping)
+ *       -> RetroModClassVisitor (handles method/field/constructor redirects, superclass rewrites)
+ *         -> ClassWriter (outputs the final bytecode)
+ * </pre>
+ * The ClassRemapper runs FIRST so that by the time RetroModClassVisitor sees method calls,
+ * all class names are already in their Mojang-official form. This is why classRedirects feed
+ * into the Remapper (bulk class rename) while methodRedirects are checked manually in
+ * RetroModClassVisitor (they need owner+name+descriptor matching, not just name mapping).
+ *
+ * <h2>Thread safety</h2>
+ * All redirect maps use {@link ConcurrentHashMap} because shims register redirects from
+ * ServiceLoader threads while the transformer may already be processing classes.
+ *
+ * <p><b>IMPORTANT:</b> This class must NOT reference {@code RetroMod} directly (which
+ * implements ModInitializer) because the transformer is also used by the standalone CLI
+ * where Fabric classes are not on the classpath.</p>
  */
 public class RetroModTransformer implements ClassFileTransformer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Transformer");
     private static final RetroModTransformer INSTANCE = new RetroModTransformer();
     
-    // Maps: oldOwner/oldName/oldDesc -> newOwner/newName/newDesc
+    // ═══════════════════════════════════════════════════════════════════════
+    // REDIRECT MAPS — populated by version shims and polyfill providers
+    // These are checked during bytecode transformation to rewrite references.
+    // All use ConcurrentHashMap for thread-safe registration during class loading.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Method redirects: when bytecode calls oldOwner.oldName(oldDesc),
+    // rewrite to newOwner.newName(newDesc). Checked manually in visitMethodInsn
+    // because matching requires owner+name+descriptor (not just name).
     private final Map<MethodKey, MethodTarget> methodRedirects = new ConcurrentHashMap<>(256);
-    
-    // Maps: oldClassName -> newClassName (internal names with /)
+
+    // Class redirects: oldClassName -> newClassName (JVM internal names with /).
+    // Fed into ASM's ClassRemapper for bulk renaming — this handles class references
+    // everywhere in bytecode (type descriptors, signatures, annotations, etc.)
+    // without needing to manually visit each location.
     private final Map<String, String> classRedirects = new ConcurrentHashMap<>(64);
-    
-    // Maps: oldFieldOwner/oldFieldName -> newFieldOwner/newFieldName
+
+    // Field redirects: oldOwner.oldName -> newOwner.newName.
+    // Can also redirect a field access to a static method call (field-to-method)
+    // when newDesc starts with "(" — used when a field is removed and replaced
+    // with a method in newer MC versions.
     private final Map<FieldKey, FieldTarget> fieldRedirects = new ConcurrentHashMap<>(64);
 
-    // Maps: intermediary method/field names to Mojang official names
-    // Used by the ClassRemapper to remap method_XXXX and field_XXXX in bytecode
+    // Intermediary name mappings: method_XXXX/field_XXXX -> Mojang official names.
+    // MC 26.1 removed all obfuscation, so Fabric mods using intermediary names
+    // (e.g., method_1234) must be remapped to plain Mojang names (e.g., tick).
+    // These are applied by the ClassRemapper's mapMethodName/mapFieldName overrides.
     private final Map<String, String> intermediaryMethodNames = new ConcurrentHashMap<>(40000);
     private final Map<String, String> intermediaryFieldNames = new ConcurrentHashMap<>(40000);
 
-    // Maps: oldSuperclass -> new superclass + interfaces to add
-    // Used for class-to-interface migrations (e.g., Explosion became an interface)
+    // Superclass redirects: for class-to-interface migrations.
+    // When a class becomes an interface in newer MC (e.g., Explosion), mods that
+    // extend it need their superclass changed to a bridge class + the interface added.
     private final Map<String, SuperclassRedirect> superclassRedirects = new ConcurrentHashMap<>(16);
 
-    // Constructor-to-factory redirects: converts `new Foo(args)` to `Foo.factory(args)`
-    // Key: className + constructorDesc, Value: static factory method info
+    // Constructor-to-factory redirects: converts `new Foo(args)` to `Foo.factory(args)`.
+    // Used when constructors are removed and replaced with static factory methods
+    // (e.g., new ResourceLocation(s) -> Identifier.parse(s) in 26.1).
     private final Map<ConstructorKey, FactoryTarget> constructorRedirects = new ConcurrentHashMap<>(16);
 
-    // Field accessor redirects: GETFIELD → getter(), PUTFIELD → setter()
-    // For fields that became private in newer MC versions but have getter/setter methods
+    // Field accessor redirects: GETFIELD -> getter(), PUTFIELD -> setter().
+    // For fields that became private in newer MC but have getter/setter methods.
     private final Map<FieldKey, FieldAccessorTarget> fieldAccessorRedirects = new ConcurrentHashMap<>(16);
 
-    // Super constructor descriptor changes: when a super() call uses an old descriptor,
-    // replace with new descriptor + extra args to push before the call.
-    // Key: ConstructorKey(className, oldDesc), Value: SuperCtorRedirect(newDesc, extraArgsBytecode)
+    // Super constructor descriptor changes: when a parent class constructor gains
+    // new required parameters in newer MC. Pushes extra args before INVOKESPECIAL.
+    // Example: Button gained a CreateNarration parameter in newer versions.
     private final Map<ConstructorKey, SuperCtorRedirect> superCtorRedirects = new ConcurrentHashMap<>(8);
 
-    // Packages that should be transformed (mod packages, not minecraft itself)
+    // ═══════════════════════════════════════════════════════════════════════
+    // TRANSFORMATION CONTROL — determines what gets transformed
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Only classes in these packages get transformed (mod code, not MC itself)
     private final Set<String> transformablePackages = ConcurrentHashMap.newKeySet();
-    
-    // Track which shim classes are embedded and available
+
+    // Shim classes that are embedded into mod JARs during transformation
     private final Set<String> embeddedShimClasses = ConcurrentHashMap.newKeySet();
 
-    // Synthetic classes generated via ASM (for polyfills that need MC-typed fields)
+    // Synthetic classes generated via ASM bytecode generation (for polyfills
+    // that need MC-typed fields/methods which can't be compiled from Java source
+    // since MC isn't on the compile classpath)
     private final Map<String, byte[]> syntheticClasses = new ConcurrentHashMap<>();
-    
-    // OPTIMIZATION: Cache the remapper if no class redirects change
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PERFORMANCE OPTIMIZATIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Cache the ASM Remapper to avoid recreating it for every class.
+    // Invalidated when classRedirects or intermediary mappings change.
     private volatile Remapper cachedRemapper;
     private final AtomicInteger classRedirectsVersion = new AtomicInteger(0);
-    
-    // OPTIMIZATION: Fast owner lookup cache (reduces hash lookups)
+
+    // Fast-path: set of class owners that have method redirects.
+    // In visitMethodInsn, if the call's owner isn't in this set, we skip
+    // the more expensive ConcurrentHashMap lookup on methodRedirects.
     private final Set<String> methodRedirectOwners = ConcurrentHashMap.newKeySet();
     
     private RetroModTransformer() {
@@ -170,6 +224,24 @@ public class RetroModTransformer implements ClassFileTransformer {
             new SuperCtorRedirect(newDesc, extraFieldOwner, extraFieldName, extraFieldDesc));
         LOGGER.debug("Registered super ctor redirect: {}.{} -> {} + GETSTATIC {}.{}",
             className, oldDesc, newDesc, extraFieldOwner, extraFieldName);
+    }
+
+    /**
+     * Register a constructor descriptor change that inserts default values for missing params.
+     * Used when a constructor gains new required parameters in newer MC.
+     * Example: TranslatableContents(String) → TranslatableContents(String, String, Object[])
+     *   inserts ACONST_NULL (for String fallback) and empty Object[] (for args).
+     *
+     * The transformer detects which params are new by comparing old and new descriptors,
+     * and pushes appropriate default values (null for objects, 0 for ints, etc.)
+     */
+    public void registerSuperConstructorRedirect(String className, String oldDesc, String newDesc) {
+        // Use a special sentinel for the field owner to indicate "insert defaults" mode
+        superCtorRedirects.put(
+            new ConstructorKey(className, oldDesc),
+            new SuperCtorRedirect(newDesc, "__INSERT_DEFAULTS__", "", ""));
+        LOGGER.debug("Registered super ctor descriptor change: {}.{} -> {} (insert defaults)",
+            className, oldDesc, newDesc);
     }
 
     /**
@@ -340,7 +412,22 @@ public class RetroModTransformer implements ClassFileTransformer {
     /**
      * Transform a class's bytecode, rewriting method/field/class references.
      * This is the core JIT transformation logic, also used by AOT.
-     * OPTIMIZED: Uses cached remapper and efficient lookup structures.
+     *
+     * <p>The transformation builds an ASM visitor chain:</p>
+     * <pre>
+     *   ClassReader (parses original bytecode)
+     *     -> ClassRemapper (rewrites class names + intermediary method/field names)
+     *       -> RetroModClassVisitor (rewrites method calls, field accesses, constructors)
+     *         -> ClassWriter (generates new bytecode with COMPUTE_FRAMES)
+     * </pre>
+     *
+     * <p><b>Why this order matters:</b> ClassRemapper runs first so that by the time
+     * RetroModClassVisitor processes method calls, all class names in owners and
+     * descriptors are already in their final Mojang form. This means method redirect
+     * lookups only need to match against Mojang names, not both intermediary and Mojang.</p>
+     *
+     * <p>If COMPUTE_FRAMES fails (common with modded classes that reference types not on
+     * the classpath), falls back to COMPUTE_MAXS which preserves existing stack map frames.</p>
      */
     public byte[] transformClass(byte[] originalBytes, String className) {
         // OPTIMIZATION: Skip if no redirects registered
@@ -579,8 +666,13 @@ public class RetroModTransformer implements ClassFileTransformer {
      * ASM ClassVisitor that rewrites method calls, field accesses,
      * and superclass references (for class-to-interface migrations).
      */
-    // Classes that became interfaces in newer MC/DFU versions.
-    // Calls using INVOKEVIRTUAL must be changed to INVOKEINTERFACE.
+    // Classes that became interfaces in newer MC/DFU versions (e.g., DataResult
+    // was a concrete class but became an interface in newer DataFixerUpper).
+    // The JVM requires different opcodes for interface vs class method calls:
+    //   INVOKEVIRTUAL  -> for concrete class methods
+    //   INVOKEINTERFACE -> for interface methods
+    // Old bytecode uses INVOKEVIRTUAL for these classes, which would crash at
+    // runtime with IncompatibleClassChangeError. We fix the opcode here.
     private static final Set<String> KNOWN_INTERFACES = Set.of(
         "com/mojang/serialization/DataResult",
         "com/mojang/serialization/DynamicOps",
@@ -671,14 +763,31 @@ public class RetroModTransformer implements ClassFileTransformer {
     
     /**
      * ASM MethodVisitor that rewrites individual method invocations.
-     * OPTIMIZED: Uses fast owner lookup to skip unrelated calls.
-     * Also handles constructor-to-factory redirects (NEW+DUP+INVOKESPECIAL → INVOKESTATIC).
+     *
+     * <p><b>Constructor→factory pattern:</b> In JVM bytecode, {@code new Foo(args)} compiles to:
+     * <pre>
+     *   NEW Foo          // allocate uninitialized object
+     *   DUP              // duplicate reference (one for <init>, one stays on stack)
+     *   [push args]      // push constructor arguments
+     *   INVOKESPECIAL Foo.<init>(args)V  // call constructor
+     * </pre>
+     * To redirect to a static factory ({@code Foo.create(args)}), we need to:
+     * <ol>
+     *   <li>Suppress the NEW and DUP instructions</li>
+     *   <li>Let the argument-pushing instructions pass through</li>
+     *   <li>Replace the INVOKESPECIAL with INVOKESTATIC to the factory method</li>
+     * </ol>
+     * We achieve this by "buffering" the NEW/DUP when we see a class with constructor
+     * redirects, then deciding at the INVOKESPECIAL whether to emit them or replace them.
+     * If no redirect matches the specific descriptor, we flush (emit) the buffered NEW+DUP.
+     *
+     * <p><b>Performance:</b> Uses fast owner lookup ({@code methodRedirectOwners}) to skip
+     * expensive ConcurrentHashMap lookups for method calls to classes with no redirects.</p>
      */
     private class RetroModMethodVisitor extends MethodVisitor {
 
-        // Track pending NEW instructions for constructor→factory redirect
-        // When we see NEW for a class with constructor redirects, we delay emitting
-        // the NEW+DUP until we see the <init> call to determine if it should be redirected
+        // Buffered NEW instruction — held until we see the matching <init> to decide
+        // whether to redirect to a factory or emit normally
         private String pendingNewClass = null;
         private boolean pendingDup = false;
 
@@ -694,6 +803,48 @@ public class RetroModTransformer implements ClassFileTransformer {
             if (pendingDup) {
                 super.visitInsn(Opcodes.DUP);
                 pendingDup = false;
+            }
+        }
+
+        /**
+         * Push default values for parameter types described in a JVM descriptor fragment.
+         * Used when a constructor gains new parameters — we insert defaults for them.
+         * E.g., "Ljava/lang/String;[Ljava/lang/Object;" → push ACONST_NULL, then empty Object[]
+         */
+        private void pushDefaultsForDescriptor(String paramFragment) {
+            int i = 0;
+            while (i < paramFragment.length()) {
+                char c = paramFragment.charAt(i);
+                switch (c) {
+                    case 'L' -> {
+                        // Object type → push null
+                        super.visitInsn(Opcodes.ACONST_NULL);
+                        i = paramFragment.indexOf(';', i) + 1;
+                    }
+                    case '[' -> {
+                        // Array type → push empty array
+                        i++; // skip '['
+                        if (i < paramFragment.length() && paramFragment.charAt(i) == 'L') {
+                            // Object array: push ICONST_0 + ANEWARRAY
+                            String elementType = paramFragment.substring(i + 1, paramFragment.indexOf(';', i));
+                            super.visitInsn(Opcodes.ICONST_0);
+                            super.visitTypeInsn(Opcodes.ANEWARRAY, elementType);
+                            i = paramFragment.indexOf(';', i) + 1;
+                        } else {
+                            // Primitive array: push ICONST_0 + NEWARRAY
+                            super.visitInsn(Opcodes.ICONST_0);
+                            super.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT); // default to int[]
+                            i++;
+                        }
+                    }
+                    case 'I' -> { super.visitInsn(Opcodes.ICONST_0); i++; }
+                    case 'J' -> { super.visitInsn(Opcodes.LCONST_0); i++; }
+                    case 'F' -> { super.visitInsn(Opcodes.FCONST_0); i++; }
+                    case 'D' -> { super.visitInsn(Opcodes.DCONST_0); i++; }
+                    case 'Z' -> { super.visitInsn(Opcodes.ICONST_0); i++; } // false
+                    case 'B', 'C', 'S' -> { super.visitInsn(Opcodes.ICONST_0); i++; }
+                    default -> i++; // skip unknown
+                }
             }
         }
 
@@ -746,6 +897,9 @@ public class RetroModTransformer implements ClassFileTransformer {
                     // Resolve through classRedirects since we see pre-remap names
                     // (e.g., class_2960) but redirects are registered with post-remap names (Identifier)
                     String resolvedType = classRedirects.getOrDefault(type, type);
+                    // BUG: This creates a Stream on every NEW instruction in every class.
+                    // Should use a pre-built Set<String> of class names with constructor redirects
+                    // (similar to methodRedirectOwners) for O(1) lookup instead of O(n) scan.
                     boolean hasRedirect = constructorRedirects.keySet().stream()
                         .anyMatch(k -> k.className().equals(resolvedType));
                     if (hasRedirect) {
@@ -769,6 +923,29 @@ public class RetroModTransformer implements ClassFileTransformer {
             super.visitInsn(opcode);
         }
 
+        /**
+         * Intercepts every method call instruction in the bytecode.
+         *
+         * <p>Processing order:</p>
+         * <ol>
+         *   <li><b>Constructor→factory:</b> If we have a pending NEW and this is an
+         *       INVOKESPECIAL &lt;init&gt;, check if the constructor should be replaced
+         *       with a static factory method (e.g., {@code new Identifier(s)} ->
+         *       {@code Identifier.parse(s)}). The NEW+DUP are suppressed and replaced
+         *       with INVOKESTATIC.</li>
+         *   <li><b>Super constructor changes:</b> If this is a super() call (INVOKESPECIAL
+         *       &lt;init&gt; without pending NEW), check if the parent class gained new
+         *       required parameters. Push extra args before the call.</li>
+         *   <li><b>Fast-path skip:</b> If the call's owner class has no registered method
+         *       redirects, pass through immediately (only fixing class→interface opcode).</li>
+         *   <li><b>Method redirect lookup:</b> Match against (owner, name, descriptor).
+         *       If not found, try resolving intermediary class names in the descriptor
+         *       since redirects are registered with Mojang names but bytecode may still
+         *       have intermediary names in descriptors.</li>
+         *   <li><b>Devirtualize:</b> If the redirect has devirtualize=true, change
+         *       INVOKEVIRTUAL to INVOKESTATIC (the receiver becomes the first arg).</li>
+         * </ol>
+         */
         @Override
         public void visitMethodInsn(int opcode, String owner, String name,
                 String descriptor, boolean isInterface) {
@@ -798,9 +975,9 @@ public class RetroModTransformer implements ClassFileTransformer {
                             owner, descriptor, factory.factoryClass(), factory.factoryMethod(), factory.factoryDesc());
                     super.visitMethodInsn(Opcodes.INVOKESTATIC, factory.factoryClass(),
                             factory.factoryMethod(), factory.factoryDesc(), false);
-                    // If factory returns Object (or a type different from the constructed class),
-                    // emit CHECKCAST so the verifier knows the actual type on the stack.
-                    // Use the original (pre-remap) class name — ClassRemapper will remap it.
+                    // If factory returns Object but the original class is specific,
+                    // emit CHECKCAST to satisfy the JVM verifier.
+                    // We cast to the ORIGINAL class — the factory must return a compatible type.
                     String factoryReturnType = factory.factoryDesc().substring(
                             factory.factoryDesc().lastIndexOf(')') + 1);
                     if (factoryReturnType.equals("Ljava/lang/Object;")) {
@@ -830,8 +1007,18 @@ public class RetroModTransformer implements ClassFileTransformer {
                     scr = superCtorRedirects.get(skey);
                 }
                 if (scr != null) {
-                    // Push the extra argument(s) before the INVOKESPECIAL
-                    if (scr.extraFieldOwner() != null) {
+                    if ("__INSERT_DEFAULTS__".equals(scr.extraFieldOwner())) {
+                        // Insert default values for new parameters.
+                        // Compare old and new descriptors to determine what's missing.
+                        // For each new parameter type: push null (Object), 0 (int), etc.
+                        String newParams = scr.newDesc().substring(1, scr.newDesc().indexOf(')'));
+                        String oldParams = descriptor.substring(1, descriptor.indexOf(')'));
+                        // Find the extra params that are in newDesc but not oldDesc
+                        // Simple approach: parse parameter types from both
+                        String extra = newParams.substring(oldParams.length());
+                        pushDefaultsForDescriptor(extra);
+                    } else if (scr.extraFieldOwner() != null) {
+                        // Push extra argument from a static field
                         super.visitFieldInsn(Opcodes.GETSTATIC,
                             scr.extraFieldOwner(), scr.extraFieldName(), scr.extraFieldDesc());
                     }
@@ -920,6 +1107,21 @@ public class RetroModTransformer implements ClassFileTransformer {
             super.visitLdcInsn(value);
         }
 
+        /**
+         * Intercepts every field access instruction (GETFIELD, PUTFIELD, GETSTATIC, PUTSTATIC).
+         *
+         * <p>Checks three redirect types in order:</p>
+         * <ol>
+         *   <li><b>Field accessor redirect:</b> The field became private in newer MC,
+         *       so GETFIELD is replaced with INVOKEVIRTUAL getter() and PUTFIELD with
+         *       INVOKEVIRTUAL setter(). This preserves the same stack behavior.</li>
+         *   <li><b>Field-to-method redirect:</b> The field was removed entirely and
+         *       replaced with a static method. Detected when newDesc starts with "(".
+         *       GETSTATIC/GETFIELD becomes INVOKESTATIC.</li>
+         *   <li><b>Field-to-field redirect:</b> The field was simply renamed or moved
+         *       to a different class. The opcode stays the same.</li>
+         * </ol>
+         */
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
             // Don't flush — field accesses can be constructor arguments
@@ -968,23 +1170,35 @@ public class RetroModTransformer implements ClassFileTransformer {
         }
     }
     
-    // --- Key/Target record classes ---
-    
+    // ═══════════════════════════════════════════════════════════════════════
+    // KEY/TARGET RECORDS — used as map keys and values for redirect lookups.
+    // Records give us free equals()/hashCode() which is critical for HashMap
+    // performance since these are looked up on every method/field instruction.
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /** Lookup key for method redirects: matches (owner class, method name, descriptor). */
     public record MethodKey(String owner, String name, String desc) {}
+    /** Target of a method redirect. If devirtualize=true, instance calls become static. */
     public record MethodTarget(String owner, String name, String desc, boolean devirtualize) {
         /** Convenience constructor without devirtualize flag */
         public MethodTarget(String owner, String name, String desc) {
             this(owner, name, desc, false);
         }
     }
+    /** Lookup key for field redirects: matches (owner class, field name). */
     public record FieldKey(String owner, String name) {}
+    /** Target of a field redirect. If newDesc starts with "(", this is a field-to-method redirect. */
     public record FieldTarget(String owner, String name, String oldDesc, String newDesc) {}
+    /** Target of a field accessor redirect: field access becomes getter/setter method call. */
     public record FieldAccessorTarget(
         String getterOwner, String getterName, String getterDesc,
         String setterOwner, String setterName, String setterDesc
     ) {}
+    /** Superclass rewrite: changes extends + adds interface implementations. */
     public record SuperclassRedirect(String newSuperclass, String[] addInterfaces) {}
+    /** Lookup key for constructor redirects: matches (class being constructed, constructor descriptor). */
     public record ConstructorKey(String className, String constructorDesc) {}
+    /** Target of a constructor→factory redirect: the static method to call instead. */
     public record FactoryTarget(String factoryClass, String factoryMethod, String factoryDesc) {}
     /**
      * Describes a super() constructor descriptor change.

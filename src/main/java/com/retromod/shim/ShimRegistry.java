@@ -185,7 +185,16 @@ public class ShimRegistry {
                     + " (fuzzy version matching)");
         }
 
-        // BFS to find shortest path through version shims
+        // BFS (Breadth-First Search) to find the shortest chain of shims
+        // from source → target version. Each shim bridges one version gap
+        // (e.g., 1.20.1→1.20.4). BFS guarantees we find the chain with the
+        // fewest shims, which minimizes the number of bytecode transformations.
+        //
+        // Example: to go from 1.16.5 → 26.1, BFS might find:
+        //   1.16.5→1.17 → 1.17→1.18 → ... → 1.21.10→26.1
+        //
+        // Each node in the queue holds the current version + the shim chain
+        // that got us there. When we reach the target, we return the chain.
         Queue<ShimPath> queue = new LinkedList<>();
         Set<String> visited = new HashSet<>();
 
@@ -195,10 +204,12 @@ public class ShimRegistry {
         while (!queue.isEmpty()) {
             ShimPath current = queue.poll();
 
+            // Found the target — return the chain of shims that got us here
             if (current.version.equals(resolvedTarget)) {
                 return current.shims;
             }
 
+            // Explore all shims from the current version (edges in the version graph)
             for (VersionShim shim : getShimsForLoaderAndVersion(modLoader, current.version)) {
                 String nextVersion = shim.getTargetVersion();
 
@@ -213,7 +224,7 @@ public class ShimRegistry {
             }
         }
 
-        // No path found
+        // No path exists from source → target (missing shims for some version gap)
         return Collections.emptyList();
     }
     
@@ -233,5 +244,6 @@ public class ShimRegistry {
         return Collections.unmodifiableSet(byVersion.keySet());
     }
     
+    /** BFS node: a version we've reached and the chain of shims that got us there. */
     private record ShimPath(String version, List<VersionShim> shims) {}
 }

@@ -74,6 +74,7 @@ $RECYCLE.BIN/
 .Trash-*
 
 # Java
+*.class
 hs_err_pid*
 replay_pid*
 
@@ -97,6 +98,13 @@ MODRINTH_GUIDE*
 
 # Claude session notes (persistent memory across sessions)
 .claude/session-notes.md
+
+# Third-party mod artifacts (from testing/transformation, not part of RetroMod)
+/fabric.mod.json
+/META-INF/
+capes-common-refmap.json
+capes-common.mixins.json
+assets/capes/
 
 # Misc
 *.bak

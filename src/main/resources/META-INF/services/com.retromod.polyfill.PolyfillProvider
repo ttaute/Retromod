@@ -113,3 +113,15 @@ com.retromod.polyfill.thirdparty.CofhEnergyPolyfill
 
 # WAILA - What Am I Looking At (replaced by Jade)
 com.retromod.polyfill.thirdparty.WailaPolyfill
+
+# GeckoLib 3.x -> 4.x bridge (animation library, package + class renames)
+com.retromod.polyfill.thirdparty.GeckoLibBridgePolyfill
+
+# JEI (Just Enough Items) API bridge (sub-package reorganization)
+com.retromod.polyfill.thirdparty.JeiBridgePolyfill
+
+# Trinkets 2.x -> 3.x bridge (Fabric accessory slots, class renames)
+com.retromod.polyfill.thirdparty.TrinketsBridgePolyfill
+
+# EMI 0.x -> 1.x bridge (recipe/item viewer, class renames)
+com.retromod.polyfill.thirdparty.EmiBridgePolyfill

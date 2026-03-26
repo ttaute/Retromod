@@ -14,36 +14,51 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
 /**
- * Bridge between old-style Fabric networking API (channel-based with PacketByteBuf)
- * and new-style API (payload-type-based with CustomPayload).
+ * Bridge between old-style Fabric networking API (channel-based) and new-style (payload-based).
  *
- * Old API (removed):
- *   ServerPlayNetworking.registerGlobalReceiver(Identifier, PlayChannelHandler) -> boolean
- *   PlayChannelHandler.receive(MinecraftServer, ServerPlayer, ServerGamePacketListenerImpl, FriendlyByteBuf, PacketSender)
+ * <h2>The networking API change</h2>
+ * <p><b>Old API (channel-based, removed):</b> Mods registered a handler for a named channel
+ * (an Identifier like "mymod:sync"). When packets arrived on that channel, the handler
+ * received raw bytes (PacketByteBuf) plus context objects for server, player, etc.</p>
  *
- * New API:
- *   ServerPlayNetworking.registerGlobalReceiver(CustomPayload.Id, PlayPayloadHandler) -> boolean
- *   PlayPayloadHandler.receive(T payload, Context context)
- *   Context provides: server(), player(), player().connection, responseSender()
+ * <p><b>New API (payload-based):</b> Mods define a CustomPayload class with a Type ID,
+ * register a PlayPayloadHandler, and receive a typed payload + Context object.
+ * The Context consolidates all the old separate parameters (server, player, sender)
+ * into a single object with getter methods.</p>
  *
- * This bridge attempts to register old-style handlers using the new API via reflection.
- * If bridging fails, logs a warning and returns false (mod loads but without networking).
+ * <h2>How the bridge works</h2>
+ * <p>We create a JDK Proxy implementing PlayPayloadHandler that delegates to the old
+ * PlayChannelHandler. When the new handler's receive(payload, context) is called, we:</p>
+ * <ol>
+ *   <li>Extract server, player, connection from the Context via reflection</li>
+ *   <li>Extract raw bytes from the CustomPayload (if available)</li>
+ *   <li>Call the old handler's receive(server, player, connection, buf, sender)</li>
+ * </ol>
+ *
+ * <p><b>Limitations:</b> Old-style send() calls (raw bytes on a channel) cannot be bridged
+ * because the new API requires a registered CustomPayload type. These are no-op'd with a
+ * warning log, and the ByteBuf is released to prevent memory leaks.</p>
  */
 public class FabricNetworkingBridge {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-NetworkBridge");
 
-    // Cached reflection lookups
+    // Cached reflection lookups — initialized once on first use.
+    // We use reflection because the Fabric API classes aren't on RetroMod's
+    // compile classpath (RetroMod is loader-agnostic at compile time).
     private static volatile boolean initialized = false;
-    private static boolean bridgeAvailable = false;
+    // BUG: bridgeAvailable is written inside synchronized initialize() but read outside
+    // synchronization in registerServerGlobalReceiver/registerClientGlobalReceiver.
+    // Should be volatile to ensure visibility across threads.
+    private static volatile boolean bridgeAvailable = false;
 
-    // Server-side reflection handles
+    // Server-side: registerGlobalReceiver(CustomPayload.Type, PlayPayloadHandler) method
     private static Method serverRegisterMethod;
-    private static Class<?> customPayloadIdClass;
-    private static Class<?> serverPayloadHandlerClass;
-    private static Class<?> serverContextClass;
+    private static Class<?> customPayloadIdClass;      // CustomPayload.Type class
+    private static Class<?> serverPayloadHandlerClass;  // PlayPayloadHandler interface
+    private static Class<?> serverContextClass;         // Context interface (has player(), server())
 
-    // Client-side reflection handles
+    // Client-side: same pattern but for ClientPlayNetworking
     private static Method clientRegisterMethod;
     private static Class<?> clientPayloadHandlerClass;
     private static Class<?> clientContextClass;

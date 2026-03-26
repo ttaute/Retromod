@@ -225,7 +225,15 @@ public class FabricModTransformer {
                 sourceJar,
                 outputDir.getParent() // game dir
             );
-            
+
+            // Debug scan: if debug mode is enabled in config, scan the transformed
+            // bytecode for potential issues (missing classes, methods, fields, broken
+            // mixin targets) and log warnings. This helps mod authors and users
+            // diagnose compatibility problems without crashing.
+            if (isDebugEnabled()) {
+                debugScanTransformedMod(outputJar, modName != null ? modName : originalName);
+            }
+
             // Log success message for server-only mods
             if (ModEnvironmentDetector.isServerOnly(sourceJar)) {
                 LOGGER.info("═══════════════════════════════════════════════════════════");
@@ -1830,5 +1838,436 @@ public class FabricModTransformer {
         }
         
         return false;
+    }
+
+    // ── Debug scanning ──────────────────────────────────────────────────────
+    // The following methods implement a post-transformation bytecode scan that
+    // logs potential issues (missing classes, methods, fields, broken mixin
+    // targets, constructor mismatches) without crashing. Enabled only when
+    // "debug": true is set in config/retromod/config.json.
+
+    /**
+     * Check if debug mode is enabled in config/retromod/config.json.
+     * Uses the same config pattern as {@code isForceTranslateEnabled()} in
+     * RetroModPreLaunch — a simple string check to avoid pulling in a full
+     * JSON parser dependency at this layer.
+     */
+    private static boolean isDebugEnabled() {
+        try {
+            Path configPath = Path.of("config/retromod/config.json");
+            if (Files.exists(configPath)) {
+                String json = Files.readString(configPath);
+                return json.contains("\"debug\": true") ||
+                       json.contains("\"debug\":true");
+            }
+        } catch (Exception e) {
+            // Default to false — never crash for config reading
+        }
+        return false;
+    }
+
+    /**
+     * Scan a transformed mod JAR for potential runtime issues and log them.
+     *
+     * This method opens the transformed JAR, uses ASM to collect all external
+     * class, method, and field references from every .class file, then attempts
+     * to resolve each reference against the runtime classpath (which includes
+     * the MC JAR and Fabric API at this point). Any reference that cannot be
+     * resolved is logged as a warning with the [RetroMod-Debug] prefix.
+     *
+     * Additionally scans for:
+     * - Broken mixin targets (classes referenced in mixin configs that don't exist)
+     * - Constructor signature mismatches (constructors whose parameter count
+     *   doesn't match any constructor on the target class)
+     *
+     * This method NEVER throws — all exceptions are caught and logged. It is
+     * designed to be purely informational; transformation continues regardless
+     * of scan results.
+     *
+     * @param transformedJar path to the transformed mod JAR
+     * @param modName        human-readable mod name for log messages
+     */
+    void debugScanTransformedMod(Path transformedJar, String modName) {
+        try {
+            LOGGER.info("[RetroMod-Debug] Starting debug scan of transformed mod: {}", modName);
+
+            // Collect all classes defined inside the mod (internal references are skipped)
+            Set<String> modClasses = new HashSet<>();
+            // Collect external references from bytecode
+            Set<String> referencedClasses = new LinkedHashSet<>();
+            Map<String, Set<String>> referencedMethods = new LinkedHashMap<>(); // owner -> "name desc"
+            Map<String, Set<String>> referencedFields = new LinkedHashMap<>();  // owner -> "name"
+            // Track constructors separately for parameter-count checking
+            Map<String, Set<String>> referencedCtors = new LinkedHashMap<>();   // owner -> set of descs
+
+            try (JarFile jar = new JarFile(transformedJar.toFile())) {
+                // First pass: collect mod-internal class names
+                var entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    if (entry.getName().endsWith(".class") && !entry.isDirectory()) {
+                        modClasses.add(entry.getName().replace(".class", ""));
+                    }
+                }
+
+                // Second pass: scan bytecode for all external references
+                entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    if (!entry.getName().endsWith(".class") || entry.isDirectory()) continue;
+
+                    try (InputStream is = jar.getInputStream(entry)) {
+                        ClassReader cr = new ClassReader(is);
+                        cr.accept(new ClassVisitor(Opcodes.ASM9) {
+                            @Override
+                            public void visit(int version, int access, String name,
+                                              String signature, String superName, String[] interfaces) {
+                                if (superName != null) referencedClasses.add(superName);
+                                if (interfaces != null) {
+                                    for (String iface : interfaces) referencedClasses.add(iface);
+                                }
+                            }
+
+                            @Override
+                            public MethodVisitor visitMethod(int access, String name,
+                                                             String desc, String signature,
+                                                             String[] exceptions) {
+                                return new MethodVisitor(Opcodes.ASM9) {
+                                    @Override
+                                    public void visitMethodInsn(int opcode, String owner,
+                                                                String mName, String mDesc,
+                                                                boolean isInterface) {
+                                        referencedClasses.add(owner);
+                                        referencedMethods
+                                            .computeIfAbsent(owner, k -> new LinkedHashSet<>())
+                                            .add(mName + mDesc);
+                                        // Track constructors for parameter-count checking
+                                        if ("<init>".equals(mName)) {
+                                            referencedCtors
+                                                .computeIfAbsent(owner, k -> new LinkedHashSet<>())
+                                                .add(mDesc);
+                                        }
+                                    }
+
+                                    @Override
+                                    public void visitFieldInsn(int opcode, String owner,
+                                                               String fName, String fDesc) {
+                                        referencedClasses.add(owner);
+                                        referencedFields
+                                            .computeIfAbsent(owner, k -> new LinkedHashSet<>())
+                                            .add(fName);
+                                    }
+
+                                    @Override
+                                    public void visitTypeInsn(int opcode, String type) {
+                                        if (type != null && !type.startsWith("[")) {
+                                            referencedClasses.add(type);
+                                        }
+                                    }
+                                };
+                            }
+                        }, ClassReader.SKIP_DEBUG);
+                    } catch (Exception e) {
+                        // Skip unreadable class files — don't crash the scan
+                    }
+                }
+
+                // --- Scan for broken mixin targets ---
+                // Mixin target classes are listed in mixin config JSON files referenced
+                // from fabric.mod.json. If a target class doesn't exist at runtime the
+                // mixin will fail to apply and likely crash the game.
+                debugScanMixinTargets(jar, modName);
+            }
+
+            // --- Resolve references against the runtime classpath ---
+            int issueCount = 0;
+
+            // Prefixes that are always available (JVM, libraries bundled with MC)
+            // and should not be flagged as missing.
+            String[] safeLibraryPrefixes = {
+                "java/", "javax/", "jdk/", "sun/",
+                "com/google/gson/", "com/google/common/",
+                "org/slf4j/", "org/apache/logging/",
+                "org/apache/commons/", "org/objectweb/asm/", "org/lwjgl/",
+                "io/netty/", "com/mojang/",
+                "it/unimi/dsi/fastutil/", "org/joml/",
+                "net/fabricmc/loader/", "net/fabricmc/api/",
+                "net/fabricmc/fabric/",
+                "com/retromod/",
+            };
+
+            // Check class references
+            for (String cls : referencedClasses) {
+                if (modClasses.contains(cls)) continue;
+                if (isSafeLibrary(cls, safeLibraryPrefixes)) continue;
+                if (!canResolveClass(cls)) {
+                    LOGGER.info("[RetroMod-Debug] WARN: {}: class {} not found in MC {}",
+                            modName, cls.replace('/', '.'), targetMcVersion);
+                    issueCount++;
+                }
+            }
+
+            // Check method references
+            for (var entry : referencedMethods.entrySet()) {
+                String owner = entry.getKey();
+                if (modClasses.contains(owner)) continue;
+                if (isSafeLibrary(owner, safeLibraryPrefixes)) continue;
+                // Only check methods on classes we CAN resolve — if the class itself
+                // is missing, we already logged that above.
+                if (!canResolveClass(owner)) continue;
+
+                for (String nameDesc : entry.getValue()) {
+                    int descStart = nameDesc.indexOf('(');
+                    if (descStart < 0) continue;
+                    String mName = nameDesc.substring(0, descStart);
+                    String mDesc = nameDesc.substring(descStart);
+                    if (!canResolveMethod(owner, mName, mDesc)) {
+                        LOGGER.info("[RetroMod-Debug] WARN: {}: {}.{}() not found in MC {}",
+                                modName, owner.replace('/', '.'), mName, targetMcVersion);
+                        issueCount++;
+                    }
+                }
+            }
+
+            // Check field references
+            for (var entry : referencedFields.entrySet()) {
+                String owner = entry.getKey();
+                if (modClasses.contains(owner)) continue;
+                if (isSafeLibrary(owner, safeLibraryPrefixes)) continue;
+                if (!canResolveClass(owner)) continue;
+
+                for (String fieldName : entry.getValue()) {
+                    if (!canResolveField(owner, fieldName)) {
+                        LOGGER.info("[RetroMod-Debug] WARN: {}: {}.{} not found in MC {}",
+                                modName, owner.replace('/', '.'), fieldName, targetMcVersion);
+                        issueCount++;
+                    }
+                }
+            }
+
+            // Check constructor parameter counts
+            // If a class exists but none of its constructors match the parameter
+            // count the mod is trying to invoke, that's a signature mismatch.
+            for (var entry : referencedCtors.entrySet()) {
+                String owner = entry.getKey();
+                if (modClasses.contains(owner)) continue;
+                if (isSafeLibrary(owner, safeLibraryPrefixes)) continue;
+                if (!canResolveClass(owner)) continue;
+
+                for (String desc : entry.getValue()) {
+                    if (!canResolveMethod(owner, "<init>", desc)) {
+                        int paramCount = countParameters(desc);
+                        LOGGER.info("[RetroMod-Debug] WARN: {}: constructor {}.(<init>) with {} params not found in MC {}",
+                                modName, owner.replace('/', '.'), paramCount, targetMcVersion);
+                        issueCount++;
+                    }
+                }
+            }
+
+            if (issueCount == 0) {
+                LOGGER.info("[RetroMod-Debug] Scan complete for {}: no issues found", modName);
+            } else {
+                LOGGER.info("[RetroMod-Debug] Scan complete for {}: {} potential issue(s) found", modName, issueCount);
+            }
+
+        } catch (Exception e) {
+            // NEVER crash — just log and move on
+            LOGGER.info("[RetroMod-Debug] Could not complete debug scan for {}: {}", modName, e.getMessage());
+        }
+    }
+
+    /**
+     * Scan mixin config files inside the JAR for target classes that don't
+     * exist on the runtime classpath. Broken mixin targets cause crashes
+     * when the mixin framework tries to apply them.
+     */
+    private void debugScanMixinTargets(JarFile jar, String modName) {
+        try {
+            // Read fabric.mod.json to find mixin config file names
+            ZipEntry fabricJson = jar.getEntry("fabric.mod.json");
+            if (fabricJson == null) return;
+
+            String content = new String(jar.getInputStream(fabricJson).readAllBytes());
+            // Extract mixin config filenames from the "mixins" array
+            // Pattern: "mixins": ["foo.mixins.json", "bar.mixins.json"]
+            var matcher = Pattern.compile("\"mixins\"\\s*:\\s*\\[([^]]*)]").matcher(content);
+            if (!matcher.find()) return;
+
+            String mixinsArray = matcher.group(1);
+            var configMatcher = Pattern.compile("\"([^\"]+\\.json)\"").matcher(mixinsArray);
+
+            while (configMatcher.find()) {
+                String configName = configMatcher.group(1);
+                ZipEntry configEntry = jar.getEntry(configName);
+                if (configEntry == null) continue;
+
+                String configContent = new String(jar.getInputStream(configEntry).readAllBytes());
+
+                // Extract the "package" prefix and mixin class names from
+                // "mixins", "client", and "server" arrays
+                var pkgMatcher = Pattern.compile("\"package\"\\s*:\\s*\"([^\"]+)\"").matcher(configContent);
+                String pkg = pkgMatcher.find() ? pkgMatcher.group(1).replace('.', '/') + "/" : "";
+
+                // Look for @Mixin target annotations by scanning the "mixins",
+                // "client", and "server" arrays — but we actually need the TARGET
+                // classes, not the mixin classes. Targets are specified inside the
+                // mixin class bytecode via @Mixin(targets=...). We check them by
+                // looking for the "target" field pattern in the config JSON, which
+                // some mixin configs use, and also by checking the "package" +
+                // class name resolution.
+                //
+                // The simplest approach: scan for class names in the mixin config
+                // that look like MC class references (contain dots with "net.minecraft")
+                var targetMatcher = Pattern.compile("\"(net\\.minecraft\\.[^\"]+)\"").matcher(configContent);
+                while (targetMatcher.find()) {
+                    String target = targetMatcher.group(1);
+                    String internal = target.replace('.', '/');
+                    if (!canResolveClass(internal)) {
+                        LOGGER.info("[RetroMod-Debug] WARN: {}: mixin target {} not found in MC {}",
+                                modName, target, targetMcVersion);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Never crash during mixin scanning
+        }
+    }
+
+    /**
+     * Check if a class name starts with any of the safe library prefixes.
+     * Classes matching these prefixes are provided by the JVM, MC runtime,
+     * or mod loaders and should not be reported as missing.
+     */
+    private static boolean isSafeLibrary(String className, String[] prefixes) {
+        for (String prefix : prefixes) {
+            if (className.startsWith(prefix)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Try to resolve a class by internal name against the runtime classpath.
+     * Returns true if the class can be loaded (i.e., exists in the MC JAR,
+     * Fabric API, or other runtime libraries).
+     */
+    private static boolean canResolveClass(String internalName) {
+        try {
+            String dotName = internalName.replace('/', '.');
+            Class.forName(dotName, false, FabricModTransformer.class.getClassLoader());
+            return true;
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+            return false;
+        } catch (Exception e) {
+            // SecurityException, LinkageError, etc. — treat as resolvable
+            // to avoid false positives
+            return true;
+        }
+    }
+
+    /**
+     * Try to resolve a method on a class. Uses reflection to check if the
+     * class has a method matching the given name. We don't fully parse the
+     * ASM descriptor into Java types because that would require recursive
+     * class loading; instead we check by name and parameter count as a
+     * best-effort heuristic.
+     */
+    private static boolean canResolveMethod(String ownerInternal, String name, String desc) {
+        try {
+            String dotName = ownerInternal.replace('/', '.');
+            Class<?> cls = Class.forName(dotName, false, FabricModTransformer.class.getClassLoader());
+            int paramCount = countParameters(desc);
+
+            if ("<init>".equals(name)) {
+                // Check constructors by parameter count
+                for (var ctor : cls.getDeclaredConstructors()) {
+                    if (ctor.getParameterCount() == paramCount) return true;
+                }
+                // Also check superclass constructors (inherited)
+                Class<?> sup = cls.getSuperclass();
+                while (sup != null) {
+                    for (var ctor : sup.getDeclaredConstructors()) {
+                        if (ctor.getParameterCount() == paramCount) return true;
+                    }
+                    sup = sup.getSuperclass();
+                }
+                return false;
+            }
+
+            // Check declared methods + inherited methods by name and param count
+            // Walk the class hierarchy to catch inherited methods
+            Class<?> current = cls;
+            while (current != null) {
+                for (var m : current.getDeclaredMethods()) {
+                    if (m.getName().equals(name) && m.getParameterCount() == paramCount) {
+                        return true;
+                    }
+                }
+                current = current.getSuperclass();
+            }
+            // Also check interfaces
+            for (var iface : cls.getInterfaces()) {
+                for (var m : iface.getMethods()) {
+                    if (m.getName().equals(name) && m.getParameterCount() == paramCount) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+            // Class not found — we already log this in the class check
+            return true; // Don't double-report
+        } catch (Exception e) {
+            return true; // Avoid false positives
+        }
+    }
+
+    /**
+     * Try to resolve a field on a class by name using reflection.
+     */
+    private static boolean canResolveField(String ownerInternal, String fieldName) {
+        try {
+            String dotName = ownerInternal.replace('/', '.');
+            Class<?> cls = Class.forName(dotName, false, FabricModTransformer.class.getClassLoader());
+            // Walk class hierarchy for the field
+            Class<?> current = cls;
+            while (current != null) {
+                try {
+                    current.getDeclaredField(fieldName);
+                    return true;
+                } catch (NoSuchFieldException e) {
+                    current = current.getSuperclass();
+                }
+            }
+            return false;
+        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+            return true; // Don't double-report if class is missing
+        } catch (Exception e) {
+            return true; // Avoid false positives
+        }
+    }
+
+    /**
+     * Count the number of parameters in an ASM method descriptor.
+     * For example, "(ILjava/lang/String;D)V" has 3 parameters: int, String, double.
+     */
+    private static int countParameters(String desc) {
+        int count = 0;
+        int i = 1; // Skip opening '('
+        while (i < desc.length() && desc.charAt(i) != ')') {
+            char c = desc.charAt(i);
+            if (c == 'L') {
+                // Object type — skip to ';'
+                i = desc.indexOf(';', i) + 1;
+                count++;
+            } else if (c == '[') {
+                // Array — skip dimension markers
+                i++;
+            } else {
+                // Primitive type (B, C, D, F, I, J, S, Z)
+                i++;
+                count++;
+            }
+        }
+        return count;
     }
 }

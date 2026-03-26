@@ -10,8 +10,19 @@ import java.nio.file.Path;
 
 /**
  * Security utilities for ZIP/JAR extraction.
- * Prevents Zip Slip (path traversal) attacks where a crafted archive
- * contains entries like "../../malicious.class" that escape the target directory.
+ *
+ * <p><b>Zip Slip</b> is a path traversal vulnerability (CVE-2018-1263) where a
+ * crafted ZIP/JAR archive contains entries with paths like {@code "../../etc/malicious.class"}.
+ * If extracted naively, these entries escape the intended output directory and can
+ * overwrite arbitrary files on the filesystem. Since RetroMod extracts and re-packages
+ * mod JARs, we must validate every entry path before writing.</p>
+ *
+ * <p><b>Symlink attacks:</b> An attacker could replace the retromod-input/ directory
+ * with a symlink pointing to a sensitive location (e.g., {@code ~/.ssh/}). When
+ * RetroMod writes transformed mods to that directory, it would actually be writing
+ * to the symlinked target. We check for symlinks before operating on directories.</p>
+ *
+ * @see <a href="https://security.snyk.io/research/zip-slip-vulnerability">Snyk Zip Slip Research</a>
  */
 public final class ZipSecurity {
 

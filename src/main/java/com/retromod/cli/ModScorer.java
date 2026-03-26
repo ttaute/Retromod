@@ -70,6 +70,8 @@ public class ModScorer {
     private final Map<FieldKey, FieldTarget> fieldRedirects;
 
     // --- Prefixes that are always considered OK ---
+    // These packages ship with MC/JVM/loaders, so references to them are never "missing".
+    // We skip them during scoring to avoid false negatives.
     private static final String[] LIBRARY_PREFIXES = {
         "java/", "javax/", "jdk/", "sun/",
         "com/google/gson/", "com/google/common/",
@@ -478,6 +480,9 @@ public class ModScorer {
         }
 
         // --- Compute scores ---
+        // Each category is scored 0-100 based on what percentage of references are resolvable.
+        // "Resolvable" means the reference either exists in the target MC version, has a
+        // RetroMod redirect/polyfill, or belongs to a loader API (always available at runtime).
         double classScore = totalClasses > 0
                 ? (double) resolvableClasses / totalClasses * 100 : 100;
         double methodScore = totalMethods > 0
@@ -486,6 +491,13 @@ public class ModScorer {
                 ? (double) (resolvableFields) / totalFields * 100 : 100;
         double mixinScore = totalMixins > 0
                 ? (double) validMixins / totalMixins * 100 : 100;
+
+        // Weighted overall score:
+        //   Methods (40%) — most common source of breakage, highest weight
+        //   Classes (30%) — missing classes are fatal but less frequent
+        //   Fields  (20%) — field changes are less common than method changes
+        //   Mixins  (10%) — only applies to mods using Mixin, lower weight
+        // A mod scoring 90+ will almost certainly work; below 50 is likely broken.
         double overallScore = classScore * 0.3 + methodScore * 0.4 + fieldScore * 0.2 + mixinScore * 0.1;
 
         result.overallScore = (int) Math.round(overallScore);
@@ -1020,6 +1032,12 @@ public class ModScorer {
 
     /**
      * ASM visitor that collects all external class, method, and field references.
+     * Walks every class in the mod JAR, recording what MC/loader classes, methods,
+     * and fields are referenced in bytecode. These references are then checked against
+     * the target MC version index to determine compatibility.
+     *
+     * <p>Mod-internal references (classes within the mod's own JAR) are tracked via
+     * modClasses but excluded from scoring since they're always available.</p>
      */
     private static class ReferenceCollector extends ClassVisitor {
         private final Set<String> modClasses;
@@ -1121,6 +1139,10 @@ public class ModScorer {
 
     // --- Result container ---
 
+    /**
+     * Holds the compatibility analysis results for a single mod.
+     * All scores are 0-100 percentages. Higher is better.
+     */
     public static class ScoreResult {
         public ModLoader detectedLoader = ModLoader.UNKNOWN;
         public int overallScore;
