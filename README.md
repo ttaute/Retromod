@@ -177,7 +177,7 @@ Almost every Minecraft mod on the planet uses Gradle (via Fabric Loom / NeoGradl
 
 RetroMod is also a bit unusual for a mod — it **doesn't compile against Minecraft at all.** It operates on bytecode reflectively and via ASM. So all the reasons you'd normally reach for Loom (deobfuscation mappings, dev-time MC classpath, intermediary remapping at build time) don't apply here. Maven gives me plain-Java dependencies (ASM, Gson, SLF4J, Fabric Loader as `provided`) and a couple of `maven-jar-plugin` executions for the different build classifiers. That's the whole story — no plugin pipeline to debug when something goes wrong.
 
-None of this is a judgment call on Gradle. Gradle's great at what it's designed for, and Loom specifically is the right tool for the normal "I'm writing a mod against MC" workflow. I'm just not in that workflow, and Maven is a better fit for the shape of this project. If you want to port the build to Gradle, PRs welcome — the dependencies and classifier-JAR wiring are all in `pom.xml` in one place, so it's a straightforward translation.
+None of this is a judgment call on Gradle. Gradle's great at what it's designed for, and Loom specifically is the right tool for the normal "I'm writing a mod against MC" workflow. I'm just not in that workflow, and Maven is a better fit for the shape of this project. If you want to fork the build to Gradle, PRs welcome — the dependencies and classifier-JAR wiring are all in `pom.xml` in one place, so it's a straightforward translation.
 
 ---
 
