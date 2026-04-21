@@ -497,7 +497,7 @@ public class Fabric_X_to_Y implements VersionShim {
 
 ## Known Limitations
 
-> **Release-candidate notice:** RetroMod is in its release-candidate stage. The API and behaviour are locked; we're collecting last-mile feedback before tagging 1.0. The vast majority of mods translate cleanly, but some unusual or extremely complex mods may still surface issues — please report them. Backups are recommended whenever you use any tool that modifies mod JARs.
+> **Beta notice:** RetroMod is in beta (v1.0.0-beta.1). The core pipeline is stable, but the transformer has known gaps for deep-integration mods (rendering replacement, heavy mixin mods, some cross-version library deps) that we'll close in follow-up releases. The majority of mods translate cleanly, but unusual or extremely complex mods may still surface issues — please report them. Backups are recommended whenever you use any tool that modifies mod JARs.
 >
 > **Experimental notice (1.12.2–1.15.2):** The shim chain across these very old versions is the hardest part of the project to make 100% reliable. The API changes were enormous (The Flattening alone renamed hundreds of classes). Many mods do work, but expect more rough edges here than elsewhere. Simple mods have the best chance of translating cleanly.
 
