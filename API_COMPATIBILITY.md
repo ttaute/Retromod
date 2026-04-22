@@ -2,6 +2,8 @@
 
 RetroMod includes compatibility shims for popular modding APIs, allowing mods built with older API versions to work on newer Minecraft versions. This includes both actively maintained APIs and legacy/unmaintained APIs that many old mods still depend on.
 
+Retromod Is in Beta, some of these may not work.
+
 ## Supported APIs
 
 ### Fabric APIs (13 shims)

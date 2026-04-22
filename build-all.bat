@@ -15,7 +15,7 @@ setlocal enabledelayedexpansion
 
 set VERSION=1.0.0-beta.1
 REM Only build for 1.20+ — older mods are translated BY RetroMod, not hosted separately.
-set MC_VERSIONS=1.20 1.20.1 1.20.2 1.20.3 1.20.4 1.20.5 1.20.6 1.21 1.21.1 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11 26.1
+set MC_VERSIONS=1.20 1.20.1 1.20.2 1.20.3 1.20.4 1.20.5 1.20.6 1.21 1.21.1 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11 26.1 26.1.1 26.1.2
 set LOADERS=fabric forge neoforge
 
 echo ============================================
@@ -132,6 +132,23 @@ if "%LOADER%"=="fabric" set LOADER_DIR=Fabric
 if "%LOADER%"=="forge" set LOADER_DIR=Forge
 if "%LOADER%"=="neoforge" set LOADER_DIR=NeoForge
 
+REM Guard: never emit a dist\ artifact for a host MC below 1.20.
+REM RetroMod requires Java 25 and MC 1.20+ to run as a mod — earlier versions
+REM are only relevant as translation SOURCES, not as host targets. This filter
+REM prevents accidental additions to MC_VERSIONS from producing broken builds.
+REM Allow-list: 1.20.x, 1.21.x, 26.x, 27.x, 28.x (forward-compat).
+set HOST_OK=0
+echo %MC_VERSION% | findstr /b "1.20" >nul && set HOST_OK=1
+echo %MC_VERSION% | findstr /b "1.21" >nul && set HOST_OK=1
+echo %MC_VERSION% | findstr /b "26." >nul && set HOST_OK=1
+echo %MC_VERSION% | findstr /b "27." >nul && set HOST_OK=1
+echo %MC_VERSION% | findstr /b "28." >nul && set HOST_OK=1
+if "%MC_VERSION%"=="26.1" set HOST_OK=1
+if "%HOST_OK%"=="0" (
+    echo   skip: %LOADER% %MC_VERSION% - host MC ^< 1.20 not built into dist\
+    goto :eof
+)
+
 REM Skip Fabric for versions before 1.14 (Fabric didn't exist yet)
 if "%LOADER%"=="fabric" (
     echo %MC_VERSION% | findstr /b "1.12" >nul && goto :eof
@@ -139,6 +156,9 @@ if "%LOADER%"=="fabric" (
 )
 
 REM Skip NeoForge for versions before 1.20.1 (NeoForge didn't exist yet)
+REM AND for MC patch releases NeoForge didn't ship a build for:
+REM   - 26.1 and 26.1.1 were skipped by NeoForge; only 26.1.2 has releases
+REM Keep in sync with https://maven.neoforged.net/releases/net/neoforged/neoforge/
 if "%LOADER%"=="neoforge" (
     echo %MC_VERSION% | findstr /b "1.12" >nul && goto :eof
     echo %MC_VERSION% | findstr /b "1.13" >nul && goto :eof
@@ -149,6 +169,8 @@ if "%LOADER%"=="neoforge" (
     echo %MC_VERSION% | findstr /b "1.18" >nul && goto :eof
     echo %MC_VERSION% | findstr /b "1.19" >nul && goto :eof
     if "%MC_VERSION%"=="1.20" goto :eof
+    if "%MC_VERSION%"=="26.1" goto :eof
+    if "%MC_VERSION%"=="26.1.1" goto :eof
 )
 
 set OUTPUT_NAME=retromod-%VERSION%+%MC_VERSION%.jar

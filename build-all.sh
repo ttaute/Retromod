@@ -17,7 +17,7 @@
 VERSION="1.0.0-beta.1"
 # Only build for 1.20+ — older mods are translated BY RetroMod, not hosted separately.
 # Security-only updates for versions before 26.1.
-MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1")
+MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2")
 LOADERS=("fabric" "forge" "neoforge")
 
 echo "============================================"
@@ -27,7 +27,7 @@ echo "  MIT License - RevivalSMP"
 echo "============================================"
 echo ""
 echo "Building for:"
-echo "  - ${#MC_VERSIONS[@]} Minecraft versions (1.20 - 26.1)"
+echo "  - ${#MC_VERSIONS[@]} Minecraft versions (1.20 - 26.1.2)"
 echo "  - ${#LOADERS[@]} mod loaders (Fabric, Forge, NeoForge)"
 echo ""
 
@@ -124,26 +124,64 @@ echo "  dist/CLI/retromod-${VERSION}-cli.jar"
 echo ""
 echo "[Step 3/4] Creating loader-specific JARs..."
 
-# Function to check if a loader supports a given MC version
+# Defensive guard: host MC versions below 1.20 never go into dist/.
+# RetroMod itself requires Java 25 and MC 1.20+ to run as a mod — earlier MC
+# versions are only relevant as TRANSLATION SOURCES (the shim chain walks an
+# old mod forward to your 1.20+ host), not as host targets. If someone later
+# adds "1.19.2" or "1.16.5" to MC_VERSIONS by mistake, this filter stops it
+# from producing a dist/ artifact rather than silently shipping a broken build.
+is_host_mc_supported() {
+    local ver=$1
+    case $ver in
+        # Explicit allow-list of host MC versions we ship builds for
+        1.20|1.20.[0-9]*) return 0 ;;
+        1.21|1.21.[0-9]*) return 0 ;;
+        26.[0-9]*) return 0 ;;
+        27.[0-9]*) return 0 ;;  # forward-compat
+        28.[0-9]*) return 0 ;;  # forward-compat
+        # Everything else (1.12 – 1.19.x, plus anything unrecognized) is rejected
+        *) return 1 ;;
+    esac
+}
+
+# Function to check if a loader supports a given MC version.
+#
+# This is more nuanced than a simple "loader started at version X" cutoff —
+# NeoForge in particular skips MC patch releases. For the 26.x line NeoForge
+# has only released builds for 26.1.2 (as of this writing), NOT 26.1 or
+# 26.1.1. Building our own RetroMod-for-NeoForge JAR that declares 26.1 or
+# 26.1.1 as its MC version would produce an artifact nobody can use because
+# there's no NeoForge loader for those MC patches.
+#
+# Keep this synced with:
+#   Fabric intermediary:  https://maven.fabricmc.net/net/fabricmc/intermediary/
+#   NeoForge releases:    https://maven.neoforged.net/releases/net/neoforged/neoforge/
+#   Forge releases:       https://maven.minecraftforge.net/net/minecraftforge/forge/
 loader_supports_version() {
     local loader=$1
     local ver=$2
     case $loader in
         neoforge)
-            # NeoForge started at 1.20.1
+            # Started at 1.20.1; patch-release coverage is uneven.
             case $ver in
+                # Before NeoForge existed
                 1.12*|1.13*|1.14*|1.15*|1.16*|1.17*|1.18*|1.19*|1.20) return 1 ;;
+                # 26.x: only 26.1.2 has NeoForge releases; 26.1 and 26.1.1 were skipped
+                26.1|26.1.1) return 1 ;;
+                # Everything else (1.20.1+, 1.21.x, 26.1.2, future 26.2+) is supported
                 *) return 0 ;;
             esac
             ;;
         fabric)
-            # Fabric started at 1.14
+            # Fabric started at 1.14. Fabric Loader itself is MC-version-agnostic;
+            # intermediary mappings cover essentially every MC release, so we
+            # don't need per-patch exceptions here.
             case $ver in
                 1.12*|1.13*) return 1 ;;
                 *) return 0 ;;
             esac
             ;;
-        *) return 0 ;;  # Forge supports all versions
+        *) return 0 ;;  # Forge supports all versions we build for
     esac
 }
 
@@ -152,6 +190,14 @@ create_mod_jar() {
     local LOADER=$1
     local MC_VERSION=$2
     local LOADER_DIR=""
+
+    # Guard: never emit a dist/ artifact for a host MC below 1.20.
+    # Noisy skip (log at WARN) rather than silent so a misconfigured
+    # MC_VERSIONS array is visible.
+    if ! is_host_mc_supported "$MC_VERSION"; then
+        echo "  skip: ${LOADER} ${MC_VERSION} — host MC < 1.20 not built into dist/"
+        return 0
+    fi
 
     # Skip unsupported loader/version combinations
     if ! loader_supports_version "$LOADER" "$MC_VERSION"; then
@@ -365,9 +411,9 @@ echo "============================================"
 echo ""
 echo "Output structure:"
 echo "  dist/"
-echo "  ├── Fabric/        (1.14 - 1.21.11)"
-echo "  ├── Forge/         (1.12.2 - 1.21.11)"
-echo "  ├── NeoForge/      (1.20.1 - 1.21.11)"
+echo "  ├── Fabric/        (host: 1.20 - 26.1.2, translates mods from 1.14.4+)"
+echo "  ├── Forge/         (host: 1.20 - 26.1.2, translates mods from 1.12.2+)"
+echo "  ├── NeoForge/      (host: 1.20.1 - 26.1.2, translates mods from 1.20.1+)"
 echo "  └── CLI/"
 echo "      └── retromod-${VERSION}-cli.jar"
 echo ""

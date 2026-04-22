@@ -109,15 +109,21 @@ RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 >
 > If you're on MC 1.20 – 1.21.x: RetroMod still works, and will continue to. You get every core-pipeline improvement. You just won't see as many *new* mods added to the compatibility table as 26.1 users will. Upgrading to 26.1 is optional but recommended if you want the fullest mod coverage.
 
-Shims are **chainable** — a 1.12.2 Forge mod can run on 26.1 by applying each shim in sequence. **All intermediate versions** (1.16.2, 1.14.1, 1.15.1, etc.) are supported via fuzzy version matching — mods targeting any version within a range are automatically handled.
+Two version axes to keep in mind:
 
-| Loader | Shims | Range | Per-chain maturity |
-|--------|-------|-------|--------------------|
-| **Fabric** | 32 | 1.14 → ... → 26.1 → 26.1 | 1.16.5+: Stable, 1.14–1.15: Experimental |
-| **NeoForge** | 18 | 1.20.1 → ... → 26.1 → 26.1 | Stable |
-| **Forge** | 28 | 1.12.2 → ... → 1.20 → 1.21 (NeoForge*) → ... → 26.1 → 26.1 | 1.16.5+: Stable, 1.12–1.15: Experimental |
+- **Host MC** — the Minecraft you have RetroMod installed in. This must be **MC 1.20+**.
+- **Source MC** — the Minecraft version the old mod was built for. This is what the shim chain translates *from*. Shims are **chainable**, so a 1.12.2 Forge mod is walked through every intermediate shim (1.12 → 1.13 → 1.14 → … → your host MC) in one automatic pass.
 
-> **Fuzzy version matching:** If a mod targets an intermediate version like 1.16.2 or 1.14.3, RetroMod automatically resolves it to the nearest milestone shim. This means every MC version from 1.12.2 to 26.1 is supported, even versions without their own dedicated shim.
+Intermediate versions like 1.16.2 or 1.14.3 work via fuzzy version matching — a mod targeting any version within a range is resolved to the nearest milestone shim. Every MC version from 1.12.2 to 26.1 is reachable.
+
+| Loader | Host MC (where RetroMod runs) | Translates mods from | Per-chain maturity |
+|---|---|---|---|
+| **Fabric** | 1.20 → 26.1 | **1.14.4 and up** (Fabric didn't exist earlier) | 1.16.5+: Stable · 1.14–1.15: Experimental |
+| **NeoForge** | 1.20.1 → 26.1 | **1.20.1 and up** (NeoForge forked at 1.20.1) | Stable |
+| **Forge** | 1.20 → 26.1 | **1.12.2 and up** (Java 8 era) | 1.16.5+: Stable · 1.12–1.15: Experimental |
+
+> **"Why are there 1.12.2 Forge shim files if RetroMod needs MC 1.20+ to run?"**
+> Because those files aren't what RetroMod runs *on* — they're what RetroMod uses to *translate* a mod that was built for 1.12.2. The translated output targets your host MC (1.20+). RetroMod itself never runs on 1.12.2.
 
 > **Experimental chains (1.12.2–1.15.2):** These cover massive Minecraft changes like "The Flattening" (1.12→1.13) where every block ID, entity name, and NBT class was renamed. The shim chain works for many mods but is harder to make 100% reliable across that gap — use at your own risk and report what doesn't work.
 >
