@@ -1,0 +1,103 @@
+name: Bug report
+description: A mod doesn't transform, crashes on load, or behaves wrong after RetroMod runs.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing this. The more of the fields below you can fill in, the faster I can usually figure out what's going wrong.
+
+        Before opening, have a quick look at the [Troubleshooting page](https://bownlux.github.io/RetroMod/troubleshooting) — it covers the most common error messages.
+
+  - type: input
+    id: retromod-version
+    attributes:
+      label: RetroMod version
+      description: Visible in the in-game UI or the JAR filename.
+      placeholder: 1.0.0-beta.1
+    validations:
+      required: true
+
+  - type: input
+    id: host-mc-version
+    attributes:
+      label: Host MC version
+      description: The Minecraft version you're running. Not the version the mod was originally built for.
+      placeholder: e.g. 26.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: loader
+    attributes:
+      label: Mod loader
+      options:
+        - Fabric
+        - NeoForge
+        - Forge
+    validations:
+      required: true
+
+  - type: input
+    id: loader-version
+    attributes:
+      label: Loader version
+      placeholder: e.g. Fabric Loader 0.16.10
+    validations:
+      required: true
+
+  - type: input
+    id: mod-name
+    attributes:
+      label: Source mod (name and version)
+      description: The mod that's failing to transform or load. Include its version.
+      placeholder: e.g. Sodium 0.5.3
+    validations:
+      required: true
+
+  - type: input
+    id: source-mc-version
+    attributes:
+      label: Source mod's original MC version
+      description: What MC version was the mod originally built for? (Often visible on the mod's CurseForge or Modrinth page.)
+      placeholder: e.g. 1.20.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you see? What were you doing? If the mod transformed but crashed in-game later, describe what you were doing when it crashed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Crash log or relevant log output
+      description: |
+        Paste the full contents of `logs/latest.log` if MC crashed on launch, or the relevant section if the crash happened mid-game.
+        For very long logs, please upload to a [Gist](https://gist.github.com) or pastebin and link it here.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: gap-report
+    attributes:
+      label: Gap report (optional but very helpful)
+      description: |
+        If you can, run the verify-transforms CLI command on the failing mod and paste the report here. See [Verify transforms](https://bownlux.github.io/RetroMod/verify-transforms) for how to run it.
+      render: shell
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I checked the [Troubleshooting page](https://bownlux.github.io/RetroMod/troubleshooting) and didn't find this issue.
+          required: true
+        - label: The source mod isn't opted out of RetroMod transformation (no `META-INF/retromod-opt-out` marker in the mod JAR).
+          required: false

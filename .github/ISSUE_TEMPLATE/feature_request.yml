@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest a new shim, polyfill, mod-compatibility target, or general feature.
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of request is this?
+      options:
+        - New shim (add support for an MC version transition)
+        - New polyfill (reimplement a removed API)
+        - Mod compatibility (specific mod doesn't translate, looking for a general fix)
+        - CLI feature
+        - In-game UI feature
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What do you want?
+      description: Describe the feature in plain language. What would you do with it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does it matter?
+      description: What's the use case? Which mods, which MC versions, which workflow?
+    validations:
+      required: true
+
+  - type: input
+    id: affected-mods
+    attributes:
+      label: Affected mod(s) (optional)
+      description: If this is mod-compatibility-related, name the mod(s) and the version(s) you're trying to translate.
+      placeholder: e.g. Iris 1.7.0 (1.20.1 → 26.1)
+
+  - type: textarea
+    id: ideas
+    attributes:
+      label: How might it work? (optional)
+      description: If you have implementation ideas, jot them here. Not required.

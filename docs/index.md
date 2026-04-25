@@ -66,12 +66,12 @@ The wiki is small but covers the things people ask about most.
 
 ## Why I made this
 
-I run a public Minecraft server on [Revival Hosting](https://revivalsmp.net) — Purpur with mods. Revival's mod runtime pins the server to a specific MC version, and that version usually isn't the latest one. Two problems fall out of that:
+I run a public Minecraft server on [Revival Hosting](https://revivalsmp.net) — To run mods at all, the server has to stay on whichever MC version the mod loadout actually supports, and that's rarely the latest version Mojang has shipped. Two problems come from that:
 
-1. I'm a step behind on Mojang's own new features until the host catches up.
-2. Worse, the mod loadout fragments — one mod I want only works on 1.21.7, another only on 1.21.1, and no single MC version runs both. Whichever isn't actively maintained is the one I have to drop.
+1. Even when every mod I want does agree on a single version, the agreed-on version is usually something like 1.21.1 — not 26.1.2. That's a year's worth of MC features (new blocks, new mobs, gameplay changes) the server doesn't get, just because the mods aren't there yet.
+2. Worse, sometimes the mods don't even agree with each other. One mod I want only works on 1.21.7, another only on 1.21.1, and no single MC version runs both. Whichever isn't actively maintained is the one I have to drop.
 
-RetroMod fixes the second problem: it translates the older mod's bytecode forward (or backward, within reason) so both mods can sit in the same `mods/` folder without one crashing on load. Most of the time the actual API changes between MC versions are mechanical — a class moved, a method got renamed, a field became a getter — and that's the kind of work a transformer can do without bothering the original author. The first problem I can't help with — Mojang ships when Mojang ships.
+RetroMod fixes both. By translating mod bytecode forward to whatever MC version is actually running, the version on the mod's box stops mattering. The 1.21.1 mod and the 1.21.7 mod can both live in the same `mods/` folder on a 26.1.2 server, and the server finally moves to the newest MC. Most of the actual API changes between versions are mechanical — a class moved, a method got renamed, a field became a getter — and that's the kind of work a transformer can do without bothering the original author.
 
 It's MIT licensed. If you fork it for your own server, modify it for a use case I haven't thought about, or want to contribute back — all welcome. Issues and PRs both work.
 
