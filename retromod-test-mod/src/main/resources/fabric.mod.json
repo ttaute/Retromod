@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "retromod_test_mod",
+  "version": "${version}",
+  "name": "RetroMod Test Mod",
+  "description": "Exercises RetroMod's transformation pipeline and reports per-test results to the launch log.",
+  "authors": [
+    "Bownlux"
+  ],
+  "contact": {
+    "homepage": "https://github.com/Bownlux/RetroMod",
+    "sources": "https://github.com/Bownlux/RetroMod"
+  },
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.retromod.testmod.RetroModTestMod"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": "*",
+    "java": ">=17"
+  }
+}

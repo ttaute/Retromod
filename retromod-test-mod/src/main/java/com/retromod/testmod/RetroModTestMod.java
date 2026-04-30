@@ -1,0 +1,45 @@
+/*
+ * RetroMod Test Mod
+ * Copyright (c) 2026 Bownlux. Licensed under MIT License.
+ */
+package com.retromod.testmod;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
+
+/**
+ * Fabric client entry point. Three lifecycle hooks, three phases:
+ *
+ * <ol>
+ *   <li><b>onInitializeClient</b> — runs the {@code init}-phase tests
+ *       (core APIs, static registries, math, NBT, etc.).</li>
+ *   <li><b>ClientLifecycleEvents.CLIENT_STARTED</b> — runs the
+ *       {@code client-started}-phase tests (data-component-dependent stuff
+ *       like {@code new ItemStack}).</li>
+ *   <li><b>ClientPlayConnectionEvents.JOIN</b> — runs the {@code world-join}
+ *       phase tests (dynamic-registry stuff like enchantments and mob
+ *       effects in MC 1.21+, where they're data-driven).</li>
+ * </ol>
+ *
+ * <p>The {@code TestRunner} is loader-agnostic; a Forge or NeoForge wrapper
+ * added later can hook the same three phases through their own event
+ * systems and call the same three methods.
+ */
+public class RetroModTestMod implements ClientModInitializer {
+
+    @Override
+    public void onInitializeClient() {
+        // Phase 1: init — most tests
+        TestRunner.runImmediate();
+
+        // Phase 2: client-started — fires once, right before the title screen.
+        // Static + data-component registries are fully bootstrapped by then.
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> TestRunner.runOnClientStarted());
+
+        // Phase 3: world-join — fires every time the player joins a world or
+        // server. Dynamic registries are populated by then. Idempotent: if
+        // you join multiple worlds the suite just runs each time.
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> TestRunner.runOnWorldJoin());
+    }
+}

@@ -63,6 +63,11 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
 
+        // Vanilla content holder fields whose TYPE changed in MC 1.21
+        // (became ResourceKey<X> instead of X). Routed through
+        // RegistryRefLookup which does the runtime registry lookup.
+        registerRegistryRefRedirects(transformer);
+
         // ============================================================
         // FABRIC API PACKAGE RENAMES
         // Fabric API 26.1 renamed many packages to match Mojang naming
@@ -370,13 +375,84 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()Ljava/util/concurrent/ExecutorService;"
         );
 
-        // Registry.SOUND_EVENT moved to Registries.SOUND_EVENT in newer MC
-        // The field type also changed from Registry to ResourceKey<Registry<SoundEvent>>
+        // Registry.SOUND_EVENT moved to BuiltInRegistries.SOUND_EVENT.
+        // (Was previously pointed at "Registries" — that's a different class
+        // that holds ResourceKey<Registry<...>> entries, not the registries
+        // themselves. BuiltInRegistries is the right target.)
         transformer.registerFieldRedirect(
             "net/minecraft/core/Registry", "SOUND_EVENT",
             "Lnet/minecraft/core/Registry;",
-            "net/minecraft/core/registries/Registries", "SOUND_EVENT",
-            "Lnet/minecraft/resources/ResourceKey;"
+            "net/minecraft/core/registries/BuiltInRegistries", "SOUND_EVENT",
+            "Lnet/minecraft/core/Registry;"
+        );
+
+        // Yarn 1.20.1 input shape: net.minecraft.registry.Registries.SOUND_EVENT.
+        // Without this explicit redirect the descriptor remapping picks the
+        // wrong target type and we get
+        //   NoSuchFieldError: BuiltInRegistries does not have member field
+        //   'BuiltInRegistries SOUND_EVENT'
+        // (Surfaced by retromod-test-mod's RegistryTests.)
+        transformer.registerFieldRedirect(
+            "net/minecraft/registry/Registries", "SOUND_EVENT",
+            "Lnet/minecraft/registry/Registry;",
+            "net/minecraft/core/registries/BuiltInRegistries", "SOUND_EVENT",
+            "Lnet/minecraft/core/Registry;"
+        );
+
+        // Defensive same-class descriptor override: even after the above
+        // redirect, some chain entries upstream still emit
+        // GETSTATIC BuiltInRegistries.SOUND_EVENT with the wrong
+        // descriptor (Lnet/minecraft/core/registries/BuiltInRegistries;
+        // — somewhere a class redirect of yarn `Registry` resolves to
+        // `BuiltInRegistries` instead of `core/Registry`). Rewrite the
+        // descriptor in place. FieldKey ignores the descriptor, so this
+        // matches whatever shape the bytecode arrives in.
+        transformer.registerFieldRedirect(
+            "net/minecraft/core/registries/BuiltInRegistries", "SOUND_EVENT",
+            null,
+            "net/minecraft/core/registries/BuiltInRegistries", "SOUND_EVENT",
+            "Lnet/minecraft/core/Registry;"
+        );
+
+        // TagKey.id() — in yarn 1.20.1 the accessor is `id()` returning
+        // Identifier. In Mojang-mapped 26.1 TagKey is a record and its
+        // location accessor is `location()` returning ResourceLocation.
+        // RetroMod's record-component heuristic was renaming this to
+        // `comp_327()` which doesn't actually exist; force the explicit
+        // mapping. (Surfaced by TagTests.)
+        transformer.registerMethodRedirect(
+            "net/minecraft/registry/tag/TagKey", "id",
+            "()Lnet/minecraft/util/Identifier;",
+            "net/minecraft/tags/TagKey", "location",
+            "()Lnet/minecraft/resources/ResourceLocation;"
+        );
+        // Defensive: if the heuristic still rewrote `id` → `comp_327` somewhere
+        // upstream, catch the resulting bytecode here and route it to the real
+        // method.
+        transformer.registerMethodRedirect(
+            "net/minecraft/tags/TagKey", "comp_327",
+            "()Lnet/minecraft/resources/ResourceLocation;",
+            "net/minecraft/tags/TagKey", "location",
+            "()Lnet/minecraft/resources/ResourceLocation;"
+        );
+        // Even more defensive: a separate upstream remap stage produces a
+        // hybrid descriptor where the package was remapped (yarn
+        // `net/minecraft/util/` → mojang `net/minecraft/resources/`) but
+        // the class name was NOT (`Identifier` left alone instead of
+        // becoming `ResourceLocation`). This results in a non-existent
+        // `net/minecraft/resources/Identifier` type. Catch that broken
+        // descriptor too.
+        transformer.registerMethodRedirect(
+            "net/minecraft/tags/TagKey", "comp_327",
+            "()Lnet/minecraft/resources/Identifier;",
+            "net/minecraft/tags/TagKey", "location",
+            "()Lnet/minecraft/resources/ResourceLocation;"
+        );
+        transformer.registerMethodRedirect(
+            "net/minecraft/tags/TagKey", "id",
+            "()Lnet/minecraft/resources/Identifier;",
+            "net/minecraft/tags/TagKey", "location",
+            "()Lnet/minecraft/resources/ResourceLocation;"
         );
 
         // TitleScreen.COPYRIGHT_TEXT became private in 26.1 — redirect to reflection bridge
@@ -866,5 +942,191 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
 
         cw.visitEnd();
         return cw.toByteArray();
+    }
+
+    /**
+     * Field-to-method redirects for the MC 1.21+ "registry-key migration"
+     * of vanilla content holders.
+     *
+     * <p>In older MC, fields like {@code Enchantments.SHARPNESS} were typed
+     * as the actual content ({@code Enchantment}). In MC 1.21+ the same
+     * field names exist but their type is now {@code ResourceKey<Enchantment>} —
+     * a registry key, not the value. Mod bytecode that reads the field
+     * expecting an {@code Enchantment} crashes with
+     * {@code NoSuchFieldError: ... does not have member field 'Enchantment SHARPNESS'}.
+     *
+     * <p>Each redirect routes a {@code GETSTATIC X.Y:Z} to a static call on
+     * {@link com.retromod.polyfill.registry.RegistryRefLookup} that does the
+     * runtime registry lookup and returns the actual content. The
+     * transformer's CHECKCAST emit takes care of the {@code Object} →
+     * {@code Enchantment}/{@code MobEffect} cast at the use site.
+     *
+     * <p>Field names use the Mojang spelling because the {@code ClassRemapper}
+     * stage runs before {@code RetroModMethodVisitor} sees the bytecode, so
+     * by the time these redirects are looked up, names are already in
+     * Mojang form.
+     */
+    private void registerRegistryRefRedirects(RetroModTransformer transformer) {
+        registerEnchantmentRedirects(transformer);
+        registerMobEffectRedirects(transformer);
+        registerNbtCompatRedirects(transformer);
+    }
+
+    /**
+     * NBT getter signature change in MC 1.21.5+: {@code CompoundTag.getString(String)}
+     * etc. now return {@code Optional<X>} instead of the primitive/string
+     * directly. Mods compiled against the old shape do
+     * {@code INVOKEVIRTUAL CompoundTag.getString(String)String} and crash
+     * with {@code NoSuchMethodError}.
+     *
+     * <p>Fix: redirect each call to a static helper on
+     * {@link com.retromod.polyfill.registry.NbtCompatLookup} with
+     * {@code devirtualize=true} (the receiver becomes the first arg).
+     * The helper resolves whichever signature the runtime MC actually
+     * has, unwraps the {@code Optional} when needed, and returns the
+     * primitive/string directly so the calling bytecode's stack matches
+     * what it originally expected.
+     *
+     * <p>Surfaced by retromod-test-mod's {@code NbtTests}.
+     */
+    private void registerNbtCompatRedirects(RetroModTransformer transformer) {
+        String compoundTag = "net/minecraft/nbt/CompoundTag";
+        String listTag     = "net/minecraft/nbt/ListTag";
+        String lookup      = "com/retromod/polyfill/registry/NbtCompatLookup";
+
+        // CompoundTag.getX(String) — receiver-first static descriptors.
+        transformer.registerMethodRedirect(
+            compoundTag, "getString", "(Ljava/lang/String;)Ljava/lang/String;",
+            lookup, "compoundGetString",
+            "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/String;",
+            true
+        );
+        transformer.registerMethodRedirect(
+            compoundTag, "getInt", "(Ljava/lang/String;)I",
+            lookup, "compoundGetInt",
+            "(Ljava/lang/Object;Ljava/lang/String;)I",
+            true
+        );
+        transformer.registerMethodRedirect(
+            compoundTag, "getLong", "(Ljava/lang/String;)J",
+            lookup, "compoundGetLong",
+            "(Ljava/lang/Object;Ljava/lang/String;)J",
+            true
+        );
+        transformer.registerMethodRedirect(
+            compoundTag, "getFloat", "(Ljava/lang/String;)F",
+            lookup, "compoundGetFloat",
+            "(Ljava/lang/Object;Ljava/lang/String;)F",
+            true
+        );
+        transformer.registerMethodRedirect(
+            compoundTag, "getDouble", "(Ljava/lang/String;)D",
+            lookup, "compoundGetDouble",
+            "(Ljava/lang/Object;Ljava/lang/String;)D",
+            true
+        );
+        transformer.registerMethodRedirect(
+            compoundTag, "getBoolean", "(Ljava/lang/String;)Z",
+            lookup, "compoundGetBoolean",
+            "(Ljava/lang/Object;Ljava/lang/String;)Z",
+            true
+        );
+
+        // ListTag.getX(int)
+        transformer.registerMethodRedirect(
+            listTag, "getString", "(I)Ljava/lang/String;",
+            lookup, "listGetString",
+            "(Ljava/lang/Object;I)Ljava/lang/String;",
+            true
+        );
+        transformer.registerMethodRedirect(
+            listTag, "getInt", "(I)I",
+            lookup, "listGetInt",
+            "(Ljava/lang/Object;I)I",
+            true
+        );
+    }
+
+    private void registerEnchantmentRedirects(RetroModTransformer transformer) {
+        String enchOwner = "net/minecraft/world/item/enchantment/Enchantments";
+        String enchType  = "Lnet/minecraft/world/item/enchantment/Enchantment;";
+        String lookup    = "com/retromod/polyfill/registry/RegistryRefLookup";
+        String objRet    = "()Ljava/lang/Object;";
+
+        // Mojang field name is the same as the polyfill method name in
+        // each pair below (both come from the registry id, uppercased).
+        String[] names = {
+            "SHARPNESS", "SMITE", "BANE_OF_ARTHROPODS", "KNOCKBACK",
+            "FIRE_ASPECT", "LOOTING", "SWEEPING_EDGE",
+            "PROTECTION", "FIRE_PROTECTION", "FEATHER_FALLING",
+            "BLAST_PROTECTION", "PROJECTILE_PROTECTION",
+            "RESPIRATION", "AQUA_AFFINITY", "THORNS",
+            "DEPTH_STRIDER", "FROST_WALKER", "BINDING_CURSE",
+            "SOUL_SPEED", "SWIFT_SNEAK",
+            "EFFICIENCY", "SILK_TOUCH", "UNBREAKING", "FORTUNE",
+            "POWER", "PUNCH", "FLAME", "INFINITY",
+            "LUCK_OF_THE_SEA", "LURE",
+            "LOYALTY", "IMPALING", "RIPTIDE", "CHANNELING",
+            "MULTISHOT", "QUICK_CHARGE", "PIERCING",
+            "MENDING", "VANISHING_CURSE"
+        };
+        for (String n : names) {
+            transformer.registerFieldRedirect(
+                enchOwner, n, enchType,
+                lookup, n, objRet
+            );
+        }
+    }
+
+    private void registerMobEffectRedirects(RetroModTransformer transformer) {
+        String effOwner = "net/minecraft/world/effect/MobEffects";
+        String effType  = "Lnet/minecraft/world/effect/MobEffect;";
+        String lookup   = "com/retromod/polyfill/registry/RegistryRefLookup";
+        String objRet   = "()Ljava/lang/Object;";
+
+        // (Mojang field, polyfill method) pairs. The polyfill method names
+        // mirror the YARN field names (SPEED, HASTE, ...) for readability,
+        // since the test mod is yarn-compiled and they're easier to scan.
+        String[][] pairs = {
+            {"MOVEMENT_SPEED",   "SPEED"},
+            {"MOVEMENT_SLOWDOWN","SLOWNESS"},
+            {"DIG_SPEED",        "HASTE"},
+            {"DIG_SLOWDOWN",     "MINING_FATIGUE"},
+            {"DAMAGE_BOOST",     "STRENGTH"},
+            {"HEAL",             "INSTANT_HEALTH"},
+            {"HARM",             "INSTANT_DAMAGE"},
+            {"JUMP",             "JUMP_BOOST"},
+            {"CONFUSION",        "NAUSEA"},
+            {"REGENERATION",     "REGENERATION"},
+            {"DAMAGE_RESISTANCE","RESISTANCE"},
+            {"FIRE_RESISTANCE",  "FIRE_RESISTANCE"},
+            {"WATER_BREATHING",  "WATER_BREATHING"},
+            {"INVISIBILITY",     "INVISIBILITY"},
+            {"BLINDNESS",        "BLINDNESS"},
+            {"NIGHT_VISION",     "NIGHT_VISION"},
+            {"HUNGER",           "HUNGER"},
+            {"WEAKNESS",         "WEAKNESS"},
+            {"POISON",           "POISON"},
+            {"WITHER",           "WITHER"},
+            {"HEALTH_BOOST",     "HEALTH_BOOST"},
+            {"ABSORPTION",       "ABSORPTION"},
+            {"SATURATION",       "SATURATION"},
+            {"GLOWING",          "GLOWING"},
+            {"LEVITATION",       "LEVITATION"},
+            {"LUCK",             "LUCK"},
+            {"UNLUCK",           "UNLUCK"},
+            {"SLOW_FALLING",     "SLOW_FALLING"},
+            {"CONDUIT_POWER",    "CONDUIT_POWER"},
+            {"DOLPHINS_GRACE",   "DOLPHINS_GRACE"},
+            {"BAD_OMEN",         "BAD_OMEN"},
+            {"HERO_OF_THE_VILLAGE","HERO_OF_THE_VILLAGE"},
+            {"DARKNESS",         "DARKNESS"}
+        };
+        for (String[] pair : pairs) {
+            transformer.registerFieldRedirect(
+                effOwner, pair[0], effType,
+                lookup, pair[1], objRet
+            );
+        }
     }
 }

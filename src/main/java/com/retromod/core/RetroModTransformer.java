@@ -1250,7 +1250,21 @@ public class RetroModTransformer implements ClassFileTransformer {
         "com/mojang/serialization/DynamicOps",
         "com/mojang/serialization/MapLike",
         "com/mojang/serialization/Lifecycle",
-        "net/minecraft/core/Registry"  // Registry became interface in newer MC
+        "net/minecraft/core/Registry",  // Registry became interface in newer MC
+        // Component (formerly the Text class in yarn) became an interface in
+        // MC 26.1. Without this entry, INVOKEVIRTUAL on .copy() / .append() /
+        // .formatted() on a Text after remap fails verification with
+        //   IncompatibleClassChangeError: Found interface
+        //   net.minecraft.network.chat.Component, but class was expected
+        // Surfaced by retromod-test-mod's Test 5 (Text.copy().append).
+        "net/minecraft/network/chat/Component"
+        // NOTE: MutableComponent is NOT in this list — it's still a *class*
+        // (extends nothing useful, implements Component). Adding it here was
+        // a mistake in an earlier pass; it caused the opposite verifier
+        // error: "Found class MutableComponent, but interface was expected"
+        // when bytecode does INVOKEVIRTUAL on a chain that returns
+        // MutableComponent. The class still has its instance methods, so
+        // INVOKEVIRTUAL is the right opcode and we leave it alone.
     );
 
     private class RetroModClassVisitor extends ClassVisitor {
@@ -1353,7 +1367,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                     && fieldAccessorRedirects.isEmpty()) {
                 return mv;
             }
-            return new RetroModMethodVisitor(api, mv, currentSuperName, currentDirectInterfaces);
+            return new RetroModMethodVisitor(api, mv, currentClassName, currentSuperName, currentDirectInterfaces);
         }
 
         @Override
@@ -1394,12 +1408,14 @@ public class RetroModTransformer implements ClassFileTransformer {
         private boolean pendingDup = false;
 
         // Inherited from enclosing RetroModClassVisitor for invokespecial fixups
+        private final String classOwnName;
         private final String classSuperName;
         private final Set<String> classDirectInterfaces;
 
         public RetroModMethodVisitor(int api, MethodVisitor methodVisitor,
-                String superName, Set<String> directInterfaces) {
+                String className, String superName, Set<String> directInterfaces) {
             super(api, methodVisitor);
+            this.classOwnName = className;
             this.classSuperName = superName;
             this.classDirectInterfaces = directInterfaces;
         }
@@ -1553,6 +1569,52 @@ public class RetroModTransformer implements ClassFileTransformer {
                 return Opcodes.INVOKEINTERFACE;
             }
             return opcode;
+        }
+
+        /**
+         * Emit a method instruction, applying the invokespecial-on-non-direct-supertype
+         * fixup if needed.
+         *
+         * <p>The JVM verifier requires that {@code INVOKESPECIAL} on a non-{@code <init>}
+         * method target a <i>direct</i> supertype of the calling class — either the
+         * direct superclass, a directly-declared superinterface, or {@code this} class
+         * itself (for private methods). Anything else fails verification with:
+         *
+         * <pre>
+         *   Bad invokespecial instruction:
+         *   interface method to invoke is not in a direct superinterface.
+         * </pre>
+         *
+         * <p>That can happen after a method redirect changes the owner. Example:
+         * ModMenu's {@code ModListWidget.keyPressed(III)Z} was a normal super-call to
+         * its concrete superclass. We redirected it to the new {@code keyPressed(KeyEvent)Z}
+         * signature whose owner is now {@code GuiEventListener} (an interface that
+         * {@code ModListWidget} only implements <i>indirectly</i>, through several
+         * superclasses). The resulting INVOKESPECIAL fails verification.
+         *
+         * <p>Fix: rewrite the owner to {@link #classSuperName} so the JVM does a normal
+         * class-hierarchy method resolution starting from the direct superclass. That
+         * walk finds the inherited default method exactly the same way a regular
+         * super-call does, but without the direct-superinterface restriction.
+         *
+         * <p>Constructor calls ({@code <init>}), private-method calls on {@code this},
+         * and legitimate super/interface calls pass through unchanged.
+         */
+        private void emitMethodInsn(int opcode, String owner, String name,
+                String descriptor, boolean isInterface) {
+            if (opcode == Opcodes.INVOKESPECIAL
+                    && !"<init>".equals(name)
+                    && classSuperName != null
+                    && !owner.equals(classSuperName)
+                    && !owner.equals(classOwnName)
+                    && !classDirectInterfaces.contains(owner)) {
+                LOGGER.debug("Fixing invokespecial on non-direct supertype: {}.{}{} → super {}",
+                        owner, name, descriptor, classSuperName);
+                super.visitMethodInsn(Opcodes.INVOKESPECIAL, classSuperName, name,
+                        descriptor, false);
+                return;
+            }
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
         }
 
         @Override
@@ -1709,7 +1771,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                     if (patternMatch != null && patternMatch.confidence() >= 0.6) {
                         int patternOpcode = fixClassToInterfaceOpcode(opcode, patternMatch.newOwner());
                         boolean patternIsInterface = patternOpcode == Opcodes.INVOKEINTERFACE || isInterface;
-                        super.visitMethodInsn(patternOpcode, patternMatch.newOwner(), patternMatch.newName(),
+                        emitMethodInsn(patternOpcode, patternMatch.newOwner(), patternMatch.newName(),
                                 patternMatch.newDescriptor(), patternIsInterface);
                         return;
                     }
@@ -1728,7 +1790,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                                 fuzzyMatch.score());
                         int fuzzyOpcode = fixClassToInterfaceOpcode(opcode, fuzzyMatch.owner());
                         boolean fuzzyIsInterface = fuzzyOpcode == Opcodes.INVOKEINTERFACE || isInterface;
-                        super.visitMethodInsn(fuzzyOpcode, fuzzyMatch.owner(), fuzzyMatch.name(),
+                        emitMethodInsn(fuzzyOpcode, fuzzyMatch.owner(), fuzzyMatch.name(),
                                 fuzzyMatch.descriptor(), fuzzyIsInterface);
                         return;
                     }
@@ -1737,7 +1799,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                 // Still fix class→interface opcode even on fast path
                 int fixedOpcode = fixClassToInterfaceOpcode(opcode, owner);
                 boolean fixedIsInterface = fixedOpcode == Opcodes.INVOKEINTERFACE || isInterface;
-                super.visitMethodInsn(fixedOpcode, owner, name, descriptor, fixedIsInterface);
+                emitMethodInsn(fixedOpcode, owner, name, descriptor, fixedIsInterface);
                 return;
             }
 
@@ -1763,8 +1825,10 @@ public class RetroModTransformer implements ClassFileTransformer {
                         target.owner, target.name, target.desc);
 
                 if (target.devirtualize()) {
-                    // Instance → static: change opcode and use static descriptor
-                    super.visitMethodInsn(Opcodes.INVOKESTATIC, target.owner, target.name,
+                    // Instance → static: change opcode and use static descriptor.
+                    // INVOKESTATIC is never INVOKESPECIAL, so the helper is a no-op
+                    // here, but use it for consistency with the other emission sites.
+                    emitMethodInsn(Opcodes.INVOKESTATIC, target.owner, target.name,
                             target.desc, false);
                     // If return type changed (e.g., Object vs Either), emit CHECKCAST
                     // to satisfy the verifier's type checking
@@ -1776,8 +1840,13 @@ public class RetroModTransformer implements ClassFileTransformer {
                     }
                 } else {
                     int fixedOpcode = fixClassToInterfaceOpcode(opcode, target.owner);
-                    super.visitMethodInsn(fixedOpcode, target.owner, target.name,
-                            target.desc, fixedOpcode == Opcodes.INVOKEINTERFACE);
+                    // Preserve isInterface from the original call so an interface
+                    // INVOKESPECIAL stays an interface methodref; emitMethodInsn
+                    // applies the direct-supertype fixup if the new owner isn't a
+                    // direct supertype of the calling class.
+                    boolean targetIsInterface = fixedOpcode == Opcodes.INVOKEINTERFACE || isInterface;
+                    emitMethodInsn(fixedOpcode, target.owner, target.name,
+                            target.desc, targetIsInterface);
                     // Emit CHECKCAST when return type changed (e.g., Object vs Event)
                     String origReturn = descriptor.substring(descriptor.lastIndexOf(')') + 1);
                     String newReturn = target.desc.substring(target.desc.lastIndexOf(')') + 1);
@@ -1802,7 +1871,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                                 patternMatch.rule(), patternMatch.confidence());
                         int patternOpcode = fixClassToInterfaceOpcode(opcode, patternMatch.newOwner());
                         boolean patternIsInterface = patternOpcode == Opcodes.INVOKEINTERFACE || isInterface;
-                        super.visitMethodInsn(patternOpcode, patternMatch.newOwner(), patternMatch.newName(),
+                        emitMethodInsn(patternOpcode, patternMatch.newOwner(), patternMatch.newName(),
                                 patternMatch.newDescriptor(), patternIsInterface);
                         return;
                     }
@@ -1822,38 +1891,23 @@ public class RetroModTransformer implements ClassFileTransformer {
                                 fuzzyMatch.score());
                         int fuzzyOpcode = fixClassToInterfaceOpcode(opcode, fuzzyMatch.owner());
                         boolean fuzzyIsInterface = fuzzyOpcode == Opcodes.INVOKEINTERFACE || isInterface;
-                        super.visitMethodInsn(fuzzyOpcode, fuzzyMatch.owner(), fuzzyMatch.name(),
+                        emitMethodInsn(fuzzyOpcode, fuzzyMatch.owner(), fuzzyMatch.name(),
                                 fuzzyMatch.descriptor(), fuzzyIsInterface);
                         return;
                     }
                 }
 
-                // No redirect and no fuzzy match — pass through with opcode fixup
+                // No redirect and no fuzzy match — pass through with opcode fixup.
+                // The invokespecial-on-non-direct-supertype fixup is handled by
+                // emitMethodInsn() — see its javadoc for the full reasoning.
                 int fixedOpcode = fixClassToInterfaceOpcode(opcode, owner);
-
-                // Fix invokespecial on interface methods not in a direct superinterface.
-                // After remapping, a super.method() call might target an interface
-                // (e.g., GuiEventListener) that the class doesn't directly implement.
-                // JVM spec requires invokespecial targets to be direct superinterfaces.
-                // Fix: rewrite the owner to the class's superclass so the JVM resolves
-                // the method through the class hierarchy instead.
-                if (fixedOpcode == Opcodes.INVOKESPECIAL && !"<init>".equals(name)
-                        && isInterface
-                        && !classDirectInterfaces.contains(owner)
-                        && classSuperName != null) {
-                    LOGGER.debug("Fixing invokespecial on indirect interface: {}.{} → super {}",
-                            owner, name, classSuperName);
-                    super.visitMethodInsn(Opcodes.INVOKESPECIAL, classSuperName, name,
-                            descriptor, false);
-                    return;
-                }
 
                 // For KNOWN_INTERFACES (classes that became interfaces like DataResult):
                 // - INVOKEVIRTUAL → INVOKEINTERFACE (handled by fixClassToInterfaceOpcode)
                 // - INVOKESTATIC stays INVOKESTATIC but needs isInterface=true
                 boolean fixedIsInterface = fixedOpcode == Opcodes.INVOKEINTERFACE || isInterface
                     || (opcode == Opcodes.INVOKESTATIC && KNOWN_INTERFACES.contains(owner));
-                super.visitMethodInsn(fixedOpcode, owner, name, descriptor, fixedIsInterface);
+                emitMethodInsn(fixedOpcode, owner, name, descriptor, fixedIsInterface);
             }
         }
         
@@ -1920,6 +1974,20 @@ public class RetroModTransformer implements ClassFileTransformer {
                     super.visitMethodInsn(newOpcode, target.owner, target.name, target.newDesc, false);
                     LOGGER.trace("Redirected field {}.{} -> method {}.{}{}",
                             owner, name, target.owner, target.name, target.newDesc);
+                    // If the polyfill method returns a wider type than the
+                    // original field (e.g. Object vs Enchantment), the JVM
+                    // verifier needs a CHECKCAST to satisfy the type expected
+                    // at the use site. Skipping this emit causes
+                    //   VerifyError: Bad type on operand stack
+                    // when the next instruction tries to use the result as
+                    // the original field's type. This mirrors the same
+                    // CHECKCAST emit pattern used in method-to-method redirects.
+                    String newReturn = target.newDesc.substring(target.newDesc.lastIndexOf(')') + 1);
+                    if (descriptor != null && descriptor.startsWith("L")
+                            && !descriptor.equals(newReturn)) {
+                        String origClass = descriptor.substring(1, descriptor.length() - 1);
+                        super.visitTypeInsn(Opcodes.CHECKCAST, origClass);
+                    }
                 } else {
                     // Standard field-to-field redirect
                     // Use new descriptor if provided, otherwise keep original

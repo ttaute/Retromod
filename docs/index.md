@@ -37,12 +37,13 @@ The CLI tool can do the same thing outside Minecraft (useful for batch-processin
 
 Honest list, because the README features section can't be the whole story:
 
+- **Very deep-integration mods will probably never work, no matter how mature RetroMod gets.** The clearest example is **Create**. Mods like Create touch thousands of MC API points across the entire surface — rendering, physics, networking, world generation, animation — and ship their own rendering library (Flywheel) that includes platform-specific shader and GL code. RetroMod can rewrite Java bytecode for renamed classes and shifted method signatures, but it cannot translate native code, and it cannot synthesize new mixin injection points where the underlying bytecode has been entirely rewritten. Other mods in this category: heavy tech mods like Applied Energistics 2, Tinkers' Construct, IndustrialCraft, and any mod that meaningfully replaces MC's rendering pipeline. If your modpack is built around one of those, RetroMod is not the right tool — you'll need the actual mod author to ship a port for the new MC version.
 - **Mods that completely replace MC's rendering pipeline** (Sodium, Iris) often have mixins targeting specific bytecode positions that have moved. The transformer can rename a method, but it can't synthesize an injection point that's been rewritten away. These are the hardest cases and often need per-mod hand work.
 - **Mods that lock to specific cross-version library versions** (Cardinal Components 5.x package vs 6.x package, for example) can hit conflicts that no general-purpose shim resolves. The fix is usually to install the right library version standalone.
 - **Constructor signature changes** in MC's API are sometimes silently broken — RetroMod's redirect table doesn't yet cover every constructor that's gained or lost a parameter between versions. Working through these as the gap report surfaces them.
 - **Mods that authors have explicitly opted out of transformation** are skipped on purpose. See the [contributing guide]({{ '/contributing' | relative_url }}) for how that works.
 
-If you're using mostly content mods, QoL mods, equipment-slot mods, recipe viewers, and the like — most of those translate cleanly. If you're trying to get a heavily-modded shaderpack-and-50-mods setup running, expect rough edges.
+If you're using mostly content mods, QoL mods, equipment-slot mods, recipe viewers, and the like — most of those translate cleanly. If you're trying to get a heavily-modded shaderpack-and-50-mods setup running with Create at its core, expect rough edges and probably broken renderers.
 
 ## A note on the version cutoff
 

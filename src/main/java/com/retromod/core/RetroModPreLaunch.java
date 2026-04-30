@@ -358,8 +358,14 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                     ║  - Originals move to: processed/                           ║
                     ║  - Transformed mods go to: mods/                           ║
                     ║                                                            ║
+                    ║  ⚠️  Do NOT drop new mods in processed/!                   ║
+                    ║  That subfolder is the AFTER-transform staging area.      ║
+                    ║  Mods dropped there are treated as already-handled and    ║
+                    ║  skipped on the next scan.                                ║
+                    ║                                                            ║
                     ║  ALTERNATIVE LOCATION:                                     ║
                     ║  You can also use: mods/retromod-input/                    ║
+                    ║  (Same rule — don't use its processed/ subfolder either.) ║
                     ║                                                            ║
                     ╚════════════════════════════════════════════════════════════╝
                     """);
@@ -368,7 +374,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
             // Ignore
         }
     }
-    
+
     /**
      * Create README in secondary input folder (mods/retromod-input/).
      */
@@ -392,6 +398,11 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                     ║  2. Start Minecraft                                        ║
                     ║  3. RESTART Minecraft                                      ║
                     ║  4. Mods work!                                             ║
+                    ║                                                            ║
+                    ║  ⚠️  Drop mods HERE, not in the processed/ subfolder.      ║
+                    ║  processed/ is where originals go AFTER transformation —  ║
+                    ║  mods dropped there are treated as already-handled and    ║
+                    ║  skipped on the next scan.                                ║
                     ║                                                            ║
                     ╚════════════════════════════════════════════════════════════╝
                     """);
@@ -438,6 +449,11 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                 ║   Option 2 (Also works):                                   ║
                 ║   📁 .minecraft/mods/retromod-input/                       ║
                 ║      (There's a folder inside THIS mods folder!)           ║
+                ║                                                            ║
+                ║   ⚠️  IMPORTANT: drop mods directly in retromod-input/.    ║
+                ║   Do NOT put them in the `processed/` subfolder! That's    ║
+                ║   where RetroMod moves originals AFTER it transforms       ║
+                ║   them — mods dropped there are skipped and won't load.   ║
                 ║                                                            ║
                 ╠════════════════════════════════════════════════════════════╣
                 ║                                                            ║

@@ -29,6 +29,8 @@ RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 
 > **Why not just drop old mods in `mods/`?** Fabric checks mod versions before RetroMod can run. If you put an old mod directly in `mods/`, Fabric rejects it and crashes (exit code 255). The `retromod-input/` folder lets RetroMod transform the mod first, then move it to `mods/` with the correct version info.
 >
+> **Two `retromod-input/` folders work, but watch out for `processed/`.** RetroMod scans both `.minecraft/retromod-input/` (recommended) and `.minecraft/mods/retromod-input/`. Each one has a `processed/` subfolder — that's the *after-transform* staging area where originals get moved once RetroMod is done with them. Don't drop new mods inside any `processed/` folder; they'll be treated as already-handled and skipped on the next scan. Drop mods directly in `retromod-input/` itself, not its subfolders.
+>
 > **Alternative:** Use the CLI to prep everything in one step: `java -jar retromod-cli.jar prepare ~/.minecraft --aot`
 
 ### Forge / NeoForge
@@ -192,6 +194,20 @@ Almost every Minecraft mod on the planet uses Gradle (via Fabric Loom / NeoGradl
 RetroMod is also a bit unusual for a mod — it **doesn't compile against Minecraft at all.** It operates on bytecode reflectively and via ASM. So all the reasons you'd normally reach for Loom (deobfuscation mappings, dev-time MC classpath, intermediary remapping at build time) don't apply here. Maven gives me plain-Java dependencies (ASM, Gson, SLF4J, Fabric Loader as `provided`) and a couple of `maven-jar-plugin` executions for the different build classifiers. That's the whole story — no plugin pipeline to debug when something goes wrong.
 
 None of this is a judgment call on Gradle. Gradle's great at what it's designed for, and Loom specifically is the right tool for the normal "I'm writing a mod against MC" workflow. I'm just not in that workflow, and Maven is a better fit for the shape of this project. If you want to fork the build to Gradle, I dont want to have this use graddle though, But — the dependencies and classifier-JAR wiring are all in `pom.xml` in one place, so it's mainly easy.
+
+### Why is the whole repo on one branch?
+
+Second-most-asked question. The repo has one branch (`main`) and tags for releases — no `dev`, no `1.20.x`, no per-MC-version branch. It looks cluttered because the source tree carries a decade of Minecraft API changes in one place, but that's actually the design, not laziness.
+
+The reason: **every release of RetroMod has to know how to translate every supported source MC version.** The shim chain that gets a 1.16.5 mod up to 26.1 is the same chain in the same JAR as the one that gets a 1.20.1 mod to 26.1 — they share class redirects, polyfills, and the core transformer. If those lived on separate branches, every change to the transformer would need merging into N branches and tested N times, and adding a new shim would require a cross-branch coordination pass. That's a much worse situation than what we have now.
+
+Some specific things people sometimes assume need branches and don't:
+
+- **Old MC version support** isn't a separate branch — the shims for 1.12.2, 1.14.4, 1.16.5, etc. all compile into the same `retromod-1.0.0-beta.1.jar`. Drop in a 1.16.5 mod, RetroMod walks it through the chain. (See `src/main/java/com/retromod/shim/` — every version transition is a file in there.)
+- **Old RetroMod versions** aren't kept on branches either — they're tagged commits. If you want the rc.1 source you check out the `v1.0.0-rc.1` tag.
+- **In-progress features** are just commits on `main`. I'm a solo dev; there's no team that needs to work on parallel features without stepping on each other, and feature-branching adds overhead with no payoff at this scale.
+
+You're right that this looks more cluttered than a typical "branch per major version" repo at first glance, but the alternative (N branches × frequent merges × N CI runs) would be way more painful for a project that has to ship one JAR that handles everything. One branch + tags is the actual right answer for the shape of this project, even if it's not what most repos look like.
 
 ---
 
@@ -539,6 +555,7 @@ public class Fabric_X_to_Y implements VersionShim {
 9. **Mod configs** generally work, but if a mod's config system changed between versions (e.g., old Forge `.cfg` → new `.toml`), you may need to delete the old config file and let the mod regenerate it
 10. **Complex mods may be skipped.** RetroMod analyzes each mod's complexity (reflection usage, ASM manipulation, coremods, NMS access, etc.) and warns you if a mod is "unlikely to work." If a mod was skipped, set `"force_translate_complex": true` in `config/retromod/config.json` to force it. The CLI's `aot` command also supports `--force` for this.
 11. **Resource/data pack conversion is alpha.** Simple packs work, but packs with custom shaders, model predicates, or heavy overlays may not convert correctly.
+12. **Very deep-integration mods will probably never work, even at v1.0 stable.** The clearest example is **Create**. Mods like Create touch thousands of MC API points across rendering, physics, networking, world generation, and animation, and they ship their own rendering libraries (Flywheel for Create) that include native shader and GL code. RetroMod rewrites Java bytecode — it cannot translate native code, and it cannot synthesize new mixin injection points where the underlying bytecode has been entirely rewritten. Other mods in this category: Applied Energistics 2, Tinkers' Construct, IndustrialCraft, and any mod that meaningfully replaces MC's rendering pipeline. For these you genuinely need the original mod author to ship a port — no automated bytecode tool can bridge that gap.
 
 ## Contributing
 
