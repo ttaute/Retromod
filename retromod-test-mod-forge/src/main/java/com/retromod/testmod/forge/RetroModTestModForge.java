@@ -1,0 +1,80 @@
+/*
+ * RetroMod Test Mod (Forge)
+ * Copyright (c) 2026 Bownlux. Licensed under MIT License.
+ */
+package com.retromod.testmod.forge;
+
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraftforge.fml.common.Mod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Forge entry point for the RetroMod test mod.
+ *
+ * <p>Compiled against MC 1.20.1 / Forge 47.x. RetroMod transforms it forward
+ * to whatever MC version the host is running. On a 26.1.2 host this exercises
+ * Forge-targeted redirects + the Mojang-name surface.
+ *
+ * <p>Each test logs {@code [RetroMod-Test-Forge] N (description): success/fail}.
+ * Grep for {@code [RetroMod-Test-Forge]} in the log to see results.
+ *
+ * <p>Immediate phase only. Forge has equivalent lifecycle events through
+ * {@code MinecraftForge.EVENT_BUS} for deferred phases — those would be a
+ * follow-up.
+ */
+@Mod("retromod_test_mod_forge")
+public class RetroModTestModForge {
+
+    private static final Logger LOG = LoggerFactory.getLogger("RetroMod-Test-Forge");
+    private static final String PREFIX = "[RetroMod-Test-Forge]";
+
+    public RetroModTestModForge() {
+        runTests();
+    }
+
+    private void runTests() {
+        LOG.info("{} Starting tests", PREFIX);
+        int n = 0, passed = 0;
+
+        n++; passed += check(n, "mod loaded", () -> true);
+        n++; passed += check(n, "Component.literal", () -> {
+            Component c = Component.literal("hello");
+            return c != null && "hello".equals(c.getString());
+        });
+        n++; passed += check(n, "ResourceLocation 2-arg ctor (factory)", () -> {
+            ResourceLocation id = new ResourceLocation("retromod", "test");
+            return id != null && "retromod:test".equals(id.toString());
+        });
+        n++; passed += check(n, "Blocks.STONE static field", () -> Blocks.STONE != null);
+        n++; passed += check(n, "Items.DIAMOND static field", () -> Items.DIAMOND != null);
+        n++; passed += check(n, "Block.defaultBlockState()", () ->
+            Blocks.STONE.defaultBlockState() != null);
+        n++; passed += check(n, "BlockState round-trip", () ->
+            Blocks.STONE.defaultBlockState().getBlock() == Blocks.STONE);
+
+        LOG.info("{} SUMMARY: {}/{} passed", PREFIX, passed, n);
+    }
+
+    @FunctionalInterface
+    private interface BoolCheck { boolean run() throws Throwable; }
+
+    private int check(int n, String description, BoolCheck body) {
+        try {
+            if (body.run()) {
+                LOG.info("{} {} ({}): success", PREFIX, n, description);
+                return 1;
+            } else {
+                LOG.warn("{} {} ({}): fail: assertion was false", PREFIX, n, description);
+                return 0;
+            }
+        } catch (Throwable t) {
+            LOG.warn("{} {} ({}): fail: {}: {}", PREFIX, n, description,
+                    t.getClass().getSimpleName(), t.getMessage());
+            return 0;
+        }
+    }
+}

@@ -8,6 +8,9 @@ package com.retromod.shim.api.forge;
 
 import com.retromod.core.RetroModTransformer;
 import com.retromod.core.VersionShim;
+import com.retromod.util.McReflect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Forge Registry System API compatibility shim.
@@ -21,7 +24,9 @@ import com.retromod.core.VersionShim;
  * - Registry key/location changes
  */
 public class ForgeRegistryApiShim implements VersionShim {
-    
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeRegistryApiShim");
+
     @Override
     public String getShimName() {
         return "Forge Registry System API Compatibility";
@@ -44,6 +49,16 @@ public class ForgeRegistryApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
+        // All redirects in this file map Forge package names to NeoForge
+        // package names — only correct on a NeoForge runtime. On Forge,
+        // they break every transformed mod with NoClassDefFoundError on
+        // net/neoforged/* classes. Same gating pattern as the other
+        // Forge → NeoForge migration sources.
+        if (!McReflect.isNeoForge()) {
+            LOGGER.debug("Skipping Forge → NeoForge registry API migration (runtime is not NeoForge)");
+            return;
+        }
+
         // ============================================================
         // DEFERRED REGISTER CHANGES
         // ============================================================

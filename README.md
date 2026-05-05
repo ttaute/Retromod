@@ -9,6 +9,8 @@
 
 **Made by the developers of [RevivalSMP.net](https://revivalsmp.net)**
 
+> **Fabric is the primary loader.** RetroMod runs on Fabric, NeoForge, and Forge, but I personally use and test on Fabric — it's the loader I prefer (cleaner mod-loading model, smaller surface area, and easier for a project like this to work against). Fabric is where the most coverage and the fastest fixes land. NeoForge is well-supported and usually close behind. Forge support exists but tends to lag; Forge mods that were obfuscated with SRG names need additional handling that's still on the roadmap. If you're picking a loader from scratch and you want the smoothest RetroMod experience, pick Fabric.
+
 > **This project is in beta (v1.0.0-beta.1).** The core pipeline is stable and tested; the transformer still has gaps for deep-integration mods (rendering replacement, heavy mixin mods) that we'll close in follow-up releases. Works well on the common case. Keep backups of your mod JARs — RetroMod writes transformed copies alongside the originals, but anything that touches mod files warrants a backup. Please report issues on [GitHub Issues](https://github.com/Bownlux/RetroMod/issues).
 
 RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load time — rewriting renamed methods, redirecting removed APIs, and patching Mixin targets — so old mods just work. Supports **Fabric**, **NeoForge**, and **Forge** with version shims covering Minecraft 1.12.2 all the way through 26.1.

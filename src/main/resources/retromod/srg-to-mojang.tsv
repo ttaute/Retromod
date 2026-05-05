@@ -1,0 +1,214 @@
+# RetroMod — Forge SRG → Mojang member-name mappings
+# =========================================================================
+#
+# Format (tab-separated, three columns):
+#
+#   KIND<TAB>SRG_NAME<TAB>MOJANG_NAME
+#
+# KIND is FIELD or METHOD. Comments start with '#'. Blank lines are ignored.
+# Owner class is intentionally NOT recorded — SRG names are unique across the
+# entire MC namespace, so a single SRG → Mojang mapping is sufficient regardless
+# of the field/method's owner. The transformer's ClassRemapper applies these
+# blindly to any matching SRG-pattern reference in the input bytecode.
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# Forge mods built with ForgeGradle's reobfJar task (which is essentially every
+# Forge mod for MC < 1.20.5) reference MC members by Forge's SRG names — fields
+# like Blocks.f_50069_ (= STONE) and methods like Component.m_237113_ (= literal).
+# Forge's runtime classloader used to remap these to the actual MC names at
+# class load time. Forge 64.x for MC 26.1 dropped the SRG remap layer because
+# MC 26.1 has no obfuscation at all (Mojang shipped official names directly).
+# Reobf'd mods then break with NoSuchFieldError / NoSuchMethodError on every
+# SRG name. RetroMod takes over that responsibility via this dictionary.
+#
+# STARTER SET vs. COMPLETE COVERAGE
+# ----------------------------------
+# This is a STARTER SET — the highest-value symbols that the test mod and
+# common Forge mods (Jade, JEI, JourneyMap) rely on. The full SRG namespace
+# spans tens of thousands of entries.
+#
+# To generate complete coverage:
+#   1. Download Forge's official SRG → MCP mapping CSV from MinecraftForge maven
+#      (de.oceanlabs.mcp:mcp_config:<mc_version>:zip)
+#   2. Cross-reference against MC's official Mojang mappings (proguard-style)
+#      from Mojang's launcher metadata
+#   3. Emit FIELD/METHOD rows here
+#
+# A MappingComposer-style builder for this file is a future enhancement —
+# track in https://github.com/Bownlux/RetroMod/issues/srg-mapping-coverage
+#
+# DUPLICATE KEYS WARNING
+# ----------------------
+# A given SRG name maps to exactly one Mojang name. If two rows declare the
+# same SRG key, HashMap.put silently keeps the LAST entry — so duplicates are
+# data-loss bugs, not merges. Don't add a row whose KIND+SRG_NAME already
+# exists. Run `awk -F'\t' '{print $1, $2}' srg-to-mojang.tsv | sort | uniq -d`
+# after editing to catch them.
+#
+# =========================================================================
+
+# -------------------------------------------------------------------------
+# FIELDS — Block constants (from net.minecraft.world.level.block.Blocks)
+# -------------------------------------------------------------------------
+# These are the registry-singleton instances of vanilla Blocks. Reobf'd mods
+# reference them as Blocks.f_NNNNN_ instead of Blocks.STONE, etc.
+
+FIELD	f_50069_	STONE
+FIELD	f_50080_	GRANITE
+FIELD	f_50081_	POLISHED_GRANITE
+FIELD	f_50082_	DIORITE
+FIELD	f_50083_	POLISHED_DIORITE
+FIELD	f_50084_	ANDESITE
+FIELD	f_50085_	POLISHED_ANDESITE
+FIELD	f_50440_	GRASS_BLOCK
+FIELD	f_50493_	DIRT
+FIELD	f_50546_	COARSE_DIRT
+FIELD	f_50599_	PODZOL
+FIELD	f_50652_	COBBLESTONE
+FIELD	f_50705_	OAK_PLANKS
+FIELD	f_50741_	SPRUCE_PLANKS
+FIELD	f_50742_	BIRCH_PLANKS
+FIELD	f_50743_	JUNGLE_PLANKS
+FIELD	f_50744_	ACACIA_PLANKS
+FIELD	f_50745_	DARK_OAK_PLANKS
+FIELD	f_220832_	MANGROVE_PLANKS
+FIELD	f_50079_	BEDROCK
+FIELD	f_49990_	WATER
+FIELD	f_49991_	LAVA
+FIELD	f_49992_	SAND
+FIELD	f_49993_	RED_SAND
+FIELD	f_50122_	GRAVEL
+FIELD	f_50264_	GOLD_ORE
+FIELD	f_50265_	IRON_ORE
+FIELD	f_50266_	COAL_ORE
+FIELD	f_50267_	NETHER_GOLD_ORE
+FIELD	f_152469_	DEEPSLATE
+FIELD	f_152473_	DEEPSLATE_GOLD_ORE
+FIELD	f_152474_	DEEPSLATE_IRON_ORE
+FIELD	f_152475_	DEEPSLATE_COAL_ORE
+FIELD	f_152476_	DEEPSLATE_DIAMOND_ORE
+FIELD	f_152505_	RAW_IRON_BLOCK
+FIELD	f_152506_	RAW_COPPER_BLOCK
+FIELD	f_152507_	RAW_GOLD_BLOCK
+FIELD	f_50000_	SPRUCE_LOG
+FIELD	f_50001_	BIRCH_LOG
+FIELD	f_50002_	JUNGLE_LOG
+FIELD	f_50003_	ACACIA_LOG
+FIELD	f_50004_	DARK_OAK_LOG
+FIELD	f_220835_	MANGROVE_LOG
+FIELD	f_50050_	OAK_LEAVES
+FIELD	f_50051_	SPRUCE_LEAVES
+FIELD	f_50052_	BIRCH_LEAVES
+FIELD	f_50053_	JUNGLE_LEAVES
+FIELD	f_50054_	ACACIA_LEAVES
+FIELD	f_50055_	DARK_OAK_LEAVES
+FIELD	f_50058_	GLASS
+FIELD	f_50087_	DIAMOND_ORE
+FIELD	f_50089_	DIAMOND_BLOCK
+FIELD	f_50090_	CRAFTING_TABLE
+FIELD	f_50091_	FARMLAND
+FIELD	f_50094_	FURNACE
+FIELD	f_50183_	IRON_BLOCK
+FIELD	f_50186_	GOLD_BLOCK
+FIELD	f_50721_	OAK_LOG
+FIELD	f_50625_	OBSIDIAN
+FIELD	f_50722_	GLOWSTONE
+FIELD	f_50730_	SOUL_SAND
+FIELD	f_50699_	END_STONE
+
+# -------------------------------------------------------------------------
+# FIELDS — Item constants (from net.minecraft.world.item.Items)
+# -------------------------------------------------------------------------
+
+FIELD	f_42415_	DIAMOND
+FIELD	f_42416_	EMERALD
+FIELD	f_42417_	IRON_INGOT
+FIELD	f_42418_	GOLD_INGOT
+FIELD	f_42419_	NETHERITE_INGOT
+FIELD	f_42413_	COAL
+FIELD	f_42414_	CHARCOAL
+FIELD	f_42454_	REDSTONE
+FIELD	f_42525_	GUNPOWDER
+FIELD	f_42446_	WHEAT
+FIELD	f_42447_	BREAD
+FIELD	f_42500_	APPLE
+FIELD	f_42410_	STICK
+FIELD	f_42584_	WATER_BUCKET
+FIELD	f_42412_	BOWL
+FIELD	f_42398_	WOODEN_SWORD
+FIELD	f_42421_	IRON_SWORD
+FIELD	f_42388_	DIAMOND_SWORD
+FIELD	f_42393_	NETHERITE_SWORD
+FIELD	f_42385_	WOODEN_PICKAXE
+FIELD	f_42420_	IRON_PICKAXE
+FIELD	f_42390_	DIAMOND_PICKAXE
+FIELD	f_42391_	NETHERITE_PICKAXE
+
+# -------------------------------------------------------------------------
+# METHODS — net.minecraft.network.chat.Component factory methods
+# -------------------------------------------------------------------------
+# These are the most common bare-string text constructors. Component is an
+# interface (since the 1.19 component refactor), so the methods are static
+# factories — very high frequency in mod code (every translation key, every
+# literal string sent to chat or shown in a tooltip).
+
+METHOD	m_237113_	literal
+METHOD	m_237115_	translatable
+METHOD	m_130674_	nullToEmpty
+METHOD	m_130947_	empty
+
+# -------------------------------------------------------------------------
+# METHODS — net.minecraft.resources.ResourceLocation helpers
+# -------------------------------------------------------------------------
+# These are the static parsers/constructors used everywhere mods need to
+# reference an MC registry entry by ID. The constructor became private in
+# the Identifier refactor, so factories are the only path forward.
+
+METHOD	m_135820_	parse
+METHOD	m_214293_	tryParse
+METHOD	m_135822_	fromNamespaceAndPath
+METHOD	m_135815_	getNamespace
+METHOD	m_135827_	getPath
+
+# -------------------------------------------------------------------------
+# METHODS — Common Entity / Player / LivingEntity getters
+# -------------------------------------------------------------------------
+
+METHOD	m_9236_	level
+METHOD	m_20096_	onGround
+METHOD	m_20184_	getDeltaMovement
+METHOD	m_20256_	setDeltaMovement
+METHOD	m_20185_	getX
+METHOD	m_20186_	getY
+METHOD	m_20187_	getZ
+METHOD	m_20183_	blockPosition
+METHOD	m_5446_	getDisplayName
+METHOD	m_7755_	getName
+METHOD	m_20148_	getUUID
+METHOD	m_20194_	getServer
+
+# -------------------------------------------------------------------------
+# METHODS — ItemStack / Item helpers
+# -------------------------------------------------------------------------
+
+METHOD	m_41720_	getItem
+METHOD	m_41613_	getCount
+METHOD	m_41764_	setCount
+METHOD	m_41782_	hasTag
+METHOD	m_41783_	getTag
+METHOD	m_41784_	getOrCreateTag
+METHOD	m_41619_	isEmpty
+METHOD	m_41777_	copy
+
+# -------------------------------------------------------------------------
+# METHODS — BlockState / Block helpers
+# -------------------------------------------------------------------------
+
+METHOD	m_60734_	getBlock
+METHOD	m_60713_	is
+METHOD	m_49966_	defaultBlockState
+
+# -------------------------------------------------------------------------
+# END OF STARTER SET
+# -------------------------------------------------------------------------

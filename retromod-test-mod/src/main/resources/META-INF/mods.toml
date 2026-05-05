@@ -1,0 +1,35 @@
+# RetroMod Test Mod — Forge mod metadata
+#
+# This file is parsed by FML on Forge clients. Both Forge and old-style NeoForge
+# (pre-1.20.5) read mods.toml. Newer NeoForge (1.20.5+) prefers
+# neoforge.mods.toml in the same directory; if both are present NeoForge uses
+# its own.
+
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/Bownlux/RetroMod/issues"
+
+[[mods]]
+modId = "retromod_test_mod"
+version = "${file.jarVersion}"
+displayName = "RetroMod Test Mod"
+authors = "Bownlux"
+description = '''
+Exercises RetroMod's transformation pipeline and reports per-test results to the launch log.
+Source mod compiled against an older MC version; RetroMod translates it forward at load time.
+'''
+
+[[dependencies.retromod_test_mod]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.20,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.retromod_test_mod]]
+modId = "forge"
+mandatory = true
+versionRange = "[40,)"
+ordering = "NONE"
+side = "CLIENT"

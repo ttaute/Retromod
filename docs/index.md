@@ -64,6 +64,7 @@ The wiki is small but covers the things people ask about most.
 - [Technical]({{ '/technical' | relative_url }}) — the security model, fork policy, and how the transformer works inside.
 - [Authenticity]({{ '/authenticity' | relative_url }}) — how to tell an official build from a tampered one.
 - [Contributing]({{ '/contributing' | relative_url }}) — how to add shims and polyfills, and the mod-author opt-out mechanism.
+- [Adding SRG Mappings]({{ '/srg-mappings' | relative_url }}) — fill gaps in the SRG → Mojang dictionary so more old Forge mods load. Easy first PR.
 
 ## Why I made this
 

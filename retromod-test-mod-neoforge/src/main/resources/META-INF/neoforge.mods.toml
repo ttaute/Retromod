@@ -1,0 +1,29 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/Bownlux/RetroMod/issues"
+
+[[mods]]
+modId = "retromod_test_mod_neoforge"
+version = "${version}"
+displayName = "RetroMod Test Mod (NeoForge)"
+authors = "Bownlux"
+description = '''
+Exercises RetroMod's transformation pipeline on NeoForge.
+Source compiled against an old NeoForge MC version; RetroMod translates it
+forward at load time. Test results are logged with the [RetroMod-Test-NeoForge] prefix.
+'''
+
+[[dependencies.retromod_test_mod_neoforge]]
+modId = "neoforge"
+type = "required"
+versionRange = "[20,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.retromod_test_mod_neoforge]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.20,)"
+ordering = "NONE"
+side = "CLIENT"

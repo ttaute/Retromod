@@ -248,6 +248,31 @@
                             <Can-Retransform-Classes>true</Can-Retransform-Classes>
                         </manifestEntries>
                     </archive>
+                    <!--
+                        EXCLUDE THE FORGE @MOD COMPILE-TIME STUB.
+
+                        src/main/java/net/minecraftforge/fml/common/Mod.java exists
+                        only so RetroModForge.java compiles when Forge isn't on the
+                        classpath (CLI / standalone builds). At RUNTIME on Forge,
+                        the real net.minecraftforge.fml.common.Mod annotation must
+                        win — but if the stub ends up in the production JAR, Forge's
+                        secure-bootstrap classloader sees both definitions and dies
+                        silently during MC's bootstrap (no log output, no crash
+                        report). Strip the stub so only Forge's real class is on
+                        the runtime classpath.
+
+                        Symptom this prevents: Forge launch dies after
+                        "Initialized transformers for transformation service forge"
+                        with no further log output and no crash report.
+                    -->
+                    <excludes>
+                        <exclude>net/minecraftforge/fml/common/Mod.class</exclude>
+                        <!-- Same compile-only-stub story as the Forge one
+                             above. Bundling NeoForge's stub annotation in the
+                             production JAR causes NeoForge's secure
+                             classloader to fail when scanning for @Mod. -->
+                        <exclude>net/neoforged/fml/common/Mod.class</exclude>
+                    </excludes>
                 </configuration>
                 <executions>
                     <!-- Agent JAR -->

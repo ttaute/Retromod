@@ -34,7 +34,13 @@ public class RetroMod implements ModInitializer {
     // Current target Minecraft version - auto-detected at runtime
     public static String TARGET_MC_VERSION = "1.21.4";
 
-    // Initialize target version from mod loader
+    // Initialize target version from mod loader.
+    // Also mirrors to RetroModVersion.TARGET_MC_VERSION so loader-side
+    // entry points (RetroModForge / RetroModNeoForge) can read the value
+    // without triggering RetroMod's class linkage — RetroMod implements
+    // Fabric's ModInitializer, which doesn't exist on Forge/NeoForge
+    // classpaths and would NoClassDefFoundError if those entry points
+    // tried to read RetroMod.TARGET_MC_VERSION directly.
     static {
         try {
             // Try Fabric Loader first
@@ -44,6 +50,7 @@ public class RetroMod implements ModInitializer {
                 .orElse(null);
             if (mcVersion != null) {
                 TARGET_MC_VERSION = mcVersion;
+                RetroModVersion.TARGET_MC_VERSION = mcVersion;
             }
         } catch (Exception e) {
             // Not Fabric - try NeoForge via reflection
@@ -53,6 +60,7 @@ public class RetroMod implements ModInitializer {
                 String mcVersion = (String) versionInfo.getClass().getMethod("mcVersion").invoke(versionInfo);
                 if (mcVersion != null) {
                     TARGET_MC_VERSION = mcVersion;
+                    RetroModVersion.TARGET_MC_VERSION = mcVersion;
                 }
             } catch (Exception e2) {
                 // Not NeoForge - try Forge via reflection
@@ -61,6 +69,7 @@ public class RetroMod implements ModInitializer {
                     String mcVersion = (String) mcpVersion.getMethod("getMCVersion").invoke(null);
                     if (mcVersion != null) {
                         TARGET_MC_VERSION = mcVersion;
+                        RetroModVersion.TARGET_MC_VERSION = mcVersion;
                     }
                 } catch (Exception e3) {
                     // Fallback to default 1.21.4
@@ -194,6 +203,22 @@ public class RetroMod implements ModInitializer {
             registerPolyfills();
         } catch (Exception e) {
             LOGGER.warn("Could not register polyfills", e);
+        }
+
+        // Register Forge SRG → Mojang member-name mappings.
+        // Primary value is on Forge runtimes (where reobf'd Forge mods carry
+        // SRG names), but cross-loader scenarios — e.g. running a Forge SRG-baked
+        // mod through Fabric's loader via a translator chain — benefit too.
+        // Loading on every loader keeps the dictionary available regardless of
+        // how the input bytecode arrived.
+        try {
+            int srgEntries = com.retromod.mapping.SrgToMojangMapper.getInstance()
+                    .applyTo(RetroModTransformer.getInstance());
+            if (srgEntries > 0) {
+                LOGGER.info("Registered {} SRG → Mojang mapping(s)", srgEntries);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Could not register SRG mappings", e);
         }
 
         // Load auto-fix fixes from previous launch BEFORE transformation.
@@ -639,13 +664,27 @@ public class RetroMod implements ModInitializer {
     }
     
     /**
-     * Register all version-specific shims.
-     * Each shim handles compatibility for a specific version transition.
+     * Register all version-specific shims that target the Fabric loader.
+     *
+     * <p>Filtering by {@link VersionShim#getModLoaderType()} matters: shim
+     * classes register their redirects on the global {@code RetroModTransformer}
+     * map, so a Forge-only shim's redirects would also affect Fabric mods
+     * if applied here. We saw exactly this bug — the Forge_1_19_2_to_1_19_3
+     * shim had a {@code Registry → BuiltInRegistries} class redirect that
+     * was wrong even for Forge but additionally poisoned Fabric runs (Test
+     * 14 in retromod-test-mod's RegistryTests). The Forge entry point
+     * ({@code RetroModForge.loadForgeShims}) already filters this way.
+     *
+     * <p>Accepts {@code "fabric"} (Fabric-specific) and {@code "common"}
+     * (loader-agnostic). Forge / NeoForge shims are skipped — they're loaded
+     * by their own respective entry points.
      */
     private void registerShims() {
         // Load shims via ServiceLoader (allows external shim packs)
         ServiceLoader<VersionShim> shims = ServiceLoader.load(VersionShim.class);
 
+        int loaded = 0;
+        int skippedNonFabric = 0;
         // Use iterator with error handling to support lite builds where some
         // shim classes may be excluded from the JAR
         java.util.Iterator<VersionShim> it = shims.iterator();
@@ -658,11 +697,24 @@ public class RetroMod implements ModInitializer {
                 LOGGER.debug("Skipping unavailable shim: {}", e.getMessage());
                 continue;
             }
-            LOGGER.info("Loading shim: {} ({} -> {})",
+
+            String loaderType = shim.getModLoaderType();
+            if (!"fabric".equals(loaderType) && !"common".equals(loaderType)) {
+                // Forge / NeoForge / other shims — not relevant on Fabric.
+                // Skipping them prevents their redirects from leaking into
+                // the Fabric transformer's global redirect map.
+                skippedNonFabric++;
+                continue;
+            }
+
+            LOGGER.debug("Loading shim: {} ({} -> {})",
                     shim.getShimName(), shim.getSourceVersion(), shim.getTargetVersion());
             shim.registerRedirects(RetroModTransformer.getInstance());
             shimRegistry.register(shim);
+            loaded++;
         }
+        LOGGER.info("Loaded {} Fabric/common shims (skipped {} non-Fabric shims)",
+                loaded, skippedNonFabric);
         
         // Also register built-in shims
         registerBuiltInShims();

@@ -1,0 +1,29 @@
+modLoader = "javafml"
+loaderVersion = "[47,)"
+license = "MIT"
+issueTrackerURL = "https://github.com/Bownlux/RetroMod/issues"
+
+[[mods]]
+modId = "retromod_test_mod_forge"
+version = "${version}"
+displayName = "RetroMod Test Mod (Forge)"
+authors = "Bownlux"
+description = '''
+Exercises RetroMod's transformation pipeline on Forge.
+Source compiled against an old Forge MC version; RetroMod translates it
+forward at load time. Test results are logged with the [RetroMod-Test-Forge] prefix.
+'''
+
+[[dependencies.retromod_test_mod_forge]]
+modId = "forge"
+mandatory = true
+versionRange = "[47,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.retromod_test_mod_forge]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.20,)"
+ordering = "NONE"
+side = "CLIENT"

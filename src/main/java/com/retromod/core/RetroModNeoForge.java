@@ -51,12 +51,38 @@ import java.util.List;
  *   - RetroMod auto-transforms on startup
  *   - Warnings logged to console
  */
+// @Mod annotation must be present at runtime: NeoForge's mod scanner
+// reads mods.toml, finds modId="retromod", and refuses to load any
+// jar that declares mods in mods.toml without a matching @Mod("modId")
+// class. Without this, the NeoForge log shows
+//
+//     Creating FMLModContainer instance for retromod with entrypoints []
+//
+// and RetroModNeoForge.<init> never fires (no transformation, no
+// initialization). The annotation is resolved at compile time against
+// the stub at src/main/java/net/neoforged/fml/common/Mod.java; at
+// runtime NeoForge's real annotation shadows the stub.
+@net.neoforged.fml.common.Mod("retromod")
 public class RetroModNeoForge {
     
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
     
     public RetroModNeoForge() {
-        LOGGER.info("RetroMod initializing on NeoForge...");
+        // Detect MC version from NeoForge's loader. Same reasoning as Forge:
+        // RetroMod.<clinit> can't run on NeoForge (Fabric ModInitializer
+        // missing), so we populate RetroModVersion ourselves.
+        try {
+            Class<?> fmlLoader = Class.forName("net.neoforged.fml.loading.FMLLoader");
+            Object versionInfo = fmlLoader.getMethod("versionInfo").invoke(null);
+            String mcVersion = (String) versionInfo.getClass()
+                    .getMethod("mcVersion").invoke(versionInfo);
+            if (mcVersion != null) {
+                RetroModVersion.TARGET_MC_VERSION = mcVersion;
+            }
+        } catch (Throwable ignored) {}
+
+        LOGGER.info("RetroMod initializing on NeoForge (target MC: {})...",
+                RetroModVersion.TARGET_MC_VERSION);
 
         // Detect environment
         boolean isServer = EnvironmentDetector.isDedicatedServer();
@@ -67,6 +93,24 @@ public class RetroModNeoForge {
 
         // Load NeoForge-specific shims (including Forge migration shims)
         loadNeoForgeShims(transformer);
+
+        // Register Forge SRG → Mojang member-name mappings.
+        // NeoForge dropped SRG natively since 1.17 (it's been Mojang-named
+        // throughout), but cross-loader scenarios still benefit: a Forge
+        // SRG-baked mod (Jade for Forge 1.20.1, JEI Forge variants, anything
+        // that ran through ForgeGradle's reobfJar) routed to NeoForge through
+        // RetroMod's Forge → NeoForge migration carries those SRG names with
+        // it. Without this mapping the migrated mod crashes the same way
+        // it would on Forge 64.x.
+        try {
+            int srgEntries = com.retromod.mapping.SrgToMojangMapper.getInstance()
+                    .applyTo(transformer);
+            if (srgEntries > 0) {
+                LOGGER.info("Registered {} SRG → Mojang mapping(s)", srgEntries);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Could not register SRG mappings", e);
+        }
 
         // Load auto-fix fixes from previous launch.
         // These are redirects/patches discovered by analyzing crash logs from
@@ -162,7 +206,7 @@ public class RetroModNeoForge {
             Path modsFolder = gameDir.resolve("mods");
             
             HybridTransformationEngine hybrid = HybridTransformationEngine.getInstance();
-            hybrid.initialize(modsFolder, RetroMod.TARGET_MC_VERSION);
+            hybrid.initialize(modsFolder, RetroModVersion.TARGET_MC_VERSION);
             
             LOGGER.info("Hybrid AOT/JIT engine initialized");
         } catch (Exception e) {
@@ -263,7 +307,7 @@ public class RetroModNeoForge {
 
             if (jars.isEmpty()) return 0;
 
-            ForgeModTransformer transformer = new ForgeModTransformer(RetroMod.TARGET_MC_VERSION);
+            ForgeModTransformer transformer = new ForgeModTransformer(RetroModVersion.TARGET_MC_VERSION);
 
             for (Path modJar : jars) {
                 try {
@@ -308,7 +352,7 @@ public class RetroModNeoForge {
 
             if (!Files.isDirectory(modsDir)) return 0;
 
-            ForgeModTransformer transformer = new ForgeModTransformer(RetroMod.TARGET_MC_VERSION);
+            ForgeModTransformer transformer = new ForgeModTransformer(RetroModVersion.TARGET_MC_VERSION);
             ModVersionDetector detector = new ModVersionDetector();
 
             List<Path> jars;
@@ -323,7 +367,7 @@ public class RetroModNeoForge {
             for (Path modJar : jars) {
                 try {
                     var info = detector.detectVersion(modJar);
-                    if (info != null && info.needsTransformation(RetroMod.TARGET_MC_VERSION)) {
+                    if (info != null && info.needsTransformation(RetroModVersion.TARGET_MC_VERSION)) {
                         String fileName = modJar.getFileName().toString();
                         LOGGER.info("Found incompatible mod in mods/: {} ({})", fileName, info.targetMcVersion());
 
@@ -395,14 +439,14 @@ public class RetroModNeoForge {
             for (java.io.File modFile : modFiles) {
                 try {
                     var info = detector.detectVersion(modFile.toPath());
-                    if (info != null && info.needsTransformation(RetroMod.TARGET_MC_VERSION)) {
+                    if (info != null && info.needsTransformation(RetroModVersion.TARGET_MC_VERSION)) {
                         String sourceVersion = info.targetMcVersion();
                         
                         // Runtime-transform NeoForge mods that need it
                         if (sourceVersion != null &&
                             "neoforge".equals(info.modLoaderType())) {
                             LOGGER.info("Runtime transforming: {} ({} -> {})",
-                                modFile.getName(), sourceVersion, RetroMod.TARGET_MC_VERSION);
+                                modFile.getName(), sourceVersion, RetroModVersion.TARGET_MC_VERSION);
                             
                             for (String pkg : info.modPackages()) {
                                 RetroModTransformer.getInstance().addTransformablePackage(pkg);

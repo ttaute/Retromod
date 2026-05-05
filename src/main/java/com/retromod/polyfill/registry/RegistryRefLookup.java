@@ -61,6 +61,15 @@ public final class RegistryRefLookup {
     private static final Map<String, Object> CACHE = new ConcurrentHashMap<>();
     private static final Object NULL_SENTINEL = new Object();
 
+    /**
+     * One INFO log per registry on first successful resolve, so users see
+     * "polyfill alive" in the log without the per-call diagnostic stream.
+     * Per-step diagnostics live at DEBUG (enable {@code RetroMod-RegistryLookup}
+     * at debug level to see them).
+     */
+    private static final java.util.Set<String> RESOLVED_REGISTRIES =
+            java.util.concurrent.ConcurrentHashMap.newKeySet();
+
     /** Resolved BuiltInRegistries class, cached after first successful lookup. */
     private static volatile Class<?> builtInRegistriesClass;
     /** Resolved ResourceLocation class, cached after first successful lookup. */
@@ -69,6 +78,99 @@ public final class RegistryRefLookup {
     private static final Map<String, Object> REGISTRIES = new ConcurrentHashMap<>();
 
     private RegistryRefLookup() {}
+
+    /** Cached anchor classloader — resolved once on the first successful call. */
+    private static volatile ClassLoader anchorClassLoader;
+
+    /**
+     * Resolve an MC class by name. Tries multiple classloaders because the
+     * obvious ones (this helper's loader, thread context, system) all fail
+     * in Fabric — {@code RegistryRefLookup} appears to live in a loader
+     * sibling to or below KnotClassLoader, not above it. The reliable
+     * anchor is the classloader of the *caller* — the transformed mod
+     * bytecode that called us is loaded by Knot, and Knot can see MC.
+     *
+     * <p>Attempt order:
+     * <ol>
+     *   <li>Cached anchor loader (set on first successful resolve)</li>
+     *   <li>Walk the stack via {@link StackWalker} and try each non-RetroMod,
+     *       non-JDK caller's classloader. The first that finds an MC class
+     *       gets cached as the anchor.</li>
+     *   <li>The thread context classloader (Fabric usually sets this to Knot)</li>
+     *   <li>This helper's own classloader</li>
+     *   <li>The system classloader (last resort)</li>
+     * </ol>
+     */
+    private static Class<?> loadMcClass(String... names) {
+        // Stock candidates — try each in priority order, since this is
+        // called many times we cache the first successful loader.
+        ClassLoader anchor = anchorClassLoader;
+        if (anchor != null) {
+            Class<?> cls = tryLoadAny(anchor, names);
+            if (cls != null) return cls;
+        }
+
+        // Walk the call stack for a usable classloader (the transformed
+        // caller mod's loader is Knot, which sees MC).
+        Class<?> stackHit = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
+                .walk(frames -> frames
+                        .map(StackWalker.StackFrame::getDeclaringClass)
+                        .filter(cls -> {
+                            String n = cls.getName();
+                            return !n.startsWith("com.retromod.")
+                                    && !n.startsWith("java.")
+                                    && !n.startsWith("jdk.")
+                                    && !n.startsWith("sun.")
+                                    && cls.getClassLoader() != null;
+                        })
+                        .map(cls -> tryLoadAny(cls.getClassLoader(), names))
+                        .filter(c -> c != null)
+                        .findFirst()
+                        .orElse(null));
+        if (stackHit != null) {
+            anchorClassLoader = stackHit.getClassLoader();
+            return stackHit;
+        }
+
+        // Fallback: stock candidates.
+        ClassLoader[] candidates = {
+            Thread.currentThread().getContextClassLoader(),
+            RegistryRefLookup.class.getClassLoader(),
+            ClassLoader.getSystemClassLoader()
+        };
+        for (ClassLoader cl : candidates) {
+            Class<?> cls = tryLoadAny(cl, names);
+            if (cls != null) {
+                anchorClassLoader = cl;
+                return cls;
+            }
+        }
+        return null;
+    }
+
+    /** Try each name on the given loader, return the first that resolves. */
+    private static Class<?> tryLoadAny(ClassLoader cl, String... names) {
+        if (cl == null) return null;
+        for (String name : names) {
+            Class<?> cls = tryLoad(name, cl);
+            if (cls != null) return cls;
+        }
+        return null;
+    }
+
+    private static Class<?> tryLoad(String name, ClassLoader cl) {
+        if (cl == null) return null;
+        try {
+            return Class.forName(name, true, cl);
+        } catch (ClassNotFoundException ignored) {
+            return null;
+        } catch (Throwable t) {
+            LOGGER.debug("tryLoad({}) via {} threw {}: {}",
+                    name, cl.getClass().getSimpleName(),
+                    t.getClass().getSimpleName(), t.getMessage());
+            return null;
+        }
+    }
 
     // =====================================================================
     // ENCHANTMENTS — public static methods that return Object (CHECKCAST'd
@@ -175,11 +277,21 @@ public final class RegistryRefLookup {
     private static Object lookup(String registryName, String entryName) {
         String cacheKey = registryName + ":" + entryName;
         Object cached = CACHE.get(cacheKey);
-        if (cached == NULL_SENTINEL) return null;
-        if (cached != null) return cached;
+        if (cached == NULL_SENTINEL) {
+            LOGGER.debug("[diag {}.{}] CACHE HIT (null sentinel)", registryName, entryName);
+            return null;
+        }
+        if (cached != null) {
+            return cached;
+        }
+        LOGGER.debug("[diag {}.{}] CACHE MISS, calling doLookup", registryName, entryName);
 
         Object value = doLookup(registryName, entryName);
         CACHE.put(cacheKey, value != null ? value : NULL_SENTINEL);
+        if (value != null && RESOLVED_REGISTRIES.add(registryName)) {
+            LOGGER.info("Polyfill resolved {} registry — first hit on {} returned {}",
+                    registryName, entryName, value.getClass().getName());
+        }
         return value;
     }
 
@@ -188,29 +300,44 @@ public final class RegistryRefLookup {
         try {
             rl = resourceLocationClass;
             if (rl == null) {
-                rl = Class.forName("net.minecraft.resources.ResourceLocation");
+                rl = loadMcClass(
+                        "net.minecraft.resources.ResourceLocation",   // mojang
+                        "net.minecraft.resources.Identifier",          // fabric-yarn-on-mojang-package
+                        "net.minecraft.util.Identifier",                // pure yarn
+                        "net.minecraft.class_2960"                      // intermediary
+                );
                 resourceLocationClass = rl;
             }
         } catch (Throwable t) {
+            LOGGER.debug("[diag {}.{}] Class.forName(ResourceLocation) THREW {}: {}",
+                    registryName, entryName, t.getClass().getSimpleName(), t.getMessage());
+            return null;
+        }
+        if (rl == null) {
+            LOGGER.debug("[diag {}.{}] loadMcClass(ResourceLocation) returned null",
+                    registryName, entryName);
             return null;
         }
 
         Object id = buildResourceLocation(rl, entryName);
-        if (id == null) return null;
+        if (id == null) {
+            LOGGER.debug("[diag {}.{}] buildResourceLocation returned null",
+                    registryName, entryName);
+            return null;
+        }
+        LOGGER.debug("[diag {}.{}] built id: {}", registryName, entryName, id);
 
-        // Path 1: static registry on BuiltInRegistries — works for things
-        // that stayed hardcoded (Block, Item, EntityType, SoundEvent, etc.).
+        // Path 1: static registry on BuiltInRegistries
         Object value = lookupViaBuiltInRegistries(registryName, rl, id);
-        if (value != null) return value;
+        if (value != null) {
+            LOGGER.debug("[diag {}.{}] BuiltInRegistries returned: {}",
+                    registryName, entryName, value.getClass().getName());
+            return value;
+        }
+        LOGGER.debug("[diag {}.{}] BuiltInRegistries miss, trying dynamic registry",
+                registryName, entryName);
 
-        // Path 2: dynamic registry via the client's RegistryAccess. In MC
-        // 1.21+ enchantments are data-driven; in 1.21.6+ mob effects are
-        // data-driven too. They're not on BuiltInRegistries anymore — they
-        // live in the dynamic registry that's populated when the client
-        // connects to a server (or loads a world). At plain client-init
-        // time this returns null because no connection/world exists yet,
-        // but real mod code that runs during gameplay will hit the cache
-        // miss once and then succeed for every subsequent call.
+        // Path 2: dynamic registry via the client's RegistryAccess.
         return lookupViaDynamicRegistry(registryName, rl, id);
     }
 
@@ -218,7 +345,11 @@ public final class RegistryRefLookup {
         try {
             Class<?> bir = builtInRegistriesClass;
             if (bir == null) {
-                bir = Class.forName("net.minecraft.core.registries.BuiltInRegistries");
+                bir = loadMcClass(
+                        "net.minecraft.core.registries.BuiltInRegistries",  // mojang
+                        "net.minecraft.registry.Registries"                  // yarn
+                );
+                if (bir == null) return null;
                 builtInRegistriesClass = bir;
             }
             Object registry = REGISTRIES.computeIfAbsent("BIR:" + registryName, k -> {
@@ -239,73 +370,164 @@ public final class RegistryRefLookup {
     }
 
     private static Object lookupViaDynamicRegistry(String registryName, Class<?> rl, Object id) {
+        // TEMPORARY INSTRUMENTATION: bumped to INFO so we can see which step
+        // returns null. Remove once the lookup chain is verified.
         try {
-            // Get the Minecraft client singleton.
-            Class<?> mcCls = Class.forName("net.minecraft.client.Minecraft");
-            Object mc = mcCls.getMethod("getInstance").invoke(null);
-            if (mc == null) return null;
-
-            // Try level().registryAccess() first (works once a world loads).
-            Object registryAccess = null;
-            try {
-                Object level = mcCls.getMethod("level").invoke(mc);
-                if (level != null) {
-                    Method ra = level.getClass().getMethod("registryAccess");
-                    registryAccess = ra.invoke(level);
-                }
-            } catch (Throwable ignored) {}
-
-            // Fall back to getConnection().registryAccess() (works as soon as
-            // the client has connected to a server).
+            Object registryAccess = resolveRegistryAccess();
             if (registryAccess == null) {
-                try {
-                    Object conn = mcCls.getMethod("getConnection").invoke(mc);
-                    if (conn != null) {
-                        registryAccess = conn.getClass().getMethod("registryAccess").invoke(conn);
-                    }
-                } catch (Throwable ignored) {}
+                LOGGER.debug("[diag {}] resolveRegistryAccess returned null", registryName);
+                return null;
             }
+            LOGGER.debug("[diag {}] registryAccess={}", registryName, registryAccess.getClass().getName());
 
-            if (registryAccess == null) return null;
-
-            // Get the ResourceKey<? extends Registry<?>> for this registry.
-            Class<?> registriesCls = Class.forName("net.minecraft.core.registries.Registries");
+            // Resolve the parent registry key (e.g. Registries.ENCHANTMENT).
+            Class<?> registriesCls = loadMcClass(
+                    "net.minecraft.core.registries.Registries",        // mojang (the keys holder)
+                    "net.minecraft.registry.RegistryKeys"               // yarn equivalent
+            );
+            if (registriesCls == null) {
+                LOGGER.debug("[diag {}] could not load Registries class", registryName);
+                return null;
+            }
             Object registryKey;
             try {
                 registryKey = registriesCls.getField(registryName).get(null);
             } catch (Throwable t) {
-                LOGGER.debug("Registries.{} not found (data-driven registry key missing)", registryName);
+                LOGGER.debug("[diag {}] Registries.{} field lookup failed: {}",
+                        registryName, registryName, t.getMessage());
                 return null;
             }
-            if (registryKey == null) return null;
-
-            // registryAccess.lookup(ResourceKey) -> Optional<HolderLookup.RegistryLookup<T>>
-            // Or registryAccess.registryOrThrow(ResourceKey) -> Registry<T> on older
-            // RegistryAccess shapes. Try the modern API first.
-            Object registry = invokeOptional(registryAccess, "lookup", registryKey);
-            if (registry == null) {
-                registry = invokeUnwrap(registryAccess, "registryOrThrow", registryKey);
+            if (registryKey == null) {
+                LOGGER.debug("[diag {}] Registries.{} returned null value", registryName, registryName);
+                return null;
             }
-            if (registry == null) return null;
+            LOGGER.debug("[diag {}] registryKey={} ({})",
+                    registryName, registryKey, registryKey.getClass().getName());
 
-            // Now do the value lookup. HolderLookup has getValue(ResourceLocation)
-            // or get(ResourceKey<T>); Registry has getValue/get(ResourceLocation).
-            Method getter = findRegistryGetter(registry.getClass(), rl);
-            if (getter != null) {
-                Object result = getter.invoke(registry, id);
-                // If we got a Holder, unwrap to its value.
-                return unwrapHolder(result);
+            // Path A (newer MC 1.21+): registryAccess.lookup(ResourceKey) returns
+            // Optional<HolderLookup.RegistryLookup<T>>. HolderLookup has
+            // get(ResourceKey<T>) -> Optional<Holder.Reference<T>>, NOT a
+            // ResourceLocation-keyed getter. So we need a child ResourceKey.
+            Object holderLookup = invokeAndUnwrapOptional(registryAccess, "lookup", registryKey);
+            LOGGER.debug("[diag {}] holderLookup={}", registryName,
+                    holderLookup == null ? "null" : holderLookup.getClass().getName());
+            if (holderLookup != null) {
+                // Build a child ResourceKey<T>: ResourceKey.create(parent, id)
+                Class<?> resourceKeyCls = loadMcClass(
+                        "net.minecraft.resources.ResourceKey",   // mojang
+                        "net.minecraft.registry.RegistryKey"      // yarn
+                );
+                if (resourceKeyCls == null) {
+                    LOGGER.debug("[diag {}] could not load ResourceKey class", registryName);
+                    return null;
+                }
+                Object entryKey;
+                try {
+                    Method createMethod = resourceKeyCls.getMethod(
+                            "create", resourceKeyCls, rl);
+                    entryKey = createMethod.invoke(null, registryKey, id);
+                } catch (Throwable t) {
+                    LOGGER.debug("[diag {}] ResourceKey.create failed: {}", registryName, t.getMessage());
+                    return null;
+                }
+                if (entryKey == null) {
+                    LOGGER.debug("[diag {}] entryKey is null", registryName);
+                    return null;
+                }
+                LOGGER.debug("[diag {}] entryKey={}", registryName, entryKey);
+
+                // holderLookup.get(ResourceKey<T>) -> Optional<Holder.Reference<T>>
+                Object holderOpt = null;
+                Method matchedGetMethod = null;
+                for (Method m : holderLookup.getClass().getMethods()) {
+                    if (!"get".equals(m.getName())) continue;
+                    if (m.getParameterCount() != 1) continue;
+                    if (m.getParameterTypes()[0] != resourceKeyCls
+                            && !m.getParameterTypes()[0].isAssignableFrom(resourceKeyCls)) continue;
+                    try {
+                        holderOpt = m.invoke(holderLookup, entryKey);
+                        matchedGetMethod = m;
+                        break;
+                    } catch (Throwable t) {
+                        LOGGER.debug("[diag {}] holderLookup.get invoke failed: {}",
+                                registryName, t.getMessage());
+                    }
+                }
+                LOGGER.debug("[diag {}] matchedGetMethod={} holderOpt={}",
+                        registryName,
+                        matchedGetMethod == null ? "none" : matchedGetMethod.toString(),
+                        holderOpt == null ? "null" : holderOpt.getClass().getName());
+                Object holder = (holderOpt instanceof java.util.Optional<?> opt)
+                        ? (opt.isPresent() ? opt.get() : null)
+                        : holderOpt;
+                LOGGER.debug("[diag {}] unwrapped holder={}", registryName,
+                        holder == null ? "null" : holder.getClass().getName());
+                if (holder != null) {
+                    Object value = unwrapHolder(holder);
+                    LOGGER.debug("[diag {}] final value={}", registryName,
+                            value == null ? "null" : value.getClass().getName());
+                    return value;
+                }
             }
+
+            // Path B (older RegistryAccess shape): registryOrThrow returns Registry<T>
+            // directly, which has get(ResourceLocation).
+            Object registry = invokeUnwrap(registryAccess, "registryOrThrow", registryKey);
+            LOGGER.debug("[diag {}] registryOrThrow result={}", registryName,
+                    registry == null ? "null" : registry.getClass().getName());
+            if (registry != null) {
+                Method getter = findRegistryGetter(registry.getClass(), rl);
+                if (getter != null) {
+                    return unwrapHolder(getter.invoke(registry, id));
+                }
+            }
+
             return null;
         } catch (Throwable t) {
-            LOGGER.debug("Dynamic-registry lookup failed for {}.{}: {}",
-                    registryName, id, t.getMessage());
+            LOGGER.debug("[diag {}] Dynamic-registry lookup threw {}: {}",
+                    registryName, t.getClass().getSimpleName(), t.getMessage());
             return null;
         }
     }
 
-    /** Try a method that returns Optional&lt;T&gt;; unwrap if present. */
-    private static Object invokeOptional(Object receiver, String name, Object arg) {
+    /**
+     * Walk the well-known places where a RegistryAccess might live on the
+     * client. Order: world → connection. Returns null if the client hasn't
+     * connected to anything yet (init/title-screen time).
+     */
+    private static Object resolveRegistryAccess() {
+        try {
+            Class<?> mcCls = loadMcClass(
+                    "net.minecraft.client.Minecraft",           // mojang
+                    "net.minecraft.client.MinecraftClient"      // yarn
+            );
+            if (mcCls == null) return null;
+            Object mc = mcCls.getMethod("getInstance").invoke(null);
+            if (mc == null) return null;
+
+            try {
+                Object level = mcCls.getMethod("level").invoke(mc);
+                if (level != null) {
+                    return level.getClass().getMethod("registryAccess").invoke(level);
+                }
+            } catch (Throwable ignored) {}
+
+            try {
+                Object conn = mcCls.getMethod("getConnection").invoke(mc);
+                if (conn != null) {
+                    return conn.getClass().getMethod("registryAccess").invoke(conn);
+                }
+            } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    /**
+     * Invoke a method that returns {@code Optional<T>} and unwrap to
+     * {@code T} (or null on empty). Picks the first method whose name and
+     * arity match and accepts the given argument type.
+     */
+    private static Object invokeAndUnwrapOptional(Object receiver, String name, Object arg) {
         try {
             for (Method m : receiver.getClass().getMethods()) {
                 if (!name.equals(m.getName())) continue;

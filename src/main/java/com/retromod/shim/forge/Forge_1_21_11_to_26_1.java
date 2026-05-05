@@ -63,6 +63,66 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
     public void registerRedirects(RetroModTransformer transformer) {
 
         // ============================================================
+        // RESOURCELOCATION CLASS RENAME
+        // Forge 64.x for MC 26.1 uses the hybrid name
+        // net.minecraft.resources.Identifier (yarn class name in the
+        // mojang package) instead of the historical
+        // net.minecraft.resources.ResourceLocation. Mods compiled
+        // against pre-26.1 Forge reference the old name and crash with:
+        //
+        //   NoClassDefFoundError: net/minecraft/resources/ResourceLocation
+        //
+        // Surfaced by retromod-test-mod-forge's Test 3 (ResourceLocation
+        // 2-arg ctor); also affects any mod that constructs a
+        // ResourceLocation directly (Jade's CommonProxy.<clinit>, etc.).
+        //
+        // The class redirect remaps the type reference; the constructor
+        // signature itself is also gone in newer MC (replaced by
+        // ResourceLocation.fromNamespaceAndPath / Identifier.of), but
+        // that's a separate constructor→factory redirect handled below.
+        // ============================================================
+
+        transformer.registerClassRedirect(
+            "net/minecraft/resources/ResourceLocation",
+            "net/minecraft/resources/Identifier"
+        );
+
+        // The 2-arg constructor became private in newer MC; redirect to
+        // the static factory of(String, String) on the renamed class.
+        // Constructor → factory uses the dedicated registerConstructorRedirect
+        // path, which catches the NEW + DUP + INVOKESPECIAL <init> sequence
+        // and rewrites it to a single INVOKESTATIC factory call.
+        //
+        // Lookup key uses the POST-CLASS-REMAP owner (Identifier, not
+        // ResourceLocation). The ClassRemapper rewrites class names before
+        // visitMethodInsn sees the bytecode, so the constructor lookup
+        // matches against `Identifier.<init>` at the time it actually
+        // happens. Targeting `ResourceLocation.<init>` would never match
+        // because that class has already been renamed by then.
+        // Forge 64.x for MC 26.1 uses a hybrid: the yarn class name
+        // `Identifier` paired with the Mojang-style factory method name
+        // `fromNamespaceAndPath` (instead of yarn's `of`). Confirmed by
+        // a NoSuchMethodError: 'Identifier Identifier.of(String, String)'
+        // when we tried the yarn name. Use fromNamespaceAndPath here.
+        transformer.registerConstructorRedirect(
+            "net/minecraft/resources/Identifier",
+            "(Ljava/lang/String;Ljava/lang/String;)V",
+            "net/minecraft/resources/Identifier",
+            "fromNamespaceAndPath",
+            "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
+        );
+        // 1-arg colon-separated form too: new ResourceLocation("ns:path") /
+        // new Identifier("ns:path") — same private-constructor issue.
+        // The 1-arg factory is `parse(String)` on Mojang-mapped MC 26.1.
+        transformer.registerConstructorRedirect(
+            "net/minecraft/resources/Identifier",
+            "(Ljava/lang/String;)V",
+            "net/minecraft/resources/Identifier",
+            "parse",
+            "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
+        );
+
+        // ============================================================
         // ENTITY TYPE SPLITS
         // EntityType.BOAT/CHEST_BOAT split into per-wood types in 26.1
         // OAK is the most common default for old mods

@@ -145,6 +145,17 @@ public class ForgeModTransformer {
             updateModsToml(tempDir, "META-INF/mods.toml");
             updateModsToml(tempDir, "META-INF/neoforge.mods.toml");
 
+            // Step 3.5: Recursively patch metadata in JIJ (Jar-In-Jar) deps.
+            // Mods like Create bundle dependencies (e.g. Flywheel) at
+            // META-INF/jarjar/*.jar — those nested JARs have their own
+            // mods.toml that needs the same minecraft versionRange update,
+            // otherwise Forge sees the JIJ's stale "[1.18.2,1.19)" range
+            // and rejects it on 26.1, taking the whole loadout down.
+            int jijPatched = patchJarInJarMetadata(tempDir);
+            if (jijPatched > 0) {
+                LOGGER.info("Patched metadata in {} JIJ dependencies", jijPatched);
+            }
+
             // Step 4: Repackage
             repackageJar(tempDir, outputJar);
 
@@ -306,6 +317,116 @@ public class ForgeModTransformer {
     }
 
     /**
+     * Walk every {@code META-INF/jarjar/*.jar} entry under {@code dir} and
+     * patch the metadata files (mods.toml / neoforge.mods.toml /
+     * fabric.mod.json) inside each one in-place.
+     *
+     * <p>JIJ ("Jar-In-Jar") is Forge's mechanism for bundling dependencies
+     * inside a mod. When RetroMod transforms a mod like Create, it updates
+     * Create's outer mods.toml correctly — but the bundled Flywheel jar at
+     * {@code META-INF/jarjar/flywheel-forge-1.18.2-0.6.11-107.jar} has its
+     * own mods.toml declaring "minecraft 1.18.2..1.19", and Forge rejects
+     * that on 26.1+.
+     *
+     * <p>Strategy: extract → patch → repack each JIJ jar in-place. We only
+     * touch the metadata files (no bytecode transformation of JIJ contents
+     * yet — that's a bigger separate feature). For the metadata-only fix,
+     * just rewriting versionRange and dependency mandatory flags is enough
+     * to get Forge to accept the JIJ.
+     *
+     * @return the number of JIJ jars that were successfully patched
+     */
+    private int patchJarInJarMetadata(Path dir) {
+        Path jarjarDir = dir.resolve("META-INF/jarjar");
+        if (!Files.isDirectory(jarjarDir)) {
+            return 0;
+        }
+
+        int patched = 0;
+        try (var entries = Files.list(jarjarDir)) {
+            var jijList = entries.filter(p -> p.toString().endsWith(".jar")).toList();
+            for (Path jijJar : jijList) {
+                try {
+                    if (patchSingleJijJar(jijJar)) {
+                        patched++;
+                    }
+                } catch (Exception e) {
+                    // One bad JIJ shouldn't take down the whole transform.
+                    // Log and continue — the worst case is the JIJ keeps
+                    // its old metadata, which Forge will then reject only
+                    // for that one nested mod.
+                    LOGGER.warn("Could not patch JIJ {}: {}", jijJar.getFileName(), e.getMessage());
+                }
+            }
+        } catch (IOException e) {
+            LOGGER.warn("Could not list JIJ directory: {}", e.getMessage());
+        }
+        return patched;
+    }
+
+    /**
+     * Patch metadata in a single JIJ jar: extract to a temp dir, run the
+     * existing {@link #updateModsToml} on each metadata file present,
+     * repack over the original.
+     *
+     * @return true if any metadata file was actually changed (so the jar
+     *         was rewritten); false if there were no metadata files to
+     *         patch (vanilla library jars with no MC mod metadata).
+     */
+    private boolean patchSingleJijJar(Path jijJar) throws IOException {
+        Path tempDir = Files.createTempDirectory("retromod-jij-");
+        try {
+            // Extract using the same hardened extractor as the outer mod.
+            // ZipSecurity / size limits / path-traversal checks all apply
+            // identically for JIJ contents.
+            extractJar(jijJar, tempDir);
+
+            boolean hasForgeToml      = Files.exists(tempDir.resolve("META-INF/mods.toml"));
+            boolean hasNeoForgeToml   = Files.exists(tempDir.resolve("META-INF/neoforge.mods.toml"));
+            boolean hasFabricModJson  = Files.exists(tempDir.resolve("fabric.mod.json"));
+
+            if (!hasForgeToml && !hasNeoForgeToml && !hasFabricModJson) {
+                // Pure library jar (e.g. Cardinal Components core, Apache
+                // Commons-style deps). Nothing to patch — leave it alone.
+                return false;
+            }
+
+            // Reuse the existing metadata patchers — same regex / version
+            // logic as the outer-jar pass. Forge mods.toml first.
+            if (hasForgeToml) {
+                updateModsToml(tempDir, "META-INF/mods.toml");
+            }
+            if (hasNeoForgeToml) {
+                updateModsToml(tempDir, "META-INF/neoforge.mods.toml");
+            }
+            // Fabric inside Forge JIJ is rare but not impossible (some
+            // multi-loader libraries ship both). Patch with a best-effort
+            // version-relax — fabric.mod.json's version logic lives in
+            // FabricModTransformer; importing it here would create a cycle
+            // for a marginal use case, so we skip it for now and just
+            // repack the jar even if the Fabric metadata stays stale. If
+            // it becomes a real problem we can add a shared version-patch
+            // helper.
+
+            // Repack — overwrite the original JIJ in place. The outer
+            // jar's META-INF/jarjar/ directory will pick up the rewritten
+            // bytes when the outer jar gets repackaged in step 4.
+            Files.delete(jijJar);
+            repackageJar(tempDir, jijJar);
+            LOGGER.debug("Patched JIJ metadata: {}", jijJar.getFileName());
+            return true;
+
+        } finally {
+            // Same cleanup pattern as the outer transform.
+            try (var walk = Files.walk(tempDir)) {
+                walk.sorted(Comparator.reverseOrder()).forEach(p -> {
+                    try { Files.delete(p); } catch (Exception ignored) {}
+                });
+            }
+        }
+    }
+
+    /**
      * Update mods.toml or neoforge.mods.toml to target the correct MC version.
      */
     private void updateModsToml(Path dir, String tomlPath) throws IOException {
@@ -365,10 +486,17 @@ public class ForgeModTransformer {
                 currentDepModId = null;
             }
 
-            // Detect modId = "xxx"
+            // Detect modId = "xxx".
+            // Use find() rather than matches() — many mods.toml files have a
+            // trailing inline comment like  modId="forge" #mandatory  which
+            // makes matches() (full-line match) return false. find() looks
+            // for the pattern *anywhere* in the line, which correctly handles
+            // both styles. This was the root cause of JEI / Create / etc.
+            // having their minecraft versionRange go un-updated even though
+            // the log claimed otherwise.
             Pattern modIdPattern = Pattern.compile("modId\\s*=\\s*\"([^\"]+)\"");
             Matcher modIdMatcher = modIdPattern.matcher(trimmed);
-            if (modIdMatcher.matches()) {
+            if (modIdMatcher.find()) {
                 currentDepModId = modIdMatcher.group(1);
             }
 

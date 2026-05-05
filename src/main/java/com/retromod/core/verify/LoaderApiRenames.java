@@ -185,12 +185,33 @@ public final class LoaderApiRenames {
         Map<String, String> methods = new HashMap<>();
         Set<String> removed = new HashSet<>();
 
+        // The "forge" section actually contains Forge → NeoForge migration
+        // renames (e.g. net/minecraftforge/fml/common/Mod →
+        // net/neoforged/fml/common/Mod). Those renames are correct only when
+        // the runtime IS NeoForge. On a Forge runtime they rewrite Forge
+        // mods to reference NeoForge classes that don't exist, and Forge
+        // dies with NoClassDefFoundError on every transformed mod's
+        // constructor. So skip the "forge" section when not on NeoForge.
+        boolean skipForgeSection;
+        try {
+            skipForgeSection = !com.retromod.util.McReflect.isNeoForge();
+        } catch (Throwable t) {
+            // McReflect not available (rare — happens in CLI / test contexts);
+            // fall back to including the section to preserve current CLI
+            // behavior. The runtime crash only matters in the in-game path.
+            skipForgeSection = false;
+        }
+
         // Per-loader try-catch so a malformed section for one loader doesn't
         // wipe out valid data from the others. One broken entry in the Forge
         // section shouldn't also invalidate NeoForge renames — the biggest
         // surface area.
         for (String loader : LOADER_KEYS) {
             if (!root.has(loader)) continue;
+            if ("forge".equals(loader) && skipForgeSection) {
+                LOGGER.debug("Skipping loader-api 'forge' section (runtime is not NeoForge — Forge→NeoForge migrations don't apply)");
+                continue;
+            }
             try {
                 JsonObject loaderSection = root.getAsJsonObject(loader);
 

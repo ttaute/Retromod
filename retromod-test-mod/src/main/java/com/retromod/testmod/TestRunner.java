@@ -97,13 +97,20 @@ public final class TestRunner {
     }
 
     private static List<Test> buildClientStartedSuite() {
-        List<Test> all = new ArrayList<>();
-        all.addAll(DeferredItemStackTests.all());
-        return List.copyOf(all);
+        // Empty for now. CLIENT_STARTED was supposed to be the right phase
+        // for ItemStack-construction tests, but in MC 26.1 the data-component
+        // registry isn't frozen until a world actually loads — at
+        // CLIENT_STARTED the registration loop is still mid-bootstrap and
+        // `new ItemStack(item, count)` throws
+        //   NullPointerException: Components not bound yet
+        // ItemStack tests have been moved to WORLD_JOIN where the registry
+        // is guaranteed to be ready.
+        return List.of();
     }
 
     private static List<Test> buildWorldJoinSuite() {
         List<Test> all = new ArrayList<>();
+        all.addAll(DeferredItemStackTests.all());
         all.addAll(EnchantmentTests.all());
         all.addAll(StatusEffectTests.all());
         return List.copyOf(all);

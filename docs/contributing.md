@@ -31,6 +31,10 @@ Most contributions fall into a handful of well-trodden workflows. Each has a ski
 
 If you're using Claude Code, these skills activate automatically based on the task. Otherwise, open the corresponding file under `.claude/skills/` and follow it by hand — they're written to be readable as plain Markdown.
 
+## Easy first PRs
+
+The easiest way to start contributing is filling gaps in the SRG → Mojang mapping dictionary. Every entry directly unblocks a real Forge mod, the change is one line in a TSV file, and the verification loop is fast. See [Adding SRG Mappings]({{ '/srg-mappings' | relative_url }}) for the format and workflow.
+
 ## Git flow
 
 Standard fork-and-PR workflow:

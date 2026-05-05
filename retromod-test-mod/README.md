@@ -138,15 +138,38 @@ a `new SimpleTest("description", () -> { ... })` entry.
 The first iteration is intentionally narrow so it's easy to verify and extend.
 
 - [x] **v0.1**: Fabric, MC 1.20.1 source → translates to 26.1+. ~5 tests.
-- [x] **v0.2 (current)**: ~45 tests across 11 categories. Same single Fabric build target.
-- [ ] **v0.3**: Add Forge and NeoForge entry points. Same test logic, different loader wrappers.
+- [x] **v0.2**: ~45 tests across 11 categories.
+- [x] **v0.2.1**: Three lifecycle phases (`init` / `client-started` / `world-join`), 250 tests. Currently 250/252 passing — only known failures are Test 5 (`getString()` toString format) and Test 14 (SOUND_EVENT descriptor mismatch, documented).
+- [~] **v0.3 (in progress)**: Forge and NeoForge entry-point classes + manifest files added. Build wiring (separate per-loader Gradle subprojects with ForgeGradle / ModDevGradle plugins) is the remaining piece — see "Multi-loader build" below.
 - [ ] **v0.4**: Multi-version source (1.16.5, 1.18.2, 1.20.1, 1.21.1) — separate sub-projects sharing a common test interface. Each one exercises a different translation distance.
 - [ ] **v0.5**: Mixin compatibility tests (a `@Mixin` with `@Inject` at HEAD of a known method).
 - [ ] **v0.6**: Polyfill coverage tests (call into specific removed APIs we know we polyfill).
-- [ ] **v0.7**: World/player/entity tests. These can't run at mod init — would need a hook that fires after a world loads.
+- [ ] **v0.7**: World/player/entity tests that need a fully-loaded world.
 
-When adding a test:
+## Multi-loader build (v0.3 work-in-progress)
+
+What's done:
+
+- `src/main/java/com/retromod/testmod/forge/RetroModTestModForge.java` — `@Mod`-annotated entry point, calls `TestRunner.runImmediate()` from its constructor.
+- `src/main/java/com/retromod/testmod/neoforge/RetroModTestModNeoForge.java` — same shape, NeoForge variant.
+- `src/main/java/net/minecraftforge/fml/common/Mod.java` — compile-time stub for Forge's `@Mod` annotation. Real Forge's class shadows this at runtime.
+- `src/main/java/net/neoforged/fml/common/Mod.java` — same trick for NeoForge.
+- `src/main/resources/META-INF/mods.toml` — Forge mod manifest.
+- `src/main/resources/META-INF/neoforge.mods.toml` — NeoForge mod manifest.
+
+What's not done (and why):
+
+The current `build.gradle` produces a Fabric JAR via Loom. Producing Forge and NeoForge JARs from the same source needs each loader's own Gradle plugin (ForgeGradle for Forge, ModDevGradle / NeoGradle for NeoForge), which can't co-exist in a single Loom-rooted project. The standard fix is one of:
+
+1. **Architectury / Architectury Loom** — a multi-loader plugin that runs a "common" subproject + per-loader subprojects. Substantial restructure, but the conventional MC-mod-multi-loader path.
+2. **Three sibling Gradle projects** at `retromod-test-mod/fabric/`, `retromod-test-mod/forge/`, `retromod-test-mod/neoforge/`, each with its own toolchain, all referencing a shared `common/` source set. Less plugin coupling than Architectury but more boilerplate.
+
+Either approach moves the existing Fabric content into a `fabric/` subproject and shares the test logic via `common/`. The Forge/NeoForge entry-point classes already in this project are written against compile-time stubs so they can move to their own subprojects without rewrites.
+
+Until the multi-loader build is wired, the Forge/NeoForge entry-point classes serve as documentation of the runtime shape — anyone setting up the per-loader builds can copy them into the right subprojects.
+
+## Adding a test
 
 1. Either add a `new SimpleTest("description", () -> ...)` entry to the appropriate category class, or write a standalone `Test` implementor if you need supporting classes.
-2. If standalone, register it in `TestRunner.buildSuite()`.
+2. If standalone, register it in `TestRunner.buildImmediateSuite()` (or `buildClientStartedSuite()` / `buildWorldJoinSuite()` if it's deferred).
 3. Update the category table above.

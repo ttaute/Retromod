@@ -69,7 +69,15 @@ public class RetroModForge {
     private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
 
     public RetroModForge() {
-        LOGGER.info("RetroMod initializing on Forge...");
+        // Detect MC version from Forge's loader. This is normally done in
+        // RetroMod.<clinit>, but RetroMod implements Fabric's ModInitializer
+        // and can't be loaded on Forge — so the static block never runs here
+        // and we have to populate the version on the loader-agnostic
+        // RetroModVersion holder ourselves.
+        detectMcVersionForForge();
+
+        LOGGER.info("RetroMod initializing on Forge (target MC: {})...",
+                RetroModVersion.TARGET_MC_VERSION);
 
         // Detect environment
         boolean isServer = EnvironmentDetector.isDedicatedServer();
@@ -80,6 +88,23 @@ public class RetroModForge {
 
         // Load Forge-specific shims
         loadForgeShims(transformer);
+
+        // Register Forge SRG → Mojang member-name mappings.
+        // This is the PRIMARY loader for SRG remap: Forge mods built with
+        // ForgeGradle's reobfJar task carry SRG names (Blocks.f_50069_,
+        // Component.m_237113_, etc.). Forge 64.x dropped its own SRG remap
+        // layer for MC 26.1+ since MC 26.1 ships with no obfuscation,
+        // leaving reobf'd mods to crash with NoSuchFieldError on every
+        // SRG reference. This dictionary fills that gap.
+        try {
+            int srgEntries = com.retromod.mapping.SrgToMojangMapper.getInstance()
+                    .applyTo(transformer);
+            if (srgEntries > 0) {
+                LOGGER.info("Registered {} SRG → Mojang mapping(s)", srgEntries);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Could not register SRG mappings", e);
+        }
 
         // Load auto-fix fixes from previous launch.
         // These are redirects/patches discovered by analyzing crash logs from
@@ -166,6 +191,36 @@ public class RetroModForge {
     }
     
     /**
+     * Auto-detect the running Minecraft version from Forge's loader and
+     * write it to {@link RetroModVersion#TARGET_MC_VERSION}. Tries the
+     * NeoForge FMLLoader first (covers NeoForge / new Forge), falls back
+     * to the older legacy {@code MCPVersion} class. If neither resolves,
+     * leaves the default in place.
+     */
+    private static void detectMcVersionForForge() {
+        // New Forge / NeoForge unified FMLLoader
+        try {
+            Class<?> fmlLoader = Class.forName("net.neoforged.fml.loading.FMLLoader");
+            Object versionInfo = fmlLoader.getMethod("versionInfo").invoke(null);
+            String mcVersion = (String) versionInfo.getClass()
+                    .getMethod("mcVersion").invoke(versionInfo);
+            if (mcVersion != null) {
+                RetroModVersion.TARGET_MC_VERSION = mcVersion;
+                return;
+            }
+        } catch (Throwable ignored) {}
+
+        // Legacy Forge MCPVersion fallback
+        try {
+            Class<?> mcpVersion = Class.forName("net.minecraftforge.versions.mcp.MCPVersion");
+            String mcVersion = (String) mcpVersion.getMethod("getMCVersion").invoke(null);
+            if (mcVersion != null) {
+                RetroModVersion.TARGET_MC_VERSION = mcVersion;
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    /**
      * Initialize hybrid AOT/JIT engine.
      */
     private void initializeHybridEngine() {
@@ -174,7 +229,7 @@ public class RetroModForge {
             Path modsFolder = gameDir.resolve("mods");
             
             HybridTransformationEngine hybrid = HybridTransformationEngine.getInstance();
-            hybrid.initialize(modsFolder, RetroMod.TARGET_MC_VERSION);
+            hybrid.initialize(modsFolder, RetroModVersion.TARGET_MC_VERSION);
             
             LOGGER.info("Hybrid AOT/JIT engine initialized");
         } catch (Exception e) {
@@ -272,7 +327,7 @@ public class RetroModForge {
 
             if (jars.isEmpty()) return 0;
 
-            ForgeModTransformer transformer = new ForgeModTransformer(RetroMod.TARGET_MC_VERSION);
+            ForgeModTransformer transformer = new ForgeModTransformer(RetroModVersion.TARGET_MC_VERSION);
 
             for (Path modJar : jars) {
                 try {
@@ -315,7 +370,7 @@ public class RetroModForge {
 
             if (!Files.isDirectory(modsDir)) return 0;
 
-            ForgeModTransformer transformer = new ForgeModTransformer(RetroMod.TARGET_MC_VERSION);
+            ForgeModTransformer transformer = new ForgeModTransformer(RetroModVersion.TARGET_MC_VERSION);
             ModVersionDetector detector = new ModVersionDetector();
 
             java.util.List<Path> jars;
@@ -330,7 +385,7 @@ public class RetroModForge {
             for (Path modJar : jars) {
                 try {
                     var info = detector.detectVersion(modJar);
-                    if (info != null && info.needsTransformation(RetroMod.TARGET_MC_VERSION)) {
+                    if (info != null && info.needsTransformation(RetroModVersion.TARGET_MC_VERSION)) {
                         String fileName = modJar.getFileName().toString();
                         LOGGER.info("Found incompatible mod in mods/: {} ({})", fileName, info.targetMcVersion());
 
@@ -399,13 +454,13 @@ public class RetroModForge {
             for (java.io.File modFile : modFiles) {
                 try {
                     var info = detector.detectVersion(modFile.toPath());
-                    if (info != null && info.needsTransformation(RetroMod.TARGET_MC_VERSION)) {
+                    if (info != null && info.needsTransformation(RetroModVersion.TARGET_MC_VERSION)) {
                         String sourceVersion = info.targetMcVersion();
                         
                         // Runtime-transform Forge mods that need it
                         if (sourceVersion != null) {
                             LOGGER.info("Runtime transforming: {} ({} -> {})",
-                                modFile.getName(), sourceVersion, RetroMod.TARGET_MC_VERSION);
+                                modFile.getName(), sourceVersion, RetroModVersion.TARGET_MC_VERSION);
                             
                             for (String pkg : info.modPackages()) {
                                 RetroModTransformer.getInstance().addTransformablePackage(pkg);

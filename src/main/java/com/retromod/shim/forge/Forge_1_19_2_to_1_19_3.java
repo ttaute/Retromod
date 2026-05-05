@@ -23,10 +23,34 @@ public class Forge_1_19_2_to_1_19_3 implements VersionShim {
 
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
-        transformer.registerClassRedirect(
-            "net/minecraft/core/Registry",
-            "net/minecraft/core/registries/BuiltInRegistries"
-        );
+        // INTENTIONALLY NOT REMAPPING net.minecraft.core.Registry.
+        //
+        // Earlier this shim had:
+        //
+        //     transformer.registerClassRedirect(
+        //         "net/minecraft/core/Registry",
+        //         "net/minecraft/core/registries/BuiltInRegistries"
+        //     );
+        //
+        // The intent was to migrate static-field accesses like
+        // Registry.SOUND_EVENT (where SOUND_EVENT lived on the Registry
+        // class pre-1.19.3) to BuiltInRegistries.SOUND_EVENT (where it
+        // lives now). That migration is real, but blanket-renaming the
+        // CLASS was the wrong way to express it: the Registry class still
+        // exists in modern MC, and remapping all references to it to
+        // BuiltInRegistries breaks every TYPE use (e.g. a field declared
+        // as Registry<SoundEvent> ends up as BuiltInRegistries<SoundEvent>,
+        // which doesn't exist).
+        //
+        // Symptom (surfaced by retromod-test-mod's Test 14):
+        //   NoSuchFieldError: Class net.minecraft.core.registries.BuiltInRegistries
+        //   does not have member field 'BuiltInRegistries SOUND_EVENT'
+        //
+        // The right way to express "static field moved" is field-by-field
+        // FieldRedirects. The handful of statics that need migrating
+        // (BLOCK, ITEM, ENTITY_TYPE, FLUID, SOUND_EVENT, ...) should each
+        // get their own redirect; that's a separate piece of work.
+
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/CreativeModeTab", "builder",
             "(Lnet/minecraft/world/item/CreativeModeTab$Row;I)Lnet/minecraft/world/item/CreativeModeTab$Builder;",

@@ -13,15 +13,17 @@ import net.minecraft.item.Items;
 import java.util.List;
 
 /**
- * Tests that need the data-component registry to be bootstrapped before they
- * can run. In MC 1.20.5+, {@code new ItemStack(Item, int)} touches the
- * data-component registry during its constructor, and that registry is only
- * populated after Minecraft's {@code Bootstrap.bootStrap()} completes —
- * which happens later than {@code ClientModInitializer.onInitializeClient}.
+ * Tests that need the data-component registry to be <i>frozen</i> before
+ * they can run. In MC 1.20.5+, {@code new ItemStack(Item, int)} touches
+ * the data-component registry during its constructor; if the registry
+ * isn't frozen yet the constructor throws
+ * {@code NullPointerException: Components not bound yet}.
  *
- * <p>Run these via the {@code ClientLifecycleEvents.CLIENT_STARTED} hook
- * (right before the title screen renders) — by that point all static
- * registries plus the data-component registry are ready.
+ * <p>The registry isn't frozen at {@code ClientLifecycleEvents.CLIENT_STARTED}
+ * (still mid-bootstrap then) — the freeze happens when the client actually
+ * loads or joins a world. So these tests run on the {@code WORLD_JOIN}
+ * phase via {@code ClientPlayConnectionEvents.JOIN}, not on
+ * {@code CLIENT_STARTED}.
  */
 public final class DeferredItemStackTests {
 

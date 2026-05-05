@@ -8,6 +8,9 @@ package com.retromod.shim.api.forge;
 
 import com.retromod.core.RetroModTransformer;
 import com.retromod.core.VersionShim;
+import com.retromod.util.McReflect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Forge Capabilities system compatibility shim.
@@ -28,7 +31,9 @@ import com.retromod.core.VersionShim;
  * - Data attachments instead of capabilities for some uses
  */
 public class ForgeCapabilitiesShim implements VersionShim {
-    
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeCapabilitiesShim");
+
     @Override
     public String getShimName() {
         return "Forge Capabilities Compatibility";
@@ -51,6 +56,13 @@ public class ForgeCapabilitiesShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
+        // All redirects below are Forge → NeoForge — only valid on NeoForge
+        // runtime. See sibling Forge*ApiShim files for the same pattern.
+        if (!McReflect.isNeoForge()) {
+            LOGGER.debug("Skipping Forge → NeoForge capabilities migration (runtime is not NeoForge)");
+            return;
+        }
+
         // ============================================================
         // LAZY OPTIONAL CHANGES
         // ============================================================

@@ -8,6 +8,9 @@ package com.retromod.shim.api.forge;
 
 import com.retromod.core.RetroModTransformer;
 import com.retromod.core.VersionShim;
+import com.retromod.util.McReflect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Forge Event System API compatibility shim.
@@ -21,6 +24,8 @@ import com.retromod.core.VersionShim;
  * - Event result/outcome changes
  */
 public class ForgeEventApiShim implements VersionShim {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeEventApiShim");
     
     @Override
     public String getShimName() {
@@ -44,6 +49,21 @@ public class ForgeEventApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
+        // Despite the file name, every redirect in here maps Forge package
+        // names to their NeoForge equivalents. That's a *cross-loader*
+        // migration — only correct when the runtime is NeoForge. On a Forge
+        // runtime these rewrite Forge mods to reference NeoForge classes
+        // that don't exist, causing every transformed mod to die at
+        // constructor time with NoClassDefFoundError on
+        // net/neoforged/neoforge/common/NeoForge or similar.
+        //
+        // Same gating pattern as Forge_1_20_to_NeoForge_1_21 and the JSON
+        // loader-api-renames "forge" section.
+        if (!McReflect.isNeoForge()) {
+            LOGGER.debug("Skipping Forge → NeoForge event API migration (runtime is not NeoForge)");
+            return;
+        }
+
         // ============================================================
         // EVENT BUS CHANGES
         // ============================================================

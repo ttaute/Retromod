@@ -92,6 +92,21 @@ public class RetroModTransformer implements ClassFileTransformer {
     private final Map<String, String> intermediaryMethodNames = new ConcurrentHashMap<>(40000);
     private final Map<String, String> intermediaryFieldNames = new ConcurrentHashMap<>(40000);
 
+    // SRG name mappings: m_NNNNNN_ / f_NNNNN_ -> Mojang official names.
+    // Forge mods compiled with ForgeGradle's reobfJar (pre-1.20.5 or any
+    // version where the build still does the SRG conversion) reference
+    // members by SRG names like Blocks.f_50069_ instead of Blocks.STONE.
+    // Forge 64.x for MC 26.1+ dropped its SRG → Mojang runtime remap layer
+    // entirely (since 26.1 has no obfuscation), so those references now
+    // hit NoSuchFieldError / NoSuchMethodError on every reobf'd Forge mod.
+    // RetroMod takes over that remap responsibility via these maps.
+    //
+    // Same global-key shape as the intermediary maps: SRG names are unique
+    // strings independent of the owning class, so a flat name -> Mojang
+    // dictionary is sufficient.
+    private final Map<String, String> srgMethodNames = new ConcurrentHashMap<>(8000);
+    private final Map<String, String> srgFieldNames = new ConcurrentHashMap<>(8000);
+
     // Superclass redirects: for class-to-interface migrations.
     // When a class becomes an interface in newer MC (e.g., Explosion), mods that
     // extend it need their superclass changed to a bridge class + the interface added.
@@ -425,6 +440,25 @@ public class RetroModTransformer implements ClassFileTransformer {
         intermediaryFieldNames.putAll(fieldNames);
         cachedRemapper = null; // Invalidate cached remapper
         LOGGER.info("Registered {} intermediary method names and {} field names for bytecode remapping",
+            methodNames.size(), fieldNames.size());
+    }
+
+    /**
+     * Register Forge SRG → Mojang member name mappings.
+     *
+     * <p>Same shape as {@link #registerIntermediaryNameMappings} but for
+     * SRG names ({@code m_NNNNNN_} / {@code f_NNNNN_}). Used by
+     * {@code SrgToMojangMapper} which loads the bundled mapping data file.
+     *
+     * <p>Both maps are merged into the global SRG dictionary; later calls
+     * override earlier entries for the same name.
+     */
+    public void registerSrgNameMappings(
+            Map<String, String> methodNames, Map<String, String> fieldNames) {
+        srgMethodNames.putAll(methodNames);
+        srgFieldNames.putAll(fieldNames);
+        cachedRemapper = null; // Invalidate cached remapper
+        LOGGER.info("Registered {} SRG method names and {} SRG field names for bytecode remapping",
             methodNames.size(), fieldNames.size());
     }
     
@@ -765,6 +799,19 @@ public class RetroModTransformer implements ClassFileTransformer {
                                     String mojang = intermediaryMethodNames.get(name);
                                     if (mojang != null) return mojang;
                                 }
+                                // Remap Forge SRG method names (m_NNNNNN_ → Mojang name).
+                                // Forge mods built before ~MC 1.20.5 (and any later
+                                // build that still uses ForgeGradle's reobfJar) ship
+                                // SRG names. Forge 64.x dropped the SRG remap layer
+                                // so without this, SRG-baked Forge mods all hit
+                                // NoSuchMethodError at runtime.
+                                if (!srgMethodNames.isEmpty()
+                                        && name.length() > 3
+                                        && name.startsWith("m_")
+                                        && name.endsWith("_")) {
+                                    String mojang = srgMethodNames.get(name);
+                                    if (mojang != null) return mojang;
+                                }
                                 return name;
                             }
 
@@ -773,6 +820,17 @@ public class RetroModTransformer implements ClassFileTransformer {
                                 // Remap intermediary field names (field_XXXX → Mojang name)
                                 if (!intermediaryFieldNames.isEmpty() && name.startsWith("field_")) {
                                     String mojang = intermediaryFieldNames.get(name);
+                                    if (mojang != null) return mojang;
+                                }
+                                // Remap Forge SRG field names (f_NNNNN_ → Mojang name).
+                                // Same reasoning as the method case above. SRG
+                                // field names look like f_50069_ (Blocks.STONE),
+                                // f_42415_ (Items.DIAMOND), etc.
+                                if (!srgFieldNames.isEmpty()
+                                        && name.length() > 3
+                                        && name.startsWith("f_")
+                                        && name.endsWith("_")) {
+                                    String mojang = srgFieldNames.get(name);
                                     if (mojang != null) return mojang;
                                 }
                                 return name;

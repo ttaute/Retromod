@@ -375,44 +375,34 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()Ljava/util/concurrent/ExecutorService;"
         );
 
-        // Registry.SOUND_EVENT moved to BuiltInRegistries.SOUND_EVENT.
-        // (Was previously pointed at "Registries" — that's a different class
-        // that holds ResourceKey<Registry<...>> entries, not the registries
-        // themselves. BuiltInRegistries is the right target.)
+        // Registry.SOUND_EVENT moved to Registries.SOUND_EVENT in newer MC.
+        // The field type also changed from Registry to ResourceKey<Registry<SoundEvent>>.
+        // (Restored the original shape — see history note below for why.)
         transformer.registerFieldRedirect(
             "net/minecraft/core/Registry", "SOUND_EVENT",
             "Lnet/minecraft/core/Registry;",
-            "net/minecraft/core/registries/BuiltInRegistries", "SOUND_EVENT",
-            "Lnet/minecraft/core/Registry;"
+            "net/minecraft/core/registries/Registries", "SOUND_EVENT",
+            "Lnet/minecraft/resources/ResourceKey;"
         );
 
-        // Yarn 1.20.1 input shape: net.minecraft.registry.Registries.SOUND_EVENT.
-        // Without this explicit redirect the descriptor remapping picks the
-        // wrong target type and we get
-        //   NoSuchFieldError: BuiltInRegistries does not have member field
-        //   'BuiltInRegistries SOUND_EVENT'
-        // (Surfaced by retromod-test-mod's RegistryTests.)
-        transformer.registerFieldRedirect(
-            "net/minecraft/registry/Registries", "SOUND_EVENT",
-            "Lnet/minecraft/registry/Registry;",
-            "net/minecraft/core/registries/BuiltInRegistries", "SOUND_EVENT",
-            "Lnet/minecraft/core/Registry;"
-        );
-
-        // Defensive same-class descriptor override: even after the above
-        // redirect, some chain entries upstream still emit
-        // GETSTATIC BuiltInRegistries.SOUND_EVENT with the wrong
-        // descriptor (Lnet/minecraft/core/registries/BuiltInRegistries;
-        // — somewhere a class redirect of yarn `Registry` resolves to
-        // `BuiltInRegistries` instead of `core/Registry`). Rewrite the
-        // descriptor in place. FieldKey ignores the descriptor, so this
-        // matches whatever shape the bytecode arrives in.
-        transformer.registerFieldRedirect(
-            "net/minecraft/core/registries/BuiltInRegistries", "SOUND_EVENT",
-            null,
-            "net/minecraft/core/registries/BuiltInRegistries", "SOUND_EVENT",
-            "Lnet/minecraft/core/Registry;"
-        );
+        // History note: a previous attempt at fixing the SOUND_EVENT test in
+        // retromod-test-mod's RegistryTests added field-redirect overrides
+        // that forced the field's emitted descriptor to
+        // Lnet/minecraft/core/Registry; (the "correct" type). That broke
+        // launch with a VerifyError at TestRunner.<clinit> time:
+        //   Type 'net/minecraft/core/Registry' (current frame, stack[0]) is
+        //   not assignable to 'net/minecraft/core/registries/BuiltInRegistries'
+        // Root cause: a class redirect somewhere in the chain remaps
+        // `Registry` → `BuiltInRegistries`, which makes the chained .get()
+        // call's owner `BuiltInRegistries` too. Field type and call-owner
+        // were consistently wrong before — the verifier was happy and the
+        // JVM's runtime dispatch found Registry.get on the actual receiver.
+        // Fixing only the field type made them inconsistent; verifier rejected.
+        // The proper fix is to track down the bad `Registry` →
+        // `BuiltInRegistries` mapping in the intermediary→Mojang data and
+        // correct it there, so both field and method call land on `Registry`.
+        // Until then, we leave the field shape alone (consistently wrong but
+        // working) and let RegistryTests Test 14 fail.
 
         // TagKey.id() — in yarn 1.20.1 the accessor is `id()` returning
         // Identifier. In Mojang-mapped 26.1 TagKey is a record and its
@@ -453,6 +443,36 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()Lnet/minecraft/resources/Identifier;",
             "net/minecraft/tags/TagKey", "location",
             "()Lnet/minecraft/resources/ResourceLocation;"
+        );
+
+        // SoundEvent.getId() → getLocation()
+        //
+        // SoundEvent became a record in MC 1.21 and the method that
+        // returns the ResourceLocation/Identifier was renamed
+        // getId() → getLocation(). The intermediary method_14833 has
+        // no entry in intermediary-to-mojang.tsv (the method was
+        // removed in mojang naming, not just renamed), so we need an
+        // explicit redirect. Surfaced by retromod-test-mod's Test 14
+        // (Registries.SOUND_EVENT.get(SoundEvents.BLOCK_STONE_BREAK.getId()))
+        // with NoSuchMethodError on method_14833().
+        //
+        // Note: the source class here is the post-class-remap name
+        // (net/minecraft/sounds/SoundEvent, mojang-style). The intermediary
+        // method name method_14833 is what survives the remap because
+        // the intermediary→mojang map doesn't have an entry for it.
+        transformer.registerMethodRedirect(
+            "net/minecraft/sounds/SoundEvent", "method_14833",
+            "()Lnet/minecraft/resources/Identifier;",
+            "net/minecraft/sounds/SoundEvent", "getLocation",
+            "()Lnet/minecraft/resources/Identifier;"
+        );
+        // Also handle the post-yarn-name variant in case the bytecode
+        // arrives with the yarn-style getId() name instead.
+        transformer.registerMethodRedirect(
+            "net/minecraft/sounds/SoundEvent", "getId",
+            "()Lnet/minecraft/resources/Identifier;",
+            "net/minecraft/sounds/SoundEvent", "getLocation",
+            "()Lnet/minecraft/resources/Identifier;"
         );
 
         // TitleScreen.COPYRIGHT_TEXT became private in 26.1 — redirect to reflection bridge

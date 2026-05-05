@@ -6,11 +6,31 @@ package com.retromod.shim.forge;
 
 import com.retromod.core.RetroModTransformer;
 import com.retromod.core.VersionShim;
+import com.retromod.util.McReflect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Transformation shim for Forge 1.20.x → NeoForge 1.21.x migration.
+ *
+ * <p>The redirects this shim registers (Forge package names → NeoForge
+ * package names, including {@code @Mod} annotation) are <strong>only correct
+ * when the actual runtime is NeoForge</strong>. On a Forge runtime they're
+ * actively harmful: they rewrite a Forge mod's
+ * {@code @net.minecraftforge.fml.common.Mod} annotation to the NeoForge
+ * equivalent, after which Forge can't find {@code @Mod} on any class in
+ * the transformed mod and dies with:
+ *
+ * <pre>
+ *   The Mod File &lt;jar&gt; has mods that were not found
+ * </pre>
+ *
+ * <p>So {@link #registerRedirects(RetroModTransformer)} short-circuits unless
+ * we're running on NeoForge.
  */
 public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeNeoMig");
     
     @Override
     public String getShimName() {
@@ -34,6 +54,14 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
     
     @Override
     public void registerRedirects(RetroModTransformer transformer) {
+        // Cross-loader migration redirects ONLY make sense when the runtime
+        // is NeoForge. On a Forge runtime they break @Mod annotation lookup
+        // for every transformed mod (see class-level javadoc).
+        if (!McReflect.isNeoForge()) {
+            LOGGER.debug("Skipping Forge → NeoForge migration redirects (runtime is not NeoForge)");
+            return;
+        }
+
         // Core package renames
         transformer.registerClassRedirect(
             "net/minecraftforge/common/MinecraftForge",

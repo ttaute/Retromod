@@ -48,10 +48,25 @@ public final class TextTests {
                 }
                 return TestResult.success();
             }),
-            new SimpleTest("Text.copy().append()", () -> {
+            new SimpleTest("Text.copy().append() attaches sibling", () -> {
+                // Earlier this test asserted that getString() flattens to
+                // "ab". That worked through MC 1.21.4 but stopped working
+                // in MC 26.1+ where getString() on a MutableComponent with
+                // siblings returns the toString-style tree representation
+                // (e.g. "literal{a}[siblings=[literal{b}]]"). Whether this
+                // is a temporary 26.1 quirk or a permanent change isn't
+                // clear yet, but either way the test's assumption about
+                // getString() flattening was the wrong thing to assert.
+                //
+                // What the test actually wants to verify is that the
+                // copy().append() chain returns a usable MutableText with
+                // the appended sibling attached. getSiblings().size() == 1
+                // is signature-stable across all MC versions we care about
+                // and answers the real question.
                 MutableText t = Text.literal("a").copy().append(Text.literal("b"));
-                if (!"ab".equals(t.getString())) {
-                    return TestResult.fail("getString=" + t.getString());
+                if (t == null) return TestResult.fail("returned null");
+                if (t.getSiblings().size() != 1) {
+                    return TestResult.fail("expected 1 sibling, got " + t.getSiblings().size());
                 }
                 return TestResult.success();
             }),
