@@ -304,6 +304,12 @@ public class ResourcePackTransformer {
     }
     
     private void extractZip(Path zipPath, Path outputDir) throws IOException {
+        // Use bounded extraction (ZipSecurity.copyBounded) rather than
+        // Files.copy(is, …): resource packs are user-supplied ZIPs and an
+        // attacker-crafted entry can lie about its declared size to slip
+        // past any header-based check. We count actual decompressed bytes
+        // and enforce both per-entry and per-archive caps.
+        long totalSize = 0;
         try (ZipFile zip = new ZipFile(zipPath.toFile())) {
             var entries = zip.entries();
             while (entries.hasMoreElements()) {
@@ -313,8 +319,16 @@ public class ResourcePackTransformer {
                     Files.createDirectories(outPath);
                 } else {
                     Files.createDirectories(outPath.getParent());
+                    long writtenBytes;
                     try (InputStream is = zip.getInputStream(entry)) {
-                        Files.copy(is, outPath, StandardCopyOption.REPLACE_EXISTING);
+                        writtenBytes = ZipSecurity.copyBounded(
+                            is, outPath, ZipSecurity.DEFAULT_MAX_ENTRY_SIZE, entry.getName());
+                    }
+                    totalSize += writtenBytes;
+                    if (totalSize > ZipSecurity.DEFAULT_MAX_TOTAL_SIZE) {
+                        throw new IOException("Resource pack total extracted size exceeds limit ("
+                            + ZipSecurity.DEFAULT_MAX_TOTAL_SIZE + " bytes) — possible zip bomb "
+                            + "(decompressed " + totalSize + " bytes so far)");
                     }
                 }
             }

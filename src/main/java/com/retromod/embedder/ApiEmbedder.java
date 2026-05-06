@@ -5,6 +5,7 @@
 package com.retromod.embedder;
 
 import com.retromod.core.RetroModTransformer;
+import com.retromod.util.ZipSecurity;
 import org.objectweb.asm.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -218,36 +219,44 @@ public class ApiEmbedder {
              JarOutputStream newJar = new JarOutputStream(
                      new FileOutputStream(outputPath.toFile()))) {
             
-            // Copy all original entries
+            // Copy all original entries.
+            // Validate every entry name against zip-slip — input is an arbitrary
+            // user-supplied JAR, and writing entry.getName() verbatim into the
+            // output would propagate any traversal payload to downstream
+            // consumers (mod scanners, archive viewers).
             Enumeration<JarEntry> entries = originalJar.entries();
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
-                newJar.putNextEntry(new JarEntry(entry.getName()));
-                
+                newJar.putNextEntry(new JarEntry(ZipSecurity.safeEntryName(entry.getName())));
+
                 if (!entry.isDirectory()) {
                     try (InputStream is = originalJar.getInputStream(entry)) {
                         byte[] data = is.readAllBytes();
-                        
+
                         // If it's a class file, transform it to use embedded APIs
                         if (entry.getName().endsWith(".class")) {
                             data = transformToUseEmbedded(data, classesToEmbed.keySet());
                         }
-                        
+
                         newJar.write(data);
                     }
                 }
-                
+
                 newJar.closeEntry();
             }
-            
-            // Add embedded API classes under a special package
+
+            // Add embedded API classes under a special package.
+            // Keys are RetroMod-supplied; safeEntryName is defense-in-depth
+            // against a future refactor accidentally letting attacker-controlled
+            // strings reach this loop.
             for (Map.Entry<String, byte[]> embedded : classesToEmbed.entrySet()) {
-                String embeddedPath = "retromod_embedded/" + embedded.getKey() + ".class";
+                String embeddedPath = ZipSecurity.safeEntryName(
+                    "retromod_embedded/" + embedded.getKey() + ".class");
                 newJar.putNextEntry(new JarEntry(embeddedPath));
                 newJar.write(embedded.getValue());
                 newJar.closeEntry();
             }
-            
+
             // Add a marker file indicating this JAR has been processed
             newJar.putNextEntry(new JarEntry("retromod_embedded/RETROMOD_PROCESSED"));
             newJar.write(("Processed by RetroMod v1.0\n" +

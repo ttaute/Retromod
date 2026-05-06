@@ -131,4 +131,54 @@ public final class ZipSecurity {
                 + " — refusing to operate on symlinked directories");
         }
     }
+
+    /**
+     * Stream-copy from {@code is} to {@code target}, throwing if more than
+     * {@code maxBytes} are written. Returns the actual number of bytes written.
+     *
+     * <p>Use this instead of {@link Files#copy(InputStream, Path, java.nio.file.CopyOption...)}
+     * whenever extracting from an untrusted archive. The size cap is enforced
+     * against bytes <em>actually read</em>, not the size declared in the ZIP
+     * central directory — so an entry that lies about its size (a classic
+     * zip-bomb vector where the header reports a few KB but the deflate
+     * stream expands to gigabytes) is caught mid-stream rather than after
+     * the disk has filled up.
+     *
+     * @param is        the stream to read from (caller closes)
+     * @param target    the file to write to (created/truncated)
+     * @param maxBytes  the maximum bytes to write before throwing
+     * @param entryNameForError entry name to include in any error message
+     * @return the actual number of bytes written
+     * @throws IOException if the stream exceeds maxBytes, or any I/O error
+     */
+    public static long copyBounded(InputStream is, Path target, long maxBytes,
+                                    String entryNameForError) throws IOException {
+        long written = 0;
+        byte[] buf = new byte[8192];
+        try (var out = Files.newOutputStream(target,
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
+                java.nio.file.StandardOpenOption.WRITE)) {
+            int n;
+            while ((n = is.read(buf)) > 0) {
+                written += n;
+                if (written > maxBytes) {
+                    // Partial write is left behind; caller's enclosing
+                    // try-with-resources / temp-dir cleanup is expected to
+                    // remove it on the IOException path.
+                    throw new IOException("ZIP entry too large: " + entryNameForError
+                        + " (exceeded " + maxBytes + " bytes while reading, "
+                        + "possible zip bomb — declared size in central directory "
+                        + "may be falsified)");
+                }
+                out.write(buf, 0, n);
+            }
+        }
+        return written;
+    }
+
+    /** Convenience overload using {@link #DEFAULT_MAX_ENTRY_SIZE}. */
+    public static long copyBounded(InputStream is, Path target, String entryNameForError) throws IOException {
+        return copyBounded(is, target, DEFAULT_MAX_ENTRY_SIZE, entryNameForError);
+    }
 }

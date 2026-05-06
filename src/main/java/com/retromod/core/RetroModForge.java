@@ -106,18 +106,32 @@ public class RetroModForge {
             LOGGER.warn("Could not register SRG mappings", e);
         }
 
+        // AutoFix is OPT-IN on every loader. Mirror the security model from
+        // RetroMod.onInitialize (the Fabric entry point): logs/latest.log is
+        // writable by any other mod via SLF4J, so a crafted log line that
+        // matches AutoFixEngine's error-pattern regex could trick RetroMod
+        // into registering attacker-chosen method/field redirects on the
+        // shared transformer. The opt-in flag must gate BOTH the persisted
+        // fix loader AND the live log analyzer (further down) — turning
+        // AutoFix off needs to actually turn it all the way off.
+        // See the long-form security comment in RetroMod.java for details.
+        boolean autoFixEnabled = Boolean.parseBoolean(
+                System.getProperty("retromod.autoFix", "false"));
+
         // Load auto-fix fixes from previous launch.
         // These are redirects/patches discovered by analyzing crash logs from
         // a prior launch. Must be loaded AFTER shims (so shim redirects take
         // priority) but BEFORE transformation (so fixes are applied during transform).
-        try {
-            AutoFixEngine autoFixEngine = new AutoFixEngine();
-            int savedFixes = autoFixEngine.loadAndApplySavedFixes(transformer);
-            if (savedFixes > 0) {
-                LOGGER.info("AutoFix: loaded {} saved fix(es) from previous launch", savedFixes);
+        if (autoFixEnabled) {
+            try {
+                AutoFixEngine autoFixEngine = new AutoFixEngine();
+                int savedFixes = autoFixEngine.loadAndApplySavedFixes(transformer);
+                if (savedFixes > 0) {
+                    LOGGER.info("AutoFix: loaded {} saved fix(es) from previous launch", savedFixes);
+                }
+            } catch (Exception e) {
+                LOGGER.debug("Could not load auto-fix saved fixes: {}", e.getMessage());
             }
-        } catch (Exception e) {
-            LOGGER.debug("Could not load auto-fix saved fixes: {}", e.getMessage());
         }
 
         // Initialize fuzzy resolver — last-resort fallback for unresolved references.
@@ -159,22 +173,34 @@ public class RetroModForge {
         // Scans latest.log for known crash patterns (NoSuchMethodError, VerifyError,
         // mixin failures, etc.) and registers fixes so the NEXT retransformation
         // incorporates them.
-        try {
-            Path gameDir = Paths.get(".").toAbsolutePath().normalize();
-            Path logFile = gameDir.resolve("logs/latest.log");
-            if (Files.exists(logFile)) {
-                AutoFixEngine autoFixEngine = new AutoFixEngine();
-                java.util.List<AutoFixEngine.AppliedFix> fixes =
-                    autoFixEngine.analyzeAndFix(logFile, transformer);
-                if (!fixes.isEmpty()) {
-                    LOGGER.info("AutoFix: found and applied {} fix(es) from previous log", fixes.size());
-                    for (AutoFixEngine.AppliedFix fix : fixes) {
-                        LOGGER.info("  [{}] {} => {}", fix.errorType(), fix.description(), fix.action());
+        //
+        // SECURITY: gated on the same -Dretromod.autoFix flag set above.
+        // The risk model is the same as Fabric's: latest.log is attacker-writable
+        // through any mod's SLF4J logger, so off-by-default is the safer position.
+        if (autoFixEnabled) {
+            try {
+                Path gameDir = Paths.get(".").toAbsolutePath().normalize();
+                Path logFile = gameDir.resolve("logs/latest.log");
+                if (Files.exists(logFile)) {
+                    AutoFixEngine autoFixEngine = new AutoFixEngine();
+                    java.util.List<AutoFixEngine.AppliedFix> fixes =
+                        autoFixEngine.analyzeAndFix(logFile, transformer);
+                    if (!fixes.isEmpty()) {
+                        LOGGER.warn("AutoFix: registered {} redirect(s) from previous log (opt-in feature). "
+                                + "Review each one — log lines are an attacker-writable surface:",
+                                fixes.size());
+                        for (AutoFixEngine.AppliedFix fix : fixes) {
+                            LOGGER.warn("  AutoFix [{}] {} => {}",
+                                    fix.errorType(), fix.description(), fix.action());
+                        }
                     }
                 }
+            } catch (Exception e) {
+                LOGGER.warn("Could not run auto-fix analysis: {}", e.getMessage());
             }
-        } catch (Exception e) {
-            LOGGER.warn("Could not run auto-fix analysis: {}", e.getMessage());
+        } else {
+            LOGGER.debug("AutoFix disabled by default. Enable with -Dretromod.autoFix=true "
+                    + "(see security notes in RetroMod.java).");
         }
 
         LOGGER.info("RetroMod initialized!");

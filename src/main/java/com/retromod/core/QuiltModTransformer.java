@@ -86,7 +86,13 @@ public class QuiltModTransformer {
             // Read JAR, update quilt.mod.json, write back
             Path tempDir = Files.createTempDirectory("retromod-quilt-");
             
-            // Extract
+            // Extract.
+            // Use bounded extraction (ZipSecurity.copyBounded) rather than
+            // Files.copy(is, …): a Quilt mod JAR is user-supplied content,
+            // and an entry that lies about its declared size in the central
+            // directory could expand to gigabytes during Files.copy. Counting
+            // actual decompressed bytes catches that.
+            long quiltTotalSize = 0;
             try (JarFile jar = new JarFile(jarPath.toFile())) {
                 var entries = jar.entries();
                 while (entries.hasMoreElements()) {
@@ -96,8 +102,16 @@ public class QuiltModTransformer {
                         Files.createDirectories(outPath);
                     } else {
                         Files.createDirectories(outPath.getParent());
+                        long writtenBytes;
                         try (InputStream is = jar.getInputStream(entry)) {
-                            Files.copy(is, outPath, StandardCopyOption.REPLACE_EXISTING);
+                            writtenBytes = ZipSecurity.copyBounded(
+                                is, outPath, ZipSecurity.DEFAULT_MAX_ENTRY_SIZE, entry.getName());
+                        }
+                        quiltTotalSize += writtenBytes;
+                        if (quiltTotalSize > ZipSecurity.DEFAULT_MAX_TOTAL_SIZE) {
+                            throw new IOException("Quilt mod total extracted size exceeds limit ("
+                                + ZipSecurity.DEFAULT_MAX_TOTAL_SIZE + " bytes) — possible zip bomb "
+                                + "(decompressed " + quiltTotalSize + " bytes so far)");
                         }
                     }
                 }

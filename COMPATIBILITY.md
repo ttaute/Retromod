@@ -160,7 +160,29 @@ These mods were selected to run together (one per unique mod, picking the oldest
 
 ---
 
+## Mods That Can Never Be Translated
+
+The mods below sit in a category separate from "skipped this run." They can't be made to work by any automated bytecode translator — RetroMod or otherwise — and never will be. The full reasoning, the general rules behind the list, and the difference between "won't load" and "loads but features are broken" lives on its own page: **[Mods That Can't Be Translated](https://bownlux.github.io/RetroMod/incompatible-mods)**.
+
+The short version:
+
+| Mod | Why it's a hard "no" |
+|---|---|
+| **Create** | Ships Flywheel (custom GL-level rendering library) and rewrites internals between MC versions. |
+| **Applied Energistics 2 (AE2)** | Deep MC integration, custom networking protocol, channel/quantum systems re-architected each version. |
+| **Tinkers' Construct** | Tool/material system replaced at JSON-schema *and* bytecode level; schemas change too much to redirect. |
+| **IndustrialCraft / IC2** | Coremod heritage, energy network internals tied to MC's tick scheduler. |
+| **Thaumcraft** | Aspect/research data tied to MC internals; multiple full redesigns. |
+| **OptiFine** | Proprietary, closed-source, Forge coremod — license + technical reasons both block translation. |
+| **Sodium / Iris / Embeddium / Flywheel** | Replace MC's rendering pipeline; mixin injections target bytecode offsets that move between versions. They may *load* but full functionality is not realistic. |
+
+**The general rule.** Any mod that uses native code (`.so` / `.dll` / `.dylib` files), ships its own bytecode transformer (coremod), uses a custom or modified Mixin framework, replaces MC's rendering pipeline, or interacts with MC at byte-level GPU buffers will **never** be translatable by any automated tool. See the [Mods That Can't Be Translated](https://bownlux.github.io/RetroMod/incompatible-mods) page for the full breakdown.
+
+---
+
 ## Skipped Mods
+
+These were skipped in a specific test run for solvable reasons (missing dependencies, deprecated standalone versions, etc.), not because they're permanently incompatible. Different from the "never" list above.
 
 | Mod | Version | MC | Reason |
 |-----|---------|-----|--------|

@@ -51,6 +51,14 @@ RetroMod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 
 > Transformed mods have updated bytecode and version info, so they may still work without RetroMod. But if anything breaks, restore the originals.
 
+### Is there a `.exe` / `.app` / installer version?
+
+**No, and there's no plan to make one.** RetroMod is a Minecraft mod — it has to be loaded by Fabric, NeoForge, or Forge inside your Minecraft instance to do any work, the same way any other mod gets loaded. A standalone Windows executable or macOS app would be a wrapper around "drop this JAR in your `mods/` folder," which is the same thing as just dropping the JAR in your `mods/` folder.
+
+If what you actually want is to **transform mods outside of Minecraft** (batch-process a folder, prep mods for a server before deploying, see what shims would apply without launching the game), that's what the [CLI tool](#cli-tool) is for. It's a single `java -jar retromod-cli.jar <command>` invocation — no install step, just download the CLI JAR from the same release page as the mod and run it.
+
+If you'd rather not touch a command line at all, the in-game flow is the simpler path: drop the mod JAR in `mods/`, drop your old mods in `retromod-input/`, launch Minecraft once, restart when prompted, done.
+
 ---
 
 ## Key Features
@@ -557,7 +565,7 @@ public class Fabric_X_to_Y implements VersionShim {
 9. **Mod configs** generally work, but if a mod's config system changed between versions (e.g., old Forge `.cfg` → new `.toml`), you may need to delete the old config file and let the mod regenerate it
 10. **Complex mods may be skipped.** RetroMod analyzes each mod's complexity (reflection usage, ASM manipulation, coremods, NMS access, etc.) and warns you if a mod is "unlikely to work." If a mod was skipped, set `"force_translate_complex": true` in `config/retromod/config.json` to force it. The CLI's `aot` command also supports `--force` for this.
 11. **Resource/data pack conversion is alpha.** Simple packs work, but packs with custom shaders, model predicates, or heavy overlays may not convert correctly.
-12. **Very deep-integration mods will probably never work, even at v1.0 stable.** The clearest example is **Create**. Mods like Create touch thousands of MC API points across rendering, physics, networking, world generation, and animation, and they ship their own rendering libraries (Flywheel for Create) that include native shader and GL code. RetroMod rewrites Java bytecode — it cannot translate native code, and it cannot synthesize new mixin injection points where the underlying bytecode has been entirely rewritten. Other mods in this category: Applied Energistics 2, Tinkers' Construct, IndustrialCraft, and any mod that meaningfully replaces MC's rendering pipeline. For these you genuinely need the original mod author to ship a port — no automated bytecode tool can bridge that gap.
+12. **Very deep-integration mods will probably never work, even at v1.0 stable.** The clearest example is **Create**. Mods like Create touch thousands of MC API points across rendering, physics, networking, world generation, and animation, and they ship their own rendering libraries (Flywheel for Create) that include native shader and GL code. RetroMod rewrites Java bytecode — it cannot translate native code, and it cannot synthesize new mixin injection points where the underlying bytecode has been entirely rewritten. Other mods in this category: Applied Energistics 2, Tinkers' Construct, IndustrialCraft, OptiFine, and any mod that meaningfully replaces MC's rendering pipeline. For these you genuinely need the original mod author to ship a port — no automated bytecode tool can bridge that gap. The full breakdown — specific mods plus the general "if a mod uses X" rules — lives at [Mods That Can't Be Translated](https://bownlux.github.io/RetroMod/incompatible-mods).
 
 ## Contributing
 

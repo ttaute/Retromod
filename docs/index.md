@@ -65,6 +65,7 @@ The wiki is small but covers the things people ask about most.
 - [Authenticity]({{ '/authenticity' | relative_url }}) — how to tell an official build from a tampered one.
 - [Contributing]({{ '/contributing' | relative_url }}) — how to add shims and polyfills, and the mod-author opt-out mechanism.
 - [Adding SRG Mappings]({{ '/srg-mappings' | relative_url }}) — fill gaps in the SRG → Mojang dictionary so more old Forge mods load. Easy first PR.
+- [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}) — the realistic "no" list. Specific mods (Create, OptiFine, AE2, …) and the general rules that put them there.
 
 ## Why I made this
 

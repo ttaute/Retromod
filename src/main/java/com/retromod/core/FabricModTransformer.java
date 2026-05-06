@@ -498,7 +498,7 @@ public class FabricModTransformer {
                     Files.createDirectories(outputPath.getParent());
                     long writtenBytes;
                     try (InputStream is = jar.getInputStream(entry)) {
-                        writtenBytes = copyBounded(is, outputPath, MAX_ENTRY_SIZE, entry.getName());
+                        writtenBytes = ZipSecurity.copyBounded(is, outputPath, MAX_ENTRY_SIZE, entry.getName());
                     }
                     totalSize += writtenBytes;
                     if (totalSize > MAX_TOTAL_SIZE) {
@@ -511,37 +511,10 @@ public class FabricModTransformer {
         }
     }
 
-    /**
-     * Stream-copy from {@code is} to {@code target}, throwing if more than
-     * {@code maxBytes} are written. Returns the actual number of bytes written.
-     * Used instead of {@link Files#copy} so the size cap catches attackers who
-     * lie about entry size in the ZIP central directory.
-     */
-    private static long copyBounded(InputStream is, Path target, long maxBytes,
-                                     String entryNameForError) throws IOException {
-        long written = 0;
-        byte[] buf = new byte[8192];
-        try (var out = java.nio.file.Files.newOutputStream(target,
-                java.nio.file.StandardOpenOption.CREATE,
-                java.nio.file.StandardOpenOption.TRUNCATE_EXISTING,
-                java.nio.file.StandardOpenOption.WRITE)) {
-            int n;
-            while ((n = is.read(buf)) > 0) {
-                written += n;
-                if (written > maxBytes) {
-                    // Partial write is cleaned up by the caller's extract loop
-                    // failing out of its try-with-resources.
-                    throw new IOException("ZIP entry too large: " + entryNameForError
-                        + " (exceeded " + maxBytes + " bytes while reading, "
-                        + "possible zip bomb — declared size in central directory "
-                        + "may be falsified)");
-                }
-                out.write(buf, 0, n);
-            }
-        }
-        return written;
-    }
-    
+    // copyBounded was extracted to ZipSecurity.copyBounded so other JAR/ZIP
+    // extraction paths (JIJ, resource packs, data packs, Quilt, …) can use the
+    // same defense. Single source of truth for the zip-bomb mitigation.
+
     /**
      * Transform all class files in directory.
      * Handles both regular classes and Mixin classes specially.
@@ -1954,7 +1927,14 @@ public class FabricModTransformer {
         try {
             Path tempDir = Files.createTempDirectory("retromod-jij-");
             try {
-                // Extract nested JAR
+                // Extract nested JAR.
+                // Use the same bounded-extraction pattern as the top-level
+                // extractJar above — without it, a JIJ entry that lies about
+                // its size in the central directory can stream gigabytes onto
+                // disk before the existing safeResolve check has any way to
+                // intervene. We accumulate the actual decompressed bytes and
+                // enforce both the per-entry and per-archive caps.
+                long jijTotalSize = 0;
                 try (JarFile jf = new JarFile(jijJar.toFile())) {
                     var entries = jf.entries();
                     while (entries.hasMoreElements()) {
@@ -1964,8 +1944,17 @@ public class FabricModTransformer {
                             Files.createDirectories(target);
                         } else {
                             Files.createDirectories(target.getParent());
+                            long writtenBytes;
                             try (InputStream is = jf.getInputStream(entry)) {
-                                Files.copy(is, target, StandardCopyOption.REPLACE_EXISTING);
+                                writtenBytes = ZipSecurity.copyBounded(
+                                    is, target, MAX_ENTRY_SIZE, entry.getName());
+                            }
+                            jijTotalSize += writtenBytes;
+                            if (jijTotalSize > MAX_TOTAL_SIZE) {
+                                throw new IOException("JIJ JAR total extracted size exceeds limit ("
+                                    + MAX_TOTAL_SIZE + " bytes) — possible zip bomb in nested "
+                                    + "JAR " + name + " (decompressed " + jijTotalSize
+                                    + " bytes so far)");
                             }
                         }
                     }

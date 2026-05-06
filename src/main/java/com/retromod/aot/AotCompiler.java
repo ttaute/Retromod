@@ -8,6 +8,7 @@ import com.retromod.core.*;
 import com.retromod.embedder.*;
 import com.retromod.mixin.MixinCompatibilityTransformer;
 import com.retromod.shim.ShimRegistry;
+import com.retromod.util.ZipSecurity;
 import org.objectweb.asm.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -324,9 +325,16 @@ public class AotCompiler {
             manifest.write(jos);
             jos.closeEntry();
             
-            // Write transformed classes
+            // Write transformed classes.
+            // Validate the entry name: keys come from input-JAR entry.getName()
+            // so a malicious mod could ship a class entry whose name traverses
+            // out of the archive (e.g. "../../etc/foo.class"). RetroMod itself
+            // never extracts the OUTPUT JAR, but downstream tooling (Forge's
+            // mod scanner, dev IDE archive viewers, third-party unzippers)
+            // might — and would inherit a zip-slip vuln from us. Same defense
+            // the CLI's writeMod path uses.
             for (Map.Entry<String, byte[]> entry : transformedClasses.entrySet()) {
-                jos.putNextEntry(new JarEntry(entry.getKey()));
+                jos.putNextEntry(new JarEntry(ZipSecurity.safeEntryName(entry.getKey())));
                 jos.write(entry.getValue());
                 jos.closeEntry();
             }
@@ -364,14 +372,20 @@ public class AotCompiler {
                     }
                 }
 
-                jos.putNextEntry(new JarEntry(entry.getKey()));
+                // Same input-derived-name defense as the transformedClasses
+                // loop above — see comment there.
+                jos.putNextEntry(new JarEntry(ZipSecurity.safeEntryName(entry.getKey())));
                 jos.write(data);
                 jos.closeEntry();
             }
-            
-            // Write embedded shims
+
+            // Write embedded shims. Keys come from RetroMod's own shim
+            // collection (collectEmbeddedShims), not user input — but
+            // safeEntryName is cheap and defends against a future refactor
+            // accidentally letting an attacker-controlled string land here.
             for (Map.Entry<String, byte[]> entry : embeddedShims.entrySet()) {
-                jos.putNextEntry(new JarEntry("retromod_embedded/" + entry.getKey() + ".class"));
+                jos.putNextEntry(new JarEntry(
+                    ZipSecurity.safeEntryName("retromod_embedded/" + entry.getKey() + ".class")));
                 jos.write(entry.getValue());
                 jos.closeEntry();
             }

@@ -1,0 +1,140 @@
+name: Release latest main build
+
+# Publishes a rolling "latest" pre-release on every successful CI run against
+# main. The release tag (`latest`) is force-updated each time, so users always
+# get the most recent build by downloading from the same URL.
+#
+# Versioned releases (e.g. v1.0.0-beta.1) are still cut by hand for milestone
+# tags — this workflow does NOT touch those. It only manages the rolling
+# release.
+#
+# Why workflow_run instead of `on: push`?
+# ---------------------------------------
+# Gating on CI completion means we never ship a build whose tests failed.
+# The downside is a small UX wart: the Release workflow shows "skipped" in
+# the Actions tab on every CI failure, which can look alarming. That's the
+# trade — quality > tidy logs.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  # Needed to create/update the release and force-update the `latest` tag.
+  contents: write
+
+jobs:
+  release:
+    # Only run when CI passed. workflow_run fires on every CI completion,
+    # success or fail, so we have to filter ourselves.
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the commit CI ran against
+        uses: actions/checkout@v4
+        with:
+          # workflow_run runs in the context of the default branch by default,
+          # not the triggering commit. Explicitly check out the SHA that CI
+          # validated so we package exactly what was tested — not whatever
+          # main happens to point at right now.
+          ref: ${{ github.event.workflow_run.head_sha }}
+          # Need full history for the "commits since last release" body.
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+          check-latest: true
+
+      - name: Build the JAR
+        run: mvn package -q -DskipTests -Dexec.skip=true
+
+      - name: Resolve version metadata
+        id: ver
+        run: |
+          POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          MC_VERSION=26.1.2
+          ARTIFACT_NAME="retromod-${POM_VERSION}+${MC_VERSION}.jar"
+
+          # Copy with the deployed naming convention so the file the user
+          # downloads is named the same way they'd see it in their mods folder.
+          cp "target/retromod-${POM_VERSION}.jar" "${ARTIFACT_NAME}"
+
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          BUILT_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Number of commits since this rolling release was last cut. The
+          # `latest` tag may not exist on first run — fall back to "?".
+          if git rev-parse --verify --quiet refs/tags/latest >/dev/null; then
+            COMMITS_SINCE=$(git rev-list --count latest..HEAD)
+          else
+            COMMITS_SINCE="?"
+          fi
+
+          {
+            echo "artifact_name=${ARTIFACT_NAME}"
+            echo "pom_version=${POM_VERSION}"
+            echo "mc_version=${MC_VERSION}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "built_at=${BUILT_AT}"
+            echo "commits_since=${COMMITS_SINCE}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Compute SHA-256 for the artifact
+        id: hash
+        run: |
+          SHA256=$(sha256sum "${{ steps.ver.outputs.artifact_name }}" | awk '{print $1}')
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          # The action force-updates this tag to the current SHA on each run.
+          target_commitish: ${{ github.event.workflow_run.head_sha }}
+
+          name: "Latest main build · ${{ steps.ver.outputs.pom_version }} for MC ${{ steps.ver.outputs.mc_version }}"
+
+          # `prerelease: true` keeps this from being shown as the headline
+          # "Latest release" on the repo home page — that slot is reserved
+          # for hand-cut milestone releases (v1.0.0-beta.1, future v1.0.0,
+          # etc.). `make_latest: false` enforces the same.
+          prerelease: true
+          make_latest: false
+
+          # Replace the previous build's asset rather than appending.
+          files: ${{ steps.ver.outputs.artifact_name }}
+
+          body: |
+            **Rolling pre-release** — auto-published on every successful CI run against `main`.
+            Always points at the most recent green build. Versioned milestones (v1.0.0-beta.1, future v1.0.0…) are cut separately.
+
+            ### Build info
+            | Field | Value |
+            |---|---|
+            | Source commit | [`${{ steps.ver.outputs.short_sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha }}) |
+            | Built at | `${{ steps.ver.outputs.built_at }}` |
+            | Commits since previous rolling release | `${{ steps.ver.outputs.commits_since }}` |
+            | Java | 25 (Temurin) |
+            | Target Minecraft | ${{ steps.ver.outputs.mc_version }} |
+
+            ### Install
+            1. Download **`${{ steps.ver.outputs.artifact_name }}`** below.
+            2. Drop it into your loader's `mods/` folder (Fabric, NeoForge, or Forge — same JAR works for all three).
+            3. Launch once. RetroMod creates `retromod-input/` next to `mods/`. Drop old mods there for transformation.
+
+            See the [installation docs](https://bownlux.github.io/RetroMod/installation) for per-loader specifics.
+
+            ### Verify the download
+            ```
+            SHA-256: ${{ steps.hash.outputs.sha256 }}
+            ```
+
+            ### Heads up
+            This is a **beta** rolling build. It passes the test suite but otherwise has had less manual exercise than the milestone releases. If something breaks, please attach `latest.log` and the failing mod JAR to a [GitHub issue](https://github.com/${{ github.repository }}/issues).
