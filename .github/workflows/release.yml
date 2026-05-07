@@ -14,6 +14,24 @@ name: Release latest main build
 # The downside is a small UX wart: the Release workflow shows "skipped" in
 # the Actions tab on every CI failure, which can look alarming. That's the
 # trade — quality > tidy logs.
+#
+# Why Fabric only?
+# ----------------
+# Maven's shaded JAR (target/retromod-<ver>.jar) is a multi-loader fat JAR
+# that contains fabric.mod.json AND META-INF/mods.toml AND
+# META-INF/neoforge.mods.toml all at once. Loaders are partly tolerant of
+# the extra metadata files, but distributing this fat JAR is the wrong
+# default — under some loader/MC combinations it gets rejected for
+# "looks like a different loader's mod" reasons.
+#
+# build-all.sh is the ground-truth distribution flow: it extracts the
+# shaded JAR, strips the OTHER loaders' metadata, rewrites the kept
+# metadata for a specific MC version, and emits one clean per-loader JAR
+# into dist/<Loader>/<MC>/. We run that here and pick the Fabric output
+# because Fabric is RetroMod's primary, best-tested loader (see the
+# README's loader matrix). Forge and NeoForge users currently get their
+# JARs from milestone releases or by running build-all.sh themselves;
+# rolling auto-publish for those is a future improvement.
 
 on:
   workflow_run:
@@ -52,19 +70,40 @@ jobs:
           cache: 'maven'
           check-latest: true
 
-      - name: Build the JAR
+      - name: Build the shaded base JAR
+        # build-all.sh expects target/retromod-<ver>.jar to already exist
+        # because we pass --skip-build. Doing the Maven step ourselves (with
+        # the cached deps) is cheaper than letting the script invoke another
+        # mvn run inside it.
         run: mvn package -q -DskipTests -Dexec.skip=true
 
-      - name: Resolve version metadata
+      - name: Produce per-loader, per-MC JARs via build-all.sh
+        # build-all.sh strips fabric.mod.json/mods.toml/neoforge.mods.toml
+        # down to one per output JAR. The Fabric/26.1.2 directory is the
+        # one we publish.
+        run: bash build-all.sh --skip-build
+
+      - name: Resolve version metadata and stage Fabric artifact
         id: ver
         run: |
           POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           MC_VERSION=26.1.2
-          ARTIFACT_NAME="retromod-${POM_VERSION}+${MC_VERSION}.jar"
 
-          # Copy with the deployed naming convention so the file the user
-          # downloads is named the same way they'd see it in their mods folder.
-          cp "target/retromod-${POM_VERSION}.jar" "${ARTIFACT_NAME}"
+          # build-all.sh emits dist/Fabric/<MC>/retromod-<ver>+<MC>.jar.
+          # We rename to make the loader explicit in the downloaded filename
+          # — the dist directory disambiguates loader, but a flat GitHub
+          # release asset can't, so the suffix carries that information.
+          DIST_JAR="dist/Fabric/${MC_VERSION}/retromod-${POM_VERSION}+${MC_VERSION}.jar"
+          ARTIFACT_NAME="retromod-${POM_VERSION}+${MC_VERSION}-fabric.jar"
+
+          if [ ! -f "$DIST_JAR" ]; then
+            echo "ERROR: expected Fabric build at $DIST_JAR but it doesn't exist."
+            echo "build-all.sh output:"
+            find dist -name '*.jar' | head -20
+            exit 1
+          fi
+
+          cp "$DIST_JAR" "$ARTIFACT_NAME"
 
           SHORT_SHA=$(git rev-parse --short HEAD)
           BUILT_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -99,7 +138,7 @@ jobs:
           # The action force-updates this tag to the current SHA on each run.
           target_commitish: ${{ github.event.workflow_run.head_sha }}
 
-          name: "Latest main build · ${{ steps.ver.outputs.pom_version }} for MC ${{ steps.ver.outputs.mc_version }}"
+          name: "Latest main build · Fabric · ${{ steps.ver.outputs.pom_version }} for MC ${{ steps.ver.outputs.mc_version }}"
 
           # `prerelease: true` keeps this from being shown as the headline
           # "Latest release" on the repo home page — that slot is reserved
@@ -112,24 +151,29 @@ jobs:
           files: ${{ steps.ver.outputs.artifact_name }}
 
           body: |
-            **Rolling pre-release** — auto-published on every successful CI run against `main`.
-            Always points at the most recent green build. Versioned milestones (v1.0.0-beta.1, future v1.0.0…) are cut separately.
+            **Rolling pre-release · Fabric build for MC ${{ steps.ver.outputs.mc_version }}** — auto-published on every successful CI run against `main`. Always points at the most recent green build. Versioned milestones (v1.0.0-beta.1, future v1.0.0…) are cut separately.
+
+            ### What this is
+            This is the **Fabric variant** of RetroMod, built for **MC ${{ steps.ver.outputs.mc_version }}**. Fabric is RetroMod's primary loader — see the [README](https://github.com/${{ github.repository }}#retromod) for why. The fat shaded JAR that contains all three loaders' metadata is intentionally not published here; loaders disagree about whether a multi-loader JAR is acceptable, and shipping a single-loader JAR avoids the ambiguity entirely.
+
+            **Forge and NeoForge users:** the rolling channel doesn't auto-publish your variants yet. For now, grab the per-loader JARs from a tagged milestone release, or build them yourself: clone the repo and run `bash build-all.sh` — that produces `dist/Forge/<MC>/` and `dist/NeoForge/<MC>/` artifacts the same way this workflow produces the Fabric one.
 
             ### Build info
             | Field | Value |
             |---|---|
+            | Loader | Fabric |
+            | Target Minecraft | ${{ steps.ver.outputs.mc_version }} |
             | Source commit | [`${{ steps.ver.outputs.short_sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.event.workflow_run.head_sha }}) |
             | Built at | `${{ steps.ver.outputs.built_at }}` |
             | Commits since previous rolling release | `${{ steps.ver.outputs.commits_since }}` |
             | Java | 25 (Temurin) |
-            | Target Minecraft | ${{ steps.ver.outputs.mc_version }} |
 
             ### Install
             1. Download **`${{ steps.ver.outputs.artifact_name }}`** below.
-            2. Drop it into your loader's `mods/` folder (Fabric, NeoForge, or Forge — same JAR works for all three).
-            3. Launch once. RetroMod creates `retromod-input/` next to `mods/`. Drop old mods there for transformation.
+            2. Drop it into your Fabric instance's `mods/` folder.
+            3. Launch once. RetroMod creates `retromod-input/` next to `mods/`. Drop old mods there for transformation, then restart when prompted.
 
-            See the [installation docs](https://bownlux.github.io/RetroMod/installation) for per-loader specifics.
+            See the [installation docs](https://bownlux.github.io/RetroMod/installation) for the full per-loader walkthrough.
 
             ### Verify the download
             ```
