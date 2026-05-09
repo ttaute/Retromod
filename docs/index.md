@@ -42,6 +42,7 @@ Honest list, because the README features section can't be the whole story:
 - **Mods that lock to specific cross-version library versions** (Cardinal Components 5.x package vs 6.x package, for example) can hit conflicts that no general-purpose shim resolves. The fix is usually to install the right library version standalone.
 - **Constructor signature changes** in MC's API are sometimes silently broken — RetroMod's redirect table doesn't yet cover every constructor that's gained or lost a parameter between versions. Working through these as the gap report surfaces them.
 - **Mods that authors have explicitly opted out of transformation** are skipped on purpose. See the [contributing guide]({{ '/contributing' | relative_url }}) for how that works.
+- **Server software like Paper, Spigot, Bukkit, and Purpur** isn't supported. Those platforms run *plugins*, not mods, and the plugin APIs are a different shape from what RetroMod is built around. Plugin support is **planned for the future** but development hasn't started yet — see the [FAQ]({{ '/faq#does-it-work-with-server-software-like-paper--spigot--bukkit--purpur' | relative_url }}) for details.
 
 If you're using mostly content mods, QoL mods, equipment-slot mods, recipe viewers, and the like — most of those translate cleanly. If you're trying to get a heavily-modded shaderpack-and-50-mods setup running with Create at its core, expect rough edges and probably broken renderers.
 

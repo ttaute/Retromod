@@ -36,6 +36,14 @@ One nicety: **if a mod is server-only, clients connecting to the server don't ne
 
 Mods that have both client and server components need RetroMod on both sides.
 
+## Does it work with server software like Paper / Spigot / Bukkit / Purpur?
+
+**Not yet.** RetroMod targets the *mod loaders* — Fabric, NeoForge, and Forge. Server software like Paper, Spigot, Bukkit, and Purpur runs **plugins**, not mods, and the plugin format and APIs (Bukkit API, NMS) are a different shape from the mod APIs RetroMod is built around. Dropping RetroMod into a Paper server's `plugins/` folder won't do anything.
+
+**Plugin support is planned for the future**, but development on it has not started yet. The current focus is closing out beta on the mod-loader side first; once that's stable, plugin support is the next major project. There's no committed timeline yet.
+
+If you run a Paper/Spigot/Bukkit/Purpur server and want this, opening a [GitHub issue](https://github.com/Bownlux/RetroMod/issues) describing your specific use case is the most useful way to weigh in on the priority.
+
 ## Does it work with modpacks?
 
 Yes, and modpacks are actually one of the best use cases. Drop RetroMod into the pack's `mods/` folder (or configure your pack launcher to include it), put your old mods in `retromod-input/`, and on first launch everything gets transformed and moved to `mods/`.
