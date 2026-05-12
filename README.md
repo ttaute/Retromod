@@ -94,13 +94,7 @@ If you'd rather not touch a command line at all, the in-game flow is the simpler
 - **Per-entry read caps** — no unbounded `readAllBytes()` on mod JAR contents
 
 ### Network policy
-RetroMod's mod runtime **never initiates a network connection without explicit user consent.** Concretely:
-
-- **No file downloads.** The previous auto-download of API archives from Maven has been removed from the mod runtime. The CLI's `archive download` and `archive preload` commands remain available, but each prompts interactively before any HTTP request is made (or accepts a `--yes` flag for scripted use).
-- **Modrinth API lookups are off by default.** The "is there a native version available?" feature that queries Modrinth's public API was previously called automatically during mod scans. It's now gated on the `check_for_native_versions` config flag (default `false`). With the flag off — which is the shipping default — `ModrinthVersionChecker` short-circuits to `notFound()` immediately without any HTTP traffic. Flip the flag in `config/retromod/config.json` (or set `-Dretromod.checkForNativeVersions=true`) if you want the feature.
-- **No telemetry, no update checks, no analytics.** RetroMod does not phone home, does not check for its own updates, does not report errors anywhere on the network.
-
-The principle: a tool that rewrites your mod JARs shouldn't be quietly making outbound network calls in the background. If RetroMod ever reaches the internet, it's because you asked it to — explicitly, in the current run, with full visibility into what it's about to fetch. With every default flag in place, RetroMod is completely offline and works fine on an air-gapped machine.
+- **Offline by default — for your safety.** RetroMod never reaches the internet on its own. No silent downloads, no telemetry, no update checks. If RetroMod ever talks to the network, it's because you turned the feature on or you ran a CLI command that prompted you first. See the [FAQ](https://bownlux.github.io/RetroMod/faq#does-retromod-need-internet-access) for the specifics.
 
 ### Mod-loader + API coverage
 - **Multi-loader** — Fabric, NeoForge, Forge (including experimental Forge → NeoForge migration for simple mods)

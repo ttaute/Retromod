@@ -18,6 +18,17 @@ Yes, within the usual caveats for running any third-party mod:
 
 The one meaningful caveat: RetroMod *does* modify other mods' bytecode. If one of those mods does something shady, RetroMod can't know — it just rewrites the names. Install mods from sources you trust.
 
+## Does RetroMod need internet access?
+
+No — and it won't reach for it on its own. RetroMod is **offline by default** as a safety choice. With factory settings, the mod runtime makes zero outbound network calls: no silent downloads, no telemetry, no update checks, no analytics, no error reporting. It works fine on an air-gapped machine.
+
+There are two optional features that *can* use the network if you turn them on:
+
+- **Modrinth native-version lookup** — checks whether a mod you're about to transform already has a version that supports your MC natively, so you can grab the official build instead. Off by default; enable by setting `check_for_native_versions: true` in `config/retromod/config.json`.
+- **CLI API-archive download** — `retromod archive download <loader> <mc-version>` fetches an old Fabric / NeoForge / Forge API JAR from Maven so the embedder can pull classes out of it. Interactive — prompts you with the source URL before any HTTP request and won't proceed without a `y`. Skip the prompt for scripts with `--yes`.
+
+That's the entire surface. Anything else you see in the network panel during a RetroMod-using session is coming from Minecraft itself, your mod loader, or one of the mods being transformed — not from RetroMod.
+
 ## Why MIT license?
 
 A few reasons:
