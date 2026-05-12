@@ -364,26 +364,27 @@ public class ModrinthVersionChecker {
     }
     
     /**
-     * Open URL in default browser.
+     * Open URL in default browser. If the JVM's Desktop API isn't
+     * available, fall through to a copy-the-URL dialog rather than
+     * shelling out to {@code xdg-open} — the dialog is just as useful
+     * to the user and keeps the mod free of {@code Runtime.exec} calls,
+     * which makes its behavior easier to audit.
      */
     private static void openBrowser(String url) {
         try {
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(URI.create(url));
-            } else {
-                // Try xdg-open on Linux
-                Runtime.getRuntime().exec(new String[]{"xdg-open", url});
+                return;
             }
         } catch (Exception e) {
             LOGGER.warn("Could not open browser: {}", e.getMessage());
-            // Show URL in dialog
-            JOptionPane.showMessageDialog(
-                null,
-                "Please open this URL in your browser:\n\n" + url,
-                "Open Modrinth",
-                JOptionPane.INFORMATION_MESSAGE
-            );
         }
+        JOptionPane.showMessageDialog(
+            null,
+            "Please open this URL in your browser:\n\n" + url,
+            "Open Modrinth",
+            JOptionPane.INFORMATION_MESSAGE
+        );
     }
     
     /**

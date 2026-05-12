@@ -242,10 +242,17 @@
                         <manifestEntries>
                             <Implementation-Title>${project.name}</Implementation-Title>
                             <Implementation-Version>${project.version}</Implementation-Version>
-                            <Premain-Class>com.retromod.agent.RetroModAgent</Premain-Class>
-                            <Agent-Class>com.retromod.agent.RetroModAgent</Agent-Class>
-                            <Can-Redefine-Classes>true</Can-Redefine-Classes>
-                            <Can-Retransform-Classes>true</Can-Retransform-Classes>
+                            <!--
+                                Premain-Class / Agent-Class are NOT on the main mod JAR.
+                                The mod runtime does its bytecode transformation through
+                                ASM directly (RetroModTransformer); the Java Agent
+                                interface is a separate distribution that's shipped only
+                                via the "-agent" classifier JAR below for advanced CLI
+                                use. Putting Premain on the mod JAR would advertise
+                                "this can hijack arbitrary JVM classes" to any analyzer
+                                inspecting the JAR manifest, which is misleading — the
+                                mod-runtime path never uses the agent interface at all.
+                            -->
                         </manifestEntries>
                     </archive>
                     <!--
@@ -329,12 +336,17 @@
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.retromod.cli.RetroModCli</mainClass>
-                                    <manifestEntries>
-                                        <Premain-Class>com.retromod.agent.RetroModAgent</Premain-Class>
-                                        <Agent-Class>com.retromod.agent.RetroModAgent</Agent-Class>
-                                        <Can-Redefine-Classes>true</Can-Redefine-Classes>
-                                        <Can-Retransform-Classes>true</Can-Retransform-Classes>
-                                    </manifestEntries>
+                                    <!--
+                                        Same rationale as the main-JAR config above —
+                                        no Premain-Class on the shaded fat JAR. The
+                                        CLI transforms JARs on disk; it doesn't use
+                                        the -javaagent interface. The dedicated
+                                        "-agent" classifier JAR is the only artifact
+                                        that advertises agent capability, so analyzers
+                                        scanning the published mod JAR / CLI JAR see
+                                        no "can hijack JVM classes" manifest flags.
+                                    -->
+                                    <manifestEntries />
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>

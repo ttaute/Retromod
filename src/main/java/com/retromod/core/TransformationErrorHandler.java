@@ -148,24 +148,29 @@ public class TransformationErrorHandler {
     }
     
     /**
-     * Open GitHub Issues in browser.
+     * Open GitHub Issues in browser. If the JVM's Desktop API isn't
+     * available (rare on a system that's running Minecraft with a window),
+     * fall through to a dialog that shows the URL for the user to copy.
+     * We intentionally don't shell out to {@code xdg-open} as a fallback —
+     * the user-facing dialog is a better UX than a process exec, and
+     * avoiding {@code Runtime.exec} entirely keeps the mod's behavior
+     * easier to audit.
      */
     private static void openGitHub() {
         try {
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(URI.create(GITHUB_ISSUES_URL));
-            } else {
-                Runtime.getRuntime().exec(new String[]{"xdg-open", GITHUB_ISSUES_URL});
+                return;
             }
         } catch (Exception e) {
             LOGGER.warn("Could not open browser: {}", e.getMessage());
-            JOptionPane.showMessageDialog(
-                null,
-                "Please visit: " + GITHUB_ISSUES_URL,
-                "Open GitHub Issues",
-                JOptionPane.INFORMATION_MESSAGE
-            );
         }
+        JOptionPane.showMessageDialog(
+            null,
+            "Please visit: " + GITHUB_ISSUES_URL,
+            "Open GitHub Issues",
+            JOptionPane.INFORMATION_MESSAGE
+        );
     }
     
     /**

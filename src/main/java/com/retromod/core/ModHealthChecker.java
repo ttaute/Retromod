@@ -349,7 +349,11 @@ public class ModHealthChecker {
     }
     
     /**
-     * Open GitHub Issues in browser.
+     * Open GitHub Issues in browser. No {@code Runtime.exec} fallback —
+     * if Desktop isn't supported we just log and let the caller surface
+     * the URL however it wants. Same reasoning as the other browser-open
+     * helpers in the codebase: keep the mod free of process-spawning so
+     * its behavior is easier to audit.
      */
     private static void openGitHub() {
         try {
@@ -357,7 +361,7 @@ public class ModHealthChecker {
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(java.net.URI.create(url));
             } else {
-                Runtime.getRuntime().exec(new String[]{"xdg-open", url});
+                LOGGER.warn("Desktop API not available — please visit {} manually", url);
             }
         } catch (Exception e) {
             LOGGER.warn("Could not open browser");

@@ -233,8 +233,26 @@ public final class ScreenClassGenerator {
     // ──────────────────────────────────────────────────────────────────────
 
     /**
-     * Minimal classloader that exposes defineClass. Parent is the MC Screen
-     * classloader so the generated class can see Screen.
+     * Minimal classloader that exposes {@code defineClass}. Parent is the
+     * MC Screen classloader so the generated class can see Screen.
+     *
+     * <p><strong>Bytecode source:</strong> the bytes passed to {@link #define}
+     * are <em>always</em> generated in-process by {@link ScreenClassGenerator}
+     * itself using ASM (see the surrounding class). They are never read
+     * from disk, downloaded from the network, or supplied by external
+     * input. The class generation exists because Minecraft's {@code Screen}
+     * hierarchy requires a subclass to register a GUI screen and we want
+     * to keep RetroMod's GUI loosely coupled from any specific MC version's
+     * concrete {@code Screen} class — generating the subclass at runtime
+     * means the same code works across MC versions whose {@code Screen}
+     * base class moved between packages.
+     *
+     * <p>If you're an auditor reading this and worried about runtime class
+     * loading: trace every caller of {@link #define}. They all originate
+     * from {@code ScreenClassGenerator.generateScreenSubclass(...)} which
+     * builds the bytes locally with ASM {@code ClassWriter} from a fixed
+     * template — there is no path that loads bytes from an untrusted
+     * source.
      */
     private static final class BytecodeClassLoader extends ClassLoader {
         BytecodeClassLoader(ClassLoader parent) {

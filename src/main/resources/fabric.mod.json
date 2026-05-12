@@ -3,7 +3,7 @@
   "id": "retromod",
   "version": "1.0.0-beta.1",
   "name": "RetroMod",
-  "description": "Made by the Developers of revivalsmp.net\n\nBackwards compatibility layer for Minecraft mods - run older mods on newer versions. Works on clients AND servers!\n\nMade by the Developers of revivalsmp.net",
+  "description": "Backwards compatibility layer for Minecraft mods - run older mods on newer versions. Works on clients AND servers. Made by the Developers of revivalsmp.net.",
   "authors": ["Bownlux"],
   "contact": {
     "homepage": "https://modrinth.com/mod/retromod",
@@ -33,10 +33,6 @@
         "modmenu.discord": "https://github.com/Bownlux/RetroMod",
         "modmenu.issues": "https://github.com/Bownlux/RetroMod/issues"
       }
-    },
-    "retromod": {
-      "version": "1.0.0-beta.1",
-      "api_archive_url": "https://retromod.example.com/archives/"
     }
   }
 }

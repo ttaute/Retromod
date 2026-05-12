@@ -8,8 +8,6 @@ modId = "retromod"
 version = "${version}"
 displayName = "RetroMod"
 description = '''
-Made by the Developers of revivalsmp.net
-
 Backwards compatibility layer for Minecraft mods.
 Run older mods on newer Minecraft versions automatically!
 
@@ -20,7 +18,7 @@ Supports:
 
 Just drop your old mods in - RetroMod transforms them automatically!
 
-Made by the Developers of revivalsmp.net
+Made by the Developers of revivalsmp.net.
 '''
 authors = "Bownlux"
 logoFile = "assets/retromod/icon.png"

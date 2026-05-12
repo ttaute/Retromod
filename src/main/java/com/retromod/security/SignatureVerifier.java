@@ -233,78 +233,22 @@ public final class SignatureVerifier {
     // ──────────────────────────────────────────────────────────────────────
 
     // ──────────────────────────────────────────────────────────────────────
-    // FORK NOTICE — AUTOMATIC, tamper-resistant (best-effort)
+    // FORK NOTICE
     // ──────────────────────────────────────────────────────────────────────
     //
-    // How this is hardened (none of these are bulletproof against someone
-    // who seriously wants to modify the code, but they make casual
-    // stripping harder):
-    //
-    // 1. The notice fires automatically whenever the verifier returns a
-    //    status other than OFFICIAL. There is no opt-in flag a fork can
-    //    flip off.
-    //
-    // 2. The notice text is NOT stored as a plain String constant — a
-    //    decompiler search for "RetroMod Fork" or "NOT official" returns
-    //    nothing. The bytes below are XOR-obfuscated and decoded at
-    //    runtime via forkNotice().
-    //
-    // 3. The decoded template contains %s placeholders that are filled
-    //    with {@link #EXPECTED_IMPL_TITLE}. The same constant is used by
-    //    the IMPOSTOR manifest check — a fork that removes or changes
-    //    EXPECTED_IMPL_TITLE breaks both the impersonation detection AND
-    //    the notice text.
-    //
-    // 4. forkNotice() is called from logResult(). logResult() is called
-    //    from verifyAndLog(). verifyAndLog() is called from RetroMod's
-    //    onInitialize. A fork that wants to silence the notice has to
-    //    modify multiple call sites that each have correct behavior of
-    //    their own.
-    //
-    // A determined adversary can still edit all of this. The deterrent is
-    // that each step requires real code understanding — it's not a
-    // one-line string replacement.
+    // Plain string template — by design. Anyone forking RetroMod can
+    // change this text trivially (it's MIT-licensed; that's their right).
+    // The previous implementation XOR-encoded the bytes and decoded them
+    // at runtime as a soft anti-tamper trick. That's exactly the pattern
+    // automated malware scanners flag, and the deterrent value was low
+    // (a fork can sed the string out either way). Clarity over cleverness.
 
-    /** XOR key for FORK_NOTICE_ENC. */
-    private static final byte FORK_NOTICE_XOR = 0x42;
+    private static final String FORK_NOTICE_TEMPLATE =
+        "You are using a %s Fork. If this was advertised as the official %s, "
+        + "this is NOT official! Check github.com/Bownlux/%s for the real thing.";
 
-    /**
-     * Template for the fork notice, XOR-encoded with {@link #FORK_NOTICE_XOR}.
-     * The template contains three {@code %s} placeholders filled with
-     * {@link #EXPECTED_IMPL_TITLE} at runtime.
-     *
-     * Generated from:
-     *   "You are using a %s Fork. If this was advertised as the official %s, this is NOT official! Check github.com/Bownlux/%s for the real thing."
-     * using XOR with 0x42. To update the text, re-run the generator.
-     */
-    private static final byte[] FORK_NOTICE_ENC = {
-        (byte) 0x1B, (byte) 0x2D, (byte) 0x37, (byte) 0x62, (byte) 0x23, (byte) 0x30, (byte) 0x27, (byte) 0x62, (byte) 0x37, (byte) 0x31, (byte) 0x2B, (byte) 0x2C,
-        (byte) 0x25, (byte) 0x62, (byte) 0x23, (byte) 0x62, (byte) 0x67, (byte) 0x31, (byte) 0x62, (byte) 0x04, (byte) 0x2D, (byte) 0x30, (byte) 0x29, (byte) 0x6C,
-        (byte) 0x62, (byte) 0x0B, (byte) 0x24, (byte) 0x62, (byte) 0x36, (byte) 0x2A, (byte) 0x2B, (byte) 0x31, (byte) 0x62, (byte) 0x35, (byte) 0x23, (byte) 0x31,
-        (byte) 0x62, (byte) 0x23, (byte) 0x26, (byte) 0x34, (byte) 0x27, (byte) 0x30, (byte) 0x36, (byte) 0x2B, (byte) 0x31, (byte) 0x27, (byte) 0x26, (byte) 0x62,
-        (byte) 0x23, (byte) 0x31, (byte) 0x62, (byte) 0x36, (byte) 0x2A, (byte) 0x27, (byte) 0x62, (byte) 0x2D, (byte) 0x24, (byte) 0x24, (byte) 0x2B, (byte) 0x21,
-        (byte) 0x2B, (byte) 0x23, (byte) 0x2E, (byte) 0x62, (byte) 0x67, (byte) 0x31, (byte) 0x6E, (byte) 0x62, (byte) 0x36, (byte) 0x2A, (byte) 0x2B, (byte) 0x31,
-        (byte) 0x62, (byte) 0x2B, (byte) 0x31, (byte) 0x62, (byte) 0x0C, (byte) 0x0D, (byte) 0x16, (byte) 0x62, (byte) 0x2D, (byte) 0x24, (byte) 0x24, (byte) 0x2B,
-        (byte) 0x21, (byte) 0x2B, (byte) 0x23, (byte) 0x2E, (byte) 0x63, (byte) 0x62, (byte) 0x01, (byte) 0x2A, (byte) 0x27, (byte) 0x21, (byte) 0x29, (byte) 0x62,
-        (byte) 0x25, (byte) 0x2B, (byte) 0x36, (byte) 0x2A, (byte) 0x37, (byte) 0x20, (byte) 0x6C, (byte) 0x21, (byte) 0x2D, (byte) 0x2F, (byte) 0x6D, (byte) 0x00,
-        (byte) 0x2D, (byte) 0x35, (byte) 0x2C, (byte) 0x2E, (byte) 0x37, (byte) 0x3A, (byte) 0x6D, (byte) 0x67, (byte) 0x31, (byte) 0x62, (byte) 0x24, (byte) 0x2D,
-        (byte) 0x30, (byte) 0x62, (byte) 0x36, (byte) 0x2A, (byte) 0x27, (byte) 0x62, (byte) 0x30, (byte) 0x27, (byte) 0x23, (byte) 0x2E, (byte) 0x62, (byte) 0x36,
-        (byte) 0x2A, (byte) 0x2B, (byte) 0x2C, (byte) 0x25, (byte) 0x6C
-    };
-
-    /**
-     * Decode the fork-notice template and substitute {@link #EXPECTED_IMPL_TITLE}
-     * into the three placeholder positions. Tied to EXPECTED_IMPL_TITLE so
-     * removing that constant (which also breaks the IMPOSTOR check) breaks
-     * the notice text too.
-     */
     private static String forkNotice() {
-        byte[] decoded = new byte[FORK_NOTICE_ENC.length];
-        for (int i = 0; i < FORK_NOTICE_ENC.length; i++) {
-            decoded[i] = (byte) (FORK_NOTICE_ENC[i] ^ FORK_NOTICE_XOR);
-        }
-        String template = new String(decoded, java.nio.charset.StandardCharsets.UTF_8);
-        return String.format(template,
+        return String.format(FORK_NOTICE_TEMPLATE,
                 EXPECTED_IMPL_TITLE, EXPECTED_IMPL_TITLE, EXPECTED_IMPL_TITLE);
     }
 
