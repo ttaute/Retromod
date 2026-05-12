@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.legacy;
@@ -24,7 +24,7 @@ import java.util.regex.*;
  */
 public class LegacyVersionSupport {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
     
     public enum ModLoaderEra {
         CLASSIC_FORGE(false),    // 1.1-1.5.2 - NOT supported
@@ -66,7 +66,7 @@ public class LegacyVersionSupport {
         try {
             Files.createDirectories(configPath.getParent());
             Files.writeString(configPath, """
-                # RetroMod Legacy Support
+                # Retromod Legacy Support
                 # experimental_support: Enable Forge/Fabric 1.8-1.12.2 (most work)
                 experimental_support=false
                 # limited_support: Enable Forge/Fabric 1.6-1.7.10 (many issues)

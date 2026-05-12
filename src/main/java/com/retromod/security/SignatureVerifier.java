@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.security;
@@ -17,18 +17,18 @@ import java.util.*;
 import java.util.jar.*;
 
 /**
- * Verifies the authenticity of the running RetroMod JAR.
+ * Verifies the authenticity of the running Retromod JAR.
  *
  * <h2>Purpose</h2>
- * RetroMod is MIT-licensed — anyone can fork, modify, and redistribute it.
- * But if a mod calls itself "RetroMod" and asks users to trust it with mod
+ * Retromod is MIT-licensed — anyone can fork, modify, and redistribute it.
+ * But if a mod calls itself "Retromod" and asks users to trust it with mod
  * transformation (which involves reading and modifying JARs on disk), users
  * deserve a way to tell an official build from a malicious impersonator.
  *
  * <h2>How it works</h2>
  * <ol>
  *   <li>Official releases are signed with {@code jarsigner} using the
- *       RetroMod release key. The public certificate is embedded as
+ *       Retromod release key. The public certificate is embedded as
  *       {@link #OFFICIAL_CERT_SHA256}.</li>
  *   <li>On startup, this class locates the JAR it is loaded from, reads
  *       the signing certificates, and compares fingerprints.</li>
@@ -39,15 +39,15 @@ import java.util.jar.*;
  * <h2>Important: verification does not block</h2>
  * An unsigned, modified, or third-party build still runs normally. The MIT
  * license guarantees that right. The verifier is purely informational —
- * "you are running an official RetroMod build" vs "this build is not signed
+ * "you are running an official Retromod build" vs "this build is not signed
  * by Bownlux; it may be modified or unofficial."
  */
 public final class SignatureVerifier {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
     /**
-     * SHA-256 fingerprint of the RetroMod release signing certificate.
+     * SHA-256 fingerprint of the Retromod release signing certificate.
      *
      * <p>Populated at release time. When unset (zeros), signature checking
      * is in "skeleton mode" — the code still runs but always reports
@@ -60,8 +60,8 @@ public final class SignatureVerifier {
      */
     private static final String OFFICIAL_CERT_SHA256 = "3580D51116872552FF43BF0660C1A67FE881D9F836524B8BE094612CC69652A3";
 
-    /** Minimum parts of the manifest that must match for a "real" RetroMod. */
-    private static final String EXPECTED_IMPL_TITLE = "RetroMod";
+    /** Minimum parts of the manifest that must match for a "real" Retromod. */
+    private static final String EXPECTED_IMPL_TITLE = "Retromod";
 
     private static volatile VerificationResult cachedResult;
 
@@ -72,7 +72,7 @@ public final class SignatureVerifier {
     // ──────────────────────────────────────────────────────────────────────
 
     /**
-     * Verify the running RetroMod JAR and log the result.
+     * Verify the running Retromod JAR and log the result.
      * Called once during mod initialization.
      */
     public static VerificationResult verifyAndLog() {
@@ -82,7 +82,7 @@ public final class SignatureVerifier {
     }
 
     /**
-     * Verify the running RetroMod JAR. Result is cached — subsequent calls
+     * Verify the running Retromod JAR. Result is cached — subsequent calls
      * return the same result without re-reading the JAR.
      */
     public static VerificationResult verify() {
@@ -103,19 +103,19 @@ public final class SignatureVerifier {
     private static VerificationResult doVerify() {
         Path jarPath = findOwnJar();
         if (jarPath == null || !Files.exists(jarPath)) {
-            return new VerificationResult(Status.UNKNOWN, "Could not locate RetroMod JAR",
+            return new VerificationResult(Status.UNKNOWN, "Could not locate Retromod JAR",
                     null, null);
         }
 
         try (JarFile jar = new JarFile(jarPath.toFile(), true)) {
-            // Sanity check: the manifest identifies this as RetroMod.
+            // Sanity check: the manifest identifies this as Retromod.
             Manifest manifest = jar.getManifest();
             String implTitle = (manifest != null)
                     ? manifest.getMainAttributes().getValue("Implementation-Title")
                     : null;
             if (implTitle != null && !EXPECTED_IMPL_TITLE.equalsIgnoreCase(implTitle)) {
                 return new VerificationResult(Status.IMPOSTOR,
-                        "JAR claims Implementation-Title=" + implTitle + " (not RetroMod)",
+                        "JAR claims Implementation-Title=" + implTitle + " (not Retromod)",
                         jarPath, null);
             }
 
@@ -178,7 +178,7 @@ public final class SignatureVerifier {
             }
 
             return new VerificationResult(Status.UNOFFICIAL,
-                    "JAR is signed but not by the official RetroMod key",
+                    "JAR is signed but not by the official Retromod key",
                     jarPath, fingerprint(collectedCerts.get(0)));
 
         } catch (SecurityException se) {
@@ -236,7 +236,7 @@ public final class SignatureVerifier {
     // FORK NOTICE
     // ──────────────────────────────────────────────────────────────────────
     //
-    // Plain string template — by design. Anyone forking RetroMod can
+    // Plain string template — by design. Anyone forking Retromod can
     // change this text trivially (it's MIT-licensed; that's their right).
     // The previous implementation XOR-encoded the bytes and decoded them
     // at runtime as a soft anti-tamper trick. That's exactly the pattern
@@ -259,37 +259,37 @@ public final class SignatureVerifier {
      */
     @Deprecated
     public static void logForkNotice() {
-        LOGGER.warn("[RetroMod] {}", forkNotice());
+        LOGGER.warn("[Retromod] {}", forkNotice());
     }
 
     private static void logResult(VerificationResult result) {
         switch (result.status()) {
-            case OFFICIAL -> LOGGER.info("[RetroMod] \u2713 Authenticity: OFFICIAL build \u2014 {}",
+            case OFFICIAL -> LOGGER.info("[Retromod] \u2713 Authenticity: OFFICIAL build \u2014 {}",
                     result.detail());
             case UNSIGNED -> {
-                LOGGER.info("[RetroMod] Authenticity: unsigned build ({})", result.detail());
-                LOGGER.warn("[RetroMod] {}", forkNotice());
+                LOGGER.info("[Retromod] Authenticity: unsigned build ({})", result.detail());
+                LOGGER.warn("[Retromod] {}", forkNotice());
             }
             case UNOFFICIAL -> {
-                LOGGER.warn("[RetroMod] \u26a0 Authenticity: UNOFFICIAL build \u2014 {}",
+                LOGGER.warn("[Retromod] \u26a0 Authenticity: UNOFFICIAL build \u2014 {}",
                         result.detail());
-                LOGGER.warn("[RetroMod] {}", forkNotice());
+                LOGGER.warn("[Retromod] {}", forkNotice());
             }
             case TAMPERED -> {
-                LOGGER.warn("[RetroMod] \u2717 Authenticity: TAMPERED \u2014 {}",
+                LOGGER.warn("[Retromod] \u2717 Authenticity: TAMPERED \u2014 {}",
                         result.detail());
-                LOGGER.warn("[RetroMod] {}", forkNotice());
+                LOGGER.warn("[Retromod] {}", forkNotice());
             }
             case IMPOSTOR -> {
-                LOGGER.error("[RetroMod] \u2717 Authenticity: IMPOSTOR \u2014 {}",
+                LOGGER.error("[Retromod] \u2717 Authenticity: IMPOSTOR \u2014 {}",
                         result.detail());
-                LOGGER.error("[RetroMod] {}", forkNotice());
+                LOGGER.error("[Retromod] {}", forkNotice());
             }
-            case UNKNOWN -> LOGGER.debug("[RetroMod] Authenticity: unknown \u2014 {}",
+            case UNKNOWN -> LOGGER.debug("[Retromod] Authenticity: unknown \u2014 {}",
                     result.detail());
         }
         if (result.fingerprint() != null) {
-            LOGGER.debug("[RetroMod] Cert fingerprint: {}", result.fingerprint());
+            LOGGER.debug("[Retromod] Cert fingerprint: {}", result.fingerprint());
         }
     }
 
@@ -298,7 +298,7 @@ public final class SignatureVerifier {
     // ──────────────────────────────────────────────────────────────────────
 
     public enum Status {
-        /** Signed with the official RetroMod key — safe to trust as authentic. */
+        /** Signed with the official Retromod key — safe to trust as authentic. */
         OFFICIAL,
         /** Not signed. Development/beta build or a modified fork. Still safe if you trust the source. */
         UNSIGNED,
@@ -306,7 +306,7 @@ public final class SignatureVerifier {
         UNOFFICIAL,
         /** Signatures present but verification failed — JAR was modified after signing. */
         TAMPERED,
-        /** Manifest says this JAR is not RetroMod at all. */
+        /** Manifest says this JAR is not Retromod at all. */
         IMPOSTOR,
         /** Could not determine — e.g. running from a directory, not a JAR. */
         UNKNOWN,
@@ -327,11 +327,11 @@ public final class SignatureVerifier {
 
         public String displayLine() {
             return switch (status) {
-                case OFFICIAL   -> "\u00a7aOfficial RetroMod build\u00a7r";
+                case OFFICIAL   -> "\u00a7aOfficial Retromod build\u00a7r";
                 case UNSIGNED   -> "\u00a77Unsigned build\u00a7r";
                 case UNOFFICIAL -> "\u00a7eUnofficial build\u00a7r";
                 case TAMPERED   -> "\u00a7cTampered \u2014 signature invalid\u00a7r";
-                case IMPOSTOR   -> "\u00a7cNot RetroMod (manifest mismatch)\u00a7r";
+                case IMPOSTOR   -> "\u00a7cNot Retromod (manifest mismatch)\u00a7r";
                 case UNKNOWN    -> "\u00a77Authenticity unknown\u00a7r";
             };
         }

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -18,13 +18,13 @@ import java.util.zip.ZipEntry;
  * Detects whether a mod is server-only, client-only, or both.
  * 
  * This is important because:
- * - Server-only mods: Only the SERVER needs RetroMod installed
- * - Client-only mods: Only the CLIENT needs RetroMod installed  
- * - Both: Both sides need RetroMod (or the transformed mod)
+ * - Server-only mods: Only the SERVER needs Retromod installed
+ * - Client-only mods: Only the CLIENT needs Retromod installed  
+ * - Both: Both sides need Retromod (or the transformed mod)
  * 
  * When a mod is server-only and transformed on the server:
  * - The transformed mod works on the server
- * - Clients can join WITHOUT having RetroMod installed
+ * - Clients can join WITHOUT having Retromod installed
  * - The client doesn't even know the mod is transformed!
  * 
  * This makes it much easier for server admins to use old mods
@@ -32,7 +32,7 @@ import java.util.zip.ZipEntry;
  */
 public class ModEnvironmentDetector {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-EnvDetect");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-EnvDetect");
     
     /**
      * Environment types for mods.
@@ -142,7 +142,7 @@ public class ModEnvironmentDetector {
      * Check if a mod needs to be present on both client and server.
      * 
      * If false, the mod can work on just one side without the other
-     * needing RetroMod installed.
+     * needing Retromod installed.
      */
     public static boolean requiresBothSides(Path jarPath) {
         ModEnvironment env = detectEnvironment(jarPath);
@@ -154,7 +154,7 @@ public class ModEnvironmentDetector {
      * 
      * Server-only mods are great for servers because:
      * - Transform the mod on the server
-     * - Clients can join without RetroMod
+     * - Clients can join without Retromod
      * - Players don't need to install anything!
      */
     public static boolean isServerOnly(Path jarPath) {
@@ -178,7 +178,7 @@ public class ModEnvironmentDetector {
         switch (env) {
             case SERVER -> {
                 LOGGER.info("  {} is SERVER-ONLY", fileName);
-                LOGGER.info("    → Clients don't need RetroMod installed!");
+                LOGGER.info("    → Clients don't need Retromod installed!");
             }
             case CLIENT -> {
                 LOGGER.info("  {} is CLIENT-ONLY", fileName);
@@ -198,7 +198,7 @@ public class ModEnvironmentDetector {
      */
     public static String getEnvironmentDescription(ModEnvironment env) {
         return switch (env) {
-            case SERVER -> "Server-only mod - clients don't need RetroMod!";
+            case SERVER -> "Server-only mod - clients don't need Retromod!";
             case CLIENT -> "Client-only mod - only install on your client";
             case BOTH -> "Runs on both sides";
             case UNKNOWN -> "Unknown (treating as both sides)";

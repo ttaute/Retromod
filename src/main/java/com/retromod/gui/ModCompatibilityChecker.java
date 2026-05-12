@@ -1,11 +1,11 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.gui;
 
 import com.retromod.core.ModVersionDetector;
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.FabricModTransformer;
 import com.retromod.aot.AotCompiler;
 import com.retromod.shim.ShimRegistry;
@@ -27,7 +27,7 @@ import java.util.*;
  */
 public class ModCompatibilityChecker {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
     private static final String TARGET_VERSION = "26.1";
     
     private final Path modsFolder;

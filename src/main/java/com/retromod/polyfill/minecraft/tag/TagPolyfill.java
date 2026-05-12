@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.minecraft.tag;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -64,7 +64,7 @@ public class TagPolyfill implements PolyfillProvider {
     }
 
     @Override
-    public void registerPolyfills(RetroModTransformer transformer) {
+    public void registerPolyfills(RetromodTransformer transformer) {
         // =====================================================================
         // Tag -> TagKey migration (1.18.2)
         // The Tag interface was replaced by TagKey<T> which is a lightweight

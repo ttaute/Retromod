@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.thirdparty;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -23,7 +23,7 @@ import com.retromod.polyfill.PolyfillProvider;
  * </ul>
  *
  * This bridge does NOT bundle JEI. The user installs current JEI normally;
- * RetroMod only redirects old API references to their new locations.
+ * Retromod only redirects old API references to their new locations.
  */
 public class JeiBridgePolyfill implements PolyfillProvider {
 
@@ -58,7 +58,7 @@ public class JeiBridgePolyfill implements PolyfillProvider {
     }
 
     @Override
-    public void registerPolyfills(RetroModTransformer transformer) {
+    public void registerPolyfills(RetromodTransformer transformer) {
         // =====================================================================
         // JEI API sub-package reorganization (JEI 9-11+).
         // Classes moved to more specific sub-packages under mezz.jei.api.

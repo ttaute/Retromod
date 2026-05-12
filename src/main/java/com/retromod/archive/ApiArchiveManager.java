@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.archive;
@@ -118,7 +118,7 @@ public class ApiArchiveManager {
      * {@link #downloadArchiveWithUserConsent(String, String, java.util.function.BooleanSupplier)}
      * path or by manually placing a JAR in the archive directory).
      *
-     * <p>This is RetroMod's network policy: a tool that rewrites mod
+     * <p>This is Retromod's network policy: a tool that rewrites mod
      * JARs shouldn't be quietly making outbound HTTP calls in the
      * background. Auto-downloading on cache miss would do exactly that —
      * the user runs {@code retromod transform} and the tool silently
@@ -137,7 +137,7 @@ public class ApiArchiveManager {
         if (!Files.exists(archivePath)) {
             throw new IOException("API archive not present locally for "
                 + loaderType + " " + mcVersion + " at " + archivePath + ". "
-                + "RetroMod does not auto-download archives — see "
+                + "Retromod does not auto-download archives — see "
                 + "ApiArchiveManager.downloadArchiveWithUserConsent for the "
                 + "explicit-consent download path, or manually place a JAR "
                 + "at the path above.");
@@ -211,7 +211,7 @@ public class ApiArchiveManager {
         try {
             URL downloadUrl = URI.create(url).toURL();
             HttpURLConnection conn = (HttpURLConnection) downloadUrl.openConnection();
-            conn.setRequestProperty("User-Agent", "RetroMod/1.0");
+            conn.setRequestProperty("User-Agent", "Retromod/1.0");
             conn.setConnectTimeout(30000);
             conn.setReadTimeout(60000);
             
@@ -327,7 +327,7 @@ public class ApiArchiveManager {
      * completes immediately.
      *
      * <p>Like {@link #downloadArchiveWithUserConsent(String, String,
-     * java.util.function.BooleanSupplier)}, this enforces RetroMod's
+     * java.util.function.BooleanSupplier)}, this enforces Retromod's
      * no-silent-network rule. The pre-existing parameterless overload
      * would silently kick off ~22 downloads as soon as it was called,
      * which is exactly the surprise behavior the consent gate exists

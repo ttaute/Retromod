@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -32,10 +32,10 @@ import java.util.zip.ZipEntry;
  */
 public class ModrinthVersionChecker {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Modrinth");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Modrinth");
     
     private static final String MODRINTH_API = "https://api.modrinth.com/v2";
-    private static final String USER_AGENT = "RetroMod/1.0.0 (bownlux)";
+    private static final String USER_AGENT = "Retromod/1.0.0 (bownlux)";
     
     // Cache results to avoid repeated API calls
     private static final java.util.Map<String, ModrinthResult> cache = new java.util.concurrent.ConcurrentHashMap<>();
@@ -62,7 +62,7 @@ public class ModrinthVersionChecker {
      * {@code check_for_native_versions} config flag, which defaults to
      * {@code false}. Without the flag set, the method returns
      * {@link ModrinthResult#notFound()} immediately without any HTTP
-     * activity. RetroMod doesn't make outbound network calls just because
+     * activity. Retromod doesn't make outbound network calls just because
      * a user opened a settings menu — the user has to flip the flag in
      * {@code config/retromod/config.json} (or via the in-game settings
      * screen) to opt in.
@@ -109,7 +109,7 @@ public class ModrinthVersionChecker {
      * server via flags rather than configs).
      *
      * <p>Returns {@code false} (and produces no network traffic) by
-     * default — RetroMod's standing rule is that any outbound network
+     * default — Retromod's standing rule is that any outbound network
      * call has to be explicitly enabled by the user.
      */
     private static boolean isUserOptedIn() {
@@ -119,7 +119,7 @@ public class ModrinthVersionChecker {
         }
         // Read the config file directly — keep this cheap so we don't
         // hold any singleton state, and avoid a circular dependency with
-        // RetroMod.java (which we don't want this class to drag in).
+        // Retromod.java (which we don't want this class to drag in).
         try {
             Path cfg = Path.of("config/retromod/config.json");
             if (!java.nio.file.Files.exists(cfg)) return false;
@@ -328,7 +328,7 @@ public class ModrinthVersionChecker {
             ═══════════════════════════════════════
             
             You can download the native version from Modrinth
-            instead of using RetroMod to transform it.
+            instead of using Retromod to transform it.
             
             Native versions usually work better than transformed ones!
             
@@ -342,7 +342,7 @@ public class ModrinthVersionChecker {
         int choice = JOptionPane.showOptionDialog(
             null,
             message,
-            "RetroMod - Native Version Available!",
+            "Retromod - Native Version Available!",
             JOptionPane.YES_NO_CANCEL_OPTION,
             JOptionPane.INFORMATION_MESSAGE,
             null,

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.verify;
@@ -60,7 +60,7 @@ import java.util.Set;
  */
 public final class ReferenceVerifier {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Verifier");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Verifier");
 
     private final McSymbolIndex index;
     private final LoaderApiRenames loaderRenames;

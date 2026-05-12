@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.core;
@@ -10,12 +10,12 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Deduplicated error handler for non-fatal mod errors.
  *
- * When RetroMod wraps entrypoints and callbacks in try-catch, the catch block
+ * When Retromod wraps entrypoints and callbacks in try-catch, the catch block
  * calls this handler. It deduplicates errors so that recurring failures
  * (e.g., NPE in a tick callback 20x/sec) only log once instead of spamming
  * STDERR with thousands of stack traces that freeze the game.
  */
-public class RetroModErrorHandler {
+public class RetromodErrorHandler {
 
     // Track which error messages we've already logged (capped at 500 to prevent memory leak)
     private static final int MAX_SEEN_ERRORS = 500;
@@ -40,7 +40,7 @@ public class RetroModErrorHandler {
 
         if (seenErrors.add(key)) {
             // First time seeing this error — log it fully
-            System.err.println("[RetroMod] Non-fatal: entrypoint failed in " + className + ": " + t);
+            System.err.println("[Retromod] Non-fatal: entrypoint failed in " + className + ": " + t);
             t.printStackTrace();
         }
         // Subsequent occurrences are silently suppressed

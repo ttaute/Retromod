@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for Forge's ForgeRegistries that bridges to NeoForge registries.
@@ -62,7 +62,7 @@ public final class ForgeRegistriesShim {
                 initVanillaRegistries(builtIn);
                 
             } catch (ClassNotFoundException e2) {
-                System.err.println("RetroMod: Could not find registry classes");
+                System.err.println("Retromod: Could not find registry classes");
             }
         }
     }
@@ -88,7 +88,7 @@ public final class ForgeRegistriesShim {
             PAINTING_VARIANTS = builtIn.getField("PAINTING_VARIANT").get(null);
             CREATIVE_MODE_TABS = builtIn.getField("CREATIVE_MODE_TAB").get(null);
         } catch (Exception e) {
-            System.err.println("RetroMod: Failed to initialize registries: " + e);
+            System.err.println("Retromod: Failed to initialize registries: " + e);
         }
     }
     
@@ -103,7 +103,7 @@ public final class ForgeRegistriesShim {
             PARTICLE_TYPES = builtIn.getField("PARTICLE_TYPE").get(null);
             FLUIDS = builtIn.getField("FLUID").get(null);
         } catch (Exception e) {
-            System.err.println("RetroMod: Failed to initialize vanilla registries: " + e);
+            System.err.println("Retromod: Failed to initialize vanilla registries: " + e);
         }
     }
     
@@ -181,10 +181,10 @@ public final class ForgeRegistriesShim {
                 Method getValueMethod = registry.getClass().getMethod("getValue", location.getClass());
                 return getValueMethod.invoke(registry, location);
             } catch (Exception e2) {
-                System.err.println("RetroMod: Could not get registry value: " + e2);
+                System.err.println("Retromod: Could not get registry value: " + e2);
             }
         } catch (Exception e) {
-            System.err.println("RetroMod: Registry lookup failed: " + e);
+            System.err.println("Retromod: Registry lookup failed: " + e);
         }
         
         return null;
@@ -201,7 +201,7 @@ public final class ForgeRegistriesShim {
             Method getKeyMethod = registry.getClass().getMethod("getKey", Object.class);
             return getKeyMethod.invoke(registry, value);
         } catch (Exception e) {
-            System.err.println("RetroMod: Could not get registry key: " + e);
+            System.err.println("Retromod: Could not get registry key: " + e);
         }
         
         return null;
@@ -233,7 +233,7 @@ public final class ForgeRegistriesShim {
             Method keySetMethod = registry.getClass().getMethod("keySet");
             return (Set<Object>) keySetMethod.invoke(registry);
         } catch (Exception e) {
-            System.err.println("RetroMod: Could not get registry keys: " + e);
+            System.err.println("Retromod: Could not get registry keys: " + e);
             return Collections.emptySet();
         }
     }
@@ -257,7 +257,7 @@ public final class ForgeRegistriesShim {
             return values;
             
         } catch (Exception e) {
-            System.err.println("RetroMod: Could not get registry values: " + e);
+            System.err.println("Retromod: Could not get registry values: " + e);
             return Collections.emptyList();
         }
     }

@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.thirdparty;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -22,7 +22,7 @@ import com.retromod.polyfill.PolyfillProvider;
  * </ul>
  *
  * This bridge does NOT bundle Trinkets. The user installs Trinkets 3.x normally;
- * RetroMod only redirects old 2.x class references to their 3.x equivalents.
+ * Retromod only redirects old 2.x class references to their 3.x equivalents.
  */
 public class TrinketsBridgePolyfill implements PolyfillProvider {
 
@@ -54,7 +54,7 @@ public class TrinketsBridgePolyfill implements PolyfillProvider {
     }
 
     @Override
-    public void registerPolyfills(RetroModTransformer transformer) {
+    public void registerPolyfills(RetromodTransformer transformer) {
         // =====================================================================
         // Trinkets 2.x -> 3.x class renames.
         // The package stays dev.emi.trinkets.api but class names changed.

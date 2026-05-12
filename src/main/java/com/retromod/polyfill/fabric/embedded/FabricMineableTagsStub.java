@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.fabric.embedded;
@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
  */
 public class FabricMineableTagsStub {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-MineableTags");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-MineableTags");
 
     // These fields are typed as Object but will hold TagKey<Block> instances
     // at runtime. The JVM allows this since old bytecode accesses them via

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for KeyMapping changes in NeoForge 1.21.9.
@@ -43,7 +43,7 @@ public final class KeyMappingShim {
             return newConstructor.newInstance(translationKey, inputType, keyCode, category);
             
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to create KeyMapping", e);
+            throw new RuntimeException("Retromod: Failed to create KeyMapping", e);
         }
     }
     
@@ -85,7 +85,7 @@ public final class KeyMappingShim {
             }
             
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to initialize KeyMappingShim", e);
+            throw new RuntimeException("Retromod: Failed to initialize KeyMappingShim", e);
         }
     }
     
@@ -146,7 +146,7 @@ public final class KeyMappingShim {
             
         } catch (Exception e) {
             // Category registration is optional - the mapping will still work
-            System.err.println("RetroMod: Could not register key category: " + e);
+            System.err.println("Retromod: Could not register key category: " + e);
         }
     }
     

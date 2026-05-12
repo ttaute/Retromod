@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Shim for HUD Render API changes in Fabric 1.21.6+.
@@ -79,7 +79,7 @@ public interface HudRenderCallbackShim {
             }
 
             if (addLastMethod == null) {
-                System.err.println("RetroMod: HudElementRegistry.addLast not found");
+                System.err.println("Retromod: HudElementRegistry.addLast not found");
                 return;
             }
 
@@ -105,7 +105,7 @@ public interface HudRenderCallbackShim {
         } catch (ClassNotFoundException e) {
             // HudElementRegistry not available — old Fabric API, nothing to bridge
         } catch (Exception e) {
-            System.err.println("RetroMod: Failed to bridge HUD callbacks: " + e.getMessage());
+            System.err.println("Retromod: Failed to bridge HUD callbacks: " + e.getMessage());
         }
     }
 }

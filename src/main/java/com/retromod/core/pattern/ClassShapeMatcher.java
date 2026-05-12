@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.pattern;
 
-import com.retromod.core.parallel.RetroModExecutors;
+import com.retromod.core.parallel.RetromodExecutors;
 import com.retromod.core.pattern.patterns.ApiUsageFingerprintPattern;
 import com.retromod.core.pattern.patterns.BlockEntityLikePattern;
 import com.retromod.core.pattern.patterns.DeferredRegisterHolderPattern;
@@ -43,7 +43,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public final class ClassShapeMatcher {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-PatternMatcher");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-PatternMatcher");
 
     private final List<ClassPattern> patterns;
 
@@ -52,7 +52,7 @@ public final class ClassShapeMatcher {
     }
 
     /**
-     * The default pattern library: every pattern RetroMod ships out of the
+     * The default pattern library: every pattern Retromod ships out of the
      * box. Each is added in a deliberate order — most-confident first so
      * the gap report's ordering is stable and obvious.
      */
@@ -113,7 +113,7 @@ public final class ClassShapeMatcher {
      * by the CLI's gap report to build a per-mod rollup.
      *
      * <h3>Parallelization</h3>
-     * <p>When {@link RetroModExecutors#isParallel()} is true, each class is
+     * <p>When {@link RetromodExecutors#isParallel()} is true, each class is
      * scanned on a worker thread concurrently. Pattern matchers are read-only
      * and stateless, so sharing them across threads is safe. Results
      * accumulate into a thread-safe queue and are copied to a list at the end.</p>
@@ -135,7 +135,7 @@ public final class ClassShapeMatcher {
 
         // Serial fast path: avoid pool overhead for small batches or when
         // parallelism was explicitly disabled.
-        if (!RetroModExecutors.isParallel() || classBytesByName.size() < 8) {
+        if (!RetromodExecutors.isParallel() || classBytesByName.size() < 8) {
             List<PatternMatch> all = new ArrayList<>();
             for (byte[] bytes : classBytesByName.values()) {
                 all.addAll(matchAll(bytes, ctx));
@@ -145,7 +145,7 @@ public final class ClassShapeMatcher {
 
         // Parallel path: one task per class, collecting into a lock-free queue.
         ConcurrentLinkedQueue<PatternMatch> collector = new ConcurrentLinkedQueue<>();
-        RetroModExecutors.parallelForEach(classBytesByName.values(), bytes -> {
+        RetromodExecutors.parallelForEach(classBytesByName.values(), bytes -> {
             List<PatternMatch> perClass = matchAll(bytes, ctx);
             if (!perClass.isEmpty()) collector.addAll(perClass);
         });

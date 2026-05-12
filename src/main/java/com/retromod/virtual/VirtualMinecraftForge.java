@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.virtual;
@@ -50,7 +50,7 @@ public class VirtualMinecraftForge {
                     try {
                         handler.method.invoke(handler.target, event);
                     } catch (Exception e) {
-                        System.err.println("RetroMod: Error in event handler: " + e.getMessage());
+                        System.err.println("Retromod: Error in event handler: " + e.getMessage());
                     }
                 }
             }

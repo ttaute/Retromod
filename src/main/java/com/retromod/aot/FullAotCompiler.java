@@ -1,11 +1,11 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.aot;
 
 import com.retromod.core.EnvironmentDetector;
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.shim.ShimRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +42,7 @@ import java.util.zip.*;
  */
 public class FullAotCompiler {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-FullAOT");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-FullAOT");
     
     // Cache directory for pre-compiled classes
     private static final String CACHE_DIR = "retromod-cache/full-aot";
@@ -150,9 +150,9 @@ public class FullAotCompiler {
                 }
                 LOGGER.info("Total classes to compile: {}", totalClasses);
                 
-                // Step 2: Compile each mod using RetroModTransformer
-                com.retromod.core.RetroModTransformer transformer = 
-                    com.retromod.core.RetroModTransformer.getInstance();
+                // Step 2: Compile each mod using RetromodTransformer
+                com.retromod.core.RetromodTransformer transformer = 
+                    com.retromod.core.RetromodTransformer.getInstance();
                 
                 for (Path modJar : modsToCompile) {
                     if (wasCancelled) {
@@ -216,7 +216,7 @@ public class FullAotCompiler {
      * Compile all classes in a mod JAR.
      * OPTIMIZED: Uses parallel processing for faster compilation.
      */
-    private void compileAllClassesInMod(Path jarPath, RetroModTransformer transformer) {
+    private void compileAllClassesInMod(Path jarPath, RetromodTransformer transformer) {
         String modId = extractModId(jarPath);
         if (modId == null) {
             modId = jarPath.getFileName().toString().replace(".jar", "");
@@ -414,7 +414,7 @@ public class FullAotCompiler {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception ignored) {}
             
-            JDialog dialog = new JDialog((Frame) null, "RetroMod - Full AOT Compilation", true);
+            JDialog dialog = new JDialog((Frame) null, "Retromod - Full AOT Compilation", true);
             dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
             
             JPanel panel = new JPanel(new BorderLayout(10, 10));

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.parallel;
@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * Shared parallel-execution infrastructure for RetroMod's batch passes.
+ * Shared parallel-execution infrastructure for Retromod's batch passes.
  *
  * <h3>Why a dedicated pool?</h3>
  * <p>The common-pool {@link ForkJoinPool#commonPool()} is shared with any
@@ -61,9 +61,9 @@ import java.util.function.Function;
  * live until JVM exit (the threads are daemon threads, so they don't block
  * shutdown).</p>
  */
-public final class RetroModExecutors {
+public final class RetromodExecutors {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Parallel");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Parallel");
 
     /**
      * Configured parallelism — available cores unless overridden.
@@ -75,7 +75,7 @@ public final class RetroModExecutors {
     /** Lazily-initialized shared pool, guarded by class-level monitor. */
     private static volatile ForkJoinPool sharedPool;
 
-    private RetroModExecutors() {}
+    private RetromodExecutors() {}
 
     /**
      * Effective parallelism level. {@code 1} means "serial." Greater values
@@ -98,7 +98,7 @@ public final class RetroModExecutors {
     public static ForkJoinPool sharedPool() {
         ForkJoinPool local = sharedPool;
         if (local != null) return local;
-        synchronized (RetroModExecutors.class) {
+        synchronized (RetromodExecutors.class) {
             if (sharedPool != null) return sharedPool;
             // asyncMode=true favours FIFO scheduling, which matches "process
             // a queue of classes" semantics better than the default LIFO.
@@ -107,7 +107,7 @@ public final class RetroModExecutors {
                     new NamedDaemonForkJoinWorkerThreadFactory("retromod-worker-"),
                     (t, e) -> LOGGER.warn("Worker {} died: {}", t.getName(), e.getMessage()),
                     true);
-            LOGGER.info("RetroMod parallel executor initialized with {} threads", PARALLELISM);
+            LOGGER.info("Retromod parallel executor initialized with {} threads", PARALLELISM);
             return sharedPool;
         }
     }
@@ -180,7 +180,7 @@ public final class RetroModExecutors {
      *
      * <p>Results for failed tasks are {@code null}; callers can filter or
      * treat null as "skip." This is deliberately simpler than checked-exception
-     * propagation — RetroMod's use cases treat per-class failures as "skip
+     * propagation — Retromod's use cases treat per-class failures as "skip
      * that class, keep going" rather than "abort the whole batch."</p>
      */
     public static <T, R> List<R> parallelMap(List<T> inputs, Function<T, R> fn) {
@@ -247,7 +247,7 @@ public final class RetroModExecutors {
     /**
      * Thread factory that names workers predictably and sets them as daemons.
      * Predictable naming is useful for debugging — profilers and thread dumps
-     * show which threads are RetroMod's.
+     * show which threads are Retromod's.
      */
     private static final class NamedDaemonForkJoinWorkerThreadFactory
             implements ForkJoinPool.ForkJoinWorkerThreadFactory {

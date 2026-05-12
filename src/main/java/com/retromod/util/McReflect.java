@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.util;
@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class McReflect {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Reflect");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Reflect");
 
     // Cache resolved classes to avoid repeated lookups
     private static final Map<String, Class<?>> CLASS_CACHE = new ConcurrentHashMap<>();

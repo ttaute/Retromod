@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.pattern.patterns;
@@ -35,7 +35,7 @@ import java.util.Map;
  * </ul>
  *
  * <h3>Why it matters</h3>
- * <p>When RetroMod translates Forge → NeoForge the annotation class itself gets
+ * <p>When Retromod translates Forge → NeoForge the annotation class itself gets
  * redirected via {@code ForgeEventApiShim}. Detection here lets us verify
  * <b>after</b> transformation that every event listener still has a valid
  * {@code @SubscribeEvent} annotation pointing at a reachable class — a missed

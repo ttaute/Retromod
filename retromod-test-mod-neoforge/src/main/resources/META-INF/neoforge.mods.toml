@@ -1,17 +1,17 @@
 modLoader = "javafml"
 loaderVersion = "[1,)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Bownlux/RetroMod/issues"
+issueTrackerURL = "https://github.com/Bownlux/Retromod/issues"
 
 [[mods]]
 modId = "retromod_test_mod_neoforge"
 version = "${version}"
-displayName = "RetroMod Test Mod (NeoForge)"
+displayName = "Retromod Test Mod (NeoForge)"
 authors = "Bownlux"
 description = '''
-Exercises RetroMod's transformation pipeline on NeoForge.
-Source compiled against an old NeoForge MC version; RetroMod translates it
-forward at load time. Test results are logged with the [RetroMod-Test-NeoForge] prefix.
+Exercises Retromod's transformation pipeline on NeoForge.
+Source compiled against an old NeoForge MC version; Retromod translates it
+forward at load time. Test results are logged with the [Retromod-Test-NeoForge] prefix.
 '''
 
 [[dependencies.retromod_test_mod_neoforge]]

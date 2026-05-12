@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.pattern;
@@ -12,7 +12,7 @@ import java.util.Set;
 
 /**
  * Read-only context passed to {@link ClassPattern} implementations so they can
- * make informed decisions without reaching back into the rest of RetroMod.
+ * make informed decisions without reaching back into the rest of Retromod.
  *
  * <h3>What's inside</h3>
  * <ul>

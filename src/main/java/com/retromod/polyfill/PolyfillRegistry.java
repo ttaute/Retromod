@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +20,7 @@ import java.util.ServiceConfigurationError;
  */
 public class PolyfillRegistry {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Polyfills");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Polyfills");
 
     private final List<PolyfillProvider> providers = new ArrayList<>();
     private final Set<String> enabledCategories = new HashSet<>();
@@ -60,7 +60,7 @@ public class PolyfillRegistry {
      * Load all polyfill providers via ServiceLoader and register
      * enabled ones with the transformer.
      */
-    public void loadAndRegister(RetroModTransformer transformer) {
+    public void loadAndRegister(RetromodTransformer transformer) {
         if (!polyfillsEnabled) {
             LOGGER.info("Polyfills are disabled in config");
             return;

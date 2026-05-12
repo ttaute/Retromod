@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. MIT License.
  */
 package com.retromod.core;
@@ -29,7 +29,7 @@ import java.util.regex.*;
  * CRITICAL: This runs BEFORE Fabric scans the mods folder!
  * ═══════════════════════════════════════════════════════════════════════════
  * 
- * RetroMod supports TWO input locations:
+ * Retromod supports TWO input locations:
  * 1. .minecraft/retromod-input/           (PRIMARY - recommended)
  * 2. .minecraft/mods/retromod-input/      (SECONDARY - for convenience)
  * 
@@ -47,17 +47,17 @@ import java.util.regex.*;
  * The sequence is:
  * 1. Fabric scans mods/ folder (WE CAN'T CHANGE THIS)
  * 2. Fabric loads mod metadata
- * 3. PreLaunch entrypoints run (RetroMod transforms here)
+ * 3. PreLaunch entrypoints run (Retromod transforms here)
  * 4. Mods initialize
  * 
  * So transformed mods only appear on the NEXT launch.
- * This is a Fabric limitation, not a RetroMod limitation.
+ * This is a Fabric limitation, not a Retromod limitation.
  * 
  * ═══════════════════════════════════════════════════════════════════════════
  */
-public class RetroModPreLaunch implements PreLaunchEntrypoint {
+public class RetromodPreLaunch implements PreLaunchEntrypoint {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
     
     // Two input locations
     private static final String PRIMARY_INPUT = "retromod-input";
@@ -87,7 +87,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
-        LOGGER.info("║  RetroMod v1.0.0-beta.1                                    ║");
+        LOGGER.info("║  Retromod v1.0.0-beta.1                                    ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
         
         try {
@@ -110,7 +110,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
             try {
                 AutoFixEngine autoFixEngine = new AutoFixEngine();
                 int savedFixes = autoFixEngine.loadAndApplySavedFixes(
-                    RetroModTransformer.getInstance());
+                    RetromodTransformer.getInstance());
                 if (savedFixes > 0) {
                     LOGGER.info("AutoFix: loaded {} saved fix(es) from previous launch", savedFixes);
                 }
@@ -148,10 +148,10 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                 showComplexityWarning();
             }
 
-            LOGGER.info("RetroMod pre-launch complete!");
+            LOGGER.info("Retromod pre-launch complete!");
             
         } catch (Exception e) {
-            LOGGER.error("RetroMod pre-launch error: {}", e.getMessage());
+            LOGGER.error("Retromod pre-launch error: {}", e.getMessage());
         }
     }
     
@@ -162,7 +162,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
      */
     private void registerShimsForTransform() {
         try {
-            RetroModTransformer transformer = RetroModTransformer.getInstance();
+            RetromodTransformer transformer = RetromodTransformer.getInstance();
 
             // Load version shims via ServiceLoader
             ServiceLoader<VersionShim> shims = ServiceLoader.load(VersionShim.class);
@@ -345,14 +345,14 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                     ║  HOW TO USE:                                               ║
                     ║  1. Drop old .jar mod files into this folder               ║
                     ║  2. Start Minecraft                                        ║
-                    ║  3. RetroMod transforms them automatically                 ║
+                    ║  3. Retromod transforms them automatically                 ║
                     ║  4. ⚠️ RESTART Minecraft (required first time)             ║
                     ║  5. Your mods work!                                        ║
                     ║                                                            ║
                     ║  WHY RESTART?                                              ║
-                    ║  Fabric scans mods BEFORE RetroMod can run. Transformed    ║
+                    ║  Fabric scans mods BEFORE Retromod can run. Transformed    ║
                     ║  mods only load on the next launch. This is a Fabric       ║
-                    ║  limitation, not a RetroMod bug.                           ║
+                    ║  limitation, not a Retromod bug.                           ║
                     ║                                                            ║
                     ║  AFTER TRANSFORMATION:                                     ║
                     ║  - Originals move to: processed/                           ║
@@ -452,7 +452,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                 ║                                                            ║
                 ║   ⚠️  IMPORTANT: drop mods directly in retromod-input/.    ║
                 ║   Do NOT put them in the `processed/` subfolder! That's    ║
-                ║   where RetroMod moves originals AFTER it transforms       ║
+                ║   where Retromod moves originals AFTER it transforms       ║
                 ║   them — mods dropped there are skipped and won't load.   ║
                 ║                                                            ║
                 ╠════════════════════════════════════════════════════════════╣
@@ -466,7 +466,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                 ║      Example: sodium-1.20.4.jar                            ║
                 ║                                                            ║
                 ║   3. Start Minecraft                                       ║
-                ║      RetroMod will transform the mods                      ║
+                ║      Retromod will transform the mods                      ║
                 ║                                                            ║
                 ║   4. ⚠️ RESTART Minecraft ⚠️                               ║
                 ║      (This is required! Transformed mods load on restart)  ║
@@ -489,14 +489,14 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                 ║   WHY IS RESTART REQUIRED?                                 ║
                 ║                                                            ║
                 ║   Fabric Loader scans this folder ONCE at startup.         ║
-                ║   RetroMod transforms mods, but Fabric already read        ║
+                ║   Retromod transforms mods, but Fabric already read        ║
                 ║   the folder. On restart, Fabric sees the new mods.        ║
                 ║                                                            ║
-                ║   This is a Fabric limitation, not a RetroMod bug.         ║
+                ║   This is a Fabric limitation, not a Retromod bug.         ║
                 ║                                                            ║
                 ╚════════════════════════════════════════════════════════════╝
                 
-                Need help? Visit: github.com/Bownlux/RetroMod/issues
+                Need help? Visit: github.com/Bownlux/Retromod/issues
                 """);
             
         } catch (Exception e) {
@@ -566,7 +566,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                         analyzer.analyze(modJar);
 
                     // Always transform — never skip based on complexity.
-                    // RetroMod should try its best with every mod, even complex ones.
+                    // Retromod should try its best with every mod, even complex ones.
                     if (report.isUnlikelyToWork()) {
                         LOGGER.warn("│  ⚠ High complexity (score: {}) — some features may not work", report.score());
                         LOGGER.warn("│  Reason: {}", report.reason());
@@ -670,7 +670,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
     
     /**
      * Show restart required message in logs.
-     * The in-game screen is shown later by RetroMod.onInitialize() via InGameScreenFactory.
+     * The in-game screen is shown later by Retromod.onInitialize() via InGameScreenFactory.
      */
     private void showRestartMessage() {
         LOGGER.info("");
@@ -678,7 +678,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
         LOGGER.info("║                                                            ║");
         LOGGER.info("║   RESTART REQUIRED!                                        ║");
         LOGGER.info("║                                                            ║");
-        LOGGER.info("║   RetroMod transformed {} mod(s):                          ║", String.format("%-2d", totalTransformed));
+        LOGGER.info("║   Retromod transformed {} mod(s):                          ║", String.format("%-2d", totalTransformed));
         for (String mod : transformedMods) {
             String display = mod.length() > 48 ? mod.substring(0, 45) + "..." : mod;
             LOGGER.info("║     - {}║", String.format("%-51s", display));
@@ -723,7 +723,7 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
         }
         LOGGER.warn("╠════════════════════════════════════════════════════════════╣");
         LOGGER.warn("║   These mods were NOT translated because they use          ║");
-        LOGGER.warn("║   features RetroMod cannot fully transform (coremods,      ║");
+        LOGGER.warn("║   features Retromod cannot fully transform (coremods,      ║");
         LOGGER.warn("║   heavy reflection, ASM manipulation, etc.).               ║");
         LOGGER.warn("║                                                            ║");
         LOGGER.warn("║   To try anyway, set in config/retromod/config.json:       ║");
@@ -739,12 +739,12 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                 } catch (Exception ignored) {}
 
                 StringBuilder msg = new StringBuilder();
-                msg.append("RetroMod skipped ").append(skippedComplexMods.size())
+                msg.append("Retromod skipped ").append(skippedComplexMods.size())
                    .append(" mod(s) because they are unlikely to work:\n\n");
                 for (String mod : skippedComplexMods) {
                     msg.append("  - ").append(mod).append("\n");
                 }
-                msg.append("\nThese mods use features that RetroMod cannot fully\n");
+                msg.append("\nThese mods use features that Retromod cannot fully\n");
                 msg.append("transform (coremods, heavy reflection, ASM, etc.).\n\n");
                 msg.append("To force translation anyway, set:\n");
                 msg.append("  \"force_translate_complex\": true\n");
@@ -753,10 +753,10 @@ public class RetroModPreLaunch implements PreLaunchEntrypoint {
                 JOptionPane.showMessageDialog(
                     null,
                     msg.toString(),
-                    "RetroMod - Mods Skipped",
+                    "Retromod - Mods Skipped",
                     JOptionPane.WARNING_MESSAGE
                 );
-            }, "RetroMod-ComplexityWarning");
+            }, "Retromod-ComplexityWarning");
             warningThread.setDaemon(true);
             warningThread.start();
         }

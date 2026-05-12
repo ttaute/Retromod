@@ -1,4 +1,4 @@
-/* RetroMod Polyfill - Stub for removed API. Copyright (c) 2026 Bownlux */
+/* Retromod Polyfill - Stub for removed API. Copyright (c) 2026 Bownlux */
 package codechicken.nei.recipe;
 
 import java.util.List;

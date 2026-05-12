@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.forge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -48,7 +48,7 @@ public class ForgeCorePolyfill implements PolyfillProvider {
     }
 
     @Override
-    public void registerPolyfills(RetroModTransformer transformer) {
+    public void registerPolyfills(RetromodTransformer transformer) {
         // Register class redirects from old Forge classes to our embedded shims
         transformer.registerClassRedirect(
             "net/minecraftforge/common/capabilities/ICapabilityProvider",

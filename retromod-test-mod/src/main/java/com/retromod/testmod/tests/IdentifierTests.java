@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.tests;
@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * Identifier / ResourceLocation. The two-arg constructor is a constructor →
- * factory redirect (RetroMod rewrites {@code NEW + DUP + INVOKESPECIAL} to
+ * factory redirect (Retromod rewrites {@code NEW + DUP + INVOKESPECIAL} to
  * {@code INVOKESTATIC} of the new factory method). The single-arg
  * colon-separated form goes through a slightly different path. {@code tryParse}
  * is just a static method redirect.

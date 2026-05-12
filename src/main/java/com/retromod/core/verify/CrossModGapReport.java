@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.verify;
@@ -104,7 +104,7 @@ public final class CrossModGapReport {
                 .comparingInt((AggregatedEntry e) -> -e.count())
                 .thenComparing(e -> e.reference.prettyPrint()));
 
-        out.append("=== RetroMod cross-mod gap report ===\n");
+        out.append("=== Retromod cross-mod gap report ===\n");
         out.append("Target MC: ").append(targetMcVersion).append('\n');
         out.append("Mods scanned: ").append(Integer.toString(modsSeen.size())).append('\n');
         out.append("Classes scanned: ").append(Integer.toString(totalClassesScanned)).append('\n');

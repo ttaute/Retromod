@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.verify;
@@ -181,11 +181,11 @@ public final class VerificationReport {
      * level when there are unresolved refs.
      *
      * <p>The output is stable — same input produces same bytes — so it can
-     * be diffed across runs to see whether new gaps appeared after a RetroMod
+     * be diffed across runs to see whether new gaps appeared after a Retromod
      * update.</p>
      */
     public void writeTo(Appendable out) throws IOException {
-        out.append("=== RetroMod verification — ").append(modId).append(" ===\n");
+        out.append("=== Retromod verification — ").append(modId).append(" ===\n");
         out.append("Target MC: ").append(targetMcVersion).append('\n');
         out.append("Classes scanned: ").append(Integer.toString(classesScanned)).append('\n');
         out.append("Unresolved references: ").append(Integer.toString(totalUnresolved())).append('\n');
@@ -205,7 +205,7 @@ public final class VerificationReport {
 
         if (bridgesSynthesized > 0) {
             out.append("BRIDGES SYNTHESIZED: ").append(Integer.toString(bridgesSynthesized)).append('\n');
-            out.append("  (RetroMod added bridge methods for mod classes overriding renamed MC methods)\n");
+            out.append("  (Retromod added bridge methods for mod classes overriding renamed MC methods)\n");
             out.append('\n');
         }
     }

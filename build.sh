@@ -1,9 +1,9 @@
 #!/bin/bash
 # ============================================================================
-# RetroMod Build Script
+# Retromod Build Script
 # Copyright (c) 2026 RevivalSMP. MIT License.
 #
-# Builds all RetroMod outputs:
+# Builds all Retromod outputs:
 #   - CLI tool (standalone, all platforms)
 #   - Fabric mod (for Fabric Loader)
 #   - NeoForge mod (for NeoForge Loader)
@@ -14,7 +14,7 @@ set -e
 VERSION="1.0.0-beta.1"
 
 echo "============================================"
-echo "  RetroMod Build Script v${VERSION}"
+echo "  Retromod Build Script v${VERSION}"
 echo "  MIT License - RevivalSMP"
 echo "============================================"
 echo ""
@@ -29,7 +29,7 @@ if ! command -v mvn &> /dev/null; then
 fi
 
 # Check for Java 25+
-# Note: RetroMod's pom.xml targets Java 25 (release 25). Building with an
+# Note: Retromod's pom.xml targets Java 25 (release 25). Building with an
 # older JDK fails at the compile step, but failing loudly here is clearer.
 if command -v java &> /dev/null; then
     JAVA_VER=$(java -version 2>&1 | head -1 | cut -d'"' -f2 | cut -d'.' -f1)
@@ -45,7 +45,7 @@ else
     exit 1
 fi
 
-echo "Building RetroMod..."
+echo "Building Retromod..."
 echo ""
 
 # Clean and compile
@@ -87,7 +87,7 @@ jar xf "../retromod-${VERSION}-all.jar"
 
 # Remove NeoForge-specific files
 rm -rf META-INF/neoforge.mods.toml 2>/dev/null || true
-rm -rf com/retromod/core/RetroModNeoForge.class 2>/dev/null || true
+rm -rf com/retromod/core/RetromodNeoForge.class 2>/dev/null || true
 
 # Repackage as Fabric mod
 jar cfm "../../dist/retromod-${VERSION}-fabric.jar" META-INF/MANIFEST.MF .
@@ -108,7 +108,7 @@ rm -f fabric.mod.json 2>/dev/null || true
 # Update manifest for NeoForge
 cat > META-INF/MANIFEST.MF << 'EOF'
 Manifest-Version: 1.0
-Implementation-Title: RetroMod
+Implementation-Title: Retromod
 Implementation-Version: 1.0.0
 Automatic-Module-Name: retromod
 EOF
@@ -126,7 +126,7 @@ fi
 # Create CLI wrapper scripts
 cat > "dist/retromod" << 'WRAPPER'
 #!/bin/bash
-# RetroMod CLI wrapper — use "retromod" instead of "java -jar retromod-cli.jar"
+# Retromod CLI wrapper — use "retromod" instead of "java -jar retromod-cli.jar"
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 find_jar() {

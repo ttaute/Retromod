@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.fabric.embedded;
@@ -26,12 +26,12 @@ import java.lang.reflect.Method;
  */
 public class ItemSafetyShim {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ItemSafety");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ItemSafety");
     private static volatile boolean warned = false;
 
     // Cached reflection lookups (initialized lazily, thread-safe via volatile).
     // We use reflection because MC classes aren't on the compile classpath — this
-    // shim is compiled as part of RetroMod, not against a specific MC version.
+    // shim is compiled as part of Retromod, not against a specific MC version.
     private static volatile Method getDefaultInstanceMethod;
     private static volatile Object itemStackEmpty;
     private static volatile boolean emptyResolved = false;

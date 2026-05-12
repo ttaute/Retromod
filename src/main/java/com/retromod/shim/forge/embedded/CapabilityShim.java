@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for Forge's Capability system that bridges to NeoForge.
@@ -53,7 +53,7 @@ public final class CapabilityShim {
                     "net.minecraftforge.common.util.LazyOptional"
                 );
             } catch (ClassNotFoundException e2) {
-                System.err.println("RetroMod: No capability system found");
+                System.err.println("Retromod: No capability system found");
             }
         }
     }
@@ -134,7 +134,7 @@ public final class CapabilityShim {
                         blockCapabilityClass, pos.getClass(), Object.class);
                     return getCapMethod.invoke(level, capability, pos, side);
                 } catch (Exception e2) {
-                    System.err.println("RetroMod: Could not get block capability: " + e2);
+                    System.err.println("Retromod: Could not get block capability: " + e2);
                 }
             }
         }

@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -21,7 +21,7 @@ public class Forge_1_19_4_to_1_20 implements VersionShim {
     @Override public String getModLoaderType() { return "forge"; }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         transformer.registerMethodRedirect(
             "net/minecraft/world/level/block/state/BlockBehaviour$Properties", "of",
             "(Lnet/minecraft/world/level/material/Material;)Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;",

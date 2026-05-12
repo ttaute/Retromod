@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -30,7 +30,7 @@ import java.util.jar.*;
  */
 public class ModHealthChecker {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Health");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Health");
     
     // Folder for original mod backups (before transformation)
     private static final String BACKUP_FOLDER = "retromod-backups";
@@ -83,7 +83,7 @@ public class ModHealthChecker {
             }
             
         } catch (IOException e) {
-            LOGGER.error("Could not create RetroMod folders", e);
+            LOGGER.error("Could not create Retromod folders", e);
         }
     }
     
@@ -100,7 +100,7 @@ public class ModHealthChecker {
                 
                 Put your OLD mods here (NOT in the mods/ folder!)
                 
-                RetroMod will automatically:
+                Retromod will automatically:
                 1. Transform them to work with your Minecraft version
                 2. Copy the transformed versions to mods/
                 3. Move the originals to processed/
@@ -113,28 +113,28 @@ public class ModHealthChecker {
                 
                 WHY NOT PUT DIRECTLY IN MODS FOLDER?
                 
-                Fabric checks mod versions BEFORE RetroMod can help.
+                Fabric checks mod versions BEFORE Retromod can help.
                 If you put old mods directly in mods/, Fabric will crash!
                 
-                By using this folder, RetroMod transforms mods first.
+                By using this folder, Retromod transforms mods first.
                 
                 ═══════════════════════════════════════════════════════════════
                 SERVER-ONLY MODS
                 ═══════════════════════════════════════════════════════════════
                 
                 If a mod is server-only (like Lithium), then:
-                - Only the SERVER needs RetroMod installed
-                - Players can join WITHOUT having RetroMod!
+                - Only the SERVER needs Retromod installed
+                - Players can join WITHOUT having Retromod!
                 - The transformed mod just works on the server
                 
-                RetroMod will tell you if a mod is server-only.
+                Retromod will tell you if a mod is server-only.
                 
                 ═══════════════════════════════════════════════════════════════
                 NEED HELP? FOUND A BUG?
                 ═══════════════════════════════════════════════════════════════
                 
                 Report bugs on GitHub:
-                https://github.com/Bownlux/RetroMod/issues
+                https://github.com/Bownlux/Retromod/issues
 
                 - Open an issue for bug reports
                 - Ask questions
@@ -242,10 +242,10 @@ public class ModHealthChecker {
         LOGGER.error("  Mod: {} ({})", info.modName(), modId);
         LOGGER.error("");
         LOGGER.error("  The game launched but this mod isn't working properly.");
-        LOGGER.error("  This might be a RetroMod compatibility issue.");
+        LOGGER.error("  This might be a Retromod compatibility issue.");
         LOGGER.error("");
         LOGGER.error("  PLEASE REPORT THIS BUG:");
-        LOGGER.error("  → https://github.com/Bownlux/RetroMod/issues");
+        LOGGER.error("  → https://github.com/Bownlux/Retromod/issues");
         LOGGER.error("");
         LOGGER.error("  Recent errors:");
         for (String err : errors) {
@@ -276,7 +276,7 @@ public class ModHealthChecker {
             message.append("working correctly after transformation.\n\n");
             message.append("═══════════════════════════════════════\n\n");
             message.append("Please report this bug on GitHub:\n");
-            message.append("→ github.com/Bownlux/RetroMod/issues\n\n");
+            message.append("→ github.com/Bownlux/Retromod/issues\n\n");
             message.append("═══════════════════════════════════════\n\n");
             message.append("Recent errors:\n");
             for (int i = 0; i < Math.min(3, errors.size()); i++) {
@@ -286,7 +286,7 @@ public class ModHealthChecker {
             int choice = JOptionPane.showOptionDialog(
                 null,
                 message.toString(),
-                "RetroMod - Mod Issue Detected",
+                "Retromod - Mod Issue Detected",
                 JOptionPane.YES_NO_CANCEL_OPTION,
                 JOptionPane.WARNING_MESSAGE,
                 null,
@@ -357,7 +357,7 @@ public class ModHealthChecker {
      */
     private static void openGitHub() {
         try {
-            String url = "https://github.com/Bownlux/RetroMod/issues/new?title=Bug%20Report%20-%20Mod%20Not%20Working";
+            String url = "https://github.com/Bownlux/Retromod/issues/new?title=Bug%20Report%20-%20Mod%20Not%20Working";
             if (Desktop.isDesktopSupported()) {
                 Desktop.getDesktop().browse(java.net.URI.create(url));
             } else {

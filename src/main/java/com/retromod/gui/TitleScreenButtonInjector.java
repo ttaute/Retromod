@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.gui;
@@ -20,15 +20,15 @@ import java.util.function.Consumer;
  *   - NeoForge: NeoForge.EVENT_BUS       (ScreenEvent.Init.Post)
  *   - Forge:    MinecraftForge.EVENT_BUS  (ScreenEvent.Init.Post)
  *
- * All API calls are done via reflection so RetroMod compiles without
+ * All API calls are done via reflection so Retromod compiles without
  * compile-time dependencies on any loader-specific event classes.
  *
- * When the title screen opens, this injector adds a small "RetroMod" button
- * that opens the RetroMod mod manager (file picker + transformation).
+ * When the title screen opens, this injector adds a small "Retromod" button
+ * that opens the Retromod mod manager (file picker + transformation).
  */
 public final class TitleScreenButtonInjector {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-TitleButton");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-TitleButton");
     private static boolean registered = false;
 
     // Resolved MC classes (cached after first successful lookup)
@@ -152,7 +152,7 @@ public final class TitleScreenButtonInjector {
                     if (method.getParameterCount() == 4 && args != null) {
                         Object screen = args[1];
                         if (titleScreenClass.isInstance(screen)) {
-                            addRetroModButton(screen);
+                            addRetromodButton(screen);
                         }
                     }
                     return null;
@@ -338,7 +338,7 @@ public final class TitleScreenButtonInjector {
             Object screen = getScreen.invoke(event);
 
             if (titleScreenClass.isInstance(screen)) {
-                addRetroModButton(screen);
+                addRetromodButton(screen);
             }
         } catch (Exception e) {
             LOGGER.debug("Error handling screen event: {}", e.getMessage());
@@ -350,12 +350,12 @@ public final class TitleScreenButtonInjector {
     // =====================================================================
 
     /**
-     * Add the RetroMod button to the title screen.
+     * Add the Retromod button to the title screen.
      *
      * Uses McReflect to resolve MC class/method names across all loaders.
-     * The button opens the RetroMod mod manager (file picker + transformation).
+     * The button opens the Retromod mod manager (file picker + transformation).
      */
-    private static void addRetroModButton(Object screen) {
+    private static void addRetromodButton(Object screen) {
         try {
             // Get screen dimensions
             int width = McReflect.getIntField(screen, screenClass, 854, "width");
@@ -366,7 +366,7 @@ public final class TitleScreenButtonInjector {
             int buttonX = width - 82;
             int buttonY = 2;
 
-            // Press-action proxy: opens the RetroMod settings/file-picker
+            // Press-action proxy: opens the Retromod settings/file-picker
             // screen. We use ConfigScreenFactory because it stays on the
             // render thread (no AWT FileDialog → no platform issues), and it
             // includes a button to open the input folder for adding mods.
@@ -383,12 +383,12 @@ public final class TitleScreenButtonInjector {
                         // INFO so it shows in default logs — easy to confirm
                         // the click actually fired. If this line is missing
                         // when the user clicks, the click never reached us.
-                        LOGGER.info("[RetroMod] Title-screen button clicked");
+                        LOGGER.info("[Retromod] Title-screen button clicked");
                         try {
                             MainScreenFactory.open(screen);
-                            LOGGER.info("[RetroMod] MainScreenFactory.open() returned");
+                            LOGGER.info("[Retromod] MainScreenFactory.open() returned");
                         } catch (Throwable t) {
-                            LOGGER.warn("[RetroMod] Failed to open RetroMod screen: {}",
+                            LOGGER.warn("[Retromod] Failed to open Retromod screen: {}",
                                     t.getMessage(), t);
                         }
                     }
@@ -402,7 +402,7 @@ public final class TitleScreenButtonInjector {
             // an invisible/non-clickable button. Text button always works.
             Object button = buildPlainTextButton(buttonX, buttonY, pressAction, pressActionClass);
             if (button == null) {
-                LOGGER.warn("[RetroMod] Could not build title-screen button (button==null)");
+                LOGGER.warn("[Retromod] Could not build title-screen button (button==null)");
                 return;
             }
 
@@ -416,19 +416,19 @@ public final class TitleScreenButtonInjector {
             if (addMethod != null) {
                 addMethod.setAccessible(true);
                 addMethod.invoke(screen, button);
-                LOGGER.info("[RetroMod] Title-screen button registered via {} at ({},{})",
+                LOGGER.info("[Retromod] Title-screen button registered via {} at ({},{})",
                         addMethod.getName(), buttonX, buttonY);
             } else {
-                LOGGER.warn("[RetroMod] Could not find any add-widget method on Screen");
+                LOGGER.warn("[Retromod] Could not find any add-widget method on Screen");
             }
 
         } catch (Exception e) {
-            LOGGER.warn("[RetroMod] Could not add title-screen button: {}", e.getMessage(), e);
+            LOGGER.warn("[Retromod] Could not add title-screen button: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * Build a wide ButtonWidget with the text "RetroMod". This is the
+     * Build a wide ButtonWidget with the text "Retromod". This is the
      * known-working fallback — uses the same Button.builder() API that
      * vanilla MC uses for its own buttons, so click events are wired
      * correctly by the framework.
@@ -439,20 +439,20 @@ public final class TitleScreenButtonInjector {
             Method literal = McReflect.findMethod(textClass,
                 new Class[]{String.class}, "literal");
             if (literal == null) {
-                LOGGER.warn("[RetroMod] Component.literal() not found");
+                LOGGER.warn("[Retromod] Component.literal() not found");
                 return null;
             }
-            Object text = literal.invoke(null, "RetroMod");
+            Object text = literal.invoke(null, "Retromod");
 
             Method builder = McReflect.findMethod(buttonWidgetClass,
                 new Class[]{textClass, pressActionClass}, "builder");
             if (builder == null) {
-                LOGGER.warn("[RetroMod] Button.builder() not found");
+                LOGGER.warn("[Retromod] Button.builder() not found");
                 return null;
             }
             Object b = builder.invoke(null, text, pressAction);
 
-            // Width 80 fits "RetroMod" comfortably; height 20 is standard.
+            // Width 80 fits "Retromod" comfortably; height 20 is standard.
             Method dim = McReflect.findMethod(b.getClass(),
                 new Class[]{int.class, int.class, int.class, int.class},
                 "dimensions", "bounds", "pos");
@@ -461,7 +461,7 @@ public final class TitleScreenButtonInjector {
             Method build = McReflect.findMethod(b.getClass(), "build");
             return build != null ? build.invoke(b) : null;
         } catch (Exception e) {
-            LOGGER.warn("[RetroMod] buildPlainTextButton failed: {}", e.getMessage(), e);
+            LOGGER.warn("[Retromod] buildPlainTextButton failed: {}", e.getMessage(), e);
             return null;
         }
     }
@@ -545,7 +545,7 @@ public final class TitleScreenButtonInjector {
             Method literal = McReflect.findMethod(textClass,
                 new Class[]{String.class}, "literal");
             if (literal == null) return null;
-            Object message = literal.invoke(null, "RetroMod");
+            Object message = literal.invoke(null, "Retromod");
 
             Method builderMethod = McReflect.findMethod(sib,
                 new Class[]{textClass, pressActionClass, boolean.class}, "builder");
@@ -590,7 +590,7 @@ public final class TitleScreenButtonInjector {
     }
 
     // (Old helper kept around but unused — settings now reached via the
-    // RetroMod logo button itself.)
+    // Retromod logo button itself.)
     @SuppressWarnings("unused")
     private static void addSettingsButton(Object screen, int x, int y,
             Class<?> pressActionClass, Method literalMethod,
@@ -627,16 +627,16 @@ public final class TitleScreenButtonInjector {
                 }
             }
 
-            LOGGER.debug("RetroMod settings button added to title screen");
+            LOGGER.debug("Retromod settings button added to title screen");
         } catch (Exception e) {
             LOGGER.debug("Could not add settings button: {}", e.getMessage());
         }
     }
 
     /**
-     * Open the RetroMod mod manager when the button is clicked.
+     * Open the Retromod mod manager when the button is clicked.
      */
-    private static void openRetroModManager(Object screen) {
+    private static void openRetromodManager(Object screen) {
         try {
             // Get MinecraftClient/Minecraft instance from the screen
             Object client = McReflect.getField(screen, screenClass, "client", "minecraft");
@@ -659,12 +659,12 @@ public final class TitleScreenButtonInjector {
                 return;
             }
 
-            // Create and open RetroModScreen
-            RetroModScreen retroScreen = new RetroModScreen(client, screen);
+            // Create and open RetromodScreen
+            RetromodScreen retroScreen = new RetromodScreen(client, screen);
             retroScreen.open();
 
         } catch (Exception e) {
-            LOGGER.error("Could not open RetroMod manager", e);
+            LOGGER.error("Could not open Retromod manager", e);
         }
     }
 

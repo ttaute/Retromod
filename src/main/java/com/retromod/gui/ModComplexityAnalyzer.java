@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.gui;
@@ -15,11 +15,11 @@ import java.util.jar.*;
 
 /**
  * Analyzes a mod JAR to estimate how likely it is to work after
- * RetroMod's bytecode transformation.
+ * Retromod's bytecode transformation.
  *
  * Mods that deeply depend on Minecraft internals, use heavy reflection,
  * hook into rendering pipelines, or use NMS/Forge capabilities extensively
- * are "unlikely to work" because RetroMod cannot remap all of their
+ * are "unlikely to work" because Retromod cannot remap all of their
  * internal dependencies.
  *
  * The complexity score is a heuristic — it does NOT guarantee failure,
@@ -32,7 +32,7 @@ import java.util.jar.*;
  */
 public class ModComplexityAnalyzer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Complexity");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Complexity");
 
     // Score threshold: at or above this, we warn the user
     private static final int THRESHOLD_UNLIKELY = 60;

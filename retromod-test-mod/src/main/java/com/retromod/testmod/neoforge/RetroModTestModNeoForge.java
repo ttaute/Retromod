@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.neoforge;
@@ -22,9 +22,9 @@ import net.neoforged.fml.common.Mod;
  * the immediate phase only.
  */
 @Mod("retromod_test_mod")
-public class RetroModTestModNeoForge {
+public class RetromodTestModNeoForge {
 
-    public RetroModTestModNeoForge() {
+    public RetromodTestModNeoForge() {
         TestRunner.runImmediate();
     }
 }

@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod;

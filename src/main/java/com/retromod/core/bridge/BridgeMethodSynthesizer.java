@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.bridge;
@@ -90,7 +90,7 @@ import java.util.function.Function;
  */
 public final class BridgeMethodSynthesizer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-BridgeSynth");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-BridgeSynth");
 
     /**
      * Function the synthesizer queries to find method renames. The function
@@ -98,7 +98,7 @@ public final class BridgeMethodSynthesizer {
      * (matching {@link #renameKey}) and returns the new method name (or null).
      *
      * <p>We accept a Function rather than a concrete map so the synthesizer
-     * doesn't need to depend on {@code RetroModTransformer}'s internal data
+     * doesn't need to depend on {@code RetromodTransformer}'s internal data
      * structures — the transformer can wrap its {@code methodRedirects} map
      * with a lambda.</p>
      */

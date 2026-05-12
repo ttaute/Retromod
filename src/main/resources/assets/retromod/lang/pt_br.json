@@ -1,21 +1,21 @@
 {
-  "retromod.title_screen.button": "RetroMod",
+  "retromod.title_screen.button": "Retromod",
   "retromod.title_screen.settings": "\u2699",
 
-  "retromod.main.title": "RetroMod",
+  "retromod.main.title": "Retromod",
   "retromod.main.subtitle": "Solte ou escolha JARs de mods para transformar",
   "retromod.main.add_mods": "Adicionar mods\u2026",
   "retromod.main.open_folder": "Abrir pasta de mods",
 
-  "retromod.screen.title": "RetroMod - Gerenciador de mods",
+  "retromod.screen.title": "Retromod - Gerenciador de mods",
   "retromod.screen.add_mods": "Adicionar mods para transformar",
   "retromod.screen.full_aot": "Modo AOT completo (compila\u00e7\u00e3o mais lenta, jogo mais r\u00e1pido)",
-  "retromod.screen.complexity_warning": "RetroMod n\u00e3o transformou %s porque provavelmente n\u00e3o vai funcionar. Ative \"force_translate_complex\" em config/retromod/config.json para for\u00e7ar a transforma\u00e7\u00e3o.",
+  "retromod.screen.complexity_warning": "Retromod n\u00e3o transformou %s porque provavelmente n\u00e3o vai funcionar. Ative \"force_translate_complex\" em config/retromod/config.json para for\u00e7ar a transforma\u00e7\u00e3o.",
   "retromod.screen.transform_complete": "Transforma\u00e7\u00e3o conclu\u00edda! Reinicie o Minecraft para aplicar as mudan\u00e7as.",
   "retromod.screen.no_mods": "Nenhum mod selecionado.",
   "retromod.screen.transforming": "Transformando: %s",
 
-  "retromod.settings.title": "Configura\u00e7\u00f5es do RetroMod",
+  "retromod.settings.title": "Configura\u00e7\u00f5es do Retromod",
   "retromod.settings.done": "Pronto",
   "retromod.settings.add_mods": "Abrir pasta de mods",
   "retromod.settings.on": "\u00a7aATIVADO",
@@ -32,7 +32,7 @@
   "retromod.settings.log_transformations": "Registrar transforma\u00e7\u00f5es",
   "retromod.settings.debug": "Modo de depura\u00e7\u00e3o",
 
-  "retromod.filepicker.title": "RetroMod \u2014 Selecione os JARs dos mods para transformar",
+  "retromod.filepicker.title": "Retromod \u2014 Selecione os JARs dos mods para transformar",
 
   "retromod.result.success": "Transformado",
   "retromod.result.skipped": "J\u00e1 compat\u00edvel",

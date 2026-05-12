@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.gui;
@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.prefs.Preferences;
 
 /**
- * GUI for RetroMod - allows users to select and transform mods without CLI.
+ * GUI for Retromod - allows users to select and transform mods without CLI.
  * 
  * Features:
  * - File picker to select mod JARs (opens Finder on Mac, Explorer on Windows)
@@ -32,13 +32,13 @@ import java.util.prefs.Preferences;
  * 1. Shows welcome dialog
  * 2. Opens file picker
  * 3. User selects mod JARs
- * 4. RetroMod transforms them
+ * 4. Retromod transforms them
  * 5. Copies to mods folder
  * 6. Prompts for restart
  */
-public class RetroModGui {
+public class RetromodGui {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-GUI");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-GUI");
     private static final String PREFS_KEY_FIRST_RUN = "retromod_first_run_complete";
     private static final String PREFS_KEY_LAST_DIR = "retromod_last_directory";
     
@@ -51,15 +51,15 @@ public class RetroModGui {
     private JButton addModsButton;
     private boolean transformedAnyMods = false;
     
-    public RetroModGui(Path gameDir) {
+    public RetromodGui(Path gameDir) {
         this.gameDir = gameDir;
         this.modsFolder = gameDir.resolve("mods");
         this.checker = new ModCompatibilityChecker(gameDir);
-        this.prefs = Preferences.userNodeForPackage(RetroModGui.class);
+        this.prefs = Preferences.userNodeForPackage(RetromodGui.class);
     }
     
     /**
-     * Check if this is the first time running RetroMod.
+     * Check if this is the first time running Retromod.
      */
     public boolean isFirstRun() {
         return !prefs.getBoolean(PREFS_KEY_FIRST_RUN, false);
@@ -88,9 +88,9 @@ public class RetroModGui {
             int choice = JOptionPane.showOptionDialog(
                 null,
                 """
-                Welcome to RetroMod!
+                Welcome to Retromod!
                 
-                This looks like your first time using RetroMod.
+                This looks like your first time using Retromod.
                 
                 To use old mods with your current Minecraft version,
                 you need to select the mod JAR files you want to transform.
@@ -98,7 +98,7 @@ public class RetroModGui {
                 Click "Select Mods" to open the file picker and choose
                 the mods you want to use.
                 
-                (The original mods won't be modified - RetroMod creates
+                (The original mods won't be modified - Retromod creates
                 transformed copies in your mods folder.)
                 
                 ═══════════════════════════════════════════════════
@@ -107,7 +107,7 @@ public class RetroModGui {
                 for maximum performance! It takes longer to compile once,
                 but makes future launches MUCH faster.
                 """,
-                "RetroMod - First Time Setup",
+                "Retromod - First Time Setup",
                 JOptionPane.DEFAULT_OPTION,
                 JOptionPane.INFORMATION_MESSAGE,
                 null,
@@ -173,7 +173,7 @@ public class RetroModGui {
         }
         
         // Show progress dialog
-        JDialog progressDialog = new JDialog((Frame) null, "RetroMod - Transforming Mods", true);
+        JDialog progressDialog = new JDialog((Frame) null, "Retromod - Transforming Mods", true);
         JProgressBar progressBar = new JProgressBar(0, modFiles.length);
         JLabel statusLabel = new JLabel("Preparing...");
         JTextArea logArea = new JTextArea(10, 50);
@@ -300,7 +300,7 @@ public class RetroModGui {
                 JOptionPane.showMessageDialog(
                     null,
                     message.toString(),
-                    "RetroMod - Complete",
+                    "Retromod - Complete",
                     JOptionPane.INFORMATION_MESSAGE
                 );
                 
@@ -458,7 +458,7 @@ public class RetroModGui {
      * Static helper to run the GUI from mod initialization.
      */
     public static void runFirstTimeSetupIfNeeded(Path gameDir) {
-        RetroModGui gui = new RetroModGui(gameDir);
+        RetromodGui gui = new RetromodGui(gameDir);
         
         if (gui.isFirstRun()) {
             LOGGER.info("First run detected - showing setup dialog");
@@ -470,7 +470,7 @@ public class RetroModGui {
      * Static helper to show the add mods button.
      */
     public static void showFloatingButton(Path gameDir) {
-        RetroModGui gui = new RetroModGui(gameDir);
+        RetromodGui gui = new RetromodGui(gameDir);
         gui.showAddModsButton();
     }
 }

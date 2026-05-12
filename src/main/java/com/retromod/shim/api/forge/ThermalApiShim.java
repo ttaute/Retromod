@@ -1,12 +1,12 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * CoFH/Thermal/Redstone Flux API -> Forge Energy API Compatibility Shim
  */
 package com.retromod.shim.api.forge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -53,7 +53,7 @@ public class ThermalApiShim implements VersionShim {
     }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // ============================================================
         // CoFH ENERGY API (cofh.api.energy) - Original 1.7.10/1.10.2 API
         // ============================================================

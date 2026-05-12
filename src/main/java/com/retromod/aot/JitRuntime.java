@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.aot;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
@@ -16,7 +16,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * JIT Runtime Transformer for RetroMod.
+ * JIT Runtime Transformer for Retromod.
  * 
  * This transformer runs at class load time and handles:
  * 1. Classes/methods marked with @JitRequired annotation
@@ -33,7 +33,7 @@ public class JitRuntime implements ClassFileTransformer {
     
     private static final String JIT_REQUIRED_DESC = "Lcom/retromod/aot/JitRequired;";
     
-    private final RetroModTransformer transformer;
+    private final RetromodTransformer transformer;
     
     // Cache of already-transformed classes
     private final Map<String, byte[]> transformedCache = new ConcurrentHashMap<>();
@@ -43,7 +43,7 @@ public class JitRuntime implements ClassFileTransformer {
     private int methodsTransformed = 0;
     private int regionsTransformed = 0;
     
-    public JitRuntime(RetroModTransformer transformer) {
+    public JitRuntime(RetromodTransformer transformer) {
         this.transformer = transformer;
     }
     
@@ -262,7 +262,7 @@ public class JitRuntime implements ClassFileTransformer {
     
     private boolean transformMethodInsn(MethodInsnNode insn) {
         // Check for method redirect
-        var key = new RetroModTransformer.MethodKey(insn.owner, insn.name, insn.desc);
+        var key = new RetromodTransformer.MethodKey(insn.owner, insn.name, insn.desc);
         var target = transformer.getMethodRedirects().get(key);
         
         if (target != null) {
@@ -341,7 +341,7 @@ public class JitRuntime implements ClassFileTransformer {
         
         // This would involve:
         // 1. Detecting Class.getMethod("oldName", ...) 
-        // 2. Replacing it with Class.getMethod(RetroModReflection.remap("oldName"), ...)
+        // 2. Replacing it with Class.getMethod(RetromodReflection.remap("oldName"), ...)
         
         // For now, we just log it - full implementation would inject wrapper calls
         LOGGER.trace("JIT detected reflective call: {}.{}", insn.owner, insn.name);

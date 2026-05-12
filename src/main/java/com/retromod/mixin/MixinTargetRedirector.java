@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.mixin;
@@ -16,11 +16,11 @@ import java.util.concurrent.ConcurrentHashMap;
  * Advanced Mixin Target Redirector
  * 
  * YOUR IDEA IMPLEMENTED:
- * RetroMod acts as the "middle man" between old Mixin targets and new MC code.
+ * Retromod acts as the "middle man" between old Mixin targets and new MC code.
  * 
  * HOW IT WORKS:
  * 1. Mixin class has @Inject(method = "oldMethod")
- * 2. RetroMod intercepts the class during transformation
+ * 2. Retromod intercepts the class during transformation
  * 3. Finds the annotation, looks up "oldMethod" in our mapping
  * 4. Changes annotation to "newMethod"
  * 5. Mixin now targets the correct method!
@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class MixinTargetRedirector {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-MixinRedirect");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-MixinRedirect");
     
     // Mapping: "OldClass.oldMethod" -> "NewClass.newMethod"
     // This is the "translation table" you described

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -21,7 +21,7 @@ import java.util.zip.*;
  */
 public class CrossModDependencyResolver {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Dependencies");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Dependencies");
     
     // Dependencies graph (modId -> list of dependency modIds) - thread-safe
     private final Map<String, List<String>> dependencyGraph = new ConcurrentHashMap<>();

@@ -28,7 +28,7 @@ name: Release latest main build
 # shaded JAR, strips the OTHER loaders' metadata, rewrites the kept
 # metadata for a specific MC version, and emits one clean per-loader JAR
 # into dist/<Loader>/<MC>/. We run that here and pick the Fabric output
-# because Fabric is RetroMod's primary, best-tested loader (see the
+# because Fabric is Retromod's primary, best-tested loader (see the
 # README's loader matrix). Forge and NeoForge users currently get their
 # JARs from milestone releases or by running build-all.sh themselves;
 # rolling auto-publish for those is a future improvement.
@@ -154,7 +154,7 @@ jobs:
             **Rolling pre-release · Fabric build for MC ${{ steps.ver.outputs.mc_version }}** — auto-published on every successful CI run against `main`. Always points at the most recent green build. Versioned milestones (v1.0.0-beta.1, future v1.0.0…) are cut separately.
 
             ### What this is
-            This is the **Fabric variant** of RetroMod, built for **MC ${{ steps.ver.outputs.mc_version }}**. Fabric is RetroMod's primary loader — see the [README](https://github.com/${{ github.repository }}#retromod) for why. The fat shaded JAR that contains all three loaders' metadata is intentionally not published here; loaders disagree about whether a multi-loader JAR is acceptable, and shipping a single-loader JAR avoids the ambiguity entirely.
+            This is the **Fabric variant** of Retromod, built for **MC ${{ steps.ver.outputs.mc_version }}**. Fabric is Retromod's primary loader — see the [README](https://github.com/${{ github.repository }}#retromod) for why. The fat shaded JAR that contains all three loaders' metadata is intentionally not published here; loaders disagree about whether a multi-loader JAR is acceptable, and shipping a single-loader JAR avoids the ambiguity entirely.
 
             **Forge and NeoForge users:** the rolling channel doesn't auto-publish your variants yet. For now, grab the per-loader JARs from a tagged milestone release, or build them yourself: clone the repo and run `bash build-all.sh` — that produces `dist/Forge/<MC>/` and `dist/NeoForge/<MC>/` artifacts the same way this workflow produces the Fabric one.
 
@@ -171,9 +171,9 @@ jobs:
             ### Install
             1. Download **`${{ steps.ver.outputs.artifact_name }}`** below.
             2. Drop it into your Fabric instance's `mods/` folder.
-            3. Launch once. RetroMod creates `retromod-input/` next to `mods/`. Drop old mods there for transformation, then restart when prompted.
+            3. Launch once. Retromod creates `retromod-input/` next to `mods/`. Drop old mods there for transformation, then restart when prompted.
 
-            See the [installation docs](https://bownlux.github.io/RetroMod/installation) for the full per-loader walkthrough.
+            See the [installation docs](https://bownlux.github.io/Retromod/installation) for the full per-loader walkthrough.
 
             ### Verify the download
             ```

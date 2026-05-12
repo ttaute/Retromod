@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.forge.embedded;
@@ -15,17 +15,17 @@ public class GameRegistryShim {
         // In modern MC, registration is done via DeferredRegister events.
         // We log a warning but don't crash — the object may already be registered
         // through the version shim's class redirects.
-        System.out.println("[RetroMod] GameRegistry.register() called for legacy mod — " +
-            "object: " + obj + ". This call is intercepted by RetroMod's compatibility layer.");
+        System.out.println("[Retromod] GameRegistry.register() called for legacy mod — " +
+            "object: " + obj + ". This call is intercepted by Retromod's compatibility layer.");
     }
 
     public static void register(Object obj, Object name) {
-        System.out.println("[RetroMod] GameRegistry.register() called for legacy mod — " +
+        System.out.println("[Retromod] GameRegistry.register() called for legacy mod — " +
             "object: " + obj + ", name: " + name);
     }
 
     public static void registerTileEntity(Class<?> clazz, Object name) {
-        System.out.println("[RetroMod] GameRegistry.registerTileEntity() called — " +
+        System.out.println("[Retromod] GameRegistry.registerTileEntity() called — " +
             "class: " + clazz.getName() + ", name: " + name);
     }
 

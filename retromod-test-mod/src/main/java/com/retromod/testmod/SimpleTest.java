@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod;
@@ -25,7 +25,7 @@ public record SimpleTest(String description, Supplier<TestResult> body) implemen
 
     /**
      * The most common test shape: "this expression resolves to something
-     * non-null after RetroMod's transformer runs." Useful for the long lists
+     * non-null after Retromod's transformer runs." Useful for the long lists
      * of static field accesses ({@code Items.DIAMOND}, {@code Blocks.STONE},
      * etc.) where the test body is otherwise four lines of boilerplate.
      */

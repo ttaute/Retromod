@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod (NeoForge)
+ * Retromod Test Mod (NeoForge)
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.neoforge;
@@ -24,14 +24,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * NeoForge entry point for the RetroMod test mod.
+ * NeoForge entry point for the Retromod test mod.
  *
- * <p>Compiled against MC 1.21.1 / NeoForge 21.1.x. RetroMod transforms it
+ * <p>Compiled against MC 1.21.1 / NeoForge 21.1.x. Retromod transforms it
  * forward to whatever MC version the host is running. On a 26.1.2 host
  * this exercises NeoForge-targeted redirects + the Mojang-name surface.
  *
- * <p>Each test logs {@code [RetroMod-Test-NeoForge] N (description): success/fail}.
- * Grep for {@code [RetroMod-Test-NeoForge]} in the log to see results.
+ * <p>Each test logs {@code [Retromod-Test-NeoForge] N (description): success/fail}.
+ * Grep for {@code [Retromod-Test-NeoForge]} in the log to see results.
  *
  * <p>NeoForge gets a wider test surface than Forge because the 1.21.1 →
  * 26.1.2 translation distance is small and a lot of Forge mods are
@@ -44,12 +44,12 @@ import org.slf4j.LoggerFactory;
  * for deferred tests (anything needing a world load) are a future addition.
  */
 @Mod("retromod_test_mod_neoforge")
-public class RetroModTestModNeoForge {
+public class RetromodTestModNeoForge {
 
-    private static final Logger LOG = LoggerFactory.getLogger("RetroMod-Test-NeoForge");
-    private static final String PREFIX = "[RetroMod-Test-NeoForge]";
+    private static final Logger LOG = LoggerFactory.getLogger("Retromod-Test-NeoForge");
+    private static final String PREFIX = "[Retromod-Test-NeoForge]";
 
-    public RetroModTestModNeoForge() {
+    public RetromodTestModNeoForge() {
         runTests();
     }
 

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. MIT License.
  */
 package com.retromod.core;
@@ -33,7 +33,7 @@ import java.util.regex.*;
  */
 public class ForgeModTransformer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeTransform");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ForgeTransform");
 
     /** Maximum size for a single ZIP entry (50 MB) to prevent zip bomb attacks. */
     private static final long MAX_ENTRY_SIZE = 50 * 1024 * 1024;
@@ -41,9 +41,9 @@ public class ForgeModTransformer {
     private static final long MAX_TOTAL_SIZE = 500 * 1024 * 1024;
 
     /**
-     * Forge/NeoForge mod IDs for APIs that RetroMod provides compatibility shims for.
+     * Forge/NeoForge mod IDs for APIs that Retromod provides compatibility shims for.
      * When a mod declares a dependency with a restrictive versionRange in mods.toml,
-     * the mod loader will block the mod from loading. Since RetroMod transforms the
+     * the mod loader will block the mod from loading. Since Retromod transforms the
      * bytecode, we also relax these constraints.
      */
     private static final Set<String> SHIMMED_API_MOD_IDS = Set.of(
@@ -82,11 +82,11 @@ public class ForgeModTransformer {
     );
 
     private final String targetMcVersion;
-    private final RetroModTransformer bytecodeTransformer;
+    private final RetromodTransformer bytecodeTransformer;
 
     public ForgeModTransformer(String targetMcVersion) {
         this.targetMcVersion = targetMcVersion;
-        this.bytecodeTransformer = RetroModTransformer.getInstance();
+        this.bytecodeTransformer = RetromodTransformer.getInstance();
     }
 
     /**
@@ -278,12 +278,12 @@ public class ForgeModTransformer {
         // Parallel per-class transformation — same rationale as
         // FabricModTransformer.transformClasses. Classes transform
         // independently; the bytecodeTransformer's redirect tables are
-        // thread-safe (ConcurrentHashMap reads). See RetroModExecutors
+        // thread-safe (ConcurrentHashMap reads). See RetromodExecutors
         // for pool-sizing rationale.
         final java.util.concurrent.atomic.AtomicInteger counter =
                 new java.util.concurrent.atomic.AtomicInteger();
 
-        com.retromod.core.parallel.RetroModExecutors.parallelForEach(classFiles, classFile -> {
+        com.retromod.core.parallel.RetromodExecutors.parallelForEach(classFiles, classFile -> {
             try {
                 byte[] original = Files.readAllBytes(classFile);
                 String className = dir.relativize(classFile).toString()
@@ -322,7 +322,7 @@ public class ForgeModTransformer {
      * fabric.mod.json) inside each one in-place.
      *
      * <p>JIJ ("Jar-In-Jar") is Forge's mechanism for bundling dependencies
-     * inside a mod. When RetroMod transforms a mod like Create, it updates
+     * inside a mod. When Retromod transforms a mod like Create, it updates
      * Create's outer mods.toml correctly — but the bundled Flywheel jar at
      * {@code META-INF/jarjar/flywheel-forge-1.18.2-0.6.11-107.jar} has its
      * own mods.toml declaring "minecraft 1.18.2..1.19", and Forge rejects
@@ -442,9 +442,9 @@ public class ForgeModTransformer {
         // Strategy: find [[dependencies.xxx]] blocks and update the minecraft one
         content = updateMinecraftVersionRange(content);
 
-        // Add RetroMod marker if not present
+        // Add Retromod marker if not present
         if (!content.contains("retromod_transformed")) {
-            content = content + "\n# Transformed by RetroMod (original version modified)\n";
+            content = content + "\n# Transformed by Retromod (original version modified)\n";
         }
 
         if (!content.equals(original)) {
@@ -458,9 +458,9 @@ public class ForgeModTransformer {
      * Finds the [[dependencies.xxx]] block with modId = "minecraft" and
      * updates its versionRange to the target version.
      *
-     * Also relaxes version ranges for third-party APIs that RetroMod has shims for.
+     * Also relaxes version ranges for third-party APIs that Retromod has shims for.
      * Without this, the mod loader would block the mod at startup even though
-     * RetroMod has already transformed the bytecode to work with newer API versions.
+     * Retromod has already transformed the bytecode to work with newer API versions.
      */
     private String updateMinecraftVersionRange(String toml) {
         // TOML structure:
@@ -510,7 +510,7 @@ public class ForgeModTransformer {
                 } else if (SHIMMED_API_MOD_IDS.contains(currentDepModId)) {
                     // Shimmed API dependency: relax to accept any version
                     result.append("versionRange = \"[0,)\"\n");
-                    LOGGER.info("  Relaxed API dependency: {} -> [0,...) (RetroMod has shims)", currentDepModId);
+                    LOGGER.info("  Relaxed API dependency: {} -> [0,...) (Retromod has shims)", currentDepModId);
                     currentDepModId = null;
                 } else if ("forge".equals(currentDepModId) || "neoforge".equals(currentDepModId)) {
                     // Forge/NeoForge loader: also relax

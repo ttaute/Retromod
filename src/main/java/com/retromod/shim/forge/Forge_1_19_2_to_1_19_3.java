@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -22,7 +22,7 @@ public class Forge_1_19_2_to_1_19_3 implements VersionShim {
     @Override public String getModLoaderType() { return "forge"; }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // INTENTIONALLY NOT REMAPPING net.minecraft.core.Registry.
         //
         // Earlier this shim had:

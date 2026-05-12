@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.verify;
@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  * MC renamed the class.
  *
  * <h3>The problem this solves</h3>
- * <p>RetroMod's main transformer uses ASM's {@code ClassRemapper} to rewrite
+ * <p>Retromod's main transformer uses ASM's {@code ClassRemapper} to rewrite
  * every class reference in bytecode — type descriptors, method signatures,
  * {@code NEW}/{@code CHECKCAST}/{@code INSTANCEOF} opcodes, annotations, etc.
  * But it <b>cannot</b> rewrite class names that appear as {@link String}
@@ -89,7 +89,7 @@ import java.util.regex.Pattern;
  */
 public final class ReflectionStringRemapper {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ReflectionRemapper");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ReflectionRemapper");
 
     /**
      * Instruction window size — how far back to look for an LDC when we hit a
@@ -172,7 +172,7 @@ public final class ReflectionStringRemapper {
 
     /**
      * @param slashedClassRedirects the existing {@code classRedirects} map from
-     *                              {@link com.retromod.core.RetroModTransformer},
+     *                              {@link com.retromod.core.RetromodTransformer},
      *                              using slash-separated internal names. We convert
      *                              to dotted form internally since reflection strings
      *                              are dotted.

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Automated crash analysis and fix system. Scans game/crash logs for known
@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Automated crash analysis and fix engine for RetroMod.
+ * Automated crash analysis and fix engine for Retromod.
  *
  * <h2>Overview</h2>
  * After the initial mod transformation, errors may still occur at runtime due to
@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
  */
 public class AutoFixEngine {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-AutoFix");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-AutoFix");
 
     /**
      * Where persisted fixes are saved between launches.
@@ -131,7 +131,7 @@ public class AutoFixEngine {
      * @param transformer the transformer to register fixes on
      * @return list of fixes that were applied (empty if no errors found)
      */
-    public List<AppliedFix> analyzeAndFix(Path logFile, RetroModTransformer transformer) {
+    public List<AppliedFix> analyzeAndFix(Path logFile, RetromodTransformer transformer) {
         if (logFile == null || !Files.exists(logFile)) {
             LOGGER.warn("[AutoFix] Log file not found: {}", logFile);
             return Collections.emptyList();
@@ -266,7 +266,7 @@ public class AutoFixEngine {
      * @param transformer the transformer to apply saved fixes to
      * @return number of fixes loaded and applied
      */
-    public int loadAndApplySavedFixes(RetroModTransformer transformer) {
+    public int loadAndApplySavedFixes(RetromodTransformer transformer) {
         if (!Files.exists(FIXES_FILE)) {
             return 0;
         }
@@ -556,7 +556,7 @@ public class AutoFixEngine {
         //   "IncompatibleClassChangeError: Method 'X' must be InterfaceMethodref constant"
         //   OR: "Found class X, but interface was expected"
         // Parses: the class that needs to be treated as an interface
-        // Action: Add the class to KNOWN_INTERFACES in RetroModTransformer
+        // Action: Add the class to KNOWN_INTERFACES in RetromodTransformer
         //         so INVOKEVIRTUAL is rewritten to INVOKEINTERFACE
         patterns.add(new ErrorPattern(
             "IncompatibleClassChangeError",
@@ -587,7 +587,7 @@ public class AutoFixEngine {
                     "IncompatibleClassChangeError",
                     ownerDot + " needs InterfaceMethodref",
                     "Class '" + ownerDot + "' became an interface in newer MC. " +
-                        "Add '" + owner + "' to KNOWN_INTERFACES in RetroModTransformer. " +
+                        "Add '" + owner + "' to KNOWN_INTERFACES in RetromodTransformer. " +
                         "Alternatively, the transformer's INVOKEVIRTUAL->INVOKEINTERFACE " +
                         "rewrite should handle this at retransform time.",
                     "interface_change:" + owner
@@ -740,7 +740,7 @@ public class AutoFixEngine {
                         "or the API module was removed. Check polyfill providers.";
                 } else {
                     action = "Missing mod dependency. User must install the required library " +
-                        "mod. RetroMod cannot fix missing third-party dependencies.";
+                        "mod. Retromod cannot fix missing third-party dependencies.";
                 }
 
                 return new AppliedFix(
@@ -1031,7 +1031,7 @@ public class AutoFixEngine {
                 return new AppliedFix(
                     "MissingModDependency",
                     "Mod '" + requiringMod + "' requires '" + missingMod + "' (not installed)",
-                    "The user must install the '" + missingMod + "' mod. RetroMod cannot " +
+                    "The user must install the '" + missingMod + "' mod. Retromod cannot " +
                         "fix missing third-party mod dependencies. Check Modrinth or CurseForge " +
                         "for a compatible version.",
                     "dep_missing:" + missingMod + ":" + requiringMod
@@ -1145,7 +1145,7 @@ public class AutoFixEngine {
      * Apply a persisted fix to the transformer. Only handles fix types that
      * directly register redirects; other fix types are informational only.
      */
-    private boolean applyPersistedFix(PersistedFix fix, RetroModTransformer transformer) {
+    private boolean applyPersistedFix(PersistedFix fix, RetromodTransformer transformer) {
         // Only certain fix types can be mechanically re-applied
         if (fix.fixKey == null) return false;
 
@@ -1367,7 +1367,7 @@ public class AutoFixEngine {
          * @return the applied fix, or null if no fix could be computed
          */
         AppliedFix apply(Matcher matcher, String line, String context,
-                         RetroModTransformer transformer) {
+                         RetromodTransformer transformer) {
             try {
                 AppliedFix fix = fixAction.apply(matcher, line, context, transformer);
                 if (fix != null) {
@@ -1414,6 +1414,6 @@ public class AutoFixEngine {
          * @return description of the fix, or null if no fix could be applied
          */
         AppliedFix apply(Matcher matcher, String line, String context,
-                         RetroModTransformer transformer);
+                         RetromodTransformer transformer);
     }
 }

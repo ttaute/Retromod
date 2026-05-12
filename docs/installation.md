@@ -5,7 +5,7 @@ nav_order: 2
 
 # Installation
 
-RetroMod installs like any other Minecraft mod — drop the JAR in your `mods/` folder and launch the game. There's no installer, no wizard, no account to make.
+Retromod installs like any other Minecraft mod — drop the JAR in your `mods/` folder and launch the game. There's no installer, no wizard, no account to make.
 
 ## Requirements
 
@@ -17,7 +17,7 @@ RetroMod installs like any other Minecraft mod — drop the JAR in your `mods/` 
 
 Grab the latest release from GitHub:
 
-> [github.com/Bownlux/RetroMod/releases](https://github.com/Bownlux/RetroMod/releases)
+> [github.com/Bownlux/Retromod/releases](https://github.com/Bownlux/Retromod/releases)
 
 The file you want is named something like `retromod-1.0.0-beta.1.jar`. Download it somewhere you'll remember — your Downloads folder is fine.
 
@@ -49,17 +49,17 @@ cp ~/Downloads/retromod-1.0.0-beta.1.jar \
 
 ## First launch
 
-The first time RetroMod runs, it creates two folders inside your game directory:
+The first time Retromod runs, it creates two folders inside your game directory:
 
-- **`config/retromod/`** — holds `config.json` and subfolders like `verify-reports/` and `aot-cache/`. Safe to edit, safe to delete (RetroMod will regenerate defaults).
-- **`retromod-input/`** — the inbox. Drop old mods here and RetroMod will transform them on the next launch, then move them to `mods/`. This is the only way to install old Fabric mods — Fabric rejects them before RetroMod gets a chance to help if they're placed directly in `mods/`.
+- **`config/retromod/`** — holds `config.json` and subfolders like `verify-reports/` and `aot-cache/`. Safe to edit, safe to delete (Retromod will regenerate defaults).
+- **`retromod-input/`** — the inbox. Drop old mods here and Retromod will transform them on the next launch, then move them to `mods/`. This is the only way to install old Fabric mods — Fabric rejects them before Retromod gets a chance to help if they're placed directly in `mods/`.
 
-After first launch, you'll see a **RetroMod** button on the title screen. That's your sign everything's wired up.
+After first launch, you'll see a **Retromod** button on the title screen. That's your sign everything's wired up.
 
 ## Updating
 
-Delete the old `retromod-*.jar` from `mods/` and drop in the new one. Your config is kept. If you've been using the AOT cache and RetroMod's transform logic has changed, clear `config/retromod/aot-cache/` so mods are re-compiled with the new logic.
+Delete the old `retromod-*.jar` from `mods/` and drop in the new one. Your config is kept. If you've been using the AOT cache and Retromod's transform logic has changed, clear `config/retromod/aot-cache/` so mods are re-compiled with the new logic.
 
 ## Uninstalling
 
-Remove the JAR from `mods/`. Your transformed mods stay transformed — they live in `mods/` as regular JARs now, not linked to RetroMod anymore. To revert a mod, copy the original from `retromod-backups/` back into `mods/`.
+Remove the JAR from `mods/`. Your transformed mods stay transformed — they live in `mods/` as regular JARs now, not linked to Retromod anymore. To revert a mod, copy the original from `retromod-backups/` back into `mods/`.

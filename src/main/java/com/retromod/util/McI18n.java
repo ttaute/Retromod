@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.util;
@@ -11,7 +11,7 @@ import java.lang.reflect.Method;
 
 /**
  * Thin wrapper around Minecraft's {@code Text.translatable() / Component.translatable()}
- * that we can invoke reflectively, since RetroMod has no compile-time MC classpath.
+ * that we can invoke reflectively, since Retromod has no compile-time MC classpath.
  *
  * <p>When the user has a localized version of Minecraft (picked up from their
  * in-game Language setting), MC loads lang files from every mod's
@@ -25,7 +25,7 @@ import java.lang.reflect.Method;
  */
 public final class McI18n {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
     private static volatile Class<?> textClass;
     private static volatile Method translatableMethod;

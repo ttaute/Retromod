@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.forge.embedded;
@@ -19,7 +19,7 @@ public class FMLEventShim {
         }
 
         public org.slf4j.Logger getModLog() {
-            return org.slf4j.LoggerFactory.getLogger("RetroMod-LegacyCompat");
+            return org.slf4j.LoggerFactory.getLogger("Retromod-LegacyCompat");
         }
     }
 

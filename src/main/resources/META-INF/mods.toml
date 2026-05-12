@@ -1,12 +1,12 @@
 modLoader = "javafml"
 loaderVersion = "[52,)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Bownlux/RetroMod/issues"
+issueTrackerURL = "https://github.com/Bownlux/Retromod/issues"
 
 [[mods]]
 modId = "retromod"
 version = "${version}"
-displayName = "RetroMod"
+displayName = "Retromod"
 description = '''
 Backwards compatibility layer for Minecraft mods.
 Run older mods on newer Minecraft versions automatically!
@@ -16,9 +16,9 @@ Supports:
 - Forge cross-version compatibility
 - Legacy mod translation (1.8+ through full shim chain)
 
-Just drop your old mods in retromod-input/ - RetroMod transforms them!
+Just drop your old mods in retromod-input/ - Retromod transforms them!
 
-Bug reports: github.com/Bownlux/RetroMod/issues
+Bug reports: github.com/Bownlux/Retromod/issues
 
 Made by the Developers of revivalsmp.net.
 '''

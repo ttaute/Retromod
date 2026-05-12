@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Shim for Button constructor changes.
@@ -21,7 +21,7 @@ import java.lang.reflect.Method;
  */
 public class ButtonShim {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ButtonShim");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ButtonShim");
 
     /**
      * Create a Button using the new Builder API.

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.minecraft.text.embedded;
@@ -66,7 +66,7 @@ public class TranslatableContentsShim {
                     .invoke(null, key, args);
             } catch (Exception e2) {
                 throw new RuntimeException(
-                    "RetroMod: Failed to create translatable text for key '" + key + "'", e);
+                    "Retromod: Failed to create translatable text for key '" + key + "'", e);
             }
         }
     }

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 RevivalSMP. Licensed under MIT.
  */
 package com.retromod.shim.api.fabric.embedded;
@@ -23,7 +23,7 @@ import java.util.function.Supplier;
  */
 public class RenderingCompat {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-RenderCompat");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-RenderCompat");
 
     // Cached method references for performance
     private static Method cachedGetTessellator = null;

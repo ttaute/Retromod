@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.virtual;
@@ -55,28 +55,28 @@ public class VirtualGameRegistry {
     }
     
     public static void registerWorldGenerator(Object generator, int weight) {
-        System.out.println("RetroMod: World generator - modern MC uses data-driven world gen");
+        System.out.println("Retromod: World generator - modern MC uses data-driven world gen");
     }
     
     public static void addRecipe(Object output, Object... params) {
-        System.out.println("RetroMod: Recipe registration - modern MC uses data-driven recipes");
+        System.out.println("Retromod: Recipe registration - modern MC uses data-driven recipes");
     }
     
     public static void addSmelting(Object input, Object output, float xp) {
-        System.out.println("RetroMod: Smelting recipe - modern MC uses data-driven recipes");
+        System.out.println("Retromod: Smelting recipe - modern MC uses data-driven recipes");
     }
     
     public static void addShapedRecipe(Object output, Object... params) {
-        System.out.println("RetroMod: Shaped recipe - modern MC uses data-driven recipes");
+        System.out.println("Retromod: Shaped recipe - modern MC uses data-driven recipes");
     }
     
     public static void addShapelessRecipe(Object output, Object... params) {
-        System.out.println("RetroMod: Shapeless recipe - modern MC uses data-driven recipes");
+        System.out.println("Retromod: Shapeless recipe - modern MC uses data-driven recipes");
     }
     
     private static void bridgeToModernRegistry(String type, String name, Object object) {
         // Will be connected at runtime via reflection
-        System.out.println("RetroMod: Queued " + type + " registration: " + name);
+        System.out.println("Retromod: Queued " + type + " registration: " + name);
     }
     
     public static Object findBlock(String modId, String name) {

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.shim.api.common.embedded;
@@ -16,7 +16,7 @@ import java.lang.reflect.Constructor;
 public class GeckoLibShim {
     
     public static void initialize() {
-        System.out.println("[RetroMod] GeckoLib legacy initialize() called - v4+ auto-initializes");
+        System.out.println("[Retromod] GeckoLib legacy initialize() called - v4+ auto-initializes");
     }
     
     public static void registerControllersCompat(Object animatable, Object dataOrRegistrar) {
@@ -35,7 +35,7 @@ public class GeckoLibShim {
                 }
             }
         } catch (Exception e) {
-            System.err.println("[RetroMod] GeckoLib registerControllers compat failed: " + e.getMessage());
+            System.err.println("[Retromod] GeckoLib registerControllers compat failed: " + e.getMessage());
         }
     }
     

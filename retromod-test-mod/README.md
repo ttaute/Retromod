@@ -1,29 +1,29 @@
-# RetroMod Test Mod
+# Retromod Test Mod
 
 A small, deliberately-old Minecraft mod whose only purpose is to exercise
-RetroMod's transformation pipeline and report which features still work after
+Retromod's transformation pipeline and report which features still work after
 translation.
 
 ## Why this exists
 
-Testing RetroMod by hunting down third-party mods (modmenu 3.0.1, sodium 0.4,
+Testing Retromod by hunting down third-party mods (modmenu 3.0.1, sodium 0.4,
 etc.) is painful: those mods are hard to find, half of them depend on libraries
 that themselves need translating, and a failure could mean the mod's bug, the
-library's bug, or RetroMod's bug. Hard to bisect.
+library's bug, or Retromod's bug. Hard to bisect.
 
 This test mod is the opposite. The source is small, controlled, and writes
-**one log line per test**, so a `grep '\[RetroMod-Test\]'` of the launch log
-tells you exactly which transformer paths are still working. When RetroMod
+**one log line per test**, so a `grep '\[Retromod-Test\]'` of the launch log
+tells you exactly which transformer paths are still working. When Retromod
 breaks, we know which test broke and what code triggered it.
 
 ## Design
 
 - **Compiled against an old MC version on purpose** — the whole point is that
-  RetroMod has to translate it forward to whatever MC version the user is on.
+  Retromod has to translate it forward to whatever MC version the user is on.
   First iteration targets MC **1.20.1 Fabric** (clean Yarn mappings, well-supported
   toolchain, big enough gap to 26.1 to exercise most of the redirect surface).
 - **One test = one observable behavior**. Each test logs
-  `[RetroMod-Test] N (description): success` or `[RetroMod-Test] N (description): fail: <reason>`.
+  `[Retromod-Test] N (description): success` or `[Retromod-Test] N (description): fail: <reason>`.
 - **Loader-agnostic test logic.** The tests themselves don't know which loader
   they're running on. Loader-specific entrypoints are thin wrappers that call
   the same `TestRunner.runAll()`.
@@ -38,13 +38,13 @@ cd retromod-test-mod
 # output: build/libs/retromod-test-mod-<version>.jar
 ```
 
-## Why does the Test Mod use Gradle when RetroMod itself uses Maven?
+## Why does the Test Mod use Gradle when Retromod itself uses Maven?
 
 Two answers — a practical one, and a "this is supposed to look representative" one.
 
 ### The practical one
 
-RetroMod's main project doesn't compile against Minecraft. It works on bytecode reflectively and via ASM, so its dependencies are plain library JARs (ASM, Gson, SLF4J, Fabric Loader as `provided`). Maven handles that fine because it's just normal-Java dependency resolution.
+Retromod's main project doesn't compile against Minecraft. It works on bytecode reflectively and via ASM, so its dependencies are plain library JARs (ASM, Gson, SLF4J, Fabric Loader as `provided`). Maven handles that fine because it's just normal-Java dependency resolution.
 
 The test mod is the opposite — it **must** compile against Minecraft. Doing that means resolving:
 
@@ -58,11 +58,11 @@ The MC modding ecosystem standardized on **Gradle plus a loader-specific plugin*
 
 There's no Maven equivalent. You can hand-roll all of that with `maven-dependency-plugin`, custom Mojo executions, and a lot of XML — but you'd be reinventing what Loom already does correctly in 30 seconds, and you'd own all the bug fixes for the rest of time. Not a great tradeoff.
 
-So: Maven for RetroMod proper (because it doesn't touch MC), Gradle for the test mod (because it does). Both are right for their own scope.
+So: Maven for Retromod proper (because it doesn't touch MC), Gradle for the test mod (because it does). Both are right for their own scope.
 
 ### The "looks representative" one
 
-The test mod is supposed to behave like a normal Minecraft mod, because RetroMod has to be able to translate normal Minecraft mods. If the test mod were built with some bespoke Maven setup, its bytecode might end up subtly different from what comes out of a typical Loom build — different mapping conventions, different inner-class shapes, different access widening, different mixin layouts — and any RetroMod bug we ship would conveniently miss the actual mods people care about.
+The test mod is supposed to behave like a normal Minecraft mod, because Retromod has to be able to translate normal Minecraft mods. If the test mod were built with some bespoke Maven setup, its bytecode might end up subtly different from what comes out of a typical Loom build — different mapping conventions, different inner-class shapes, different access widening, different mixin layouts — and any Retromod bug we ship would conveniently miss the actual mods people care about.
 
 Building the test mod with the same toolchain real mods use (Gradle + Loom) gives us bytecode that looks exactly like the bytecode in the wild. When the test mod surfaces a bug, that bug is in territory that affects real users, not in a corner of the build space only this project visits.
 
@@ -73,28 +73,28 @@ The same Gradle source tree extends naturally to multi-loader builds (a Forge + 
 ## Run
 
 1. Drop `retromod-test-mod-<version>.jar` into your `.minecraft/retromod-input/`
-   on a 26.1 Fabric instance with RetroMod installed.
-2. Launch — RetroMod transforms it, restart popup appears.
+   on a 26.1 Fabric instance with Retromod installed.
+2. Launch — Retromod transforms it, restart popup appears.
 3. Restart.
-4. `grep '\[RetroMod-Test\]' logs/latest.log` to see results.
+4. `grep '\[Retromod-Test\]' logs/latest.log` to see results.
 
 Expected output (current suite is 250 tests across 19 categories):
 
 ```
-[RetroMod-Test] RUN_ID=ab12cd34  (250 tests)
-[RetroMod-Test] 1 (mod loaded): success
-[RetroMod-Test] 2 (Text.literal): success
-[RetroMod-Test] 3 (Text.translatable): success
+[Retromod-Test] RUN_ID=ab12cd34  (250 tests)
+[Retromod-Test] 1 (mod loaded): success
+[Retromod-Test] 2 (Text.literal): success
+[Retromod-Test] 3 (Text.translatable): success
 ...
-[RetroMod-Test] 250 (super.keyPressed INVOKESPECIAL): success
-[RetroMod-Test] SUMMARY: 250/250 passed
+[Retromod-Test] 250 (super.keyPressed INVOKESPECIAL): success
+[Retromod-Test] SUMMARY: 250/250 passed
 ```
 
 A failure looks like:
 
 ```
-[RetroMod-Test] 5 (Text.copy().append()): fail: IncompatibleClassChangeError: ...
-[RetroMod-Test] SUMMARY: 249/250 passed (1 failed)
+[Retromod-Test] 5 (Text.copy().append()): fail: IncompatibleClassChangeError: ...
+[Retromod-Test] SUMMARY: 249/250 passed (1 failed)
 ```
 
 ## Test categories
@@ -150,8 +150,8 @@ The first iteration is intentionally narrow so it's easy to verify and extend.
 
 What's done:
 
-- `src/main/java/com/retromod/testmod/forge/RetroModTestModForge.java` — `@Mod`-annotated entry point, calls `TestRunner.runImmediate()` from its constructor.
-- `src/main/java/com/retromod/testmod/neoforge/RetroModTestModNeoForge.java` — same shape, NeoForge variant.
+- `src/main/java/com/retromod/testmod/forge/RetromodTestModForge.java` — `@Mod`-annotated entry point, calls `TestRunner.runImmediate()` from its constructor.
+- `src/main/java/com/retromod/testmod/neoforge/RetromodTestModNeoForge.java` — same shape, NeoForge variant.
 - `src/main/java/net/minecraftforge/fml/common/Mod.java` — compile-time stub for Forge's `@Mod` annotation. Real Forge's class shadows this at runtime.
 - `src/main/java/net/neoforged/fml/common/Mod.java` — same trick for NeoForge.
 - `src/main/resources/META-INF/mods.toml` — Forge mod manifest.

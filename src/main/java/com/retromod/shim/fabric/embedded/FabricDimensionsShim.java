@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for removed FabricDimensions class.
@@ -102,7 +102,7 @@ public final class FabricDimensionsShim {
             return entity;
             
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to teleport entity", e);
+            throw new RuntimeException("Retromod: Failed to teleport entity", e);
         }
     }
     

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * EPOCH 4 → 5: Caves & Cliffs (1.17-1.18) to Data-Driven (1.19-1.20)

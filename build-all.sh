@@ -1,27 +1,27 @@
 #!/bin/bash
 # ============================================================================
-# RetroMod Multi-Version Build Script
+# Retromod Multi-Version Build Script
 # Copyright (c) 2026 RevivalSMP. MIT License.
 #
-# Builds RetroMod for ALL loaders and supported MC versions (1.20+):
+# Builds Retromod for ALL loaders and supported MC versions (1.20+):
 #   - Fabric (1.20 through 26.1)
 #   - Forge (1.20 through 26.1)
 #   - NeoForge (1.20.1 through 26.1)
 #   - CLI tool (standalone)
-# Older versions (1.12-1.19) are translated BY RetroMod, not hosted separately.
+# Older versions (1.12-1.19) are translated BY Retromod, not hosted separately.
 # ============================================================================
 
 # Don't exit on error - we'll handle errors ourselves
 # set -e
 
 VERSION="1.0.0-beta.1"
-# Only build for 1.20+ — older mods are translated BY RetroMod, not hosted separately.
+# Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
 # Security-only updates for versions before 26.1.
 MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2")
 LOADERS=("fabric" "forge" "neoforge")
 
 echo "============================================"
-echo "  RetroMod Multi-Version Build Script"
+echo "  Retromod Multi-Version Build Script"
 echo "  Version: ${VERSION}"
 echo "  MIT License - RevivalSMP"
 echo "============================================"
@@ -125,7 +125,7 @@ echo ""
 echo "[Step 3/4] Creating loader-specific JARs..."
 
 # Defensive guard: host MC versions below 1.20 never go into dist/.
-# RetroMod itself requires Java 25 and MC 1.20+ to run as a mod — earlier MC
+# Retromod itself requires Java 25 and MC 1.20+ to run as a mod — earlier MC
 # versions are only relevant as TRANSLATION SOURCES (the shim chain walks an
 # old mod forward to your 1.20+ host), not as host targets. If someone later
 # adds "1.19.2" or "1.16.5" to MC_VERSIONS by mistake, this filter stops it
@@ -149,7 +149,7 @@ is_host_mc_supported() {
 # This is more nuanced than a simple "loader started at version X" cutoff —
 # NeoForge in particular skips MC patch releases. For the 26.x line NeoForge
 # has only released builds for 26.1.2 (as of this writing), NOT 26.1 or
-# 26.1.1. Building our own RetroMod-for-NeoForge JAR that declares 26.1 or
+# 26.1.1. Building our own Retromod-for-NeoForge JAR that declares 26.1 or
 # 26.1.1 as its MC version would produce an artifact nobody can use because
 # there's no NeoForge loader for those MC patches.
 #
@@ -265,12 +265,12 @@ except Exception as e:
 modLoader = "javafml"
 loaderVersion = "[52,)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Bownlux/MC-RetroMod/issues"
+issueTrackerURL = "https://github.com/Bownlux/MC-Retromod/issues"
 
 [[mods]]
 modId = "retromod"
 version = "${VERSION}"
-displayName = "RetroMod"
+displayName = "Retromod"
 description = '''
 Made by the Developers of revivalsmp.net
 
@@ -306,12 +306,12 @@ TOML
 modLoader = "javafml"
 loaderVersion = "[4,)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Bownlux/MC-RetroMod/issues"
+issueTrackerURL = "https://github.com/Bownlux/MC-Retromod/issues"
 
 [[mods]]
 modId = "retromod"
 version = "${VERSION}"
-displayName = "RetroMod"
+displayName = "Retromod"
 description = '''
 Made by the Developers of revivalsmp.net
 
@@ -344,10 +344,10 @@ TOML
     mkdir -p "$TEMP_DIR/META-INF"
     cat > "$TEMP_DIR/META-INF/MANIFEST.MF" << MANIFEST
 Manifest-Version: 1.0
-Implementation-Title: RetroMod
+Implementation-Title: Retromod
 Implementation-Version: ${VERSION}
-RetroMod-Target-MC: ${MC_VERSION}
-RetroMod-Loader: ${LOADER}
+Retromod-Target-MC: ${MC_VERSION}
+Retromod-Loader: ${LOADER}
 Automatic-Module-Name: retromod
 
 MANIFEST

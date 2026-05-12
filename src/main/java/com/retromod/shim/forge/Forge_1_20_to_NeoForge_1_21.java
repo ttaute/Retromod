@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 import com.retromod.util.McReflect;
 import org.slf4j.Logger;
@@ -25,12 +25,12 @@ import org.slf4j.LoggerFactory;
  *   The Mod File &lt;jar&gt; has mods that were not found
  * </pre>
  *
- * <p>So {@link #registerRedirects(RetroModTransformer)} short-circuits unless
+ * <p>So {@link #registerRedirects(RetromodTransformer)} short-circuits unless
  * we're running on NeoForge.
  */
 public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeNeoMig");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ForgeNeoMig");
     
     @Override
     public String getShimName() {
@@ -53,7 +53,7 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
     }
     
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // Cross-loader migration redirects ONLY make sense when the runtime
         // is NeoForge. On a Forge runtime they break @Mod annotation lookup
         // for every transformed mod (see class-level javadoc).

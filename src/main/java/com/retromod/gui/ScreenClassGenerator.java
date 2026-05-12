@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.gui;
@@ -20,7 +20,7 @@ import java.util.function.Consumer;
 /**
  * Generates a minimal Minecraft {@code Screen} subclass at runtime via ASM.
  *
- * <p>Why: RetroMod has no compile-time Minecraft classpath, so we can't write
+ * <p>Why: Retromod has no compile-time Minecraft classpath, so we can't write
  * {@code class MyScreen extends Screen} directly. Using an existing screen
  * like {@code ConfirmScreen} as a base overlays our widgets on top of the
  * base screen's own text and YES/NO buttons — messy layout. This generator
@@ -39,9 +39,9 @@ import java.util.function.Consumer;
  */
 public final class ScreenClassGenerator {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
-    private static final String GEN_CLASS_NAME = "com.retromod.gui.RetroModGenScreen";
-    private static final String GEN_CLASS_INTERNAL = "com/retromod/gui/RetroModGenScreen";
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
+    private static final String GEN_CLASS_NAME = "com.retromod.gui.RetromodGenScreen";
+    private static final String GEN_CLASS_INTERNAL = "com/retromod/gui/RetromodGenScreen";
 
     private static volatile Class<?> generatedClass;
 
@@ -149,10 +149,10 @@ public final class ScreenClassGenerator {
             try {
                 BytecodeClassLoader loader = new BytecodeClassLoader(screenBase.getClassLoader());
                 generatedClass = loader.define(GEN_CLASS_NAME, bytecode);
-                LOGGER.info("[RetroMod] Generated screen class {} (extends {})",
+                LOGGER.info("[Retromod] Generated screen class {} (extends {})",
                         GEN_CLASS_NAME, screenBase.getName());
             } catch (Throwable e) {
-                LOGGER.warn("[RetroMod] Could not define generated screen class: {}",
+                LOGGER.warn("[Retromod] Could not define generated screen class: {}",
                         e.getMessage(), e);
                 return null;
             }
@@ -242,7 +242,7 @@ public final class ScreenClassGenerator {
      * from disk, downloaded from the network, or supplied by external
      * input. The class generation exists because Minecraft's {@code Screen}
      * hierarchy requires a subclass to register a GUI screen and we want
-     * to keep RetroMod's GUI loosely coupled from any specific MC version's
+     * to keep Retromod's GUI loosely coupled from any specific MC version's
      * concrete {@code Screen} class — generating the subclass at runtime
      * means the same code works across MC versions whose {@code Screen}
      * base class moved between packages.

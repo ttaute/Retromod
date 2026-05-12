@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Based on actual Fabric API changes documented at:
@@ -15,7 +15,7 @@
  */
 package com.retromod.shim.fabric;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
@@ -61,7 +61,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
     }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
 
         // Vanilla content holder fields whose TYPE changed in MC 1.21
         // (became ResourceKey<X> instead of X). Routed through
@@ -407,7 +407,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         // TagKey.id() — in yarn 1.20.1 the accessor is `id()` returning
         // Identifier. In Mojang-mapped 26.1 TagKey is a record and its
         // location accessor is `location()` returning ResourceLocation.
-        // RetroMod's record-component heuristic was renaming this to
+        // Retromod's record-component heuristic was renaming this to
         // `comp_327()` which doesn't actually exist; force the explicit
         // mapping. (Surfaced by TagTests.)
         transformer.registerMethodRedirect(
@@ -982,11 +982,11 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
      * {@code Enchantment}/{@code MobEffect} cast at the use site.
      *
      * <p>Field names use the Mojang spelling because the {@code ClassRemapper}
-     * stage runs before {@code RetroModMethodVisitor} sees the bytecode, so
+     * stage runs before {@code RetromodMethodVisitor} sees the bytecode, so
      * by the time these redirects are looked up, names are already in
      * Mojang form.
      */
-    private void registerRegistryRefRedirects(RetroModTransformer transformer) {
+    private void registerRegistryRefRedirects(RetromodTransformer transformer) {
         registerEnchantmentRedirects(transformer);
         registerMobEffectRedirects(transformer);
         registerNbtCompatRedirects(transformer);
@@ -1009,7 +1009,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
      *
      * <p>Surfaced by retromod-test-mod's {@code NbtTests}.
      */
-    private void registerNbtCompatRedirects(RetroModTransformer transformer) {
+    private void registerNbtCompatRedirects(RetromodTransformer transformer) {
         String compoundTag = "net/minecraft/nbt/CompoundTag";
         String listTag     = "net/minecraft/nbt/ListTag";
         String lookup      = "com/retromod/polyfill/registry/NbtCompatLookup";
@@ -1067,7 +1067,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         );
     }
 
-    private void registerEnchantmentRedirects(RetroModTransformer transformer) {
+    private void registerEnchantmentRedirects(RetromodTransformer transformer) {
         String enchOwner = "net/minecraft/world/item/enchantment/Enchantments";
         String enchType  = "Lnet/minecraft/world/item/enchantment/Enchantment;";
         String lookup    = "com/retromod/polyfill/registry/RegistryRefLookup";
@@ -1098,7 +1098,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         }
     }
 
-    private void registerMobEffectRedirects(RetroModTransformer transformer) {
+    private void registerMobEffectRedirects(RetromodTransformer transformer) {
         String effOwner = "net/minecraft/world/effect/MobEffects";
         String effType  = "Lnet/minecraft/world/effect/MobEffect;";
         String lookup   = "com/retromod/polyfill/registry/RegistryRefLookup";

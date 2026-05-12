@@ -1,6 +1,6 @@
-# RetroMod API Compatibility
+# Retromod API Compatibility
 
-RetroMod includes compatibility shims for popular modding APIs, allowing mods built with older API versions to work on newer Minecraft versions. This includes both actively maintained APIs and legacy/unmaintained APIs that many old mods still depend on.
+Retromod includes compatibility shims for popular modding APIs, allowing mods built with older API versions to work on newer Minecraft versions. This includes both actively maintained APIs and legacy/unmaintained APIs that many old mods still depend on.
 
 Retromod Is in Beta, some of these may not work.
 
@@ -57,9 +57,9 @@ Retromod Is in Beta, some of these may not work.
 
 ## Legacy/Unmaintained API Handling
 
-Many popular mods from older Minecraft versions depend on APIs that are no longer maintained. RetroMod handles these by embedding compatibility shims that bridge old API calls to their modern equivalents:
+Many popular mods from older Minecraft versions depend on APIs that are no longer maintained. Retromod handles these by embedding compatibility shims that bridge old API calls to their modern equivalents:
 
-| Old API | Era | Replaced By | How RetroMod Handles It |
+| Old API | Era | Replaced By | How Retromod Handles It |
 |---------|-----|-------------|------------------------|
 | **Baubles** | 1.7-1.12 | Curios | Maps IBauble→ICurio, BaubleType enum→slot strings |
 | **NEI** | 1.7-1.12 | JEI | Maps IRecipeHandler→IRecipeCategory, API registration→plugin system |
@@ -73,7 +73,7 @@ Many popular mods from older Minecraft versions depend on APIs that are no longe
 
 When a mod uses an API that doesn't have a version for your current Minecraft client:
 
-1. **RetroMod identifies the API** — Scans the mod's bytecode for known API package references
+1. **Retromod identifies the API** — Scans the mod's bytecode for known API package references
 2. **Selects the best shim** — Picks the embedded shim that bridges the old API to its modern replacement
 3. **Embeds compatibility classes** — Adds shim implementation classes directly into the transformed mod JAR
 4. **Redirects at bytecode level** — Old API calls are rewritten to call the shim, which internally uses the closest available modern API
@@ -82,7 +82,7 @@ The mod never knows the difference — it thinks it's calling the old API, but t
 
 ## How It Works
 
-When RetroMod loads an old mod, it:
+When Retromod loads an old mod, it:
 
 1. **Detects API usage** — Scans for imports/calls to old APIs
 2. **Selects appropriate shims** — Based on the APIs used

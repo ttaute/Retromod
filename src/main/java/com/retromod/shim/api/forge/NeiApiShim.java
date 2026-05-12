@@ -1,12 +1,12 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Not Enough Items (NEI) API -> JEI API Compatibility Shim
  */
 package com.retromod.shim.api.forge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -49,7 +49,7 @@ public class NeiApiShim implements VersionShim {
     }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // ============================================================
         // CORE API CLASS REDIRECT
         // ============================================================

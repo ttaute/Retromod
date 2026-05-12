@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for Resource Loader API rework in 1.21.9.
@@ -47,10 +47,10 @@ public class ResourceManagerHelperShim {
                 Method getMethod = helperClass.getMethod("get", resourceType.getClass());
                 realLoader = getMethod.invoke(null, resourceType);
             } catch (Exception ex) {
-                throw new RuntimeException("RetroMod: Could not find resource loader API", ex);
+                throw new RuntimeException("Retromod: Could not find resource loader API", ex);
             }
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to get resource loader", e);
+            throw new RuntimeException("Retromod: Failed to get resource loader", e);
         }
     }
     
@@ -100,7 +100,7 @@ public class ResourceManagerHelperShim {
             throw new RuntimeException("Could not register reload listener - no compatible API found");
             
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to register reload listener", e);
+            throw new RuntimeException("Retromod: Failed to register reload listener", e);
         }
     }
     
@@ -162,7 +162,7 @@ public class ResourceManagerHelperShim {
         } catch (NoSuchMethodException e) {
             // Old API doesn't support ordering - ignore
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to add reloader ordering", e);
+            throw new RuntimeException("Retromod: Failed to add reloader ordering", e);
         }
     }
 }

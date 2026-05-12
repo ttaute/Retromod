@@ -1,11 +1,11 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.cli;
 
-import com.retromod.core.RetroModTransformer;
-import com.retromod.core.RetroModTransformer.*;
+import com.retromod.core.RetromodTransformer;
+import com.retromod.core.RetromodTransformer.*;
 import com.retromod.embedder.ModVersionInfo;
 
 import org.objectweb.asm.*;
@@ -26,7 +26,7 @@ import java.util.zip.*;
  *
  * Scans all .class files with ASM to collect external references (classes,
  * methods, fields), then checks each reference against a combined index
- * built from the MC client JAR, loader-specific APIs, and RetroMod's
+ * built from the MC client JAR, loader-specific APIs, and Retromod's
  * registered redirects.
  */
 public class ModScorer {
@@ -67,7 +67,7 @@ public class ModScorer {
     private final Map<String, String> mcSuperclasses = new HashMap<>(8000);
     private final Map<String, String[]> mcInterfaces = new HashMap<>(8000);
 
-    // --- Redirects from RetroMod shims/polyfills ---
+    // --- Redirects from Retromod shims/polyfills ---
     private final Map<MethodKey, MethodTarget> methodRedirects;
     private final Map<String, String> classRedirects;
     private final Map<FieldKey, FieldTarget> fieldRedirects;
@@ -90,7 +90,7 @@ public class ModScorer {
         "net/fabricmc/loader/", "net/fabricmc/api/",
         "cpw/mods/", "net/minecraftforge/fml/",
         "net/neoforged/fml/",
-        // RetroMod itself
+        // Retromod itself
         "com/retromod/",
     };
 
@@ -128,7 +128,7 @@ public class ModScorer {
     // --- Results ---
     private final ScoreResult result = new ScoreResult();
 
-    public ModScorer(RetroModTransformer transformer) {
+    public ModScorer(RetromodTransformer transformer) {
         this.methodRedirects = transformer.getMethodRedirects();
         this.classRedirects = transformer.getClassRedirects();
         this.fieldRedirects = transformer.getFieldRedirects();
@@ -476,7 +476,7 @@ public class ModScorer {
         // --- Compute scores ---
         // Each category is scored 0-100 based on what percentage of references are resolvable.
         // "Resolvable" means the reference either exists in the target MC version, has a
-        // RetroMod redirect/polyfill, or belongs to a loader API (always available at runtime).
+        // Retromod redirect/polyfill, or belongs to a loader API (always available at runtime).
         double classScore = totalClasses > 0
                 ? (double) resolvableClasses / totalClasses * 100 : 100;
         double methodScore = totalMethods > 0

@@ -1,12 +1,12 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  * 
  * GeckoLib API Compatibility Shim
  */
 package com.retromod.shim.api.common;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -45,7 +45,7 @@ public class GeckoLibApiShim implements VersionShim {
     }
     
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // ============================================================
         // PACKAGE CHANGES (v3 -> v4)
         // ============================================================

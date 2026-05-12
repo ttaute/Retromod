@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.util;
@@ -15,25 +15,25 @@ import java.util.jar.JarFile;
  * Mod-author opt-out mechanism.
  *
  * <h3>What this is</h3>
- * <p>RetroMod transforms mod bytecode at load time. The end user has every
+ * <p>Retromod transforms mod bytecode at load time. The end user has every
  * right to do that with their own copy of a mod, and there's no statutory
- * obligation that requires us to ask first — RetroMod sits in the same legal
+ * obligation that requires us to ask first — Retromod sits in the same legal
  * frame as Forge, Fabric, Mixin, and OptiFine, none of which ask either.</p>
  *
  * <p>That said, some mod authors have legitimate reasons to prefer their mod
- * NOT be transformed by RetroMod:</p>
+ * NOT be transformed by Retromod:</p>
  * <ul>
  *   <li>Paid / Patreon mods where transform-introduced bugs would unfairly
  *       reflect on the author</li>
  *   <li>Mods with explicit "no modification" clauses in their license or
  *       README</li>
- *   <li>Mods built around precise behavior that RetroMod's general-purpose
+ *   <li>Mods built around precise behavior that Retromod's general-purpose
  *       shimming might break in subtle ways</li>
  * </ul>
  *
- * <p>For those authors, RetroMod honors a single, simple opt-out signal: a
+ * <p>For those authors, Retromod honors a single, simple opt-out signal: a
  * marker file at <code>META-INF/retromod-opt-out</code> inside the mod's JAR.
- * If present, RetroMod skips transformation entirely for that JAR — the JAR
+ * If present, Retromod skips transformation entirely for that JAR — the JAR
  * passes through untouched to {@code mods/}.</p>
  *
  * <h3>How a mod author opts out</h3>
@@ -61,7 +61,7 @@ import java.util.jar.JarFile;
  */
 public final class OptOutCheck {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-OptOut");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-OptOut");
 
     /** The well-known marker path inside a mod JAR. Empty file; presence is the signal. */
     public static final String OPT_OUT_MARKER = "META-INF/retromod-opt-out";

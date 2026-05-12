@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.fabric;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -62,7 +62,7 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
     }
 
     @Override
-    public void registerPolyfills(RetroModTransformer transformer) {
+    public void registerPolyfills(RetromodTransformer transformer) {
         // =====================================================================
         // Class redirects for removed types
         // =====================================================================
@@ -89,8 +89,8 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
         // Method redirects for registerGlobalReceiver and send
         //
         // IMPORTANT: Source descriptors use POST-REMAPPING names because
-        // ClassRemapper (outer visitor) runs BEFORE RetroModClassVisitor (inner).
-        // By the time RetroModMethodVisitor sees the bytecode:
+        // ClassRemapper (outer visitor) runs BEFORE RetromodClassVisitor (inner).
+        // By the time RetromodMethodVisitor sees the bytecode:
         //   - class_2960 → net/minecraft/resources/Identifier (intermediary→Mojang)
         //   - PlayChannelHandler → our bridge interface (class redirect above)
         //   - class_2540 → net/minecraft/network/FriendlyByteBuf (intermediary→Mojang)

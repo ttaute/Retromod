@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -36,7 +36,7 @@ import java.util.jar.JarFile;
  */
 public class HybridTransformationEngine {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Hybrid");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Hybrid");
     
     // Singleton
     private static volatile HybridTransformationEngine instance;
@@ -46,7 +46,7 @@ public class HybridTransformationEngine {
     
     // Components
     private final ShimRegistry shimRegistry;
-    private final RetroModTransformer jitTransformer;
+    private final RetromodTransformer jitTransformer;
     private final ModVersionDetector versionDetector;
     private final MemorySafetyMonitor performanceMonitor;
     
@@ -78,7 +78,7 @@ public class HybridTransformationEngine {
     
     private HybridTransformationEngine() {
         this.shimRegistry = new ShimRegistry();
-        this.jitTransformer = RetroModTransformer.getInstance();
+        this.jitTransformer = RetromodTransformer.getInstance();
         this.versionDetector = new ModVersionDetector();
         this.performanceMonitor = MemorySafetyMonitor.getInstance();
         
@@ -93,7 +93,7 @@ public class HybridTransformationEngine {
         this.backgroundExecutor = Executors.newFixedThreadPool(
             Math.max(1, Runtime.getRuntime().availableProcessors() - 1),
             r -> {
-                Thread t = new Thread(r, "RetroMod-AOT-Background");
+                Thread t = new Thread(r, "Retromod-AOT-Background");
                 t.setDaemon(true);
                 t.setPriority(Thread.MIN_PRIORITY); // Low priority - don't compete with game
                 return t;

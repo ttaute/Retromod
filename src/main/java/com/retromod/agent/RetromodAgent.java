@@ -1,15 +1,15 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.agent;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 
 import java.lang.instrument.Instrumentation;
 
 /**
- * Java Agent for RetroMod.
+ * Java Agent for Retromod.
  * 
  * This can be attached to the JVM using -javaagent:retromod-agent.jar
  * to enable full bytecode transformation capabilities.
@@ -20,7 +20,7 @@ import java.lang.instrument.Instrumentation;
  * Or in Fabric launcher:
  *   Add to JVM arguments in your launcher
  */
-public class RetroModAgent {
+public class RetromodAgent {
     
     // Store instrumentation for later use
     public static Instrumentation instrumentation;
@@ -29,37 +29,37 @@ public class RetroModAgent {
      * Called when agent is attached at JVM startup via -javaagent.
      */
     public static void premain(String agentArgs, Instrumentation inst) {
-        System.out.println("[RetroMod Agent] Installing class transformer (premain)");
+        System.out.println("[Retromod Agent] Installing class transformer (premain)");
         
         instrumentation = inst;
         
         // Install the transformer
-        inst.addTransformer(RetroModTransformer.getInstance(), true);
+        inst.addTransformer(RetromodTransformer.getInstance(), true);
         
         // Store reference for later access
-        System.setProperty("retromod.agent.class", RetroModAgent.class.getName());
+        System.setProperty("retromod.agent.class", RetromodAgent.class.getName());
         
-        System.out.println("[RetroMod Agent] Transformer installed successfully");
+        System.out.println("[Retromod Agent] Transformer installed successfully");
     }
     
     /**
      * Called when agent is attached to running JVM via Attach API.
      */
     public static void agentmain(String agentArgs, Instrumentation inst) {
-        System.out.println("[RetroMod Agent] Installing class transformer (agentmain)");
+        System.out.println("[Retromod Agent] Installing class transformer (agentmain)");
         
         instrumentation = inst;
         
         // When attaching to a running JVM, we may need to retransform
         // already-loaded classes
-        inst.addTransformer(RetroModTransformer.getInstance(), true);
+        inst.addTransformer(RetromodTransformer.getInstance(), true);
         
         // Try to retransform already-loaded mod classes
         retransformLoadedClasses(inst);
         
-        System.setProperty("retromod.agent.class", RetroModAgent.class.getName());
+        System.setProperty("retromod.agent.class", RetromodAgent.class.getName());
         
-        System.out.println("[RetroMod Agent] Transformer installed and classes retransformed");
+        System.out.println("[Retromod Agent] Transformer installed and classes retransformed");
     }
     
     /**
@@ -76,7 +76,7 @@ public class RetroModAgent {
                 try {
                     inst.retransformClasses(clazz);
                 } catch (Exception e) {
-                    System.err.println("[RetroMod Agent] Failed to retransform: " + name);
+                    System.err.println("[Retromod Agent] Failed to retransform: " + name);
                 }
             }
         }
@@ -107,7 +107,7 @@ public class RetroModAgent {
             return false;
         }
         
-        // Skip RetroMod's own classes
+        // Skip Retromod's own classes
         if (className.startsWith("com.retromod.")) {
             return false;
         }

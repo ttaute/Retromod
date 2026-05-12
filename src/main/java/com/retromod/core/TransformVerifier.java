@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -26,7 +26,7 @@ import java.util.jar.*;
  */
 public final class TransformVerifier {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
     /** Prefixes that are always on the classpath and should not be flagged. */
     private static final String[] SAFE_PREFIXES = {
@@ -145,7 +145,7 @@ public final class TransformVerifier {
             }
 
         } catch (Exception e) {
-            LOGGER.warn("[RetroMod] Transform verification failed for {}: {}", modName, e.getMessage());
+            LOGGER.warn("[Retromod] Transform verification failed for {}: {}", modName, e.getMessage());
         }
 
         return new VerifyResult(modName, targetVersion, issues);
@@ -156,27 +156,27 @@ public final class TransformVerifier {
      * Logs a summary to the console.
      */
     public static VerifyResult verifyAndReport(Path transformedJar, String modName, String targetVersion) {
-        LOGGER.info("[RetroMod] Verifying transformed bytecode: {}", modName);
+        LOGGER.info("[Retromod] Verifying transformed bytecode: {}", modName);
         long start = System.currentTimeMillis();
 
         VerifyResult result = verify(transformedJar, modName, targetVersion);
         long elapsed = System.currentTimeMillis() - start;
 
         if (result.passed()) {
-            LOGGER.info("[RetroMod] ✓ Verification passed for {} ({} refs checked, {}ms)",
+            LOGGER.info("[Retromod] ✓ Verification passed for {} ({} refs checked, {}ms)",
                     modName, result.totalChecked(), elapsed);
         } else {
-            LOGGER.warn("[RetroMod] ✗ Verification found {} issue(s) for {} ({}ms)",
+            LOGGER.warn("[Retromod] ✗ Verification found {} issue(s) for {} ({}ms)",
                     result.issueCount(), modName, elapsed);
             // Log first 10 issues as warnings
             int logged = 0;
             for (Issue issue : result.issues()) {
                 if (logged++ >= 10) {
-                    LOGGER.warn("[RetroMod]   ... and {} more (see report file)",
+                    LOGGER.warn("[Retromod]   ... and {} more (see report file)",
                             result.issueCount() - 10);
                     break;
                 }
-                LOGGER.warn("[RetroMod]   {}", issue.toReadableString(targetVersion));
+                LOGGER.warn("[Retromod]   {}", issue.toReadableString(targetVersion));
             }
         }
 
@@ -379,7 +379,7 @@ public final class TransformVerifier {
             Path reportFile = reportDir.resolve(safeName + ".txt");
 
             StringBuilder sb = new StringBuilder();
-            sb.append("RetroMod Transform Verification Report\n");
+            sb.append("Retromod Transform Verification Report\n");
             sb.append("═══════════════════════════════════════\n");
             sb.append("Mod:     ").append(result.modName()).append('\n');
             sb.append("Target:  MC ").append(result.targetVersion()).append('\n');
@@ -411,10 +411,10 @@ public final class TransformVerifier {
             }
 
             Files.writeString(reportFile, sb.toString());
-            LOGGER.info("[RetroMod] Verification report written to {}", reportFile);
+            LOGGER.info("[Retromod] Verification report written to {}", reportFile);
 
         } catch (Exception e) {
-            LOGGER.debug("[RetroMod] Could not write verification report: {}", e.getMessage());
+            LOGGER.debug("[Retromod] Could not write verification report: {}", e.getMessage());
         }
     }
 

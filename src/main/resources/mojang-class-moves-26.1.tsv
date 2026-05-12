@@ -595,7 +595,7 @@ net/minecraft/client/GraphicsStatus	net/minecraft/client/GraphicsPreset
 # FastColor → ARGB
 net/minecraft/util/FastColor	net/minecraft/util/ARGB
 net/minecraft/util/FastColor$ARGB32	net/minecraft/util/ARGB
-# ResourceLocation$Serializer removed in 26.1 — redirect to RetroMod polyfill
+# ResourceLocation$Serializer removed in 26.1 — redirect to Retromod polyfill
 net/minecraft/resources/ResourceLocation$Serializer	com/retromod/polyfill/minecraft/IdentifierSerializer
 # CycleOption → OptionInstance (removed in 1.19, but intermediary refs still exist)
 net/minecraft/client/CycleOption	net/minecraft/client/OptionInstance

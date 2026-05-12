@@ -34,7 +34,7 @@ Creates a new `VersionShim` implementation that maps API changes between two Min
        @Override public String getModLoaderType() { return "<loader>"; } // "fabric", "neoforge", "forge", or "common"
 
        @Override
-       public void registerRedirects(RetroModTransformer transformer) {
+       public void registerRedirects(RetromodTransformer transformer) {
            // Class redirects
            transformer.registerClassRedirect("old/class/Name", "new/class/Name");
            // Method redirects
@@ -68,7 +68,7 @@ Creates a new `VersionShim` implementation that maps API changes between two Min
 - ShimRegistry: `src/main/java/com/retromod/shim/ShimRegistry.java`
 - ServiceLoader registration: `src/main/resources/META-INF/services/com.retromod.core.VersionShim`
 - VersionShim interface: `src/main/java/com/retromod/core/VersionShim.java`
-- Tests: `src/test/java/com/retromod/RetroModTest.java`
+- Tests: `src/test/java/com/retromod/RetromodTest.java`
 
 ## Naming Conventions
 - Fabric intermediary names: `class_XXXX`, `method_XXXX`, `field_XXXX`

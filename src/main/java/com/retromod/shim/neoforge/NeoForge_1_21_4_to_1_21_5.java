@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.shim.neoforge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -20,7 +20,7 @@ public class NeoForge_1_21_4_to_1_21_5 implements VersionShim {
     @Override public String getModLoaderType() { return "neoforge"; }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // Tool item subclasses removed in 1.21.5 — merged into base Item class
         transformer.registerClassRedirect(
             "net/minecraft/world/item/SwordItem",

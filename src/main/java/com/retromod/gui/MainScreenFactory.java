@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.gui;
@@ -15,8 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * The main RetroMod in-game screen — the one that opens when you click the
- * RetroMod logo on the title screen. Has:
+ * The main Retromod in-game screen — the one that opens when you click the
+ * Retromod logo on the title screen. Has:
  *
  * <ul>
  *   <li>A "settings" gear button at top-right that opens the toggle screen</li>
@@ -33,7 +33,7 @@ import java.nio.file.Path;
  */
 public final class MainScreenFactory {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
     private static Class<?> screenClass;
     private static Class<?> textClass;
@@ -49,34 +49,34 @@ public final class MainScreenFactory {
     // ──────────────────────────────────────────────────────────────────────
 
     public static void open(Object parentScreen) {
-        LOGGER.info("[RetroMod] MainScreenFactory.open() entered");
+        LOGGER.info("[Retromod] MainScreenFactory.open() entered");
         if (!resolveClasses()) {
-            LOGGER.warn("[RetroMod] Cannot open main screen — MC classes not available");
+            LOGGER.warn("[Retromod] Cannot open main screen — MC classes not available");
             return;
         }
 
         Object title = McI18n.translatable("retromod.main.title");
         if (title == null) {
-            LOGGER.warn("[RetroMod] Could not create title text — McI18n returned null");
+            LOGGER.warn("[Retromod] Could not create title text — McI18n returned null");
             return;
         }
 
-        LOGGER.info("[RetroMod] Generating main screen via ScreenClassGenerator");
+        LOGGER.info("[Retromod] Generating main screen via ScreenClassGenerator");
         Object screen = ScreenClassGenerator.createScreen(
                 title,
                 /* initCallback  */ s -> {
-                    LOGGER.info("[RetroMod] Main screen init() invoked, adding widgets");
+                    LOGGER.info("[Retromod] Main screen init() invoked, adding widgets");
                     addAllWidgets(s, parentScreen);
                 },
                 /* closeCallback */ () -> {
-                    LOGGER.info("[RetroMod] Main screen onClose() invoked");
+                    LOGGER.info("[Retromod] Main screen onClose() invoked");
                 }
         );
         if (screen == null) {
-            LOGGER.warn("[RetroMod] ScreenClassGenerator returned null — cannot open main screen");
+            LOGGER.warn("[Retromod] ScreenClassGenerator returned null — cannot open main screen");
             return;
         }
-        LOGGER.info("[RetroMod] Calling setScreen() with generated main screen");
+        LOGGER.info("[Retromod] Calling setScreen() with generated main screen");
         setScreen(screen);
     }
 
@@ -138,7 +138,7 @@ public final class MainScreenFactory {
             addWidget(screen, doneBtn);
 
         } catch (Exception e) {
-            LOGGER.warn("Could not lay out RetroMod main screen: {}", e.getMessage());
+            LOGGER.warn("Could not lay out Retromod main screen: {}", e.getMessage());
         }
     }
 
@@ -163,7 +163,7 @@ public final class MainScreenFactory {
 
         Thread t = new Thread(() -> {
             try {
-                Class<?> retroScreenCls = Class.forName("com.retromod.gui.RetroModScreen");
+                Class<?> retroScreenCls = Class.forName("com.retromod.gui.RetromodScreen");
                 Object client = getClientInstance();
                 Object instance = retroScreenCls
                         .getConstructor(Object.class, Object.class)
@@ -173,7 +173,7 @@ public final class MainScreenFactory {
                 LOGGER.warn("File picker failed ({}). Fall back to 'Open Mods Folder'.",
                         t2.getMessage());
             }
-        }, "RetroMod-FilePicker");
+        }, "Retromod-FilePicker");
         t.setDaemon(true);
         t.start();
     }

@@ -5,17 +5,17 @@ nav_order: 6
 
 # Verify Transforms
 
-Verify Transforms is RetroMod's safety net: a post-transformation bytecode scan that checks the output JAR for references to classes, methods, and fields that don't actually exist in the current Minecraft. It catches problems *before* the mod blows up at runtime — the kind of problems where you'd otherwise stare at a `NoSuchMethodError` in the crash log wondering what you missed.
+Verify Transforms is Retromod's safety net: a post-transformation bytecode scan that checks the output JAR for references to classes, methods, and fields that don't actually exist in the current Minecraft. It catches problems *before* the mod blows up at runtime — the kind of problems where you'd otherwise stare at a `NoSuchMethodError` in the crash log wondering what you missed.
 
 ## What it does
 
-After RetroMod finishes transforming a mod, the verifier walks every class in the output JAR and checks each reference to `net.minecraft.*` (and a few other watchlisted packages) against the current Minecraft JAR on disk. For each reference it asks one of three questions:
+After Retromod finishes transforming a mod, the verifier walks every class in the output JAR and checks each reference to `net.minecraft.*` (and a few other watchlisted packages) against the current Minecraft JAR on disk. For each reference it asks one of three questions:
 
 - Does this class exist?
 - Does this method exist on that class (with this descriptor)?
 - Does this field exist on that class (with this type)?
 
-Any "no" gets logged to a report. If the list is empty, verification passes. If it's not, you've found a gap — an intermediary name RetroMod didn't know how to remap, a method that was removed without a polyfill, a shim chain that's missing a link.
+Any "no" gets logged to a report. If the list is empty, verification passes. If it's not, you've found a gap — an intermediary name Retromod didn't know how to remap, a method that was removed without a polyfill, a shim chain that's missing a link.
 
 ## Why it matters
 
@@ -24,7 +24,7 @@ Without verification, you find out about unresolved references by booting Minecr
 It's especially valuable for:
 
 - **Modpack authors** preparing a large pack — run `batch --verify` once and get a single list of what's still broken.
-- **RetroMod contributors** working on new shims or polyfills — verification output is the immediate feedback loop for "did my mapping fix what I thought it would?"
+- **Retromod contributors** working on new shims or polyfills — verification output is the immediate feedback loop for "did my mapping fix what I thought it would?"
 - **CI pipelines** — verification is a pass/fail signal that's easy to gate merges on.
 
 ## Turning it on and off
@@ -53,7 +53,7 @@ One report per transformed mod, named after the mod ID. If verification passes t
 A report is plain text. Example for a partially-broken transformation:
 
 ```
-RetroMod verification report
+Retromod verification report
 Mod: examplemod
 Source MC version: 1.20.1
 Target MC version: 26.1.2
@@ -77,11 +77,11 @@ Summary: 4 unresolved references across 2 classes.
 
 ### What to do with a report
 
-- **Missing class `net/minecraft/class_XXXX`** — an intermediary name RetroMod didn't remap. Needs an entry in `IntermediaryToMojangMapper`.
+- **Missing class `net/minecraft/class_XXXX`** — an intermediary name Retromod didn't remap. Needs an entry in `IntermediaryToMojangMapper`.
 - **Missing method on a class that does exist** — either the method got renamed (needs a shim redirect) or it got removed (needs a polyfill).
 - **Missing field** — same deal as methods. Renamed? Add a redirect. Removed? Add a polyfill.
 
-If you're using RetroMod as a user, you probably want to [file an issue](https://github.com/Bownlux/RetroMod/issues) with the report attached. If you're contributing, the [`mapping-work`](https://github.com/Bownlux/RetroMod/tree/main/.claude/skills/mapping-work), [`add-version-shim`](https://github.com/Bownlux/RetroMod/tree/main/.claude/skills/add-version-shim), and [`add-polyfill`](https://github.com/Bownlux/RetroMod/tree/main/.claude/skills/add-polyfill) skills walk you through the fix.
+If you're using Retromod as a user, you probably want to [file an issue](https://github.com/Bownlux/Retromod/issues) with the report attached. If you're contributing, the [`mapping-work`](https://github.com/Bownlux/Retromod/tree/main/.claude/skills/mapping-work), [`add-version-shim`](https://github.com/Bownlux/Retromod/tree/main/.claude/skills/add-version-shim), and [`add-polyfill`](https://github.com/Bownlux/Retromod/tree/main/.claude/skills/add-polyfill) skills walk you through the fix.
 
 ## Does verification guarantee the mod works?
 
@@ -91,4 +91,4 @@ That said, in practice the vast majority of transform failures are linkage error
 
 ## Performance
 
-Verification scans the output JAR in-process using the same ASM reader RetroMod already has warmed up. Expect it to add somewhere in the low single-digit percent of transformation time for a typical mod. For a 500-mod pack, that's negligible compared to transformation itself.
+Verification scans the output JAR in-process using the same ASM reader Retromod already has warmed up. Expect it to add somewhere in the low single-digit percent of transformation time for a typical mod. For a 500-mod pack, that's negligible compared to transformation itself.

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.aot;
@@ -22,7 +22,7 @@ import java.util.jar.*;
 import java.util.zip.*;
 
 /**
- * Ahead-of-Time (AOT) Compiler for RetroMod.
+ * Ahead-of-Time (AOT) Compiler for Retromod.
  * 
  * Instead of transforming bytecode at runtime (JIT), this compiler:
  * 1. Pre-transforms all classes in a mod JAR
@@ -44,13 +44,13 @@ public class AotCompiler {
     private static final Path AOT_CACHE_DIR = Path.of("config/retromod/aot-cache");
     
     // Manifest key indicating this JAR was AOT compiled
-    private static final String AOT_MANIFEST_KEY = "RetroMod-AOT-Version";
+    private static final String AOT_MANIFEST_KEY = "Retromod-AOT-Version";
     
     // Current AOT compiler version (bump when shims change)
     private static final String AOT_VERSION = "1.0.0-beta.1";
     
     private final ShimRegistry shimRegistry;
-    private final RetroModTransformer transformer;
+    private final RetromodTransformer transformer;
     private final ModVersionDetector versionDetector;
     private final ApiEmbedder apiEmbedder;
     private final String targetMcVersion;
@@ -62,7 +62,7 @@ public class AotCompiler {
     
     public AotCompiler(ShimRegistry shimRegistry, String targetMcVersion) {
         this.shimRegistry = shimRegistry;
-        this.transformer = RetroModTransformer.getInstance();
+        this.transformer = RetromodTransformer.getInstance();
         this.versionDetector = new ModVersionDetector();
         this.apiEmbedder = new ApiEmbedder();
         this.targetMcVersion = targetMcVersion;
@@ -310,14 +310,14 @@ public class AotCompiler {
             Manifest manifest = new Manifest();
             manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
             manifest.getMainAttributes().putValue(AOT_MANIFEST_KEY, AOT_VERSION);
-            manifest.getMainAttributes().putValue("RetroMod-Source-Version", modInfo.targetMcVersion());
-            manifest.getMainAttributes().putValue("RetroMod-Target-Version", targetMcVersion);
-            manifest.getMainAttributes().putValue("RetroMod-Compiled-Time", String.valueOf(System.currentTimeMillis()));
-            manifest.getMainAttributes().putValue("RetroMod-Source-Hash", computeHash(inputJar));
+            manifest.getMainAttributes().putValue("Retromod-Source-Version", modInfo.targetMcVersion());
+            manifest.getMainAttributes().putValue("Retromod-Target-Version", targetMcVersion);
+            manifest.getMainAttributes().putValue("Retromod-Compiled-Time", String.valueOf(System.currentTimeMillis()));
+            manifest.getMainAttributes().putValue("Retromod-Source-Hash", computeHash(inputJar));
             
             // Add obfuscated class list for JIT fallback
             if (!obfuscatedClasses.isEmpty()) {
-                manifest.getMainAttributes().putValue("RetroMod-JIT-Classes", 
+                manifest.getMainAttributes().putValue("Retromod-JIT-Classes", 
                     String.join(",", obfuscatedClasses));
             }
             
@@ -328,7 +328,7 @@ public class AotCompiler {
             // Write transformed classes.
             // Validate the entry name: keys come from input-JAR entry.getName()
             // so a malicious mod could ship a class entry whose name traverses
-            // out of the archive (e.g. "../../etc/foo.class"). RetroMod itself
+            // out of the archive (e.g. "../../etc/foo.class"). Retromod itself
             // never extracts the OUTPUT JAR, but downstream tooling (Forge's
             // mod scanner, dev IDE archive viewers, third-party unzippers)
             // might — and would inherit a zip-slip vuln from us. Same defense
@@ -379,7 +379,7 @@ public class AotCompiler {
                 jos.closeEntry();
             }
 
-            // Write embedded shims. Keys come from RetroMod's own shim
+            // Write embedded shims. Keys come from Retromod's own shim
             // collection (collectEmbeddedShims), not user input — but
             // safeEntryName is cheap and defends against a future refactor
             // accidentally letting an attacker-controlled string land here.
@@ -491,7 +491,7 @@ public class AotCompiler {
                 String descriptor, boolean isInterface) {
             
             // Check for method redirect
-            var key = new RetroModTransformer.MethodKey(owner, name, descriptor);
+            var key = new RetromodTransformer.MethodKey(owner, name, descriptor);
             var target = transformer.getMethodRedirects().get(key);
             
             if (target != null) {
@@ -664,7 +664,7 @@ public class AotCompiler {
             Set<String> obfuscatedClasses) throws IOException {
         
         StringBuilder sb = new StringBuilder();
-        sb.append("# RetroMod AOT Compilation Metadata\n");
+        sb.append("# Retromod AOT Compilation Metadata\n");
         sb.append("aot_version=").append(AOT_VERSION).append("\n");
         sb.append("source_mc_version=").append(modInfo.targetMcVersion()).append("\n");
         sb.append("target_mc_version=").append(targetMcVersion).append("\n");
@@ -709,7 +709,7 @@ public class AotCompiler {
             if (!AOT_VERSION.equals(aotVersion)) return false;
             
             // Check source hash
-            String cachedHash = manifest.getMainAttributes().getValue("RetroMod-Source-Hash");
+            String cachedHash = manifest.getMainAttributes().getValue("Retromod-Source-Hash");
             String currentHash = computeHash(originalJar);
             
             return cachedHash != null && cachedHash.equals(currentHash);

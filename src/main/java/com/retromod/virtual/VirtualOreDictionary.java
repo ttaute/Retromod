@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.virtual;
@@ -120,7 +120,7 @@ public class VirtualOreDictionary {
         ITEM_NAMES.computeIfAbsent(ore, k -> new ArrayList<>()).add(name);
         
         String tagName = convertToTag(name);
-        System.out.println("RetroMod: Bridging ore dict '" + name + "' to tag '" + tagName + "'");
+        System.out.println("Retromod: Bridging ore dict '" + name + "' to tag '" + tagName + "'");
     }
     
     public static List<Object> getOres(String name) {

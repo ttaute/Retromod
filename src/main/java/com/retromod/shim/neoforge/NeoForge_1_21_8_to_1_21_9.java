@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Based on actual NeoForge changes documented at:
@@ -8,7 +8,7 @@
  */
 package com.retromod.shim.neoforge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -44,7 +44,7 @@ public class NeoForge_1_21_8_to_1_21_9 implements VersionShim {
     }
     
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         
         // ============================================================
         // TRANSFER API REWORK - HUGE CHANGE

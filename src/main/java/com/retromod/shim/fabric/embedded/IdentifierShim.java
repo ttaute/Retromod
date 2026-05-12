@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for Identifier (formerly ResourceLocation) constructor changes.
@@ -61,7 +61,7 @@ public final class IdentifierShim {
                 "of", "parse");
 
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to initialize IdentifierShim", e);
+            throw new RuntimeException("Retromod: Failed to initialize IdentifierShim", e);
         }
     }
     

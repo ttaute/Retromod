@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.tests;
@@ -13,12 +13,12 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Fabric Loader APIs. These aren't part of vanilla MC at all, so RetroMod
+ * Fabric Loader APIs. These aren't part of vanilla MC at all, so Retromod
  * shouldn't be touching them — the test confirms that loader-API references
- * pass through the transformer untouched and still work after RetroMod's
+ * pass through the transformer untouched and still work after Retromod's
  * pipeline runs.
  *
- * <p>Bonus: confirms that RetroMod itself reports as loaded, which is a
+ * <p>Bonus: confirms that Retromod itself reports as loaded, which is a
  * useful sanity check for any test reading these results.
  */
 public final class LoaderTests {
@@ -41,7 +41,7 @@ public final class LoaderTests {
             new SimpleTest("FabricLoader.isModLoaded(\"retromod\")", () -> {
                 return FabricLoader.getInstance().isModLoaded("retromod")
                     ? TestResult.success()
-                    : TestResult.fail("returned false — RetroMod missing?");
+                    : TestResult.fail("returned false — Retromod missing?");
             }),
             new SimpleTest("FabricLoader.getGameDir() not null", () -> {
                 Path dir = FabricLoader.getInstance().getGameDir();

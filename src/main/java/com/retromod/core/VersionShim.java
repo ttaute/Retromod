@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.core;
@@ -39,7 +39,7 @@ public interface VersionShim {
      * 
      * @param transformer The transformer to register redirects with
      */
-    void registerRedirects(RetroModTransformer transformer);
+    void registerRedirects(RetromodTransformer transformer);
     
     /**
      * Get a list of classes that provide shim implementations.

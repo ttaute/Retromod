@@ -1,8 +1,8 @@
-# RetroMod - Claude Development Guide
+# Retromod - Claude Development Guide
 
-RetroMod transforms older Minecraft mod bytecode so old mods work on newer MC versions. It supports Fabric, NeoForge, and Forge with 145 version shims and 30 polyfill providers (328 redirects).
+Retromod transforms older Minecraft mod bytecode so old mods work on newer MC versions. It supports Fabric, NeoForge, and Forge with 145 version shims and 30 polyfill providers (328 redirects).
 
-**Repository:** https://github.com/Bownlux/RetroMod.git
+**Repository:** https://github.com/Bownlux/Retromod.git
 
 ## Critical Context
 
@@ -12,14 +12,14 @@ RetroMod transforms older Minecraft mod bytecode so old mods work on newer MC ve
 - **NeoForge already uses Mojang names** since 1.17 — NeoForge mods mainly need metadata patching, not name remapping.
 - **Fabric mods use intermediary names** — they need full intermediary→Mojang remapping for 26.1+.
 - **ALL old shims (including pre-1.20.1) must stay.** People still translate 1.16.5, 1.14.4 mods. Shims are NOT separate build targets — they're all part of one build.
-- **`RetroMod.TARGET_MC_VERSION`** is auto-detected at runtime from the mod loader. NEVER hardcode version strings like `"1.21.11"` — always use `RetroMod.TARGET_MC_VERSION`.
+- **`Retromod.TARGET_MC_VERSION`** is auto-detected at runtime from the mod loader. NEVER hardcode version strings like `"1.21.11"` — always use `Retromod.TARGET_MC_VERSION`.
 
 ## Architecture
 
 ```
 src/main/java/com/retromod/
-├── core/           Core runtime: RetroMod, RetroModTransformer, version detectors, mod transformers
-├── cli/            CLI tool: RetroModCli (analyze, batch, aot, shims, etc.)
+├── core/           Core runtime: Retromod, RetromodTransformer, version detectors, mod transformers
+├── cli/            CLI tool: RetromodCli (analyze, batch, aot, shims, etc.)
 ├── aot/            AOT compiler: AotCompiler, HybridCompiler, FullAotCompiler
 ├── shim/           Version shims by loader (fabric/, neoforge/, forge/, api/)
 │   └── ShimRegistry.java   BFS-based shim chain finder with version aliases
@@ -53,7 +53,7 @@ mvn test -Dexec.skip=true
 mvn package -P lite -DskipTests -Dexec.skip=true
 
 # Run CLI command (deps not bundled in JAR, must use mvn exec)
-mvn exec:java -Dexec.mainClass="com.retromod.cli.RetroModCli" -Dexec.args="<command>" -q
+mvn exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" -Dexec.args="<command>" -q
 ```
 
 **Important:** Always pass `-Dexec.skip=true` during build to prevent Maven from running the CLI entrypoint.
@@ -72,28 +72,28 @@ Game directory (macOS): `~/Library/Application Support/minecraft/`
 
 | File | Purpose |
 |------|---------|
-| `core/RetroMod.java` | Main Fabric ModInitializer, `TARGET_MC_VERSION` auto-detection |
-| `core/RetroModPreLaunch.java` | Fabric pre-launch (runs BEFORE mod scan, transforms mods) |
-| `core/RetroModNeoForge.java` | NeoForge entry point (transforms at constructor time) |
-| `core/RetroModForge.java` | Forge entry point |
-| `core/RetroModTransformer.java` | ASM bytecode transformer (class/method/field redirects) |
+| `core/Retromod.java` | Main Fabric ModInitializer, `TARGET_MC_VERSION` auto-detection |
+| `core/RetromodPreLaunch.java` | Fabric pre-launch (runs BEFORE mod scan, transforms mods) |
+| `core/RetromodNeoForge.java` | NeoForge entry point (transforms at constructor time) |
+| `core/RetromodForge.java` | Forge entry point |
+| `core/RetromodTransformer.java` | ASM bytecode transformer (class/method/field redirects) |
 | `core/FabricModTransformer.java` | Patches fabric.mod.json version constraints |
 | `core/ForgeModTransformer.java` | Patches mods.toml/neoforge.mods.toml version constraints |
 | `core/ModVersionDetector.java` | Reads mod MC version from loader-specific metadata |
 | `mapping/IntermediaryToMojangMapper.java` | ~230 intermediary→Mojang name mappings |
 | `mapping/MappingComposer.java` | Generates mapping files from TinyV2 + ProGuard sources |
 | `shim/ShimRegistry.java` | BFS chain finder with version aliases |
-| `cli/RetroModCli.java` | CLI tool (`TARGET_MC_VERSION = "26.1"`) |
+| `cli/RetromodCli.java` | CLI tool (`TARGET_MC_VERSION = "26.1"`) |
 | `embedder/ModVersionInfo.java` | Record with `needsTransformation()` version comparison |
 | `aot/AotCompiler.java` | AOT compilation with metadata patching for 26.1+ |
 
 ## How Mod Transformation Works
 
-1. **Fabric:** `RetroModPreLaunch` runs before Fabric scans `mods/`. Transforms mods from `retromod-input/`, patches `fabric.mod.json`, moves to `mods/`. User restarts. Old mods CANNOT go directly in `mods/` — Fabric rejects them.
+1. **Fabric:** `RetromodPreLaunch` runs before Fabric scans `mods/`. Transforms mods from `retromod-input/`, patches `fabric.mod.json`, moves to `mods/`. User restarts. Old mods CANNOT go directly in `mods/` — Fabric rejects them.
 
-2. **NeoForge/Forge:** `RetroModNeoForge`/`RetroModForge` constructor transforms from `retromod-input/` AND in-place in `mods/`. Patches `mods.toml`. Backs up originals to `retromod-backups/`.
+2. **NeoForge/Forge:** `RetromodNeoForge`/`RetromodForge` constructor transforms from `retromod-input/` AND in-place in `mods/`. Patches `mods.toml`. Backs up originals to `retromod-backups/`.
 
-3. **CLI batch:** `RetroModCli.batchCommand()` processes all JARs in a folder. For 26.1+ targets, ALL mods get metadata patching via `patchModMetadata()` post-processing step, even if bytecode doesn't need transformation.
+3. **CLI batch:** `RetromodCli.batchCommand()` processes all JARs in a folder. For 26.1+ targets, ALL mods get metadata patching via `patchModMetadata()` post-processing step, even if bytecode doesn't need transformation.
 
 ## Version Constraint Patching
 
@@ -114,7 +114,7 @@ When adding a new shim or polyfill, ALWAYS register it in the corresponding serv
 ## Testing
 
 - **Framework:** JUnit 5 (Jupiter)
-- **Test file:** `src/test/java/com/retromod/RetroModTest.java`
+- **Test file:** `src/test/java/com/retromod/RetromodTest.java`
 - **Run:** `mvn test -Dexec.skip=true`
 
 ## CI/CD
@@ -126,17 +126,17 @@ When adding a new shim or polyfill, ALWAYS register it in the corresponding serv
 
 ## Common Pitfalls
 
-1. **Don't hardcode `"1.21.11"` anywhere.** Use `RetroMod.TARGET_MC_VERSION`. The linter has reverted this multiple times.
+1. **Don't hardcode `"1.21.11"` anywhere.** Use `Retromod.TARGET_MC_VERSION`. The linter has reverted this multiple times.
 
 2. **Don't delete old shims.** Every shim from 1.12.2 onwards must stay — people translate ancient mods.
 
 3. **TOML parsing is fragile.** The simple TOML parser can't handle `[[dependencies.modid]]` array-of-tables properly (entries overwrite each other). Use `extractMcVersionFromToml()` regex approach instead.
 
-4. **AOT cache invalidation.** The AOT cache checks source mod hash but NOT RetroMod version. After changing RetroMod's transform logic, delete `config/retromod/aot-cache/` to force re-compilation.
+4. **AOT cache invalidation.** The AOT cache checks source mod hash but NOT Retromod version. After changing Retromod's transform logic, delete `config/retromod/aot-cache/` to force re-compilation.
 
 5. **`needsTransformation()` returns false for null targetMcVersion.** If `ModVersionDetector` can't read the version, the mod gets skipped. For 26.1+, the batch command has a separate post-processing step to patch metadata even for "compatible" mods.
 
-6. **Fabric is strictest.** Fabric checks mod versions BEFORE RetroMod runs. That's why `retromod-input/` exists — mods get transformed there first, then moved to `mods/`.
+6. **Fabric is strictest.** Fabric checks mod versions BEFORE Retromod runs. That's why `retromod-input/` exists — mods get transformed there first, then moved to `mods/`.
 
 7. **The JAR doesn't bundle dependencies.** You can't run `java -jar retromod.jar` directly for CLI — use `mvn exec:java` instead.
 

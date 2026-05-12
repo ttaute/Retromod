@@ -1,4 +1,4 @@
-# RetroMod Technical Capabilities
+# Retromod Technical Capabilities
 
 ## What Can Be Done vs What Cannot
 
@@ -48,7 +48,7 @@ import net.minecraft.core.BlockPos;
 // OLD MIXIN
 @Inject(method = "breakBlock", at = @At("HEAD"))
 
-// NEW MIXIN (after RetroMod)
+// NEW MIXIN (after Retromod)
 @Inject(method = "destroyBlock", at = @At("HEAD"))
 ```
 
@@ -60,7 +60,7 @@ import net.minecraft.core.BlockPos;
 
 ### 2.1 Mixin "Middle Man" Interceptor ✅
 
-RetroMod sits between old Mixin targets and new MC code, translating calls:
+Retromod sits between old Mixin targets and new MC code, translating calls:
 
 ```
 OLD MIXIN CODE                    RETROMOD                         MINECRAFT
@@ -183,7 +183,7 @@ void render(GuiGraphics graphics, int mouseX, float delta) { }
 
 **Possible solution:**
 ```java
-// RetroMod generates a SHIM:
+// Retromod generates a SHIM:
 void render_SHIM(MatrixStack matrices, float delta) {
     // Convert old params to new params
     GuiGraphics graphics = convertMatrixStackToGuiGraphics(matrices);
@@ -301,7 +301,7 @@ public void init() {
     }
 }
 
-// RetroMod transforms the bytecode
+// Retromod transforms the bytecode
 // Hash changes
 // Mod refuses to run
 ```

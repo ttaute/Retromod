@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.shim.api.common.embedded;
@@ -64,7 +64,7 @@ public class ArchitecturyShim {
                     Class.forName("me.shedaniel.architectury.networking.NetworkManager$NetworkReceiver"));
                 method.invoke(null, side, resourceLocation, receiver);
             } catch (Exception e2) {
-                System.err.println("[RetroMod] Architectury network registration failed: " + e2.getMessage());
+                System.err.println("[Retromod] Architectury network registration failed: " + e2.getMessage());
             }
         }
     }

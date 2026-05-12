@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Shim for KeyBinding changes in Minecraft 1.21.9.
@@ -64,7 +64,7 @@ public final class KeyBindingShim {
             // If the new constructor fails, try the old one as fallback
             Object fallback = createFallback(translationKey, inputType, keyCode, categoryString);
             if (fallback != null) return fallback;
-            throw new RuntimeException("RetroMod: Failed to create KeyBinding for '" + translationKey + "'", e);
+            throw new RuntimeException("Retromod: Failed to create KeyBinding for '" + translationKey + "'", e);
         }
     }
 
@@ -149,7 +149,7 @@ public final class KeyBindingShim {
 
         } catch (Exception e) {
             initFailed = true;
-            System.err.println("RetroMod: KeyBindingShim init warning: " + e.getMessage());
+            System.err.println("Retromod: KeyBindingShim init warning: " + e.getMessage());
         }
     }
 

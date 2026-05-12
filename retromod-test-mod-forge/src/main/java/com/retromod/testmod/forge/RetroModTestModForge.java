@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod (Forge)
+ * Retromod Test Mod (Forge)
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.forge;
@@ -13,26 +13,26 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Forge entry point for the RetroMod test mod.
+ * Forge entry point for the Retromod test mod.
  *
- * <p>Compiled against MC 1.20.1 / Forge 47.x. RetroMod transforms it forward
+ * <p>Compiled against MC 1.20.1 / Forge 47.x. Retromod transforms it forward
  * to whatever MC version the host is running. On a 26.1.2 host this exercises
  * Forge-targeted redirects + the Mojang-name surface.
  *
- * <p>Each test logs {@code [RetroMod-Test-Forge] N (description): success/fail}.
- * Grep for {@code [RetroMod-Test-Forge]} in the log to see results.
+ * <p>Each test logs {@code [Retromod-Test-Forge] N (description): success/fail}.
+ * Grep for {@code [Retromod-Test-Forge]} in the log to see results.
  *
  * <p>Immediate phase only. Forge has equivalent lifecycle events through
  * {@code MinecraftForge.EVENT_BUS} for deferred phases — those would be a
  * follow-up.
  */
 @Mod("retromod_test_mod_forge")
-public class RetroModTestModForge {
+public class RetromodTestModForge {
 
-    private static final Logger LOG = LoggerFactory.getLogger("RetroMod-Test-Forge");
-    private static final String PREFIX = "[RetroMod-Test-Forge]";
+    private static final Logger LOG = LoggerFactory.getLogger("Retromod-Test-Forge");
+    private static final String PREFIX = "[Retromod-Test-Forge]";
 
-    public RetroModTestModForge() {
+    public RetromodTestModForge() {
         runTests();
     }
 

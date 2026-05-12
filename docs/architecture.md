@@ -5,7 +5,7 @@ nav_order: 11
 
 # Architecture
 
-A high-level tour of how RetroMod turns an old mod JAR into one that loads on new Minecraft. This is aimed at potential contributors — if you're just trying to get a mod to work, [Troubleshooting]({{ '/troubleshooting' | relative_url }}) is probably a better starting point.
+A high-level tour of how Retromod turns an old mod JAR into one that loads on new Minecraft. This is aimed at potential contributors — if you're just trying to get a mod to work, [Troubleshooting]({{ '/troubleshooting' | relative_url }}) is probably a better starting point.
 
 ## The big picture
 
@@ -24,7 +24,7 @@ mod.jar (old)
    │
    ▼
 ┌──────────────────────┐
-│ RetroModTransformer  │  ASM visitor chain applies each shim's redirects
+│ RetromodTransformer  │  ASM visitor chain applies each shim's redirects
 └──────────────────────┘
    │
    ▼
@@ -54,13 +54,13 @@ Each box is a composable stage. The [CLI]({{ '/cli' | relative_url }}) exposes t
 ```
 src/main/java/com/retromod/
 ├── core/       main transformer, version detectors, mod transformers
-├── cli/        RetroModCli — command-line entry point
+├── cli/        RetromodCli — command-line entry point
 ├── aot/        AOT compiler — caches transformed mods
 ├── shim/       version shims organized by loader (fabric/ neoforge/ forge/ api/)
 ├── mapping/    IntermediaryToMojangMapper, MappingComposer
 ├── mixin/      MixinCompatibilityTransformer, MixinTargetRedirector
 ├── polyfill/   72+ polyfills across 10 providers
-├── embedder/   embeds RetroMod runtime into a mod JAR
+├── embedder/   embeds Retromod runtime into a mod JAR
 ├── resources/  resource pack / data pack transforms
 ├── gui/        in-game GUI (title screen button, settings screen, file picker)
 ├── security/   SignatureVerifier
@@ -93,12 +93,12 @@ They're registered via `META-INF/services/com.retromod.core.VersionShim`. For a 
 
 Version aliases (e.g. "1.20" matches "1.20.0") are handled by the registry so shim authors don't have to declare every point release.
 
-### 3. `RetroModTransformer`
+### 3. `RetromodTransformer`
 
 Takes the shim chain from step 2 and applies it. Internally it's an ASM visitor chain:
 
 ```
-ClassReader → ClassRemapper → RetroModClassVisitor → ClassWriter
+ClassReader → ClassRemapper → RetromodClassVisitor → ClassWriter
                     │                    │
                     │                    └── instruction-level rewrites
                     │                        (if instruction_level_granularity)
@@ -108,7 +108,7 @@ ClassReader → ClassRemapper → RetroModClassVisitor → ClassWriter
 
 - `ClassReader` parses the input `.class`.
 - `ClassRemapper` handles the bulk of name rewriting (classes, methods, fields, signatures).
-- `RetroModClassVisitor` does the fine-grained stuff: individual instruction rewrites, mixin annotation fixups, reflection call rewrites.
+- `RetromodClassVisitor` does the fine-grained stuff: individual instruction rewrites, mixin annotation fixups, reflection call rewrites.
 - `ClassWriter` emits the result.
 
 For mixin code specifically, `MixinCompatibilityTransformer` and `MixinTargetRedirector` run a second pass to rewrite `@Inject`/`@Redirect` targets and refmap contents.
@@ -150,10 +150,10 @@ If AOT is on, a serialized cache entry is also written to `config/retromod/aot-c
 
 ## Runtime entry points
 
-- **Fabric:** `RetroModPreLaunch` runs as a Fabric PreLaunchEntrypoint — it fires *before* Fabric's mod scan, which lets it transform mods in `retromod-input/` and move them into `mods/` before Fabric decides to reject them.
-- **NeoForge:** `RetroModNeoForge` runs at mod construction time. Less control over ordering than Fabric's pre-launch, but NeoForge is friendlier about mod version checks.
-- **Forge:** `RetroModForge` — similar shape to the NeoForge entry point.
-- **Java Agent:** `com.retromod.agent` exposes `premain`/`agentmain` for running RetroMod as a `-javaagent`, outside any specific loader.
+- **Fabric:** `RetromodPreLaunch` runs as a Fabric PreLaunchEntrypoint — it fires *before* Fabric's mod scan, which lets it transform mods in `retromod-input/` and move them into `mods/` before Fabric decides to reject them.
+- **NeoForge:** `RetromodNeoForge` runs at mod construction time. Less control over ordering than Fabric's pre-launch, but NeoForge is friendlier about mod version checks.
+- **Forge:** `RetromodForge` — similar shape to the NeoForge entry point.
+- **Java Agent:** `com.retromod.agent` exposes `premain`/`agentmain` for running Retromod as a `-javaagent`, outside any specific loader.
 
 ## Verification
 
@@ -161,7 +161,7 @@ After transformation, [Verify Transforms]({{ '/verify-transforms' | relative_url
 
 ## Testing
 
-- `src/test/java/com/retromod/RetroModTest.java` — JUnit 5 test suite.
+- `src/test/java/com/retromod/RetromodTest.java` — JUnit 5 test suite.
 - Run with `mvn test -Dexec.skip=true`.
 - Integration tests cover shim chain resolution, mapping composition, metadata patching, and verification.
 

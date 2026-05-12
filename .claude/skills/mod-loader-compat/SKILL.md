@@ -6,38 +6,38 @@ argument-hint: "loader issue (e.g. neoforge version-range-too-strict, fabric dep
 
 # Mod Loader Compatibility
 
-Handles how RetroMod integrates with each mod loader's runtime and patches mod metadata so old mods can load on newer versions.
+Handles how Retromod integrates with each mod loader's runtime and patches mod metadata so old mods can load on newer versions.
 
 ## Architecture
 
-RetroMod runs as a mod on each loader and intercepts mod loading:
+Retromod runs as a mod on each loader and intercepts mod loading:
 
 ### Fabric
-- **PreLaunch** (`RetroModPreLaunch.java`) — Runs BEFORE Fabric scans `mods/`. Transforms mods in `retromod-input/`, patches `fabric.mod.json`, moves to `mods/`.
-- **Main** (`RetroMod.java`) — Runs after mod scan. Initializes shims, AOT, polyfills.
-- Fabric is strictest — it rejects mods with wrong version constraints BEFORE RetroMod can run. That's why `retromod-input/` exists.
+- **PreLaunch** (`RetromodPreLaunch.java`) — Runs BEFORE Fabric scans `mods/`. Transforms mods in `retromod-input/`, patches `fabric.mod.json`, moves to `mods/`.
+- **Main** (`Retromod.java`) — Runs after mod scan. Initializes shims, AOT, polyfills.
+- Fabric is strictest — it rejects mods with wrong version constraints BEFORE Retromod can run. That's why `retromod-input/` exists.
 
 ### NeoForge
-- **Constructor** (`RetroModNeoForge.java`) — Transforms from `retromod-input/` AND in-place in `mods/`. Patches `mods.toml`/`neoforge.mods.toml`.
-- NeoForge is more lenient — mods can go directly in `mods/` and RetroMod transforms them.
+- **Constructor** (`RetromodNeoForge.java`) — Transforms from `retromod-input/` AND in-place in `mods/`. Patches `mods.toml`/`neoforge.mods.toml`.
+- NeoForge is more lenient — mods can go directly in `mods/` and Retromod transforms them.
 
 ### Forge
-- **Constructor** (`RetroModForge.java`) — Same pattern as NeoForge but also handles Forge→NeoForge class migration.
+- **Constructor** (`RetromodForge.java`) — Same pattern as NeoForge but also handles Forge→NeoForge class migration.
 
 ## Key Files
 
 | File | Purpose |
 |------|---------|
-| `RetroModPreLaunch.java` | Fabric pre-launch hook (earliest possible) |
-| `RetroMod.java` | Main Fabric initializer, auto-detects `TARGET_MC_VERSION` |
-| `RetroModNeoForge.java` | NeoForge entry point |
-| `RetroModForge.java` | Forge entry point |
+| `RetromodPreLaunch.java` | Fabric pre-launch hook (earliest possible) |
+| `Retromod.java` | Main Fabric initializer, auto-detects `TARGET_MC_VERSION` |
+| `RetromodNeoForge.java` | NeoForge entry point |
+| `RetromodForge.java` | Forge entry point |
 | `FabricModTransformer.java` | Patches `fabric.mod.json` — version constraints, API deps |
 | `ForgeModTransformer.java` | Patches `mods.toml`/`neoforge.mods.toml` |
 | `ModVersionDetector.java` | Reads mod version from loader-specific metadata |
-| `fabric.mod.json` | RetroMod's own Fabric metadata |
-| `META-INF/neoforge.mods.toml` | RetroMod's own NeoForge metadata |
-| `META-INF/mods.toml` | RetroMod's own Forge metadata |
+| `fabric.mod.json` | Retromod's own Fabric metadata |
+| `META-INF/neoforge.mods.toml` | Retromod's own NeoForge metadata |
+| `META-INF/mods.toml` | Retromod's own Forge metadata |
 
 ## Version Constraint Patching
 
@@ -79,14 +79,14 @@ RetroMod runs as a mod on each loader and intercepts mod loading:
 
 ## Testing
 
-1. Build RetroMod: `mvn package -DskipTests`
+1. Build Retromod: `mvn package -DskipTests`
 2. Put old mods in `retromod-input/` in the game directory
-3. Launch the game — check `logs/latest.log` for RetroMod messages
+3. Launch the game — check `logs/latest.log` for Retromod messages
 4. Look for "Transformed X mod(s)" or error messages
 5. If a mod fails to load, check the exact error and trace it to the metadata patching code
 
 ## Important Notes
-- `RetroMod.TARGET_MC_VERSION` is auto-detected at runtime from the mod loader
-- All hardcoded version strings should use `RetroMod.TARGET_MC_VERSION` instead
+- `Retromod.TARGET_MC_VERSION` is auto-detected at runtime from the mod loader
+- All hardcoded version strings should use `Retromod.TARGET_MC_VERSION` instead
 - The `retromod-input/` folder pattern is required for Fabric (strict version checking)
 - NeoForge/Forge can transform mods in-place in `mods/` with backups

@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.tests;
@@ -14,7 +14,7 @@ import java.util.List;
  * Vanilla enchantments. In MC 1.21 these moved from a hardcoded class with
  * static {@code Enchantment} fields to a registry-keyed lookup with
  * {@code RegistryKey<Enchantment>} fields. Test compiles against the older
- * shape (1.20.1 yarn); a successful run means RetroMod handled the lookup
+ * shape (1.20.1 yarn); a successful run means Retromod handled the lookup
  * model change for each entry.
  */
 public final class EnchantmentTests {

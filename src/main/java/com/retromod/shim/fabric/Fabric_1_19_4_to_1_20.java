@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.fabric;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -19,7 +19,7 @@ public class Fabric_1_19_4_to_1_20 implements VersionShim {
     @Override public String getModLoaderType() { return "fabric"; }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // Material system removed
         transformer.registerMethodRedirect(
             "net/minecraft/block/AbstractBlock$Settings", "of",

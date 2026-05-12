@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for IItemHandler interface that was reworked in NeoForge 21.9.
@@ -51,7 +51,7 @@ public final class IItemHandlerShim {
             throw new RuntimeException("Cannot determine slot count for handler type: " + handler.getClass());
             
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to get slot count", e);
+            throw new RuntimeException("Retromod: Failed to get slot count", e);
         }
     }
     
@@ -77,7 +77,7 @@ public final class IItemHandlerShim {
             throw new RuntimeException("Cannot get stack for handler type: " + handler.getClass());
             
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to get stack in slot " + slot, e);
+            throw new RuntimeException("Retromod: Failed to get stack in slot " + slot, e);
         }
     }
     
@@ -97,10 +97,10 @@ public final class IItemHandlerShim {
             try {
                 return insertItemNewApi(handler, slot, stack, simulate);
             } catch (Exception ex) {
-                throw new RuntimeException("RetroMod: Failed to insert item", ex);
+                throw new RuntimeException("Retromod: Failed to insert item", ex);
             }
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to insert item", e);
+            throw new RuntimeException("Retromod: Failed to insert item", e);
         }
     }
     
@@ -120,10 +120,10 @@ public final class IItemHandlerShim {
             try {
                 return extractItemNewApi(handler, slot, amount, simulate);
             } catch (Exception ex) {
-                throw new RuntimeException("RetroMod: Failed to extract item", ex);
+                throw new RuntimeException("Retromod: Failed to extract item", ex);
             }
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to extract item", e);
+            throw new RuntimeException("Retromod: Failed to extract item", e);
         }
     }
     

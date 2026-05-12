@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.resources;
@@ -45,7 +45,7 @@ import java.util.regex.*;
  */
 public class ResourcePackTransformer {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Resources");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Resources");
     
     // Pack format for target MC versions
     private static final Map<String, Integer> PACK_FORMATS = new HashMap<>();
@@ -209,7 +209,7 @@ public class ResourcePackTransformer {
                 {
                     "pack": {
                         "pack_format": %d,
-                        "description": "Transformed by RetroMod"
+                        "description": "Transformed by Retromod"
                     }
                 }
                 """, targetPackFormat));

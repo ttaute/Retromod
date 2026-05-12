@@ -9,7 +9,7 @@
     <version>1.0.0-beta.1</version>
     <packaging>jar</packaging>
 
-    <name>RetroMod</name>
+    <name>Retromod</name>
     <description>Backwards compatibility layer for Minecraft mods - run older mods on newer versions</description>
     
     <developers>
@@ -204,11 +204,11 @@
                             <rules>
                                 <requireMavenVersion>
                                     <version>[3.8.0,)</version>
-                                    <message>RetroMod requires Maven 3.8.0 or later. You have ${maven.version}.</message>
+                                    <message>Retromod requires Maven 3.8.0 or later. You have ${maven.version}.</message>
                                 </requireMavenVersion>
                                 <requireJavaVersion>
                                     <version>[25,)</version>
-                                    <message>RetroMod requires Java 25 or later. You have ${java.version}. Install from https://adoptium.net/</message>
+                                    <message>Retromod requires Java 25 or later. You have ${java.version}. Install from https://adoptium.net/</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>
@@ -236,7 +236,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.retromod.cli.RetroModCli</mainClass>
+                            <mainClass>com.retromod.cli.RetromodCli</mainClass>
                             <addClasspath>true</addClasspath>
                         </manifest>
                         <manifestEntries>
@@ -245,7 +245,7 @@
                             <!--
                                 Premain-Class / Agent-Class are NOT on the main mod JAR.
                                 The mod runtime does its bytecode transformation through
-                                ASM directly (RetroModTransformer); the Java Agent
+                                ASM directly (RetromodTransformer); the Java Agent
                                 interface is a separate distribution that's shipped only
                                 via the "-agent" classifier JAR below for advanced CLI
                                 use. Putting Premain on the mod JAR would advertise
@@ -259,7 +259,7 @@
                         EXCLUDE THE FORGE @MOD COMPILE-TIME STUB.
 
                         src/main/java/net/minecraftforge/fml/common/Mod.java exists
-                        only so RetroModForge.java compiles when Forge isn't on the
+                        only so RetromodForge.java compiles when Forge isn't on the
                         classpath (CLI / standalone builds). At RUNTIME on Forge,
                         the real net.minecraftforge.fml.common.Mod annotation must
                         win — but if the stub ends up in the production JAR, Forge's
@@ -293,8 +293,8 @@
                             <classifier>agent</classifier>
                             <archive>
                                 <manifestEntries>
-                                    <Premain-Class>com.retromod.agent.RetroModAgent</Premain-Class>
-                                    <Agent-Class>com.retromod.agent.RetroModAgent</Agent-Class>
+                                    <Premain-Class>com.retromod.agent.RetromodAgent</Premain-Class>
+                                    <Agent-Class>com.retromod.agent.RetromodAgent</Agent-Class>
                                     <Can-Redefine-Classes>true</Can-Redefine-Classes>
                                     <Can-Retransform-Classes>true</Can-Retransform-Classes>
                                 </manifestEntries>
@@ -335,7 +335,7 @@
                             <shadedClassifierName>all</shadedClassifierName>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.retromod.cli.RetroModCli</mainClass>
+                                    <mainClass>com.retromod.cli.RetromodCli</mainClass>
                                     <!--
                                         Same rationale as the main-JAR config above —
                                         no Premain-Class on the shaded fat JAR. The
@@ -567,7 +567,7 @@
         </profile>
 
         <!--
-          Sign the release JAR with the official RetroMod release key.
+          Sign the release JAR with the official Retromod release key.
           Only used for official releases. Activate with: mvn package -P sign
           Requires these properties (usually set in ~/.m2/settings.xml):
             - retromod.keystore   : path to the JKS/PKCS12 keystore

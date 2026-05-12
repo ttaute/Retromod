@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * LEGACY MOD SUPPORT SYSTEM
@@ -203,7 +203,7 @@ public class LegacyModSupport {
      */
     public Path transformMod(Path modJar, LegacyModAnalysis analysis) throws IOException {
         System.out.println("╔════════════════════════════════════════════════════════════╗");
-        System.out.println("║         RetroMod Legacy Transformation                     ║");
+        System.out.println("║         Retromod Legacy Transformation                     ║");
         System.out.println("╚════════════════════════════════════════════════════════════╝");
         System.out.println();
         System.out.println("Source: " + modJar.getFileName());
@@ -251,7 +251,7 @@ public class LegacyModSupport {
                 try {
                     safeName = ZipSecurity.safeEntryName(entry.getName());
                 } catch (IOException badName) {
-                    System.out.println("[RetroMod-Legacy] Skipping unsafe entry: " + badName.getMessage());
+                    System.out.println("[Retromod-Legacy] Skipping unsafe entry: " + badName.getMessage());
                     continue;
                 }
 

@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.mixin;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
@@ -14,7 +14,7 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Mixin Compatibility Layer for RetroMod.
+ * Mixin Compatibility Layer for Retromod.
  * 
  * Problem: Mixins target specific methods by name. When Minecraft renames methods
  * (like getWorld -> getEntityWorld), Mixins break because they can't find their targets.
@@ -44,12 +44,12 @@ public class MixinCompatibilityTransformer {
     private static final String ACCESSOR_DESC = "Lorg/spongepowered/asm/mixin/gen/Accessor;";
     private static final String INVOKER_DESC = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
     
-    private final RetroModTransformer transformer;
+    private final RetromodTransformer transformer;
     
     // Maps old method references to new ones for Mixin targets
     private final Map<String, String> methodTargetRedirects = new HashMap<>();
     
-    public MixinCompatibilityTransformer(RetroModTransformer transformer) {
+    public MixinCompatibilityTransformer(RetromodTransformer transformer) {
         this.transformer = transformer;
         buildMixinRedirects();
     }

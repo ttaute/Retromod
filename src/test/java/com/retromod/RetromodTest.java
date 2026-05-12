@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod;
@@ -19,7 +19,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Comprehensive test suite for RetroMod.
+ * Comprehensive test suite for Retromod.
  * 
  * Tests:
  * 1. Method redirect registration
@@ -29,14 +29,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * 5. Mixin compatibility transformation
  * 6. AOT compilation
  */
-public class RetroModTest {
+public class RetromodTest {
     
-    private RetroModTransformer transformer;
+    private RetromodTransformer transformer;
     private ShimRegistry shimRegistry;
     
     @BeforeEach
     void setUp() {
-        transformer = RetroModTransformer.getInstance();
+        transformer = RetromodTransformer.getInstance();
         shimRegistry = new ShimRegistry();
     }
     
@@ -68,7 +68,7 @@ public class RetroModTest {
         
         // Check that Entity.getWorld is redirected
         var redirects = transformer.getMethodRedirects();
-        var key = new RetroModTransformer.MethodKey(
+        var key = new RetromodTransformer.MethodKey(
             "net/minecraft/entity/Entity",
             "getWorld",
             "()Lnet/minecraft/world/World;"
@@ -192,7 +192,7 @@ public class RetroModTest {
     // Verify that transformClass() runs multiple passes when chained redirects
     // are registered (A -> B, B -> C) and terminates safely on cycles (A -> B, B -> A).
     //
-    // The iterative loop is what lets RetroMod handle shim chains where one shim's
+    // The iterative loop is what lets Retromod handle shim chains where one shim's
     // target is itself the source of another shim's redirect. Single-pass visitors
     // would only catch the first hop.
 

@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod;
@@ -60,8 +60,8 @@ import java.util.UUID;
  */
 public final class TestRunner {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Test");
-    private static final String PREFIX = "[RetroMod-Test]";
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Test");
+    private static final String PREFIX = "[Retromod-Test]";
 
     private static final List<Test> IMMEDIATE      = buildImmediateSuite();
     private static final List<Test> CLIENT_STARTED = buildClientStartedSuite();
@@ -117,7 +117,7 @@ public final class TestRunner {
     }
 
     // =====================================================================
-    // PHASE ENTRY POINTS — called by RetroModTestMod's lifecycle hooks
+    // PHASE ENTRY POINTS — called by RetromodTestMod's lifecycle hooks
     // =====================================================================
 
     /** {@code onInitializeClient} entry point. Runs all init-phase tests. */

@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.aot;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * Hybrid AOT/JIT Compiler for RetroMod.
+ * Hybrid AOT/JIT Compiler for Retromod.
  * 
  * Instead of falling back to JIT for entire classes when they contain
  * untransformable code, this compiler:
@@ -45,9 +45,9 @@ public class HybridCompiler {
     private int methodsJitOnly = 0;
     private int regionsMarkedForJit = 0;
     
-    private final RetroModTransformer transformer;
+    private final RetromodTransformer transformer;
     
-    public HybridCompiler(RetroModTransformer transformer) {
+    public HybridCompiler(RetromodTransformer transformer) {
         this.transformer = transformer;
     }
     
@@ -300,7 +300,7 @@ public class HybridCompiler {
      * Check if a method call needs to be redirected.
      */
     private boolean needsMethodRedirect(MethodInsnNode insn) {
-        var key = new RetroModTransformer.MethodKey(insn.owner, insn.name, insn.desc);
+        var key = new RetromodTransformer.MethodKey(insn.owner, insn.name, insn.desc);
         return transformer.getMethodRedirects().containsKey(key);
     }
     
@@ -420,7 +420,7 @@ public class HybridCompiler {
     }
     
     private boolean transformMethodInsn(MethodInsnNode insn) {
-        var key = new RetroModTransformer.MethodKey(insn.owner, insn.name, insn.desc);
+        var key = new RetromodTransformer.MethodKey(insn.owner, insn.name, insn.desc);
         var target = transformer.getMethodRedirects().get(key);
         
         if (target != null) {

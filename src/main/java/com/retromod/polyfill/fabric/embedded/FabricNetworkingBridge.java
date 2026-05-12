@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.fabric.embedded;
@@ -41,11 +41,11 @@ import java.lang.reflect.Proxy;
  */
 public class FabricNetworkingBridge {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-NetworkBridge");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-NetworkBridge");
 
     // Cached reflection lookups — initialized once on first use.
-    // We use reflection because the Fabric API classes aren't on RetroMod's
-    // compile classpath (RetroMod is loader-agnostic at compile time).
+    // We use reflection because the Fabric API classes aren't on Retromod's
+    // compile classpath (Retromod is loader-agnostic at compile time).
     private static volatile boolean initialized = false;
     // BUG: bridgeAvailable is written inside synchronized initialize() but read outside
     // synchronization in registerServerGlobalReceiver/registerClientGlobalReceiver.
@@ -266,7 +266,7 @@ public class FabricNetworkingBridge {
                     }
                     // Default Object methods
                     if ("toString".equals(method.getName())) {
-                        return "RetroMod-BridgedHandler[" + channel + "]";
+                        return "Retromod-BridgedHandler[" + channel + "]";
                     }
                     if ("hashCode".equals(method.getName())) {
                         return System.identityHashCode(proxy);
@@ -315,7 +315,7 @@ public class FabricNetworkingBridge {
                         return null;
                     }
                     if ("toString".equals(method.getName())) {
-                        return "RetroMod-BridgedClientHandler[" + channel + "]";
+                        return "Retromod-BridgedClientHandler[" + channel + "]";
                     }
                     if ("hashCode".equals(method.getName())) {
                         return System.identityHashCode(proxy);

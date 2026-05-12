@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.gui;
@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 /**
  * Creates in-game Minecraft screens via reflection.
  *
- * Since RetroMod is built with Maven (no Minecraft on classpath), all MC
+ * Since Retromod is built with Maven (no Minecraft on classpath), all MC
  * screen classes are accessed via reflection. This factory provides methods
  * to show various dialog types using MC's built-in screen system:
  *
@@ -29,7 +29,7 @@ import java.util.function.Consumer;
  */
 public final class InGameScreenFactory {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-GUI");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-GUI");
 
     // Cached MC classes (resolved lazily)
     private static Class<?> screenClass;
@@ -258,7 +258,7 @@ public final class InGameScreenFactory {
             );
 
             if (noticeScreenClass != null) {
-                Object titleText = createText("RetroMod");
+                Object titleText = createText("Retromod");
                 Object messageText = createText(message);
                 Object buttonText = createText("Done");
 
@@ -287,7 +287,7 @@ public final class InGameScreenFactory {
         }
 
         // Last resort — log the message
-        LOGGER.info("[RetroMod Notification] {}", message);
+        LOGGER.info("[Retromod Notification] {}", message);
     }
 
     /**
@@ -307,7 +307,7 @@ public final class InGameScreenFactory {
             msg.append("\nPlease RESTART Minecraft for changes to take effect.");
         }
 
-        showResultScreen("RetroMod — Transformation Results", msg.toString(), () -> {
+        showResultScreen("Retromod — Transformation Results", msg.toString(), () -> {
             if (needsRestart) {
                 // Optionally: trigger a restart by calling mc.scheduleStop()
                 try {
@@ -334,7 +334,7 @@ public final class InGameScreenFactory {
      * @param onSaveQuit callback for "Save & Quit" action
      */
     public static void showCrashScreen(String modName, String errorMsg, Runnable onSaveQuit) {
-        String title = "RetroMod — Mod Error Detected";
+        String title = "Retromod — Mod Error Detected";
         String message = "A transformed mod caused an error:\n\n"
             + "Mod: " + modName + "\n"
             + "Error: " + errorMsg + "\n\n"

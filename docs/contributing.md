@@ -5,20 +5,20 @@ nav_order: 12
 
 # Contributing
 
-Thanks for your interest in contributing. RetroMod is a solo project that's quickly turning into a community effort, and the kinds of things contributors tend to work on — adding shims, writing polyfills, filling mapping gaps — directly improve the tool for every user. Here's how to get set up and get something merged.
+Thanks for your interest in contributing. Retromod is a solo project that's quickly turning into a community effort, and the kinds of things contributors tend to work on — adding shims, writing polyfills, filling mapping gaps — directly improve the tool for every user. Here's how to get set up and get something merged.
 
 ## Ground rules
 
 - **MIT license.** By contributing, you agree your changes can be distributed under MIT.
 - **Be kind.** Standard modding-community etiquette. Don't be a jerk in issues or PRs.
 - **Small changes are welcome.** A single missing mapping entry is a perfectly good PR.
-- **Big changes need a discussion first.** Open a [GitHub discussion](https://github.com/Bownlux/RetroMod/discussions) or draft issue before spending a weekend on something huge.
+- **Big changes need a discussion first.** Open a [GitHub discussion](https://github.com/Bownlux/Retromod/discussions) or draft issue before spending a weekend on something huge.
 
 ## Setup
 
 ```bash
-git clone https://github.com/Bownlux/RetroMod.git
-cd RetroMod
+git clone https://github.com/Bownlux/Retromod.git
+cd Retromod
 mvn package -q -DskipTests -Dexec.skip=true
 ```
 
@@ -42,7 +42,7 @@ Standard fork-and-PR workflow:
 1. Fork the repo on GitHub.
 2. Clone your fork, add the upstream remote:
    ```bash
-   git remote add upstream https://github.com/Bownlux/RetroMod.git
+   git remote add upstream https://github.com/Bownlux/Retromod.git
    ```
 3. Create a branch:
    ```bash
@@ -98,7 +98,7 @@ If CI reverts a change you think was correct, the first thing to check is whethe
 - No tabs, 4-space indent, standard Java conventions.
 - Keep methods focused — if a method is getting long enough to need internal section comments, it probably wants to be two methods.
 - Log messages: `logger.info(...)` for things users should see, `logger.debug(...)` for things only contributors care about.
-- Don't hardcode `"1.21.11"` or any other MC version string. Use `RetroMod.TARGET_MC_VERSION` — the linter has reverted this specific mistake more than once.
+- Don't hardcode `"1.21.11"` or any other MC version string. Use `Retromod.TARGET_MC_VERSION` — the linter has reverted this specific mistake more than once.
 
 ## Preserving old shims
 

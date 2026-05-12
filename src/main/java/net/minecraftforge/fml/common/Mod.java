@@ -1,10 +1,10 @@
 /*
- * RetroMod — compile-time stub of net.minecraftforge.fml.common.Mod
+ * Retromod — compile-time stub of net.minecraftforge.fml.common.Mod
  * Copyright (c) 2026 Bownlux. MIT License.
  *
  * This is NOT a copy of Forge's Mod annotation. It exists only so that
- * com.retromod.core.RetroModForge compiles without Forge on the build
- * classpath. RetroMod is a multi-loader mod (Fabric / NeoForge / Forge)
+ * com.retromod.core.RetromodForge compiles without Forge on the build
+ * classpath. Retromod is a multi-loader mod (Fabric / NeoForge / Forge)
  * that ships as a single artifact; pulling in the full Forge dep tree
  * just to resolve one annotation type would bloat the build for no real
  * gain.
@@ -16,12 +16,12 @@
  * and never used at runtime.
  *
  * Under Fabric / the standalone CLI, this class is loaded but never
- * referenced (the @Mod annotation only appears on RetroModForge,
+ * referenced (the @Mod annotation only appears on RetromodForge,
  * which Fabric/CLI never instantiate). Dead weight, but tiny — one
  * class file, ~250 bytes.
  *
  * If you ever consider deleting this file: the compile WILL fail for
- * RetroModForge.java because it references @Mod by FQN. Either keep
+ * RetromodForge.java because it references @Mod by FQN. Either keep
  * the stub, or add a real Forge dependency to pom.xml at provided
  * scope.
  */

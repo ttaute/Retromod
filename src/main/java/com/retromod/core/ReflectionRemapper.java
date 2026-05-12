@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.core;
@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Runtime reflection remapper for RetroMod.
+ * Runtime reflection remapper for Retromod.
  * 
  * When mods use reflection to access Minecraft classes/methods,
  * they might use old names that no longer exist. This class provides
@@ -54,10 +54,10 @@ public final class ReflectionRemapper {
     }
     
     /**
-     * Initialize remappings from RetroModTransformer.
+     * Initialize remappings from RetromodTransformer.
      */
     private static void initializeRemappings() {
-        RetroModTransformer transformer = RetroModTransformer.getInstance();
+        RetromodTransformer transformer = RetromodTransformer.getInstance();
         
         // Copy class redirects
         classRemaps.putAll(transformer.getClassRedirects());

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Bridge Adapter Generator — handles method SIGNATURE changes (not just renames).
@@ -36,7 +36,7 @@ import java.util.*;
  * Generates bytecode bridge methods for method signature changes between MC versions.
  *
  * <h2>Integration</h2>
- * This is integrated into {@link RetroModTransformer}'s class visitor pipeline:
+ * This is integrated into {@link RetromodTransformer}'s class visitor pipeline:
  * <ul>
  *   <li>During {@code visitMethod()}: call {@link #checkAndRename} to detect methods
  *       with old signatures. If a match is found, the method gets renamed to
@@ -54,13 +54,13 @@ import java.util.*;
  * The {@link #pendingBridges} list is bounded by the size of {@link #BRIDGES} (currently 6).
  * A class cannot have more pending bridges than there are known bridge definitions.
  *
- * <p><b>IMPORTANT:</b> This class must NOT reference {@code RetroMod} directly
+ * <p><b>IMPORTANT:</b> This class must NOT reference {@code Retromod} directly
  * because the transformer is also used by the standalone CLI where Fabric classes
  * are not on the classpath.</p>
  */
 public class BridgeAdapterGenerator {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Bridge");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Bridge");
 
     // ═══════════════════════════════════════════════════════════════════════
     // MC 26.1 EVENT CLASS CONSTANTS
@@ -166,7 +166,7 @@ public class BridgeAdapterGenerator {
     public BridgeAdapterGenerator() {}
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PUBLIC API — called from RetroModTransformer's visitor pipeline
+    // PUBLIC API — called from RetromodTransformer's visitor pipeline
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -174,7 +174,7 @@ public class BridgeAdapterGenerator {
      * If it does, the method should be renamed to the bridge old name so the
      * bridge method can take the original name with the new signature.
      *
-     * <p>Called from {@code RetroModClassVisitor.visitMethod()} for each method
+     * <p>Called from {@code RetromodClassVisitor.visitMethod()} for each method
      * in the class being transformed.</p>
      *
      * @param className  the class being transformed (JVM internal name)
@@ -212,7 +212,7 @@ public class BridgeAdapterGenerator {
 
     /**
      * Generate all pending bridge methods.
-     * Called from {@code RetroModClassVisitor.visitEnd()} after all original methods
+     * Called from {@code RetromodClassVisitor.visitEnd()} after all original methods
      * have been visited (and potentially renamed).
      *
      * <p>Each bridge method:</p>

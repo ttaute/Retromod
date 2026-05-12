@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.tests;
@@ -19,7 +19,7 @@ import net.minecraft.text.Text;
  * {@code keyPressed}, calling {@code super.keyPressed(...)}. The {@code super}
  * call compiles to an {@code INVOKESPECIAL} on {@code Screen.keyPressed}.
  * Source is built against MC 1.20.1 where the signature is
- * {@code keyPressed(int, int, int)}. After RetroMod translates forward to
+ * {@code keyPressed(int, int, int)}. After Retromod translates forward to
  * MC 26.1+, the call gets remapped to the new {@code keyPressed(KeyEvent)}
  * signature on whatever class/interface owns it post-rewrite. If the
  * remapped owner isn't a direct supertype of {@code SuperCallScreen}, the
@@ -30,7 +30,7 @@ import net.minecraft.text.Text;
  *   interface method to invoke is not in a direct superinterface
  * </pre>
  *
- * <p>RetroMod's {@code emitMethodInsn} fixup catches this and rewrites the
+ * <p>Retromod's {@code emitMethodInsn} fixup catches this and rewrites the
  * call to use the direct superclass. If the fixup is missing or buggy,
  * loading {@code SuperCallScreen} below throws {@link VerifyError} and the
  * test fails.
@@ -74,7 +74,7 @@ public class Test05SuperKeyPressed implements Test {
         @Override
         public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
             // This call compiles to INVOKESPECIAL Screen.keyPressed — exactly
-            // the case the RetroMod transformer fixup targets.
+            // the case the Retromod transformer fixup targets.
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
     }

@@ -1,12 +1,12 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  * 
  * Forge Event System API Compatibility Shim
  */
 package com.retromod.shim.api.forge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 import com.retromod.util.McReflect;
 import org.slf4j.Logger;
@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ForgeEventApiShim implements VersionShim {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeEventApiShim");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ForgeEventApiShim");
     
     @Override
     public String getShimName() {
@@ -48,7 +48,7 @@ public class ForgeEventApiShim implements VersionShim {
     }
     
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // Despite the file name, every redirect in here maps Forge package
         // names to their NeoForge equivalents. That's a *cross-loader*
         // migration — only correct when the runtime is NeoForge. On a Forge

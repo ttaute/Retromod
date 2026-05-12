@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * ENTITY SHIM
@@ -47,7 +47,7 @@ public class EntityShim {
                 } catch (NoSuchMethodException ignored) {}
             }
         } catch (Exception e) {
-            System.err.println("RetroMod: EntityShim.getBlockPos error: " + e.getMessage());
+            System.err.println("Retromod: EntityShim.getBlockPos error: " + e.getMessage());
         }
         return null;
     }
@@ -80,7 +80,7 @@ public class EntityShim {
                 } catch (NoSuchMethodException ignored) {}
             }
         } catch (Exception e) {
-            System.err.println("RetroMod: EntityShim.getWorld error: " + e.getMessage());
+            System.err.println("Retromod: EntityShim.getWorld error: " + e.getMessage());
         }
         return null;
     }
@@ -162,7 +162,7 @@ public class EntityShim {
             
             methodsInitialized = true;
         } catch (Exception e) {
-            System.err.println("RetroMod: EntityShim init error: " + e.getMessage());
+            System.err.println("Retromod: EntityShim init error: " + e.getMessage());
         }
     }
     

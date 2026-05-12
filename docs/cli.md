@@ -5,22 +5,22 @@ nav_order: 5
 
 # CLI tool
 
-RetroMod ships with a command-line tool (`RetroModCli`) for transforming mods outside Minecraft. It's handy for scripting, CI pipelines, bulk modpack prep, and poking at what RetroMod would do to a mod without actually booting the game.
+Retromod ships with a command-line tool (`RetromodCli`) for transforming mods outside Minecraft. It's handy for scripting, CI pipelines, bulk modpack prep, and poking at what Retromod would do to a mod without actually booting the game.
 
 ## Running the CLI
 
 One quirk: **the published JAR doesn't bundle its dependencies**, so `java -jar retromod.jar ...` won't work. You run the CLI through Maven instead, from a checkout of the repo:
 
 ```bash
-git clone https://github.com/Bownlux/RetroMod.git
-cd RetroMod
+git clone https://github.com/Bownlux/Retromod.git
+cd Retromod
 mvn exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="<command> <args>" \
   -q
 ```
 
-The `-q` flag keeps Maven quiet so you only see RetroMod's output. Every example below assumes you're in the repo root.
+The `-q` flag keeps Maven quiet so you only see Retromod's output. Every example below assumes you're in the repo root.
 
 ## Commands
 
@@ -28,7 +28,7 @@ The `-q` flag keeps Maven quiet so you only see RetroMod's output. Every example
 
 ```bash
 mvn exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="transform path/to/mod.jar" -q
 ```
 
@@ -40,7 +40,7 @@ Output: `path/to/mod.jar` (transformed), `path/to/mod.jar.bak` (original).
 
 ```bash
 mvn exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="transform path/to/mod.jar --verify" -q
 ```
 
@@ -50,7 +50,7 @@ Same as `transform`, but after transformation runs the [verifier]({{ '/verify-tr
 
 ```bash
 mvn exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="batch /path/to/mods" -q
 ```
 
@@ -66,39 +66,39 @@ Pass `--verify` to verify each mod after transforming:
 
 ```bash
 mvn exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="aot /path/to/mods" -q
 ```
 
-Runs the full AOT compiler over every mod in the folder, writing cache entries into `config/retromod/aot-cache/`. Next time Minecraft launches with RetroMod, those mods load from the cache without being transformed again.
+Runs the full AOT compiler over every mod in the folder, writing cache entries into `config/retromod/aot-cache/`. Next time Minecraft launches with Retromod, those mods load from the cache without being transformed again.
 
 Useful for bulk-preparing a modpack on a faster machine before shipping it out.
 
-### `embed` — bake RetroMod into a mod JAR
+### `embed` — bake Retromod into a mod JAR
 
 ```bash
 mvn exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="embed path/to/mod.jar" -q
 ```
 
-Embeds a minimal RetroMod runtime directly into `mod.jar` so the mod can self-transform at load time without needing RetroMod installed separately. Produces a self-contained JAR that works on a vanilla Fabric/NeoForge/Forge install.
+Embeds a minimal Retromod runtime directly into `mod.jar` so the mod can self-transform at load time without needing Retromod installed separately. Produces a self-contained JAR that works on a vanilla Fabric/NeoForge/Forge install.
 
 ### `diff` — show what transformation *would* do
 
 ```bash
 mvn exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="diff path/to/mod.jar" -q
 ```
 
-Dry-run: prints the class/method/field renames, mixin target rewrites, and metadata changes RetroMod would apply, without actually writing anything. Great for "what is RetroMod going to do to my mod?" before you commit.
+Dry-run: prints the class/method/field renames, mixin target rewrites, and metadata changes Retromod would apply, without actually writing anything. Great for "what is Retromod going to do to my mod?" before you commit.
 
 ### `shims` — list registered shims
 
 ```bash
 mvn exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="shims" -q
 ```
 
@@ -125,7 +125,7 @@ Works with `transform` and `batch`. Runs the verifier after each transformation 
 
 ### `-q` (Maven quiet mode)
 
-Not a RetroMod flag, but worth mentioning. Pass `-q` to Maven to suppress its progress output. Without it you'll see Maven's standard blah about downloading dependencies and running the exec plugin.
+Not a Retromod flag, but worth mentioning. Pass `-q` to Maven to suppress its progress output. Without it you'll see Maven's standard blah about downloading dependencies and running the exec plugin.
 
 ## Scripting tips
 

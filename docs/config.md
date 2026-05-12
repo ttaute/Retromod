@@ -5,7 +5,7 @@ nav_order: 4
 
 # Config reference
 
-RetroMod's config file lives at `config/retromod/config.json` inside your Minecraft game directory. It's created with defaults on first launch. You can edit it by hand or flip toggles in the [in-game settings screen]({{ '/gui' | relative_url }}) — they edit the same file.
+Retromod's config file lives at `config/retromod/config.json` inside your Minecraft game directory. It's created with defaults on first launch. You can edit it by hand or flip toggles in the [in-game settings screen]({{ '/gui' | relative_url }}) — they edit the same file.
 
 ## Sample config.json
 
@@ -46,17 +46,17 @@ Only meaningful when `use_aot` is also `true`.
 
 #### `instruction_level_granularity` — boolean, default `true`
 
-Transform at the instruction level instead of the method level. Lets RetroMod rewrite individual `INVOKEVIRTUAL`s and field accesses without replacing whole methods. More precise, slightly slower.
+Transform at the instruction level instead of the method level. Lets Retromod rewrite individual `INVOKEVIRTUAL`s and field accesses without replacing whole methods. More precise, slightly slower.
 
 Disable only if you're debugging a bug you suspect is caused by granular rewrites.
 
 #### `transform_mixins` — boolean, default `true`
 
-Rewrite mixin targets inside the mod JAR. If a mixin targets `net.minecraft.client.gui.GuiScreen#drawScreen`, RetroMod rewrites the annotation to target the modern equivalent. Disable only if a specific mixin framework is misbehaving and you'd rather the mod fail cleanly than be rewritten.
+Rewrite mixin targets inside the mod JAR. If a mixin targets `net.minecraft.client.gui.GuiScreen#drawScreen`, Retromod rewrites the annotation to target the modern equivalent. Disable only if a specific mixin framework is misbehaving and you'd rather the mod fail cleanly than be rewritten.
 
 #### `transform_refmaps` — boolean, default `true`
 
-Mixins ship with a refmap — a JSON file mapping intermediary names to SRG names. RetroMod rewrites the refmap so it matches post-transformation targets. Leave on unless you know you don't want this.
+Mixins ship with a refmap — a JSON file mapping intermediary names to SRG names. Retromod rewrites the refmap so it matches post-transformation targets. Leave on unless you know you don't want this.
 
 #### `remap_reflection` — boolean, default `true`
 
@@ -70,7 +70,7 @@ Inject replacement implementations for APIs that were removed outright. Without 
 
 #### `verify_transforms` — boolean, default `true`
 
-**New.** After RetroMod finishes transforming a mod, it scans the output bytecode for references (class names, method descriptors, field signatures) that don't exist in the current Minecraft JAR. Any misses are written to `config/retromod/verify-reports/<modid>.txt`.
+**New.** After Retromod finishes transforming a mod, it scans the output bytecode for references (class names, method descriptors, field signatures) that don't exist in the current Minecraft JAR. Any misses are written to `config/retromod/verify-reports/<modid>.txt`.
 
 This catches un-remapped names and missing polyfills *before* the mod blows up at runtime. See [Verify Transforms]({{ '/verify-transforms' | relative_url }}).
 
@@ -84,7 +84,7 @@ Set to an explicit version string like `"26.1.2"` if you're using the CLI outsid
 
 #### `force_translate_complex` — boolean, default `false`
 
-RetroMod normally refuses to transform mods its complexity analyzer flags as likely-to-break (deep MC internals hooks, custom rendering pipelines, etc.). Flip this on to make it transform anyway. Expect crashes. Useful for experimenting.
+Retromod normally refuses to transform mods its complexity analyzer flags as likely-to-break (deep MC internals hooks, custom rendering pipelines, etc.). Flip this on to make it transform anyway. Expect crashes. Useful for experimenting.
 
 ### Logging
 
@@ -102,11 +102,11 @@ Umbrella debug flag. Enables extra sanity checks inside the transformer, prints 
 
 #### `dump_bytecode` — boolean, default `false`
 
-Write raw `.class` files to `config/retromod/bytecode-dumps/` for each transformed class. Useful with a decompiler (CFR, Vineflower) when you want to see exactly what RetroMod produced. Eats disk fast.
+Write raw `.class` files to `config/retromod/bytecode-dumps/` for each transformed class. Useful with a decompiler (CFR, Vineflower) when you want to see exactly what Retromod produced. Eats disk fast.
 
 ## Editing safely
 
 - The file is plain JSON — no comments allowed.
-- If you write a syntactically invalid file, RetroMod logs a warning and falls back to defaults for that launch. Your broken file is left alone so you can fix it.
+- If you write a syntactically invalid file, Retromod logs a warning and falls back to defaults for that launch. Your broken file is left alone so you can fix it.
 - Delete the file to regenerate defaults. All values reset.
 - The in-game settings screen always wins: if you open it and click a toggle, the file is rewritten with the new value plus whatever was already there.

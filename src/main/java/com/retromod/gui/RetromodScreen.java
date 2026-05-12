@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.gui;
@@ -22,9 +22,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Reflection-based mod manager screen for RetroMod.
+ * Reflection-based mod manager screen for Retromod.
  *
- * Accessible from the title screen via the injected RetroMod button.
+ * Accessible from the title screen via the injected Retromod button.
  * Uses the native OS file picker (java.awt.FileDialog) for mod selection,
  * then shows transformation results as an in-game Minecraft screen.
  *
@@ -33,16 +33,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * At runtime inside Minecraft, all classes are available.
  *
  * Flow:
- *   1. User clicks RetroMod button on title screen
+ *   1. User clicks Retromod button on title screen
  *   2. This class opens the native OS file picker (macOS Finder / Windows Explorer)
  *   3. Selected mods are analyzed for complexity
  *   4. If deemed "unlikely to work", user is warned (unless force mode)
  *   5. Remaining mods are transformed and installed to mods/
  *   6. Results shown as an in-game Minecraft screen
  */
-public class RetroModScreen {
+public class RetromodScreen {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Screen");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Screen");
 
     private final Object minecraftClient; // MinecraftClient instance
     private final Object parentScreen;    // TitleScreen instance
@@ -51,13 +51,13 @@ public class RetroModScreen {
         public enum Status { SUCCESS, SKIPPED, FAILED, COMPLEX_WARNING }
     }
 
-    public RetroModScreen(Object client, Object parent) {
+    public RetromodScreen(Object client, Object parent) {
         this.minecraftClient = client;
         this.parentScreen = parent;
     }
 
     /**
-     * Open the RetroMod manager — shows a file picker and transforms mods.
+     * Open the Retromod manager — shows a file picker and transforms mods.
      */
     public void open() {
         // Run file picker on background thread to avoid freezing Minecraft
@@ -70,7 +70,7 @@ public class RetroModScreen {
                     showResults(results);
                 }
             } catch (Exception e) {
-                LOGGER.error("RetroMod manager error", e);
+                LOGGER.error("Retromod manager error", e);
             }
         });
     }
@@ -89,7 +89,7 @@ public class RetroModScreen {
             frame.setUndecorated(true);
             frame.setVisible(false);
 
-            FileDialog dialog = new FileDialog(frame, "RetroMod — Select Mod JARs to Transform", FileDialog.LOAD);
+            FileDialog dialog = new FileDialog(frame, "Retromod — Select Mod JARs to Transform", FileDialog.LOAD);
             dialog.setDirectory(System.getProperty("user.home"));
             dialog.setMultipleMode(true);
 

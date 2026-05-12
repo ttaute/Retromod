@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for World Render Events that were removed in Fabric 1.21.9.
@@ -83,7 +83,7 @@ public class WorldRenderEventsShim {
                 try {
                     invokeListener(listener, args);
                 } catch (Exception e) {
-                    System.err.println("RetroMod: Error invoking world render listener: " + e.getMessage());
+                    System.err.println("Retromod: Error invoking world render listener: " + e.getMessage());
                 }
             }
         }

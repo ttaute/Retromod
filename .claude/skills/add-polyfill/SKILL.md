@@ -64,7 +64,7 @@ Creates a `PolyfillProvider` that re-implements removed APIs using modern equiva
        }
 
        @Override
-       public void registerPolyfills(RetroModTransformer transformer) {
+       public void registerPolyfills(RetromodTransformer transformer) {
            transformer.registerClassRedirect(
                "the/original/package/RemovedClass",
                "com/retromod/polyfill/stubs/myapi/RemovedClass"

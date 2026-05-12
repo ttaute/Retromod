@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.tests;
@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * Text / Component API. Source compiles against Yarn's
- * {@code net.minecraft.text.Text}; after RetroMod translates forward, that
+ * {@code net.minecraft.text.Text}; after Retromod translates forward, that
  * resolves to Mojang's {@code net.minecraft.network.chat.Component}. Lots of
  * common patterns here — {@code literal}, {@code translatable}, copy + append,
  * formatting — each one is a different method redirect.

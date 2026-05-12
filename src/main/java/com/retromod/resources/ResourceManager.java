@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.resources;
@@ -17,14 +17,14 @@ import java.util.*;
  * USAGE:
  * 1. Put old resource packs in: retromod-input/resourcepacks/
  * 2. Put old data packs in: retromod-input/datapacks/
- * 3. RetroMod transforms them on startup
+ * 3. Retromod transforms them on startup
  * 4. Transformed packs go to: resourcepacks/ and saves/[world]/datapacks/
  * 
  * This mirrors the mod transformation workflow for consistency.
  */
 public class ResourceManager {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Resources");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Resources");
     
     private final String targetMcVersion;
     private final Path gameDir;
@@ -79,7 +79,7 @@ public class ResourceManager {
             
             Put your OLD %s here!
             
-            RetroMod will automatically:
+            Retromod will automatically:
             1. Transform them to work with Minecraft %s
             2. Copy transformed versions to the correct folder
             3. Move originals to processed/
@@ -173,7 +173,7 @@ public class ResourceManager {
         }
         
         // Create marker
-        Files.writeString(processedMarker, "Processed by RetroMod");
+        Files.writeString(processedMarker, "Processed by Retromod");
     }
     
     /**
@@ -200,7 +200,7 @@ public class ResourceManager {
                     TRANSFORMED DATA PACKS
                     ═══════════════════════════════════════════════════════════
                     
-                    These data packs have been transformed by RetroMod.
+                    These data packs have been transformed by Retromod.
                     
                     TO USE THEM:
                     1. Copy the .zip files to your world's datapacks folder:
@@ -264,7 +264,7 @@ public class ResourceManager {
             Files.move(pack, processed, StandardCopyOption.REPLACE_EXISTING);
         }
         
-        Files.writeString(processedMarker, "Processed by RetroMod");
+        Files.writeString(processedMarker, "Processed by Retromod");
     }
     
     // ========== Helper Methods ==========

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -37,7 +37,7 @@ import java.util.regex.*;
  */
 public class FabricModTransformer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-FabricTransform");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-FabricTransform");
 
     /** Maximum size for a single ZIP entry (50 MB) to prevent zip bomb attacks. */
     private static final long MAX_ENTRY_SIZE = 50 * 1024 * 1024;
@@ -45,12 +45,12 @@ public class FabricModTransformer {
     private static final long MAX_TOTAL_SIZE = 500 * 1024 * 1024;
 
     /**
-     * Fabric mod IDs for APIs that RetroMod provides compatibility shims for.
+     * Fabric mod IDs for APIs that Retromod provides compatibility shims for.
      * When a mod declares a dependency on one of these with a restrictive version
      * range (e.g., "cloth-config2": ">=6.0.0 <7.0.0"), Fabric Loader will block
      * the mod from loading if the installed version doesn't match.
      *
-     * Since RetroMod transforms the bytecode to work with the newer API versions,
+     * Since Retromod transforms the bytecode to work with the newer API versions,
      * we also need to relax these dependency constraints in fabric.mod.json.
      */
     private static final Set<String> SHIMMED_API_MOD_IDS = Set.of(
@@ -109,11 +109,11 @@ public class FabricModTransformer {
     );
 
     private final String targetMcVersion;
-    private final RetroModTransformer bytecodeTransformer;
+    private final RetromodTransformer bytecodeTransformer;
     
     public FabricModTransformer(String targetMcVersion) {
         this.targetMcVersion = targetMcVersion;
-        this.bytecodeTransformer = RetroModTransformer.getInstance();
+        this.bytecodeTransformer = RetromodTransformer.getInstance();
     }
     
     /**
@@ -256,7 +256,7 @@ public class FabricModTransformer {
             if (ModEnvironmentDetector.isServerOnly(sourceJar)) {
                 LOGGER.info("═══════════════════════════════════════════════════════════");
                 LOGGER.info("  {} is SERVER-ONLY", originalName);
-                LOGGER.info("  Clients can join WITHOUT having RetroMod installed!");
+                LOGGER.info("  Clients can join WITHOUT having Retromod installed!");
                 LOGGER.info("═══════════════════════════════════════════════════════════");
             }
             
@@ -549,13 +549,13 @@ public class FabricModTransformer {
         // read-only during transformation (populated during startup), and
         // ConcurrentHashMap lookups are safe under concurrent reads.
         //
-        // Workers use the shared RetroMod executor pool sized to all cores
+        // Workers use the shared Retromod executor pool sized to all cores
         // by default — tunable via -Dretromod.parallelism=N. A ~200-mod-class
         // JAR finishes in ~100ms on an 8-core machine vs ~800ms single-threaded.
         final java.util.concurrent.atomic.AtomicInteger counter =
                 new java.util.concurrent.atomic.AtomicInteger();
 
-        com.retromod.core.parallel.RetroModExecutors.parallelForEach(classFiles, classFile -> {
+        com.retromod.core.parallel.RetromodExecutors.parallelForEach(classFiles, classFile -> {
             try {
                 byte[] original = Files.readAllBytes(classFile);
                 String className = dir.relativize(classFile).toString()
@@ -868,17 +868,17 @@ public class FabricModTransformer {
         newInsns.add(new JumpInsnNode(Opcodes.GOTO, methodEnd));
 
         // catch (Throwable t) {
-        //   RetroModErrorHandler.handleNonFatal(className, t);
+        //   RetromodErrorHandler.handleNonFatal(className, t);
         // }
         newInsns.add(catchHandler);
         // Store exception
         newInsns.add(new VarInsnNode(Opcodes.ASTORE, method.maxLocals));
-        // Call RetroModErrorHandler.handleNonFatal(String className, Throwable t)
+        // Call RetromodErrorHandler.handleNonFatal(String className, Throwable t)
         // This deduplicates — only logs each unique error once
         newInsns.add(new LdcInsnNode(className.replace('/', '.')));
         newInsns.add(new VarInsnNode(Opcodes.ALOAD, method.maxLocals));
         newInsns.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
-            "com/retromod/core/RetroModErrorHandler", "handleNonFatal",
+            "com/retromod/core/RetromodErrorHandler", "handleNonFatal",
             "(Ljava/lang/String;Ljava/lang/Throwable;)V", false));
         // }
         newInsns.add(new InsnNode(Opcodes.RETURN));
@@ -1189,7 +1189,7 @@ public class FabricModTransformer {
                                     nestedClassLookup = buildClassLookup(tempDir);
                                 }
                                 MixinCompatibilityTransformer mixinTransformer =
-                                    new MixinCompatibilityTransformer(RetroModTransformer.getInstance());
+                                    new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
                                 String transformed = mixinTransformer.transformMixinConfig(json, nestedClassLookup);
                                 // makeMixinConfigNonFatal is already called by remapMixinConfig above,
                                 // but call it again on the stripped version to be safe
@@ -1324,7 +1324,7 @@ public class FabricModTransformer {
         // incompatibilities that are either (a) visual-glitch concerns that
         // don't actually crash the game, or (b) outdated — the breaks target
         // has since fixed the issue. Either way, Fabric Loader enforces them
-        // as hard incompatibilities at load time BEFORE any RetroMod runtime
+        // as hard incompatibilities at load time BEFORE any Retromod runtime
         // transform can mediate. Leaving them in place means translated mods
         // reject each other based on stale vendor declarations.
         //
@@ -1429,13 +1429,13 @@ public class FabricModTransformer {
      * CRITICAL: This must set the EXACT target version or Fabric will reject the mod!
      *
      * In addition to relaxing minecraft/fabricloader/fabric-api versions, this also
-     * relaxes version constraints for third-party APIs that RetroMod has shims for.
-     * Without this, Fabric Loader would block the mod at startup even though RetroMod
+     * relaxes version constraints for third-party APIs that Retromod has shims for.
+     * Without this, Fabric Loader would block the mod at startup even though Retromod
      * has already transformed the bytecode to work with the newer API versions.
      *
      * Example: A mod declares "cloth-config2": ">=6.0.0 <7.0.0" but the installed
      * Cloth Config is v11.x. Without relaxation, Fabric blocks the mod immediately.
-     * With relaxation, the mod loads and RetroMod's bytecode transforms handle the
+     * With relaxation, the mod loads and Retromod's bytecode transforms handle the
      * API differences at runtime.
      */
     private String updateVersionRequirements(String json, String originalVersion) {
@@ -1492,7 +1492,7 @@ public class FabricModTransformer {
         updated = updated.replace("\"fabric-key-binding-api-v1\"", "\"fabric-key-mapping-api-v1\"");
 
         // Relax ALL shimmed third-party API dependencies
-        // RetroMod provides bytecode shims for these APIs, so the version constraint
+        // Retromod provides bytecode shims for these APIs, so the version constraint
         // in fabric.mod.json is no longer needed — the transformed code will work
         // with whatever version is installed.
         updated = relaxShimmedApiDependencies(updated);
@@ -1506,7 +1506,7 @@ public class FabricModTransformer {
         // Only minecraft, fabricloader, and java MUST stay in depends.
         updated = moveNonCoreDepsToSuggests(updated);
 
-        // Add RetroMod transformation marker
+        // Add Retromod transformation marker
         if (!updated.contains("\"retromod_transformed\"")) {
             updated = updated.replaceFirst(
                 "\\}\\s*$",
@@ -1518,7 +1518,7 @@ public class FabricModTransformer {
     }
 
     /**
-     * Relax version constraints for third-party APIs that RetroMod has shims for.
+     * Relax version constraints for third-party APIs that Retromod has shims for.
      *
      * Scans the JSON for any dependency key that matches a known shimmed API mod ID
      * and replaces its version constraint with "*" (any version).
@@ -1546,7 +1546,7 @@ public class FabricModTransformer {
                 String relaxed = matcher.replaceAll("$1\"*\"");
 
                 if (!relaxed.equals(updated)) {
-                    LOGGER.info("  Relaxed API dependency: {} → \"*\" (RetroMod has shims)", modId);
+                    LOGGER.info("  Relaxed API dependency: {} → \"*\" (Retromod has shims)", modId);
                     updated = relaxed;
                     relaxedCount++;
                 }
@@ -1573,7 +1573,7 @@ public class FabricModTransformer {
      * to:
      *   "depends": { "some-api": "*" }
      *
-     * This is safe because RetroMod's bytecode transformation handles API changes,
+     * This is safe because Retromod's bytecode transformation handles API changes,
      * and we've already pinned minecraft/fabricloader/fabric-api correctly.
      */
     private String moveBlockingDepsToSuggests(String json) {
@@ -1689,9 +1689,9 @@ public class FabricModTransformer {
             manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
         }
         
-        // Add RetroMod info to manifest
-        manifest.getMainAttributes().putValue("RetroMod-Transformed", "true");
-        manifest.getMainAttributes().putValue("RetroMod-Target-Version", targetMcVersion);
+        // Add Retromod info to manifest
+        manifest.getMainAttributes().putValue("Retromod-Transformed", "true");
+        manifest.getMainAttributes().putValue("Retromod-Target-Version", targetMcVersion);
         
         try (JarOutputStream jos = new JarOutputStream(
                 new FileOutputStream(outputJar.toFile()), manifest)) {
@@ -1713,7 +1713,7 @@ public class FabricModTransformer {
                                 classLookupForStripping = buildClassLookup(sourceDir);
                             }
                             MixinCompatibilityTransformer mixinTransformer =
-                                new MixinCompatibilityTransformer(RetroModTransformer.getInstance());
+                                new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
                             String transformed = mixinTransformer.transformMixinConfig(json, classLookupForStripping);
                             // Make mixin configs non-fatal: set "required": false so @Accessor/@Invoker
                             // failures on removed fields don't crash the game. Also set defaultRequire=0
@@ -1789,7 +1789,7 @@ public class FabricModTransformer {
             // it expects — overriding it with our polyfill could break
             // unrelated things).
             //
-            // See https://github.com/Bownlux/RetroMod/issues — original
+            // See https://github.com/Bownlux/Retromod/issues — original
             // crash reported against "Abridged v2.0.1 Fabric 1.21.11" with
             // a duplicate entry on FabricMineableTags.class.
             Set<String> writtenEntries = new HashSet<>();
@@ -1826,7 +1826,7 @@ public class FabricModTransformer {
             // Inject synthetic classes (ASM-generated polyfills with MC-typed fields).
             // Skip any whose class name was already written from sourceDir — see
             // the writtenEntries comment block above.
-            for (var entry : RetroModTransformer.getInstance().getSyntheticClasses().entrySet()) {
+            for (var entry : RetromodTransformer.getInstance().getSyntheticClasses().entrySet()) {
                 String classPath = entry.getKey() + ".class";
                 if (!writtenEntries.add(classPath)) {
                     LOGGER.debug("Skipping synthetic class {} — source mod already "
@@ -2033,7 +2033,7 @@ public class FabricModTransformer {
                                 // Strip broken mixin entries
                                 Map<String, byte[]> jijClassLookup = buildClassLookup(tempDir);
                                 MixinCompatibilityTransformer mixinTransformer =
-                                    new MixinCompatibilityTransformer(RetroModTransformer.getInstance());
+                                    new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
                                 String transformed = mixinTransformer.transformMixinConfig(json, jijClassLookup);
                                 // Make non-fatal
                                 transformed = makeMixinConfigNonFatal(transformed);
@@ -2138,14 +2138,14 @@ public class FabricModTransformer {
     }
     
     /**
-     * Check if a mod JAR has already been transformed by RetroMod.
+     * Check if a mod JAR has already been transformed by Retromod.
      */
     public static boolean isAlreadyTransformed(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             // Check manifest
             Manifest manifest = jar.getManifest();
             if (manifest != null) {
-                String transformed = manifest.getMainAttributes().getValue("RetroMod-Transformed");
+                String transformed = manifest.getMainAttributes().getValue("Retromod-Transformed");
                 if ("true".equals(transformed)) {
                     return true;
                 }
@@ -2174,7 +2174,7 @@ public class FabricModTransformer {
     /**
      * Check if debug mode is enabled in config/retromod/config.json.
      * Uses the same config pattern as {@code isForceTranslateEnabled()} in
-     * RetroModPreLaunch — a simple string check to avoid pulling in a full
+     * RetromodPreLaunch — a simple string check to avoid pulling in a full
      * JSON parser dependency at this layer.
      */
     private static boolean isDebugEnabled() {
@@ -2198,7 +2198,7 @@ public class FabricModTransformer {
      * class, method, and field references from every .class file, then attempts
      * to resolve each reference against the runtime classpath (which includes
      * the MC JAR and Fabric API at this point). Any reference that cannot be
-     * resolved is logged as a warning with the [RetroMod-Debug] prefix.
+     * resolved is logged as a warning with the [Retromod-Debug] prefix.
      *
      * Additionally scans for:
      * - Broken mixin targets (classes referenced in mixin configs that don't exist)
@@ -2214,7 +2214,7 @@ public class FabricModTransformer {
      */
     void debugScanTransformedMod(Path transformedJar, String modName) {
         try {
-            LOGGER.info("[RetroMod-Debug] Starting debug scan of transformed mod: {}", modName);
+            LOGGER.info("[Retromod-Debug] Starting debug scan of transformed mod: {}", modName);
 
             // Collect all classes defined inside the mod (internal references are skipped)
             Set<String> modClasses = new HashSet<>();
@@ -2326,7 +2326,7 @@ public class FabricModTransformer {
                 if (modClasses.contains(cls)) continue;
                 if (isSafeLibrary(cls, safeLibraryPrefixes)) continue;
                 if (!canResolveClass(cls)) {
-                    LOGGER.info("[RetroMod-Debug] WARN: {}: class {} not found in MC {}",
+                    LOGGER.info("[Retromod-Debug] WARN: {}: class {} not found in MC {}",
                             modName, cls.replace('/', '.'), targetMcVersion);
                     issueCount++;
                 }
@@ -2347,7 +2347,7 @@ public class FabricModTransformer {
                     String mName = nameDesc.substring(0, descStart);
                     String mDesc = nameDesc.substring(descStart);
                     if (!canResolveMethod(owner, mName, mDesc)) {
-                        LOGGER.info("[RetroMod-Debug] WARN: {}: {}.{}() not found in MC {}",
+                        LOGGER.info("[Retromod-Debug] WARN: {}: {}.{}() not found in MC {}",
                                 modName, owner.replace('/', '.'), mName, targetMcVersion);
                         issueCount++;
                     }
@@ -2363,7 +2363,7 @@ public class FabricModTransformer {
 
                 for (String fieldName : entry.getValue()) {
                     if (!canResolveField(owner, fieldName)) {
-                        LOGGER.info("[RetroMod-Debug] WARN: {}: {}.{} not found in MC {}",
+                        LOGGER.info("[Retromod-Debug] WARN: {}: {}.{} not found in MC {}",
                                 modName, owner.replace('/', '.'), fieldName, targetMcVersion);
                         issueCount++;
                     }
@@ -2382,7 +2382,7 @@ public class FabricModTransformer {
                 for (String desc : entry.getValue()) {
                     if (!canResolveMethod(owner, "<init>", desc)) {
                         int paramCount = countParameters(desc);
-                        LOGGER.info("[RetroMod-Debug] WARN: {}: constructor {}.(<init>) with {} params not found in MC {}",
+                        LOGGER.info("[Retromod-Debug] WARN: {}: constructor {}.(<init>) with {} params not found in MC {}",
                                 modName, owner.replace('/', '.'), paramCount, targetMcVersion);
                         issueCount++;
                     }
@@ -2390,14 +2390,14 @@ public class FabricModTransformer {
             }
 
             if (issueCount == 0) {
-                LOGGER.info("[RetroMod-Debug] Scan complete for {}: no issues found", modName);
+                LOGGER.info("[Retromod-Debug] Scan complete for {}: no issues found", modName);
             } else {
-                LOGGER.info("[RetroMod-Debug] Scan complete for {}: {} potential issue(s) found", modName, issueCount);
+                LOGGER.info("[Retromod-Debug] Scan complete for {}: {} potential issue(s) found", modName, issueCount);
             }
 
         } catch (Exception e) {
             // NEVER crash — just log and move on
-            LOGGER.info("[RetroMod-Debug] Could not complete debug scan for {}: {}", modName, e.getMessage());
+            LOGGER.info("[Retromod-Debug] Could not complete debug scan for {}: {}", modName, e.getMessage());
         }
     }
 
@@ -2448,7 +2448,7 @@ public class FabricModTransformer {
                     String target = targetMatcher.group(1);
                     String internal = target.replace('.', '/');
                     if (!canResolveClass(internal)) {
-                        LOGGER.info("[RetroMod-Debug] WARN: {}: mixin target {} not found in MC {}",
+                        LOGGER.info("[Retromod-Debug] WARN: {}: mixin target {} not found in MC {}",
                                 modName, target, targetMcVersion);
                     }
                 }

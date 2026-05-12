@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * EPOCH 5 → 6: Data-Driven (1.19-1.20) to Modern (1.20.5+)
@@ -32,7 +32,7 @@ public class Epoch5To6Transition extends BaseEpochTransition {
         //     The Mod File <jar> has mods that were not found
         //
         // Surfaced when the Forge test mod and Jade/JEI all started
-        // failing with that exact error after RetroMod transformed them.
+        // failing with that exact error after Retromod transformed them.
         // The annotation rewrite was the culprit.
         if (McReflect.isNeoForge()) {
             addClass("net/minecraftforge/common/MinecraftForge",

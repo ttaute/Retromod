@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 RevivalSMP. Licensed under MIT.
  */
 package com.retromod.core;
@@ -22,7 +22,7 @@ import java.awt.GraphicsEnvironment;
  */
 public class EnvironmentDetector {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Env");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Env");
 
     private static Boolean isClient = null;
     private static Boolean isHeadless = null;

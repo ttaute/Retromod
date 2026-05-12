@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Bridge for Font.draw/drawShadow methods removed in MC 26.1.
@@ -38,10 +38,10 @@ import java.lang.reflect.Method;
  */
 public final class FontBridge {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-FontBridge");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-FontBridge");
 
     // All MC method handles are resolved via reflection because MC classes aren't on
-    // RetroMod's compile classpath. We use Double-Checked Locking (DCL) with volatile
+    // Retromod's compile classpath. We use Double-Checked Locking (DCL) with volatile
     // fields for thread-safe lazy initialization — text rendering can be called from
     // the render thread at any point after mod init.
     private static volatile boolean initialized = false;

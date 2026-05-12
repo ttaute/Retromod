@@ -1,12 +1,12 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  * 
  * Forge Config API Port Compatibility Shim (for Fabric)
  */
 package com.retromod.shim.api.fabric;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -38,7 +38,7 @@ public class ForgeConfigApiPortShim implements VersionShim {
     }
     
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // ============================================================
         // PACKAGE CHANGES
         // ============================================================

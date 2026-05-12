@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.embedder;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.util.ZipSecurity;
 import org.objectweb.asm.*;
 import org.slf4j.Logger;
@@ -17,7 +17,7 @@ import java.util.jar.*;
 import java.util.zip.*;
 
 /**
- * ApiEmbedder - The core innovation of RetroMod.
+ * ApiEmbedder - The core innovation of Retromod.
  * 
  * When a mod depends on APIs that have been removed from the current mod loader version,
  * this class extracts the old API implementation from archived mod loader sources
@@ -36,7 +36,7 @@ import java.util.zip.*;
  */
 public class ApiEmbedder {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Embedder");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Embedder");
 
     // Location of archived mod loader sources (extracted from old versions)
     private static final Path API_ARCHIVE_DIR = Path.of("config/retromod/api-archive");
@@ -246,7 +246,7 @@ public class ApiEmbedder {
             }
 
             // Add embedded API classes under a special package.
-            // Keys are RetroMod-supplied; safeEntryName is defense-in-depth
+            // Keys are Retromod-supplied; safeEntryName is defense-in-depth
             // against a future refactor accidentally letting attacker-controlled
             // strings reach this loop.
             for (Map.Entry<String, byte[]> embedded : classesToEmbed.entrySet()) {
@@ -259,12 +259,12 @@ public class ApiEmbedder {
 
             // Add a marker file indicating this JAR has been processed
             newJar.putNextEntry(new JarEntry("retromod_embedded/RETROMOD_PROCESSED"));
-            newJar.write(("Processed by RetroMod v1.0\n" +
+            newJar.write(("Processed by Retromod v1.0\n" +
                          "Embedded APIs: " + classesToEmbed.size() + "\n").getBytes());
             newJar.closeEntry();
         }
         
-        LOGGER.info("Created RetroMod-enhanced JAR: {} ({} embedded classes)",
+        LOGGER.info("Created Retromod-enhanced JAR: {} ({} embedded classes)",
                 outputPath.getFileName(), classesToEmbed.size());
     }
     
@@ -348,7 +348,7 @@ public class ApiEmbedder {
      */
     private boolean downloadArchive(String version, Path targetPath) {
         // In a real implementation, this would download from Maven Central
-        // or a RetroMod archive server
+        // or a Retromod archive server
         LOGGER.info("Archive not found locally: {}. Please download manually.", version);
         LOGGER.info("Expected location: {}", targetPath);
         return false;
@@ -476,14 +476,14 @@ public class ApiEmbedder {
     private byte[] transformToUseEmbedded(byte[] classBytes, Set<String> embeddedClasses) {
         // Register redirects for all embedded classes
         for (String embedded : embeddedClasses) {
-            RetroModTransformer.getInstance().registerClassRedirect(
+            RetromodTransformer.getInstance().registerClassRedirect(
                 embedded, 
                 "retromod_embedded/" + embedded
             );
         }
         
         // Transform the class
-        return RetroModTransformer.getInstance().transformClass(
+        return RetromodTransformer.getInstance().transformClass(
             classBytes, 
             new ClassReader(classBytes).getClassName()
         );

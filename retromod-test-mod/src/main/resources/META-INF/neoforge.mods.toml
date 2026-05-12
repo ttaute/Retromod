@@ -1,4 +1,4 @@
-# RetroMod Test Mod — NeoForge mod metadata
+# Retromod Test Mod — NeoForge mod metadata
 #
 # Newer NeoForge (1.20.5+) reads this file in preference to mods.toml.
 # Same fields as Forge's mods.toml but with NeoForge-specific dependency IDs.
@@ -6,16 +6,16 @@
 modLoader = "javafml"
 loaderVersion = "[1,)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Bownlux/RetroMod/issues"
+issueTrackerURL = "https://github.com/Bownlux/Retromod/issues"
 
 [[mods]]
 modId = "retromod_test_mod"
 version = "${file.jarVersion}"
-displayName = "RetroMod Test Mod"
+displayName = "Retromod Test Mod"
 authors = "Bownlux"
 description = '''
-Exercises RetroMod's transformation pipeline and reports per-test results to the launch log.
-Source mod compiled against an older MC version; RetroMod translates it forward at load time.
+Exercises Retromod's transformation pipeline and reports per-test results to the launch log.
+Source mod compiled against an older MC version; Retromod translates it forward at load time.
 '''
 
 [[dependencies.retromod_test_mod]]

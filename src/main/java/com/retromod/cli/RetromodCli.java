@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.cli;
@@ -34,7 +34,7 @@ import java.util.*;
  *   archive <action>            - Manage API archives
  *   shims                       - List all registered shims
  */
-public class RetroModCli {
+public class RetromodCli {
     
     private static final String VERSION = "1.0.0-beta.1";
     private static final String TARGET_MC_VERSION = "26.1";
@@ -55,7 +55,7 @@ public class RetroModCli {
         archiveManager = new ApiArchiveManager();
         registerAllShims();
         
-        // Create RetroMod folders in current directory
+        // Create Retromod folders in current directory
         try {
             ModHealthChecker.ensureFoldersExist(Path.of("."));
         } catch (Exception e) {
@@ -83,7 +83,7 @@ public class RetroModCli {
                 case "gaps" -> gapsCommand(args);
                 case "help", "-h", "--help" -> printUsage();
                 case "version", "-v", "--version" -> 
-                    System.out.println("RetroMod CLI v" + VERSION + " (Target: MC " + TARGET_MC_VERSION + ")");
+                    System.out.println("Retromod CLI v" + VERSION + " (Target: MC " + TARGET_MC_VERSION + ")");
                 default -> {
                     System.err.println("Unknown command: " + command);
                     printUsage();
@@ -183,7 +183,7 @@ public class RetroModCli {
         
         System.out.println();
         System.out.println("╔══════════════════════════════════════════════════════╗");
-        System.out.println("║              RetroMod Mod Analysis                   ║");
+        System.out.println("║              Retromod Mod Analysis                   ║");
         System.out.println("╚══════════════════════════════════════════════════════╝");
         System.out.println();
         System.out.println("File: " + modPath.getFileName());
@@ -318,7 +318,7 @@ public class RetroModCli {
 
         System.out.println();
         System.out.println("╔══════════════════════════════════════════════════════╗");
-        System.out.println("║           RetroMod AOT Compilation                   ║");
+        System.out.println("║           Retromod AOT Compilation                   ║");
         System.out.println("╚══════════════════════════════════════════════════════╝");
         System.out.println();
 
@@ -338,7 +338,7 @@ public class RetroModCli {
             System.out.println();
             System.out.println("Complexity score: " + complexityReport.score() + "/100");
             System.out.println();
-            System.out.println("The mod uses features that RetroMod cannot fully transform.");
+            System.out.println("The mod uses features that Retromod cannot fully transform.");
             System.out.println("It will likely crash or behave incorrectly.");
             System.out.println();
             System.out.println("To try anyway, use:  aot --force " + modPath.getFileName());
@@ -410,7 +410,7 @@ public class RetroModCli {
         if (sourceMcVersion == null || sourceMcVersion.isEmpty()) {
             System.err.println("Warning: Could not determine source MC version. Trying all shims...");
             // Apply all shims as a best-effort transformation
-            RetroModTransformer transformer = RetroModTransformer.getInstance();
+            RetromodTransformer transformer = RetromodTransformer.getInstance();
             for (VersionShim shim : shimRegistry.getAllShims()) {
                 shim.registerRedirects(transformer);
             }
@@ -431,7 +431,7 @@ public class RetroModCli {
             return;
         }
 
-        RetroModTransformer transformer = RetroModTransformer.getInstance();
+        RetromodTransformer transformer = RetromodTransformer.getInstance();
         for (VersionShim shim : chain) {
             System.out.println("Applying: " + shim.getShimName());
             shim.registerRedirects(transformer);
@@ -492,7 +492,7 @@ public class RetroModCli {
         
         System.out.println();
         System.out.println("╔══════════════════════════════════════════════════════╗");
-        System.out.println("║           RetroMod Batch Processing                  ║");
+        System.out.println("║           Retromod Batch Processing                  ║");
         System.out.println("╚══════════════════════════════════════════════════════╝");
         System.out.println();
         System.out.println("Input:  " + modsFolder);
@@ -546,7 +546,7 @@ public class RetroModCli {
                             StandardCopyOption.REPLACE_EXISTING);
                     } else {
                         // JIT transform
-                        RetroModTransformer transformer = RetroModTransformer.getInstance();
+                        RetromodTransformer transformer = RetromodTransformer.getInstance();
                         List<VersionShim> chain = shimRegistry.findShimChain(
                             info.modLoaderType(), info.targetMcVersion(), TARGET_MC_VERSION);
                         for (VersionShim shim : chain) {
@@ -622,7 +622,7 @@ public class RetroModCli {
         for (VersionShim shim : chain) {
             System.out.println("┌─ " + shim.getShimName() + " ─────────────────────────────");
             
-            RetroModTransformer temp = RetroModTransformer.getInstance();
+            RetromodTransformer temp = RetromodTransformer.getInstance();
             shim.registerRedirects(temp);
             
             System.out.println("│ Method redirects: " + temp.getMethodRedirectCount());
@@ -713,9 +713,9 @@ public class RetroModCli {
     private static boolean promptForDownloadConsent(String loader, String version, boolean autoYes) {
         System.out.println();
         System.out.println("────────────────────────────────────────────────────");
-        System.out.println("  RetroMod is about to download a file from the");
+        System.out.println("  Retromod is about to download a file from the");
         System.out.println("  internet. This is the only network operation");
-        System.out.println("  RetroMod will perform; it does not initiate any");
+        System.out.println("  Retromod will perform; it does not initiate any");
         System.out.println("  other downloads without explicit consent.");
         System.out.println();
         System.out.println("  Loader:  " + loader);
@@ -748,7 +748,7 @@ public class RetroModCli {
     private static boolean promptForPreloadConsent(boolean autoYes) {
         System.out.println();
         System.out.println("────────────────────────────────────────────────────");
-        System.out.println("  RetroMod is about to bulk-download API archives");
+        System.out.println("  Retromod is about to bulk-download API archives");
         System.out.println("  for every known MC version (~22 JARs total,");
         System.out.println("  several MB each). All come from official Maven");
         System.out.println("  repositories (fabricmc.net / neoforged.net).");
@@ -801,7 +801,7 @@ public class RetroModCli {
      * Transform a JAR file using the configured transformer.
      */
     private static void transformJar(Path input, Path output,
-            RetroModTransformer transformer, ModVersionInfo info) throws Exception {
+            RetromodTransformer transformer, ModVersionInfo info) throws Exception {
 
         try (var inJar = new java.util.jar.JarFile(input.toFile());
              var outJar = new java.util.jar.JarOutputStream(
@@ -1127,7 +1127,7 @@ public class RetroModCli {
         
         System.out.println();
         System.out.println("=================================================================");
-        System.out.println("         RetroMod LEGACY Transformation");
+        System.out.println("         Retromod LEGACY Transformation");
         System.out.println("   Transform mods from MC 1.8+ to run on 26.1");
         System.out.println("=================================================================");
         System.out.println();
@@ -1193,7 +1193,7 @@ public class RetroModCli {
     
     /**
      * Generate Fabric dependency overrides to bypass version checks.
-     * This is CRITICAL - Fabric blocks mods before RetroMod can transform them.
+     * This is CRITICAL - Fabric blocks mods before Retromod can transform them.
      */
     private static void overridesCommand(String[] args) throws Exception {
         if (args.length < 2) {
@@ -1222,7 +1222,7 @@ public class RetroModCli {
         Files.createDirectories(configDir);
         
         System.out.println("=================================================================");
-        System.out.println("       RetroMod Dependency Override Generator");
+        System.out.println("       Retromod Dependency Override Generator");
         System.out.println("=================================================================");
         System.out.println();
         System.out.println("Scanning mods folder: " + modsDir);
@@ -1325,7 +1325,7 @@ public class RetroModCli {
         boolean useAot = Arrays.asList(args).contains("--aot");
         
         System.out.println("=================================================================");
-        System.out.println("         RetroMod Full Preparation");
+        System.out.println("         Retromod Full Preparation");
         System.out.println("=================================================================");
         System.out.println();
         System.out.println("Minecraft directory: " + minecraftDir);
@@ -1394,7 +1394,7 @@ public class RetroModCli {
 
         System.out.println();
         System.out.println("=================================================================");
-        System.out.println("  RetroMod Developer Migration Helper");
+        System.out.println("  Retromod Developer Migration Helper");
         System.out.println("=================================================================");
         System.out.println();
 
@@ -1436,7 +1436,7 @@ public class RetroModCli {
         int totalClasses = 0;
 
         for (VersionShim shim : chain) {
-            RetroModTransformer temp = RetroModTransformer.getInstance();
+            RetromodTransformer temp = RetromodTransformer.getInstance();
             shim.registerRedirects(temp);
 
             int methods = temp.getMethodRedirectCount();
@@ -1498,7 +1498,7 @@ public class RetroModCli {
         System.out.println("  2. Update your fabric.mod.json / mods.toml version targets");
         System.out.println("  3. Rebuild against the new Minecraft version");
         System.out.println();
-        System.out.println("  Or just use RetroMod and skip the manual work :)");
+        System.out.println("  Or just use Retromod and skip the manual work :)");
         System.out.println();
     }
 
@@ -1556,7 +1556,7 @@ public class RetroModCli {
         }
 
         // Initialize transformer and load all shims + polyfills
-        RetroModTransformer transformer = RetroModTransformer.getInstance();
+        RetromodTransformer transformer = RetromodTransformer.getInstance();
         for (VersionShim shim : shimRegistry.getAllShims()) {
             shim.registerRedirects(transformer);
         }
@@ -1598,7 +1598,7 @@ public class RetroModCli {
         int W = 60; // box width
         System.out.println();
         printBoxTop(W);
-        printBoxLine(W, "  RetroMod Compatibility Score");
+        printBoxLine(W, "  Retromod Compatibility Score");
         printBoxSep(W);
         printBoxLine(W, "  Mod: " + modName.trim());
         printBoxLine(W, "  Source: " + sourceLine);
@@ -1746,7 +1746,7 @@ public class RetroModCli {
 
         System.out.println();
         System.out.println("=================================================================");
-        System.out.println("           RetroMod Auto-Fix Analysis");
+        System.out.println("           Retromod Auto-Fix Analysis");
         System.out.println("=================================================================");
         System.out.println();
         System.out.println("Log file: " + logFile);
@@ -1758,7 +1758,7 @@ public class RetroModCli {
         List<com.retromod.core.AutoFixEngine.AppliedFix> fixes;
         if (apply) {
             // Register all shims first so the transformer has context
-            RetroModTransformer transformer = RetroModTransformer.getInstance();
+            RetromodTransformer transformer = RetromodTransformer.getInstance();
             for (VersionShim shim : shimRegistry.getAllShims()) {
                 try {
                     shim.registerRedirects(transformer);
@@ -1819,7 +1819,7 @@ public class RetroModCli {
     private static void printUsage() {
         System.out.println();
         System.out.println("=================================================================");
-        System.out.println("           RetroMod CLI v" + VERSION);
+        System.out.println("           Retromod CLI v" + VERSION);
         System.out.println("   Backwards Compatibility Layer for Minecraft Mods");
         System.out.println("");
         System.out.println("   Supports: Fabric, Forge, NeoForge");
@@ -1940,18 +1940,18 @@ public class RetroModCli {
         }
 
         // Enable verification for this run (disabled by default in the transformer).
-        // Setting the property BEFORE touching RetroModTransformer is not enough —
+        // Setting the property BEFORE touching RetromodTransformer is not enough —
         // the transformer reads it at class-init time. For CLI use, we add a
-        // public static check instead (see RetroModTransformer.isVerificationEnabled)
+        // public static check instead (see RetromodTransformer.isVerificationEnabled)
         // and we gate on that. For now, if verification isn't on, we tell the user.
-        if (!RetroModTransformer.isVerificationEnabled()) {
+        if (!RetromodTransformer.isVerificationEnabled()) {
             System.err.println("NOTE: verification is not enabled.");
             System.err.println("Re-run with: -Dretromod.verifyTransforms=true");
             System.err.println("  (e.g. mvn exec:java -Dexec.mainClass=... -Dretromod.verifyTransforms=true ...)");
             System.exit(2);
         }
 
-        RetroModTransformer transformer = RetroModTransformer.getInstance();
+        RetromodTransformer transformer = RetromodTransformer.getInstance();
         transformer.setTargetMcVersion(TARGET_MC_VERSION);
 
         // Wire Fabric intermediary→Mojang mappings into the transformer.
@@ -1960,7 +1960,7 @@ public class RetroModCli {
         // transformation with those names untouched, then show up as
         // "missing" in the verifier — a gap report full of noise from
         // unresolved intermediary names rather than the real gaps.
-        // RetroModPreLaunch does the same wiring for the runtime Fabric
+        // RetromodPreLaunch does the same wiring for the runtime Fabric
         // entry; the CLI does it here for consistency.
         com.retromod.mapping.IntermediaryToMojangMapper.applyTo(transformer);
 
@@ -1987,7 +1987,7 @@ public class RetroModCli {
                 // Honor mod-author opt-out before doing any work on the JAR.
                 // Even though `gaps` only reads + verifies (doesn't write a
                 // new JAR), running our verifier on a JAR whose author asked
-                // us to leave it alone is still RetroMod-authored analysis
+                // us to leave it alone is still Retromod-authored analysis
                 // they didn't ask for. Skip cleanly.
                 if (com.retromod.util.OptOutCheck.isOptedOut(jar)) {
                     com.retromod.util.OptOutCheck.logSkipped(jar);
@@ -2035,7 +2035,7 @@ public class RetroModCli {
      * {@code -Dretromod.*} to fully exercise this command.</p>
      */
     private static com.retromod.core.verify.VerificationReport verifyOneMod(
-            RetroModTransformer transformer, Path jarPath) throws Exception {
+            RetromodTransformer transformer, Path jarPath) throws Exception {
 
         ModVersionInfo info = detector.detectVersion(jarPath);
         String modId = info != null ? info.modId() : jarPath.getFileName().toString();
@@ -2068,7 +2068,7 @@ public class RetroModCli {
 
         // Pattern-matching context — shared across all class visits for this mod
         com.retromod.core.pattern.MatchContext matchCtx = null;
-        if (RetroModTransformer.isPatternMatchingEnabled()) {
+        if (RetromodTransformer.isPatternMatchingEnabled()) {
             com.retromod.core.verify.McSymbolIndex idx = transformer.getFuzzyResolver() != null
                     ? new com.retromod.core.verify.FuzzyBackedSymbolIndex(
                             transformer.getFuzzyResolver(), TARGET_MC_VERSION)
@@ -2091,7 +2091,7 @@ public class RetroModCli {
         // we serialize only the final per-mod report aggregation, not the
         // per-class pipeline steps.
         final com.retromod.core.pattern.MatchContext finalMatchCtx = matchCtx;
-        com.retromod.core.parallel.RetroModExecutors.parallelForEachEntry(
+        com.retromod.core.parallel.RetromodExecutors.parallelForEachEntry(
                 classBytesByName,
                 (className, bytes) -> {
                     byte[] transformed = transformer.transformClass(bytes, className);

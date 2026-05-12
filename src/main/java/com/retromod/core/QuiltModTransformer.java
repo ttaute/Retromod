@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -27,7 +27,7 @@ import java.util.regex.*;
  */
 public class QuiltModTransformer {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Quilt");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Quilt");
     
     private final String targetMcVersion;
     private final FabricModTransformer fabricTransformer;

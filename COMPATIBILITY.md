@@ -1,21 +1,21 @@
-# RetroMod Compatibility List
+# Retromod Compatibility List
 
-> **RetroMod v1.0.0-beta.1** | **Target: Minecraft 26.1** | **Fabric Loader 0.18.4**
+> **Retromod v1.0.0-beta.1** | **Target: Minecraft 26.1** | **Fabric Loader 0.18.4**
 >
 > Last updated: 2026-03-10
 
-RetroMod enables older Fabric mods to run on newer Minecraft versions by applying bytecode transformations.
+Retromod enables older Fabric mods to run on newer Minecraft versions by applying bytecode transformations.
 It covers MC **1.14.4 through 1.21.11** with 31 Fabric shims, 317+ method redirects, and 486+ class redirects.
 
 All mods listed here were downloaded exclusively from **[Modrinth](https://modrinth.com)** (a curated, reviewed mod repository).
 
-> **About the `*` on entries below:** "Successfully transformed" in this document means **the mod's bytecode passed RetroMod's pipeline and the mod loader accepts it on the target MC version** — i.e. it loads. It does **not** mean every in-game feature works. In practice **most mods on this list only get to the loading stage** — Minecraft starts, the mod registers, log lines for it appear — but specific features (rendering hooks, mixin injections, registry-keyed accessors, NBT round-trips, etc.) commonly fail at runtime once they're actually exercised. Each entry below is marked with `*` to make that limitation explicit. Closing those runtime gaps is what RetroMod's beta phase is for; if you hit a broken feature in a listed mod, please [file an issue with the log](https://github.com/Bownlux/RetroMod/issues).
+> **About the `*` on entries below:** "Successfully transformed" in this document means **the mod's bytecode passed Retromod's pipeline and the mod loader accepts it on the target MC version** — i.e. it loads. It does **not** mean every in-game feature works. In practice **most mods on this list only get to the loading stage** — Minecraft starts, the mod registers, log lines for it appear — but specific features (rendering hooks, mixin injections, registry-keyed accessors, NBT round-trips, etc.) commonly fail at runtime once they're actually exercised. Each entry below is marked with `*` to make that limitation explicit. Closing those runtime gaps is what Retromod's beta phase is for; if you hit a broken feature in a listed mod, please [file an issue with the log](https://github.com/Bownlux/Retromod/issues).
 
 ---
 
 ## Mods That Load After Transformation*
 
-All mods below were transformed using the RetroMod CLI (`retromod batch`) and have their version constraints
+All mods below were transformed using the Retromod CLI (`retromod batch`) and have their version constraints
 relaxed to load on MC 1.21.11. They are sorted by original MC version (oldest first).
 
 > **`*` (only to the loading stage):** every entry here passes the load, but in-game functionality varies and is **not guaranteed** for any specific mod. See the note above the section.
@@ -156,13 +156,13 @@ These mods were selected to run together (one per unique mod, picking the oldest
 | **Fabric API** | 0.141.3+1.21.11 | Core Fabric APIs |
 | **Fabric Language Kotlin** | 1.13.9 | For Zoomify & Kotlin mods |
 | **YACL** | 3.8.2+1.21.11 | For Zoomify's config |
-| **RetroMod** | 1.0.0-beta.1 | The transformation engine |
+| **Retromod** | 1.0.0-beta.1 | The transformation engine |
 
 ---
 
 ## Mods That Can Never Be Translated
 
-The mods below sit in a category separate from "skipped this run." They can't be made to work by any automated bytecode translator — RetroMod or otherwise — and never will be. The full reasoning, the general rules behind the list, and the difference between "won't load" and "loads but features are broken" lives on its own page: **[Mods That Can't Be Translated](https://bownlux.github.io/RetroMod/incompatible-mods)**.
+The mods below sit in a category separate from "skipped this run." They can't be made to work by any automated bytecode translator — Retromod or otherwise — and never will be. The full reasoning, the general rules behind the list, and the difference between "won't load" and "loads but features are broken" lives on its own page: **[Mods That Can't Be Translated](https://bownlux.github.io/Retromod/incompatible-mods)**.
 
 The short version:
 
@@ -176,7 +176,7 @@ The short version:
 | **OptiFine** | Proprietary, closed-source, Forge coremod — license + technical reasons both block translation. |
 | **Sodium / Iris / Embeddium / Flywheel** | Replace MC's rendering pipeline; mixin injections target bytecode offsets that move between versions. They may *load* but full functionality is not realistic. |
 
-**The general rule.** Any mod that uses native code (`.so` / `.dll` / `.dylib` files), ships its own bytecode transformer (coremod), uses a custom or modified Mixin framework, replaces MC's rendering pipeline, or interacts with MC at byte-level GPU buffers will **never** be translatable by any automated tool. See the [Mods That Can't Be Translated](https://bownlux.github.io/RetroMod/incompatible-mods) page for the full breakdown.
+**The general rule.** Any mod that uses native code (`.so` / `.dll` / `.dylib` files), ships its own bytecode transformer (coremod), uses a custom or modified Mixin framework, replaces MC's rendering pipeline, or interacts with MC at byte-level GPU buffers will **never** be translatable by any automated tool. See the [Mods That Can't Be Translated](https://bownlux.github.io/Retromod/incompatible-mods) page for the full breakdown.
 
 ---
 
@@ -207,7 +207,7 @@ These were skipped in a specific test run for solvable reasons (missing dependen
 
 ## Data Packs
 
-No custom data packs were tested. RetroMod can transform data packs in world save `datapacks/` folders.
+No custom data packs were tested. Retromod can transform data packs in world save `datapacks/` folders.
 
 ---
 
@@ -229,7 +229,7 @@ Total mods processed via CLI: **45 mods from Modrinth**
 
 ## Version Coverage
 
-RetroMod covers every Fabric version from 1.14.4 to 1.21.11:
+Retromod covers every Fabric version from 1.14.4 to 1.21.11:
 
 ```
 MC 1.14.4 -> 1.15.2 -> 1.16.5 -> 1.17 -> 1.17.1 -> 1.18 -> 1.18.1 -> 1.18.2
@@ -243,9 +243,9 @@ MC 1.14.4 -> 1.15.2 -> 1.16.5 -> 1.17 -> 1.17.1 -> 1.18 -> 1.18.1 -> 1.18.2
 ## How to Use
 
 ### Method 1: Drop in retromod-input/ (Recommended)
-1. Install RetroMod in your `mods/` folder
+1. Install Retromod in your `mods/` folder
 2. Place old `.jar` mods into `mods/retromod-input/`
-3. Launch Minecraft - RetroMod auto-transforms during pre-launch
+3. Launch Minecraft - Retromod auto-transforms during pre-launch
 
 ### Method 2: CLI Batch Transform
 ```bash
@@ -270,5 +270,5 @@ retromod transform old-mod.jar --output new-mod-retromod.jar
 
 ---
 
-*Generated by RetroMod v1.0.0-beta.1 | [Modrinth](https://modrinth.com/mod/retromod) | [GitHub](https://github.com/Bownlux/RetroMod)*
+*Generated by Retromod v1.0.0-beta.1 | [Modrinth](https://modrinth.com/mod/retromod) | [GitHub](https://github.com/Bownlux/Retromod)*
 *Made by the Developers of [revivalsmp.net](https://revivalsmp.net)*

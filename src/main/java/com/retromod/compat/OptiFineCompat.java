@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.compat;
@@ -24,7 +24,7 @@ import java.util.zip.ZipEntry;
  * - Uses non-standard rendering paths
  * - Breaks frequently between Minecraft versions
  * 
- * RetroMod provides LIMITED support for OptiFine:
+ * Retromod provides LIMITED support for OptiFine:
  * - Detect when OptiFine is present
  * - Warn user about known issues
  * - Recommend alternatives (Sodium + Iris)
@@ -32,7 +32,7 @@ import java.util.zip.ZipEntry;
  */
 public class OptiFineCompat {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-OptiFine");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-OptiFine");
     
     private static boolean optiFineDetected = false;
     private static String optiFineVersion = null;
@@ -108,7 +108,7 @@ public class OptiFineCompat {
         LOGGER.warn("═══════════════════════════════════════════════════════════");
         LOGGER.warn("  Version: {}", optiFineVersion);
         LOGGER.warn("");
-        LOGGER.warn("  ⚠️  OptiFine has LIMITED support in RetroMod!");
+        LOGGER.warn("  ⚠️  OptiFine has LIMITED support in Retromod!");
         LOGGER.warn("");
         LOGGER.warn("  KNOWN ISSUES:");
         LOGGER.warn("  - May crash with other rendering mods");
@@ -118,7 +118,7 @@ public class OptiFineCompat {
         LOGGER.warn("");
         LOGGER.warn("  RECOMMENDED ALTERNATIVES:");
         LOGGER.warn("  - Sodium (better FPS) + Iris (shaders)");
-        LOGGER.warn("  - Both work great with RetroMod!");
+        LOGGER.warn("  - Both work great with Retromod!");
         LOGGER.warn("  - https://modrinth.com/mod/sodium");
         LOGGER.warn("  - https://modrinth.com/mod/iris");
         LOGGER.warn("═══════════════════════════════════════════════════════════");
@@ -140,7 +140,7 @@ public class OptiFineCompat {
             String message = """
                 ⚠️ OptiFine Detected!
                 
-                RetroMod has LIMITED support for OptiFine.
+                Retromod has LIMITED support for OptiFine.
                 
                 KNOWN ISSUES:
                 • May crash with other rendering mods
@@ -154,7 +154,7 @@ public class OptiFineCompat {
                 
                 • Sodium - Much better FPS optimization
                 • Iris - Full shader support
-                • Both work perfectly with RetroMod!
+                • Both work perfectly with Retromod!
                 
                 ═══════════════════════════════════════
                 
@@ -164,7 +164,7 @@ public class OptiFineCompat {
             int choice = JOptionPane.showOptionDialog(
                 null,
                 message,
-                "RetroMod - OptiFine Warning",
+                "Retromod - OptiFine Warning",
                 JOptionPane.YES_NO_CANCEL_OPTION,
                 JOptionPane.WARNING_MESSAGE,
                 null,

@@ -1,6 +1,6 @@
 ---
 name: debug-crash
-description: Debug a Minecraft crash caused by a mod that RetroMod transformed. Use when a mod crashes after transformation and you need to find and fix the root cause.
+description: Debug a Minecraft crash caused by a mod that Retromod transformed. Use when a mod crashes after transformation and you need to find and fix the root cause.
 argument-hint: "no args needed - reads latest.log automatically"
 ---
 
@@ -22,7 +22,7 @@ cat ~/Library/Application\ Support/minecraft/crash-reports/crash-*.txt | tail -1
 ## Step 2: Identify the Error Type
 
 ### `NoSuchMethodError: <class>.<method>`
-**Cause:** A method was renamed/removed and RetroMod didn't have a redirect for it.
+**Cause:** A method was renamed/removed and Retromod didn't have a redirect for it.
 **Fix:** Add a method redirect to the appropriate version shim:
 ```java
 transformer.registerMethodRedirect(
@@ -40,7 +40,7 @@ transformer.registerMethodRedirect(
 
 ### `ClassNotFoundException: <class>`
 **Cause:** Same as above but triggered by reflection/Class.forName().
-**Fix:** Same as NoClassDefFoundError. Also check reflection remapping in RetroModTransformer.
+**Fix:** Same as NoClassDefFoundError. Also check reflection remapping in RetromodTransformer.
 
 ### `AbstractMethodError`
 **Cause:** An interface gained a new abstract method that the mod doesn't implement.
@@ -60,7 +60,7 @@ transformer.registerMethodRedirect(
 
 ### `UnsupportedClassVersionError`
 **Cause:** Mod was compiled for a newer Java version than what's running.
-**Fix:** Cannot be fixed by RetroMod — user needs to install the correct Java version. MC 26.1 requires Java 25.
+**Fix:** Cannot be fixed by Retromod — user needs to install the correct Java version. MC 26.1 requires Java 25.
 
 ## Step 3: Enable Debug Logging
 
@@ -73,12 +73,12 @@ Edit `config/retromod/config.json`:
 }
 ```
 
-This creates bytecode dumps in `config/retromod/bytecode-dump/` showing exactly what RetroMod transformed.
+This creates bytecode dumps in `config/retromod/bytecode-dump/` showing exactly what Retromod transformed.
 
 ## Step 4: Analyze the Mod
 
 ```bash
-mvn -f pom.xml exec:java -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+mvn -f pom.xml exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="analyze '/path/to/mod.jar'" -q
 ```
 
@@ -90,7 +90,7 @@ Check:
 ## Step 5: Check Shim Coverage
 
 ```bash
-mvn -f pom.xml exec:java -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+mvn -f pom.xml exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="shims" -q
 ```
 
@@ -107,6 +107,6 @@ Verify the shim chain exists from the mod's source version to the target version
 ## Key Debugging Files
 - Crash log: `logs/latest.log`
 - Crash reports: `crash-reports/crash-*.txt`
-- RetroMod crash log: `config/retromod/crash-log.txt`
+- Retromod crash log: `config/retromod/crash-log.txt`
 - Bytecode dumps: `config/retromod/bytecode-dump/`
 - AOT cache: `config/retromod/aot-cache/`

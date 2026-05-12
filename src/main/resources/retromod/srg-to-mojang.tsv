@@ -1,4 +1,4 @@
-# RetroMod — Forge SRG → Mojang member-name mappings
+# Retromod — Forge SRG → Mojang member-name mappings
 # =========================================================================
 #
 # Format (tab-separated, three columns):
@@ -20,7 +20,7 @@
 # class load time. Forge 64.x for MC 26.1 dropped the SRG remap layer because
 # MC 26.1 has no obfuscation at all (Mojang shipped official names directly).
 # Reobf'd mods then break with NoSuchFieldError / NoSuchMethodError on every
-# SRG name. RetroMod takes over that responsibility via this dictionary.
+# SRG name. Retromod takes over that responsibility via this dictionary.
 #
 # STARTER SET vs. COMPLETE COVERAGE
 # ----------------------------------
@@ -36,7 +36,7 @@
 #   3. Emit FIELD/METHOD rows here
 #
 # A MappingComposer-style builder for this file is a future enhancement —
-# track in https://github.com/Bownlux/RetroMod/issues/srg-mapping-coverage
+# track in https://github.com/Bownlux/Retromod/issues/srg-mapping-coverage
 #
 # DUPLICATE KEYS WARNING
 # ----------------------

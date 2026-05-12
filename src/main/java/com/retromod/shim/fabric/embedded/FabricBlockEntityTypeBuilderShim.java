@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for FabricBlockEntityType.Builder that was removed in 1.21.2.
@@ -68,7 +68,7 @@ public class FabricBlockEntityTypeBuilderShim<T> {
             
         } catch (ClassNotFoundException e) {
             // FabricBlockEntityTypeBuilder not found - very old or very new version
-            System.err.println("RetroMod: FabricBlockEntityTypeBuilder not found");
+            System.err.println("Retromod: FabricBlockEntityTypeBuilder not found");
         }
     }
     
@@ -112,7 +112,7 @@ public class FabricBlockEntityTypeBuilderShim<T> {
             try {
                 realBuilder = addBlockMethod.invoke(realBuilder, block);
             } catch (Exception e) {
-                System.err.println("RetroMod: Failed to add block to builder: " + e);
+                System.err.println("Retromod: Failed to add block to builder: " + e);
             }
         }
         
@@ -182,9 +182,9 @@ public class FabricBlockEntityTypeBuilderShim<T> {
             }
             
         } catch (Exception e) {
-            throw new RuntimeException("RetroMod: Failed to create BlockEntityType via fallback", e);
+            throw new RuntimeException("Retromod: Failed to create BlockEntityType via fallback", e);
         }
         
-        throw new RuntimeException("RetroMod: No BlockEntityType creation method available");
+        throw new RuntimeException("Retromod: No BlockEntityType creation method available");
     }
 }

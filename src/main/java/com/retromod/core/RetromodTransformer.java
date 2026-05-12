@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * This is the core bytecode transformer that intercepts class loading
@@ -41,26 +41,26 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <pre>
  *   ClassReader
  *     -> ClassRemapper (handles class renames + intermediary->Mojang name mapping)
- *       -> RetroModClassVisitor (handles method/field/constructor redirects, superclass rewrites)
+ *       -> RetromodClassVisitor (handles method/field/constructor redirects, superclass rewrites)
  *         -> ClassWriter (outputs the final bytecode)
  * </pre>
- * The ClassRemapper runs FIRST so that by the time RetroModClassVisitor sees method calls,
+ * The ClassRemapper runs FIRST so that by the time RetromodClassVisitor sees method calls,
  * all class names are already in their Mojang-official form. This is why classRedirects feed
  * into the Remapper (bulk class rename) while methodRedirects are checked manually in
- * RetroModClassVisitor (they need owner+name+descriptor matching, not just name mapping).
+ * RetromodClassVisitor (they need owner+name+descriptor matching, not just name mapping).
  *
  * <h2>Thread safety</h2>
  * All redirect maps use {@link ConcurrentHashMap} because shims register redirects from
  * ServiceLoader threads while the transformer may already be processing classes.
  *
- * <p><b>IMPORTANT:</b> This class must NOT reference {@code RetroMod} directly (which
+ * <p><b>IMPORTANT:</b> This class must NOT reference {@code Retromod} directly (which
  * implements ModInitializer) because the transformer is also used by the standalone CLI
  * where Fabric classes are not on the classpath.</p>
  */
-public class RetroModTransformer implements ClassFileTransformer {
+public class RetromodTransformer implements ClassFileTransformer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Transformer");
-    private static final RetroModTransformer INSTANCE = new RetroModTransformer();
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Transformer");
+    private static final RetromodTransformer INSTANCE = new RetromodTransformer();
     
     // ═══════════════════════════════════════════════════════════════════════
     // REDIRECT MAPS — populated by version shims and polyfill providers
@@ -99,7 +99,7 @@ public class RetroModTransformer implements ClassFileTransformer {
     // Forge 64.x for MC 26.1+ dropped its SRG → Mojang runtime remap layer
     // entirely (since 26.1 has no obfuscation), so those references now
     // hit NoSuchFieldError / NoSuchMethodError on every reobf'd Forge mod.
-    // RetroMod takes over that remap responsibility via these maps.
+    // Retromod takes over that remap responsibility via these maps.
     //
     // Same global-key shape as the intermediary maps: SRG names are unique
     // strings independent of the owning class, so a flat name -> Mojang
@@ -267,19 +267,19 @@ public class RetroModTransformer implements ClassFileTransformer {
 
     /**
      * Target MC version, used only in diagnostic output (gap report headers).
-     * Populated by {@link #setTargetMcVersion} from the main RetroMod initializer.
+     * Populated by {@link #setTargetMcVersion} from the main Retromod initializer.
      * "unknown" until set — never null, so downstream callers don't NPE.
      */
     private volatile String targetMcVersion = "unknown";
 
-    private RetroModTransformer() {
+    private RetromodTransformer() {
         // Register default shim package as transformable
         transformablePackages.add("com/retromod/shim/");
         // Initialize pattern heuristics — deterministic rules checked before fuzzy matching
         this.patternHeuristics = new PatternHeuristics();
     }
     
-    public static RetroModTransformer getInstance() {
+    public static RetromodTransformer getInstance() {
         return INSTANCE;
     }
 
@@ -621,12 +621,12 @@ public class RetroModTransformer implements ClassFileTransformer {
      * <pre>
      *   ClassReader (parses original bytecode)
      *     -> ClassRemapper (rewrites class names + intermediary method/field names)
-     *       -> RetroModClassVisitor (rewrites method calls, field accesses, constructors)
+     *       -> RetromodClassVisitor (rewrites method calls, field accesses, constructors)
      *         -> ClassWriter (generates new bytecode with COMPUTE_FRAMES)
      * </pre>
      *
      * <p><b>Why this order matters:</b> ClassRemapper runs first so that by the time
-     * RetroModClassVisitor processes method calls, all class names in owners and
+     * RetromodClassVisitor processes method calls, all class names in owners and
      * descriptors are already in their final Mojang form. This means method redirect
      * lookups only need to match against Mojang names, not both intermediary and Mojang.</p>
      *
@@ -669,7 +669,7 @@ public class RetroModTransformer implements ClassFileTransformer {
         //   2. MAX_TRANSFORM_ITERATIONS is reached (possible redirect cycle).
         //
         // Why compare byte-level rather than tracking "was any redirect applied"?
-        // - The visitor chain is complex (ClassRemapper + RetroModClassVisitor + dedup).
+        // - The visitor chain is complex (ClassRemapper + RetromodClassVisitor + dedup).
         //   Threading a "dirty" flag through every visitor would be invasive.
         // - ASM is deterministic: same input + same redirects = same output bytes.
         //   So byte-equality is a reliable stability signal.
@@ -746,7 +746,7 @@ public class RetroModTransformer implements ClassFileTransformer {
      * Run one bytecode transformation pass over the given class bytes.
      *
      * <p>Each call is a complete ASM visitor-chain traversal:
-     * {@code Reader → ClassRemapper → RetroModClassVisitor → ClassWriter}.
+     * {@code Reader → ClassRemapper → RetromodClassVisitor → ClassWriter}.
      * The {@link #transformClass} outer loop invokes this repeatedly until the
      * output stabilizes.</p>
      *
@@ -853,10 +853,10 @@ public class RetroModTransformer implements ClassFileTransformer {
 
         ClassVisitor visitor = writer;
 
-        // IMPORTANT: RetroModClassVisitor must be INNER (closer to writer) so it sees
+        // IMPORTANT: RetromodClassVisitor must be INNER (closer to writer) so it sees
         // Mojang names AFTER ClassRemapper has translated intermediary names.
-        // Chain: Reader → ClassRemapper (remap) → RetroModClassVisitor (redirect) → Writer
-        visitor = new RetroModClassVisitor(Opcodes.ASM9, visitor);
+        // Chain: Reader → ClassRemapper (remap) → RetromodClassVisitor (redirect) → Writer
+        visitor = new RetromodClassVisitor(Opcodes.ASM9, visitor);
 
         // Only add remapping visitor if we have class redirects
         if (classRemapper != null) {
@@ -881,7 +881,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                     ? new SafeClassWriter(ClassWriter.COMPUTE_MAXS)
                     : new SafeClassWriter(reader, ClassWriter.COMPUTE_MAXS);
                 ClassVisitor fallbackVisitor = fallbackWriter;
-                fallbackVisitor = new RetroModClassVisitor(Opcodes.ASM9, fallbackVisitor);
+                fallbackVisitor = new RetromodClassVisitor(Opcodes.ASM9, fallbackVisitor);
                 if (classRemapper != null) {
                     fallbackVisitor = new ClassRemapper(fallbackVisitor, classRemapper);
                 }
@@ -953,7 +953,7 @@ public class RetroModTransformer implements ClassFileTransformer {
      * <p><b>Assumption:</b> shim/polyfill redirects are populated during startup
      * before the first class is transformed. Once the remapper is built we don't
      * rebuild it, even if new redirects arrive later. For the current codebase
-     * this is true — {@code RetroMod.onInitialize} loads all shims synchronously
+     * this is true — {@code Retromod.onInitialize} loads all shims synchronously
      * before any class ever passes through {@link #transformClass}. If that
      * invariant changes, call {@link #invalidateReflectionRemapper()} after
      * registering the new redirects.</p>
@@ -1046,7 +1046,7 @@ public class RetroModTransformer implements ClassFileTransformer {
 
     /**
      * Record the target MC version for inclusion in verification-report headers.
-     * Called by the main RetroMod initializer after it detects the running MC
+     * Called by the main Retromod initializer after it detects the running MC
      * version. Safe to call from any thread; safe to call multiple times.
      *
      * <p>Acquires the class monitor so the verifier invalidation happens under
@@ -1325,7 +1325,7 @@ public class RetroModTransformer implements ClassFileTransformer {
         // INVOKEVIRTUAL is the right opcode and we leave it alone.
     );
 
-    private class RetroModClassVisitor extends ClassVisitor {
+    private class RetromodClassVisitor extends ClassVisitor {
 
         // Bridge adapter generator for this class — handles method signature changes
         // (e.g., mouseClicked(double,double,int) -> mouseClicked(MouseButtonEvent,boolean)).
@@ -1335,7 +1335,7 @@ public class RetroModTransformer implements ClassFileTransformer {
         // Track the current class name for bridge generation
         private String currentClassName;
 
-        public RetroModClassVisitor(int api, ClassVisitor classVisitor) {
+        public RetromodClassVisitor(int api, ClassVisitor classVisitor) {
             super(api, classVisitor);
         }
 
@@ -1425,7 +1425,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                     && fieldAccessorRedirects.isEmpty()) {
                 return mv;
             }
-            return new RetroModMethodVisitor(api, mv, currentClassName, currentSuperName, currentDirectInterfaces);
+            return new RetromodMethodVisitor(api, mv, currentClassName, currentSuperName, currentDirectInterfaces);
         }
 
         @Override
@@ -1458,19 +1458,19 @@ public class RetroModTransformer implements ClassFileTransformer {
      * <p><b>Performance:</b> Uses fast owner lookup ({@code methodRedirectOwners}) to skip
      * expensive ConcurrentHashMap lookups for method calls to classes with no redirects.</p>
      */
-    private class RetroModMethodVisitor extends MethodVisitor {
+    private class RetromodMethodVisitor extends MethodVisitor {
 
         // Buffered NEW instruction — held until we see the matching <init> to decide
         // whether to redirect to a factory or emit normally
         private String pendingNewClass = null;
         private boolean pendingDup = false;
 
-        // Inherited from enclosing RetroModClassVisitor for invokespecial fixups
+        // Inherited from enclosing RetromodClassVisitor for invokespecial fixups
         private final String classOwnName;
         private final String classSuperName;
         private final Set<String> classDirectInterfaces;
 
-        public RetroModMethodVisitor(int api, MethodVisitor methodVisitor,
+        public RetromodMethodVisitor(int api, MethodVisitor methodVisitor,
                 String className, String superName, Set<String> directInterfaces) {
             super(api, methodVisitor);
             this.classOwnName = className;
@@ -1842,7 +1842,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                     FuzzyMethodResolver.MethodInfo fuzzyMatch =
                             resolver.resolveMethod(owner, name, descriptor);
                     if (fuzzyMatch != null) {
-                        LOGGER.info("[RetroMod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
+                        LOGGER.info("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
                                 owner, name, descriptor,
                                 fuzzyMatch.owner(), fuzzyMatch.name(), fuzzyMatch.descriptor(),
                                 fuzzyMatch.score());
@@ -1923,7 +1923,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                 if (patterns != null) {
                     PatternHeuristics.PatternResult patternMatch = patterns.resolveMethod(owner, name, descriptor);
                     if (patternMatch != null && patternMatch.confidence() >= 0.6) {
-                        LOGGER.info("[RetroMod-Pattern] Resolved {}.{}{} -> {}.{}{} (rule: {}, confidence: {})",
+                        LOGGER.info("[Retromod-Pattern] Resolved {}.{}{} -> {}.{}{} (rule: {}, confidence: {})",
                                 owner, name, descriptor,
                                 patternMatch.newOwner(), patternMatch.newName(), patternMatch.newDescriptor(),
                                 patternMatch.rule(), patternMatch.confidence());
@@ -1943,7 +1943,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                             resolver.resolveMethod(owner, name, descriptor);
                     if (fuzzyMatch != null) {
                         // Fuzzy match found with confidence >= 70% — apply the redirect
-                        LOGGER.info("[RetroMod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
+                        LOGGER.info("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
                                 owner, name, descriptor,
                                 fuzzyMatch.owner(), fuzzyMatch.name(), fuzzyMatch.descriptor(),
                                 fuzzyMatch.score());
@@ -2059,7 +2059,7 @@ public class RetroModTransformer implements ClassFileTransformer {
                     FuzzyMethodResolver.FieldInfo fuzzyMatch =
                             resolver.resolveField(owner, name, descriptor);
                     if (fuzzyMatch != null) {
-                        LOGGER.info("[RetroMod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
+                        LOGGER.info("[Retromod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
                                 owner, name, descriptor,
                                 fuzzyMatch.owner(), fuzzyMatch.name(), fuzzyMatch.descriptor(),
                                 fuzzyMatch.score());

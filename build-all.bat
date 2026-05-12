@@ -1,25 +1,25 @@
 @echo off
 REM ============================================================================
-REM RetroMod Multi-Version Build Script (Windows)
+REM Retromod Multi-Version Build Script (Windows)
 REM Copyright (c) 2026 RevivalSMP. MIT License.
 REM
-REM Builds RetroMod for ALL loaders and supported MC versions (1.20+):
+REM Builds Retromod for ALL loaders and supported MC versions (1.20+):
 REM   - Fabric (1.20 through 26.1)
 REM   - Forge (1.20 through 26.1)
 REM   - NeoForge (1.20.1 through 26.1)
 REM   - CLI tool (standalone)
-REM Older versions (1.12-1.19) are translated BY RetroMod, not hosted separately.
+REM Older versions (1.12-1.19) are translated BY Retromod, not hosted separately.
 REM ============================================================================
 
 setlocal enabledelayedexpansion
 
 set VERSION=1.0.0-beta.1
-REM Only build for 1.20+ — older mods are translated BY RetroMod, not hosted separately.
+REM Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
 set MC_VERSIONS=1.20 1.20.1 1.20.2 1.20.3 1.20.4 1.20.5 1.20.6 1.21 1.21.1 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11 26.1 26.1.1 26.1.2
 set LOADERS=fabric forge neoforge
 
 echo ============================================
-echo   RetroMod Multi-Version Build Script
+echo   Retromod Multi-Version Build Script
 echo   Version: %VERSION%
 echo   MIT License - RevivalSMP
 echo ============================================
@@ -133,7 +133,7 @@ if "%LOADER%"=="forge" set LOADER_DIR=Forge
 if "%LOADER%"=="neoforge" set LOADER_DIR=NeoForge
 
 REM Guard: never emit a dist\ artifact for a host MC below 1.20.
-REM RetroMod requires Java 25 and MC 1.20+ to run as a mod — earlier versions
+REM Retromod requires Java 25 and MC 1.20+ to run as a mod — earlier versions
 REM are only relevant as translation SOURCES, not as host targets. This filter
 REM prevents accidental additions to MC_VERSIONS from producing broken builds.
 REM Allow-list: 1.20.x, 1.21.x, 26.x, 27.x, 28.x (forward-compat).
@@ -211,10 +211,10 @@ REM Update manifest
 mkdir META-INF 2>nul
 (
 echo Manifest-Version: 1.0
-echo Implementation-Title: RetroMod
+echo Implementation-Title: Retromod
 echo Implementation-Version: %VERSION%
-echo RetroMod-Target-MC: %MC_VERSION%
-echo RetroMod-Loader: %LOADER%
+echo Retromod-Target-MC: %MC_VERSION%
+echo Retromod-Loader: %LOADER%
 echo Automatic-Module-Name: retromod
 ) > META-INF\MANIFEST.MF
 

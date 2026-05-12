@@ -2,20 +2,20 @@
   "schemaVersion": 1,
   "id": "retromod_test_mod",
   "version": "${version}",
-  "name": "RetroMod Test Mod",
-  "description": "Exercises RetroMod's transformation pipeline and reports per-test results to the launch log.",
+  "name": "Retromod Test Mod",
+  "description": "Exercises Retromod's transformation pipeline and reports per-test results to the launch log.",
   "authors": [
     "Bownlux"
   ],
   "contact": {
-    "homepage": "https://github.com/Bownlux/RetroMod",
-    "sources": "https://github.com/Bownlux/RetroMod"
+    "homepage": "https://github.com/Bownlux/Retromod",
+    "sources": "https://github.com/Bownlux/Retromod"
   },
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "com.retromod.testmod.RetroModTestMod"
+      "com.retromod.testmod.RetromodTestMod"
     ]
   },
   "depends": {

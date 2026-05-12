@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.fabric;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -17,7 +17,7 @@ public class Fabric_1_21_4_to_1_21_5 implements VersionShim {
     @Override public String getModLoaderType() { return "fabric"; }
     
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // ============================================================
         // TOOL ITEM CLASSES REMOVED
         // In 1.21.5, dedicated tool item classes (SwordItem, PickaxeItem, etc.)

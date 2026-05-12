@@ -1,7 +1,7 @@
 /*
  * Compile-time stub for NeoForge's @Mod annotation.
  *
- * Same trick as the Forge stub: this lets RetroModNeoForge compile when
+ * Same trick as the Forge stub: this lets RetromodNeoForge compile when
  * NeoForge isn't on the classpath (CLI / standalone build), and at RUNTIME
  * NeoForge's real annotation class shadows the stub.
  *

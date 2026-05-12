@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.mapping;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +18,7 @@ import java.util.Map;
 
 /**
  * Loads Forge SRG → Mojang member-name mappings from a bundled TSV resource
- * and applies them to a {@link RetroModTransformer}.
+ * and applies them to a {@link RetromodTransformer}.
  *
  * <h3>Why this exists</h3>
  * <p>Forge mods built before MC ~1.20.5 (and any build still running
@@ -32,7 +32,7 @@ import java.util.Map;
  * {@code NoSuchMethodError} on every SRG name.
  *
  * <p>This mapper takes over that responsibility: it loads the bundled
- * SRG → Mojang dictionary and registers the mappings on RetroMod's
+ * SRG → Mojang dictionary and registers the mappings on Retromod's
  * transformer, which then applies them via the same {@code ClassRemapper}
  * pipeline that handles intermediary→Mojang.
  *
@@ -66,7 +66,7 @@ import java.util.Map;
  */
 public final class SrgToMojangMapper {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-SrgMapper");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-SrgMapper");
 
     private static final String RESOURCE_PATH = "/retromod/srg-to-mojang.tsv";
 
@@ -121,7 +121,7 @@ public final class SrgToMojangMapper {
      * Returns the total number of entries pushed (method count + field count)
      * so callers can log "applied N SRG mappings" without poking the maps.
      */
-    public int applyTo(RetroModTransformer transformer) {
+    public int applyTo(RetromodTransformer transformer) {
         if (methodMap.isEmpty() && fieldMap.isEmpty()) {
             LOGGER.debug("SRG mapper has no entries; nothing to apply");
             return 0;

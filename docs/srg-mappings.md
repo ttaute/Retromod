@@ -5,7 +5,7 @@ nav_order: 13
 
 # Adding SRG Mappings
 
-This page is for contributors who want to grow RetroMod's coverage of old Forge mods. If a Forge mod crashes with `NoSuchFieldError: f_NNNNN_` or `NoSuchMethodError: m_NNNNNN_`, it's almost certainly a missing entry in the SRG → Mojang dictionary. Adding one is a small, focused PR — an excellent first contribution.
+This page is for contributors who want to grow Retromod's coverage of old Forge mods. If a Forge mod crashes with `NoSuchFieldError: f_NNNNN_` or `NoSuchMethodError: m_NNNNNN_`, it's almost certainly a missing entry in the SRG → Mojang dictionary. Adding one is a small, focused PR — an excellent first contribution.
 
 ## What SRG names are
 
@@ -13,7 +13,7 @@ Old Forge mods (anything built with ForgeGradle's `reobfJar` task — basically 
 
 Forge 64.x dropped that remap layer for MC 26.1+ — Mojang shipped MC 26.1 with no obfuscation at all, so Forge no longer needed an intermediate layer. The side effect is that every reobf'd mod now crashes on first reference to an SRG name.
 
-RetroMod takes over: it loads a dictionary of SRG → Mojang member names and applies them via the same `ClassRemapper` pipeline that handles intermediary → Mojang for Fabric mods. The dictionary is intentionally a starter set — full coverage spans tens of thousands of entries — so growing it is exactly the kind of work where contributor help compounds.
+Retromod takes over: it loads a dictionary of SRG → Mojang member names and applies them via the same `ClassRemapper` pipeline that handles intermediary → Mojang for Fabric mods. The dictionary is intentionally a starter set — full coverage spans tens of thousands of entries — so growing it is exactly the kind of work where contributor help compounds.
 
 ## The data file
 
@@ -44,7 +44,7 @@ Two practical paths, in order of effort:
 
 ### 1. Read the crash log
 
-This is by far the easiest path and the one most contributors will use. When a Forge mod crashes on RetroMod, the SRG name appears verbatim in the stack trace:
+This is by far the easiest path and the one most contributors will use. When a Forge mod crashes on Retromod, the SRG name appears verbatim in the stack trace:
 
 ```
 java.lang.NoSuchFieldError: f_220832_
@@ -125,4 +125,4 @@ If you want to verify a *specific* mapping was applied, add the SRG-baked mod th
 
 The SRG dictionary is one of the highest-leverage places to contribute, because every entry directly unblocks a real mod for real users. If you've ever wanted to run an old Forge mod on the latest MC and watched it crash, this is the file to fix it in.
 
-A small starter set ships with RetroMod today. Every contributed entry makes the next person's mod load that much further before hitting the next missing name.
+A small starter set ships with Retromod today. Every contributed entry makes the next person's mod load that much further before hitting the next missing name.

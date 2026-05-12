@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.polyfill.registry;
@@ -30,7 +30,7 @@ import java.util.Map;
  * and returns the actual {@code Enchantment} the mod expected. Result is
  * cached after the first call so subsequent accesses are a hash-map hit.
  *
- * <p>Implementation uses reflection because RetroMod doesn't compile against
+ * <p>Implementation uses reflection because Retromod doesn't compile against
  * Minecraft. Each lookup method delegates to the generic
  * {@link #lookup(String, String)} helper which:
  * <ol>
@@ -52,7 +52,7 @@ import java.util.Map;
  */
 public final class RegistryRefLookup {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-RegistryLookup");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-RegistryLookup");
 
     private static final String ENCHANTMENT_REGISTRY = "ENCHANTMENT";
     private static final String MOB_EFFECT_REGISTRY  = "MOB_EFFECT";
@@ -64,7 +64,7 @@ public final class RegistryRefLookup {
     /**
      * One INFO log per registry on first successful resolve, so users see
      * "polyfill alive" in the log without the per-call diagnostic stream.
-     * Per-step diagnostics live at DEBUG (enable {@code RetroMod-RegistryLookup}
+     * Per-step diagnostics live at DEBUG (enable {@code Retromod-RegistryLookup}
      * at debug level to see them).
      */
     private static final java.util.Set<String> RESOLVED_REGISTRIES =
@@ -93,7 +93,7 @@ public final class RegistryRefLookup {
      * <p>Attempt order:
      * <ol>
      *   <li>Cached anchor loader (set on first successful resolve)</li>
-     *   <li>Walk the stack via {@link StackWalker} and try each non-RetroMod,
+     *   <li>Walk the stack via {@link StackWalker} and try each non-Retromod,
      *       non-JDK caller's classloader. The first that finds an MC class
      *       gets cached as the anchor.</li>
      *   <li>The thread context classloader (Fabric usually sets this to Knot)</li>

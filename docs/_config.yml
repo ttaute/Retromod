@@ -1,8 +1,14 @@
-title: RetroMod
+title: Retromod
 description: >-
   Backwards compatibility layer for Minecraft mods — run older mods on
   newer versions. Supports Fabric, NeoForge, and Forge.
-baseurl: "/RetroMod"
+# NOTE on casing: the GitHub repo's displayed name is "RetroMod"
+# (capital M), but the mod itself is named "Retromod" (capital R only)
+# and the GitHub Pages URL is https://bownlux.github.io/Retromod/.
+# baseurl below must match the Pages URL exactly — GitHub Pages URLs
+# are case-sensitive. Don't change this to /RetroMod/ even if the repo's
+# displayed name has the M capitalized; that's the repo, not the site.
+baseurl: "/Retromod"
 url: "https://bownlux.github.io"
 
 # Use just-the-docs remote theme — wiki-style sidebar navigation, full-text
@@ -37,20 +43,20 @@ back_to_top_text: "Back to top"
 # GitHub corner in the header
 aux_links:
   "GitHub":
-    - "https://github.com/Bownlux/RetroMod"
+    - "https://github.com/Bownlux/Retromod"
   "Releases":
-    - "https://github.com/Bownlux/RetroMod/releases"
+    - "https://github.com/Bownlux/Retromod/releases"
   "Issues":
-    - "https://github.com/Bownlux/RetroMod/issues"
+    - "https://github.com/Bownlux/Retromod/issues"
 
 aux_links_new_tab: true
 
 # Footer
-footer_content: "RetroMod is released under the <a href=\"https://github.com/Bownlux/RetroMod/blob/main/LICENSE\">MIT License</a>. Copyright &copy; 2026 Bownlux."
+footer_content: "Retromod is released under the <a href=\"https://github.com/Bownlux/Retromod/blob/main/LICENSE\">MIT License</a>. Copyright &copy; 2026 Bownlux."
 
 # SEO
 github:
-  repository_url: https://github.com/Bownlux/RetroMod
+  repository_url: https://github.com/Bownlux/Retromod
   is_project_page: true
 
 # Callouts (info/warning/etc. boxes)

@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.compat;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.shim.api.common.VersionSpoofShim;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ class VersionSpoofShimTest {
     @Test
     @DisplayName("Shim registers the FabricLoader.getModContainer redirect")
     void shimRegistersRedirect() {
-        RetroModTransformer transformer = RetroModTransformer.getInstance();
+        RetromodTransformer transformer = RetromodTransformer.getInstance();
         int before = transformer.getMethodRedirects().size();
 
         new VersionSpoofShim().registerRedirects(transformer);
@@ -32,14 +32,14 @@ class VersionSpoofShimTest {
                 "Redirect count shouldn't decrease after registering the shim");
 
         // Confirm the specific entry we expect.
-        RetroModTransformer.MethodKey key = new RetroModTransformer.MethodKey(
+        RetromodTransformer.MethodKey key = new RetromodTransformer.MethodKey(
                 "net/fabricmc/loader/api/FabricLoader",
                 "getModContainer",
                 "(Ljava/lang/String;)Ljava/util/Optional;");
         assertTrue(transformer.getMethodRedirects().containsKey(key),
                 "FabricLoader.getModContainer should be registered as a redirect target");
 
-        RetroModTransformer.MethodTarget target = transformer.getMethodRedirects().get(key);
+        RetromodTransformer.MethodTarget target = transformer.getMethodRedirects().get(key);
         assertEquals("com/retromod/compat/VersionSpoofer", target.owner());
         assertEquals("getModContainer", target.name());
         assertTrue(target.devirtualize(),

@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.fabric;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -19,7 +19,7 @@ public class Fabric_1_20_5_to_1_20_6 implements VersionShim {
     @Override public String getModLoaderType() { return "fabric"; }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // No redirects needed — 1.20.6 is a hotfix for trader llama data loss.
         // No API renames, removals, or signature changes. This shim exists
         // solely for BFS chain continuity (ShimRegistry needs a connected path

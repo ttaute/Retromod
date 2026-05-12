@@ -1,12 +1,12 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  * 
  * Forge Registry System API Compatibility Shim
  */
 package com.retromod.shim.api.forge;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 import com.retromod.util.McReflect;
 import org.slf4j.Logger;
@@ -25,7 +25,7 @@ import org.slf4j.LoggerFactory;
  */
 public class ForgeRegistryApiShim implements VersionShim {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-ForgeRegistryApiShim");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ForgeRegistryApiShim");
 
     @Override
     public String getShimName() {
@@ -48,7 +48,7 @@ public class ForgeRegistryApiShim implements VersionShim {
     }
     
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // All redirects in this file map Forge package names to NeoForge
         // package names — only correct on a NeoForge runtime. On Forge,
         // they break every transformed mod with NoClassDefFoundError on

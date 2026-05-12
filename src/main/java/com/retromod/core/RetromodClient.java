@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -10,7 +10,7 @@ import net.fabricmc.api.Environment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.retromod.gui.RetroModGui;
+import com.retromod.gui.RetromodGui;
 import com.retromod.gui.TitleScreenButtonInjector;
 import com.retromod.util.McReflect;
 import java.lang.reflect.Method;
@@ -18,7 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Client-specific initialization for RetroMod.
+ * Client-specific initialization for Retromod.
  * 
  * This handles:
  * - GUI file picker for adding mods
@@ -28,13 +28,13 @@ import java.nio.file.Paths;
  * Server-side code should NOT import this class.
  */
 @Environment(EnvType.CLIENT)
-public class RetroModClient implements ClientModInitializer {
+public class RetromodClient implements ClientModInitializer {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Client");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Client");
     
     @Override
     public void onInitializeClient() {
-        LOGGER.info("RetroMod client-side initialization...");
+        LOGGER.info("Retromod client-side initialization...");
         
         // Mark environment as client
         EnvironmentDetector.setEnvironment(true, false);
@@ -51,28 +51,28 @@ public class RetroModClient implements ClientModInitializer {
         // Register crash handler with client instance
         registerClientCrashHandler();
 
-        // Register RetroMod presence channel for server cosmetic integration
-        registerRetroModPresenceChannel();
+        // Register Retromod presence channel for server cosmetic integration
+        registerRetromodPresenceChannel();
 
-        LOGGER.info("RetroMod client initialization complete!");
+        LOGGER.info("Retromod client initialization complete!");
     }
     
     /**
      * Initialize GUI components.
      *
-     * Registers a title screen button injector that adds a "RetroMod" button
+     * Registers a title screen button injector that adds a "Retromod" button
      * to the Minecraft title screen. The injector auto-detects the loader
      * (Fabric/NeoForge/Forge) and uses the appropriate event system.
      *
      * On Fabric, this requires Fabric API to be installed for ScreenEvents.
      * If Fabric API is not available, falls back to logging a message.
      *
-     * See: TitleScreenButtonInjector, RetroModScreen
+     * See: TitleScreenButtonInjector, RetromodScreen
      */
     private void initializeGui(Path gameDir) {
         try {
             TitleScreenButtonInjector.register();
-            LOGGER.info("RetroMod GUI available via title screen button");
+            LOGGER.info("Retromod GUI available via title screen button");
         } catch (Exception e) {
             LOGGER.warn("Could not register title screen button: {}", e.getMessage());
             LOGGER.info("Use the CLI instead: retromod <command>");
@@ -109,14 +109,14 @@ public class RetroModClient implements ClientModInitializer {
     }
 
     /**
-     * Register a plugin messaging channel to signal RetroMod presence to servers.
+     * Register a plugin messaging channel to signal Retromod presence to servers.
      * When joining a server (e.g., RevivalSMP), sends a presence packet so the
-     * server can unlock cosmetics for RetroMod users.
+     * server can unlock cosmetics for Retromod users.
      *
      * Uses reflection to avoid compile-time dependency on Fabric API networking classes
      * (which are not available in the Maven build, only in Gradle/Fabric Loom).
      */
-    private void registerRetroModPresenceChannel() {
+    private void registerRetromodPresenceChannel() {
         try {
             // ClientPlayConnectionEvents.JOIN.register(...)
             Class<?> eventsClass = Class.forName("net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents");
@@ -142,14 +142,14 @@ public class RetroModClient implements ClientModInitializer {
             Method registerMethod = joinEvent.getClass().getMethod("register", Object.class);
             registerMethod.invoke(joinEvent, proxy);
 
-            LOGGER.info("RetroMod presence channel registered");
+            LOGGER.info("Retromod presence channel registered");
         } catch (Exception e) {
             LOGGER.debug("Could not register presence channel (Fabric API may not be available): {}", e.getMessage());
         }
     }
 
     /**
-     * Send the RetroMod presence packet to the server via reflection.
+     * Send the Retromod presence packet to the server via reflection.
      */
     private void sendPresencePacket(Object packetSender) {
         try {
@@ -190,9 +190,9 @@ public class RetroModClient implements ClientModInitializer {
                 identifierClass, buf.getClass().getSuperclass());
             sendPacket.invoke(packetSender, identifier, buf);
 
-            LOGGER.debug("Sent RetroMod presence signal to server");
+            LOGGER.debug("Sent Retromod presence signal to server");
         } catch (Exception e) {
-            LOGGER.debug("Could not send RetroMod presence signal: {}", e.getMessage());
+            LOGGER.debug("Could not send Retromod presence signal: {}", e.getMessage());
         }
     }
 }

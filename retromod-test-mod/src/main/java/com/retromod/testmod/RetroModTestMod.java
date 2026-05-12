@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod;
@@ -26,7 +26,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
  * added later can hook the same three phases through their own event
  * systems and call the same three methods.
  */
-public class RetroModTestMod implements ClientModInitializer {
+public class RetromodTestMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Pattern-based heuristics for resolving unknown API changes between MC versions.
@@ -48,13 +48,13 @@ import java.util.concurrent.atomic.AtomicInteger;
  * This class is thread-safe. Rule arrays are immutable after construction, and
  * match counters use {@link AtomicInteger} for lock-free concurrent updates.
  *
- * <p><b>IMPORTANT:</b> This class must NOT reference {@code RetroMod} directly
+ * <p><b>IMPORTANT:</b> This class must NOT reference {@code Retromod} directly
  * because the transformer is also used by the standalone CLI where Fabric classes
  * are not on the classpath.</p>
  */
 public class PatternHeuristics {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Patterns");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Patterns");
 
     // ═══════════════════════════════════════════════════════════════════════
     // PATTERN RESULT — immutable record returned when a rule matches

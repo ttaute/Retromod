@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core.verify;
@@ -56,14 +56,14 @@ import java.util.Set;
  */
 public final class LoaderApiRenames {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-LoaderApiRenames");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-LoaderApiRenames");
 
     private static final String RESOURCE_PATH = "/retromod/loader-api-renames.json";
 
     /**
      * Known loader keys in the JSON file. Matches the enum values of
      * {@code com.retromod.api.platform.Loader} conceptually, but kept as strings
-     * here so this class has zero dependency on the rest of RetroMod.
+     * here so this class has zero dependency on the rest of Retromod.
      */
     private static final String[] LOADER_KEYS = {"fabric", "neoforge", "forge"};
 

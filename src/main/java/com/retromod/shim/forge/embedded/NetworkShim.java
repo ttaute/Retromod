@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * Shim for Forge's Network system that bridges to NeoForge.
@@ -49,7 +49,7 @@ public final class NetworkShim {
                     "net.minecraftforge.network.simple.SimpleChannel"
                 );
             } catch (ClassNotFoundException e2) {
-                System.err.println("RetroMod: No networking system found");
+                System.err.println("Retromod: No networking system found");
             }
         }
     }
@@ -96,7 +96,7 @@ public final class NetworkShim {
                     networkProtocolVersion, clientAcceptedVersions, serverAcceptedVersions);
                     
             } catch (Exception e) {
-                System.err.println("RetroMod: Could not create SimpleChannel: " + e);
+                System.err.println("Retromod: Could not create SimpleChannel: " + e);
             }
         }
         
@@ -160,7 +160,7 @@ public final class NetworkShim {
                 sendToServer.invoke(null, payload);
                 
             } catch (Exception e) {
-                System.err.println("RetroMod: Could not send to server: " + e);
+                System.err.println("Retromod: Could not send to server: " + e);
             }
         }
         
@@ -185,7 +185,7 @@ public final class NetworkShim {
                 sendToPlayer.invoke(null, target, payload);
                 
             } catch (Exception e) {
-                System.err.println("RetroMod: Could not send packet: " + e);
+                System.err.println("Retromod: Could not send packet: " + e);
             }
         }
         
@@ -343,11 +343,11 @@ public final class NetworkShim {
             // registrar.playToServer(type, codec, handler)
             // or registrar.playToClient(type, codec, handler)
             
-            System.out.println("RetroMod: Would register packet " + reg.messageType().getSimpleName() 
+            System.out.println("Retromod: Would register packet " + reg.messageType().getSimpleName() 
                 + " on channel " + channel.getResourceLocation());
                 
         } catch (Exception e) {
-            System.err.println("RetroMod: Could not replay registration: " + e);
+            System.err.println("Retromod: Could not replay registration: " + e);
         }
     }
 }

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
  * Fuzzy method/field resolver — last-resort fallback for unresolved references.
@@ -25,7 +25,7 @@ import java.util.jar.JarFile;
  *
  * <h2>Purpose</h2>
  * When a mod references a method or field that has no hardcoded redirect in
- * RetroModTransformer, this resolver scans the target Minecraft JAR to find
+ * RetromodTransformer, this resolver scans the target Minecraft JAR to find
  * probable matches using a weighted scoring algorithm. This covers edge cases
  * where methods were renamed, signatures slightly changed, or fields moved
  * between minor MC versions without explicit shim coverage.
@@ -62,13 +62,13 @@ import java.util.jar.JarFile;
  * once during {@link #indexJar(Path)} and are read-only thereafter. The
  * {@code indexed} flag is volatile to ensure visibility across threads.
  *
- * <p><b>IMPORTANT:</b> This class must NOT reference {@code RetroMod} directly
+ * <p><b>IMPORTANT:</b> This class must NOT reference {@code Retromod} directly
  * (which implements ModInitializer) because it is also used by the standalone
  * CLI where Fabric classes are not on the classpath.</p>
  */
 public class FuzzyMethodResolver {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Fuzzy");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Fuzzy");
 
     // ═══════════════════════════════════════════════════════════════════════
     // SCORING CONSTANTS — weights for each axis of the matching algorithm
@@ -526,20 +526,20 @@ public class FuzzyMethodResolver {
 
         // Apply threshold logic
         if (bestMatch != null && bestScore >= THRESHOLD_AUTO_APPLY) {
-            LOGGER.info("[RetroMod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
+            LOGGER.info("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore);
             boundedCachePut(methodResolveCache, cacheKey, bestMatch);
             return bestMatch;
         } else if (bestMatch != null && bestScore >= THRESHOLD_LOG_WARNING) {
-            LOGGER.warn("[RetroMod-Fuzzy] Possible match for {}.{}{} -> {}.{}{} " +
+            LOGGER.warn("[Retromod-Fuzzy] Possible match for {}.{}{} -> {}.{}{} " +
                     "(confidence: {}% — below auto-apply threshold of {}%)",
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore, THRESHOLD_AUTO_APPLY);
         } else if (bestMatch != null) {
-            LOGGER.debug("[RetroMod-Fuzzy] Low confidence match for {}.{}{} -> {}.{}{} ({}%)",
+            LOGGER.debug("[Retromod-Fuzzy] Low confidence match for {}.{}{} -> {}.{}{} ({}%)",
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore);
@@ -768,14 +768,14 @@ public class FuzzyMethodResolver {
 
         // Apply threshold logic (same thresholds as methods)
         if (bestMatch != null && bestScore >= THRESHOLD_AUTO_APPLY) {
-            LOGGER.info("[RetroMod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
+            LOGGER.info("[Retromod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore);
             boundedCachePut(fieldResolveCache, cacheKey, bestMatch);
             return bestMatch;
         } else if (bestMatch != null && bestScore >= THRESHOLD_LOG_WARNING) {
-            LOGGER.warn("[RetroMod-Fuzzy] Possible field match for {}.{} {} -> {}.{} {} " +
+            LOGGER.warn("[Retromod-Fuzzy] Possible field match for {}.{} {} -> {}.{} {} " +
                     "(confidence: {}% — below auto-apply threshold of {}%)",
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),

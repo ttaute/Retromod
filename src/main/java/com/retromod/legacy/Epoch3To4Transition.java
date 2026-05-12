@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * EPOCH 3 → 4: Modern Foundation (1.14-1.16) to Caves & Cliffs (1.17-1.18)

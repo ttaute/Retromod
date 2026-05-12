@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.minecraft.rendering.embedded;
@@ -21,7 +21,7 @@ import java.lang.invoke.MethodType;
  *
  * This shim first tries the new RenderTypes class (26.1+), then falls back to
  * the old RenderType class (pre-26.1) for backwards compatibility with older
- * MC versions where RetroMod might also be running.
+ * MC versions where Retromod might also be running.
  */
 public class RenderTypeShim {
 

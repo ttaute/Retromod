@@ -1,5 +1,5 @@
 /*
- * RetroMod Test Mod
+ * Retromod Test Mod
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.testmod.tests;
@@ -17,7 +17,7 @@ import java.util.List;
  * DataFixerUpper {@code Codec} primitives. Mojang's serialization library
  * gets bumped frequently and various concrete classes have flipped to
  * interfaces between MC versions ({@code DataResult}, {@code DynamicOps},
- * {@code MapLike}, {@code Lifecycle}). RetroMod has these in
+ * {@code MapLike}, {@code Lifecycle}). Retromod has these in
  * {@code KNOWN_INTERFACES} so the right INVOKE opcode is emitted; these
  * tests confirm the round-trip still works after translation.
  */

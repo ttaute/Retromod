@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.polyfill.registry;
@@ -33,7 +33,7 @@ import java.util.Optional;
  */
 public final class NbtCompatLookup {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-NbtCompat");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-NbtCompat");
 
     /** Resolved methods cached after first lookup, keyed by reflective method ID. */
     private static final java.util.concurrent.ConcurrentHashMap<String, Method> METHOD_CACHE =

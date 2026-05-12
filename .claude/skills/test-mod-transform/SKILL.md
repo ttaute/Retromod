@@ -1,12 +1,12 @@
 ---
 name: test-mod-transform
-description: Test that RetroMod correctly transforms mods for a target Minecraft version. Use when verifying transforms work, testing new shims, or debugging mod compatibility.
+description: Test that Retromod correctly transforms mods for a target Minecraft version. Use when verifying transforms work, testing new shims, or debugging mod compatibility.
 argument-hint: "mod-jar-or-slug target-version (e.g. sodium 26.1, jei, path/to/mod.jar)"
 ---
 
 # Test Mod Transform
 
-Systematically test that RetroMod transforms and loads mods correctly.
+Systematically test that Retromod transforms and loads mods correctly.
 
 ## Quick Test Flow
 
@@ -24,14 +24,14 @@ Systematically test that RetroMod transforms and loads mods correctly.
 
 2. **Analyze with CLI**:
    ```bash
-   mvn -f pom.xml exec:java -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+   mvn -f pom.xml exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" \
      -Dexec.args="analyze '/path/to/mod.jar'" -q
    ```
    Check: Mod ID, Target MC, Mod Loader, Complexity Score
 
 3. **Transform with CLI**:
    ```bash
-   mvn -f pom.xml exec:java -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+   mvn -f pom.xml exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" \
      -Dexec.args="batch '/path/to/mods-folder' --aot" -q
    ```
 
@@ -49,7 +49,7 @@ Systematically test that RetroMod transforms and loads mods correctly.
 5. **Runtime test** — Deploy and launch:
    - Copy mod to `retromod-input/` in game directory
    - Launch with the target MC version + loader
-   - Check `logs/latest.log` for RetroMod transform messages
+   - Check `logs/latest.log` for Retromod transform messages
    - Check if the mod appears in the mod list
    - Check for crashes in the log
 
@@ -81,7 +81,7 @@ Systematically test that RetroMod transforms and loads mods correctly.
 ```
 .minecraft/
 ├── mods/
-│   ├── retromod-1.0.0-beta.1+26.1.jar    (RetroMod itself)
+│   ├── retromod-1.0.0-beta.1+26.1.jar    (Retromod itself)
 │   ├── retromod-input/                      (Drop old mods here)
 │   │   ├── old-mod-1.20.jar
 │   │   └── processed/                       (Originals moved here after transform)
@@ -91,7 +91,7 @@ Systematically test that RetroMod transforms and loads mods correctly.
 │   ├── fabric-loader-0.18.4-26.1-pre-2/
 │   └── neoforge-26.1.0.0-alpha.6+snapshot-2/
 ├── logs/
-│   └── latest.log                           (Check for [RetroMod] messages)
+│   └── latest.log                           (Check for [Retromod] messages)
 └── config/
     └── retromod/
         ├── config.json

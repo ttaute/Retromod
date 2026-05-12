@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -14,7 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Dedicated server initialization for RetroMod.
+ * Dedicated server initialization for Retromod.
  * 
  * Server-specific features:
  * - No GUI (headless operation)
@@ -25,13 +25,13 @@ import java.nio.file.Paths;
  * Does NOT initialize any Swing/AWT components.
  */
 @Environment(EnvType.SERVER)
-public class RetroModServer implements DedicatedServerModInitializer {
+public class RetromodServer implements DedicatedServerModInitializer {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Server");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Server");
     
     @Override
     public void onInitializeServer() {
-        LOGGER.info("RetroMod dedicated server initialization...");
+        LOGGER.info("Retromod dedicated server initialization...");
         
         // Mark environment as server (headless)
         EnvironmentDetector.setEnvironment(false, true);
@@ -43,7 +43,7 @@ public class RetroModServer implements DedicatedServerModInitializer {
         registerServerCrashHandler();
         
         LOGGER.info("=======================================================");
-        LOGGER.info("  RetroMod: Server Mode Active");
+        LOGGER.info("  Retromod: Server Mode Active");
         LOGGER.info("=======================================================");
         LOGGER.info("  • Bytecode transformation: ENABLED");
         LOGGER.info("  • AOT compilation: ENABLED");
@@ -51,7 +51,7 @@ public class RetroModServer implements DedicatedServerModInitializer {
         LOGGER.info("  • Console warnings: ENABLED");
         LOGGER.info("=======================================================");
         
-        LOGGER.info("RetroMod server initialization complete!");
+        LOGGER.info("Retromod server initialization complete!");
     }
     
     /**

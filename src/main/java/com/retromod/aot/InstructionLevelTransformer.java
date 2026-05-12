@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.aot;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import org.objectweb.asm.*;
 import org.objectweb.asm.tree.*;
 import org.slf4j.Logger;
@@ -39,14 +39,14 @@ public class InstructionLevelTransformer {
     
     private static final Logger LOGGER = LoggerFactory.getLogger("retromod-insn");
     
-    private final RetroModTransformer transformer;
+    private final RetromodTransformer transformer;
     
     // Statistics
     private int instructionsAot = 0;
     private int instructionsJit = 0;
     private int instructionsUnchanged = 0;
     
-    public InstructionLevelTransformer(RetroModTransformer transformer) {
+    public InstructionLevelTransformer(RetromodTransformer transformer) {
         this.transformer = transformer;
     }
     
@@ -154,7 +154,7 @@ public class InstructionLevelTransformer {
         }
         
         // Check if method needs redirect
-        var key = new RetroModTransformer.MethodKey(insn.owner, insn.name, insn.desc);
+        var key = new RetromodTransformer.MethodKey(insn.owner, insn.name, insn.desc);
         if (transformer.getMethodRedirects().containsKey(key)) {
             return new InstructionDecision(TransformAction.AOT_TRANSFORM, null);
         }
@@ -335,7 +335,7 @@ public class InstructionLevelTransformer {
                 );
                 
                 // Apply redirects
-                var key = new RetroModTransformer.MethodKey(
+                var key = new RetromodTransformer.MethodKey(
                     transformed.owner, transformed.name, transformed.desc
                 );
                 var target = transformer.getMethodRedirects().get(key);

@@ -1,11 +1,11 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
  * This class provides a shim implementation for the removed NbtType utility.
  * Original source: Fabric API fabric-api-base module
  * 
- * When a mod calls NbtType.getType(b), RetroMod redirects it here.
+ * When a mod calls NbtType.getType(b), Retromod redirects it here.
  */
 package com.retromod.shim.fabric.embedded;
 

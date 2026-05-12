@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.thirdparty;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -26,7 +26,7 @@ import com.retromod.polyfill.PolyfillProvider;
  * </ul>
  *
  * This bridge does NOT bundle GeckoLib. The user installs GeckoLib 4.x normally;
- * RetroMod only redirects old 3.x class references to their 4.x equivalents.
+ * Retromod only redirects old 3.x class references to their 4.x equivalents.
  */
 public class GeckoLibBridgePolyfill implements PolyfillProvider {
 
@@ -65,7 +65,7 @@ public class GeckoLibBridgePolyfill implements PolyfillProvider {
     }
 
     @Override
-    public void registerPolyfills(RetroModTransformer transformer) {
+    public void registerPolyfills(RetromodTransformer transformer) {
         // =====================================================================
         // Package rename: software.bernie.geckolib3 -> software.bernie.geckolib
         // Plus class renames within the new package structure.

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Graceful crash handler for RetroMod.
+ * Graceful crash handler for Retromod.
  * 
  * When a transformed mod causes an error during gameplay:
  * 1. Catches the error before it crashes Minecraft
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class SafeCrashHandler {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-SafeCrash");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-SafeCrash");
     
     // Singleton
     private static SafeCrashHandler instance;
@@ -51,10 +51,10 @@ public class SafeCrashHandler {
     private SafeCrashHandler(Map<String, String> classToModMap) {
         this.classToModMap = classToModMap;
 
-        // Save previous handler so we can chain non-RetroMod exceptions to it
+        // Save previous handler so we can chain non-Retromod exceptions to it
         this.previousHandler = Thread.getDefaultUncaughtExceptionHandler();
 
-        // Install our handler that only intercepts RetroMod-related exceptions
+        // Install our handler that only intercepts Retromod-related exceptions
         Thread.setDefaultUncaughtExceptionHandler(this::handleUncaughtException);
     }
 
@@ -114,7 +114,7 @@ public class SafeCrashHandler {
     
     /**
      * Global uncaught exception handler.
-     * Only intercepts exceptions from classes we KNOW are RetroMod-transformed
+     * Only intercepts exceptions from classes we KNOW are Retromod-transformed
      * (i.e. present in classToModMap). All other exceptions are forwarded to the
      * previous handler so Minecraft's own crash handling works normally.
      *
@@ -127,20 +127,20 @@ public class SafeCrashHandler {
         // This prevents the "crash error 1 with no text" problem.
         LOGGER.error("Uncaught exception on thread '{}': {}", thread.getName(), error.getMessage());
         LOGGER.error("Full stack trace:", error);
-        System.err.println("[RetroMod] Uncaught exception on thread \"" + thread.getName() + "\": " + error);
+        System.err.println("[Retromod] Uncaught exception on thread \"" + thread.getName() + "\": " + error);
         error.printStackTrace(System.err);
 
         // Write crash log to file so the user always has something to report
         writeCrashLog(thread, error);
 
-        // Now check if it's from a RetroMod-transformed class
+        // Now check if it's from a Retromod-transformed class
         String modId = identifyConfirmedModFromStackTrace(error);
 
         if (modId != null) {
-            LOGGER.error("Crash caused by RetroMod-transformed mod: '{}'", modId);
+            LOGGER.error("Crash caused by Retromod-transformed mod: '{}'", modId);
             triggerSafeCrash(modId, null, error);
         } else {
-            // Not from a RetroMod-transformed class - delegate to previous handler
+            // Not from a Retromod-transformed class - delegate to previous handler
             if (previousHandler != null) {
                 previousHandler.uncaughtException(thread, error);
             } else {
@@ -160,7 +160,7 @@ public class SafeCrashHandler {
             java.nio.file.Path crashLog = crashLogDir.resolve("crash-log.txt");
 
             StringBuilder sb = new StringBuilder();
-            sb.append("=== RetroMod Crash Log ===\n");
+            sb.append("=== Retromod Crash Log ===\n");
             sb.append("Time: ").append(java.time.LocalDateTime.now()).append("\n");
             sb.append("Thread: ").append(thread.getName()).append("\n");
             sb.append("Error: ").append(error.getClass().getName())
@@ -178,8 +178,8 @@ public class SafeCrashHandler {
             sb.append("\nJava: ").append(System.getProperty("java.version")).append("\n");
             sb.append("OS: ").append(System.getProperty("os.name")).append(" ")
               .append(System.getProperty("os.version")).append("\n");
-            sb.append("RetroMod: 1.0.0-beta.1\n");
-            sb.append("\nPlease report this at: https://github.com/Bownlux/RetroMod/issues\n");
+            sb.append("Retromod: 1.0.0-beta.1\n");
+            sb.append("\nPlease report this at: https://github.com/Bownlux/Retromod/issues\n");
 
             java.nio.file.Files.writeString(crashLog, sb.toString());
             LOGGER.info("Crash details written to {}", crashLog.toAbsolutePath());
@@ -191,7 +191,7 @@ public class SafeCrashHandler {
 
     /**
      * Only returns a mod ID if the stack trace contains a class that is
-     * CONFIRMED to be in our classToModMap (i.e., actually transformed by RetroMod).
+     * CONFIRMED to be in our classToModMap (i.e., actually transformed by Retromod).
      */
     private String identifyConfirmedModFromStackTrace(Throwable error) {
         for (StackTraceElement element : error.getStackTrace()) {
@@ -425,14 +425,14 @@ public class SafeCrashHandler {
     private void showCrashDialog(String modId, Throwable error, boolean worldSaved) {
         // Build the message
         StringBuilder message = new StringBuilder();
-        message.append("RetroMod encountered an error!\n\n");
+        message.append("Retromod encountered an error!\n\n");
         
         message.append("═══════════════════════════════════════\n");
         message.append("THE PROBLEM:\n");
         message.append("═══════════════════════════════════════\n\n");
         
         message.append("The mod \"").append(modId).append("\" does not work\n");
-        message.append("correctly with RetroMod.\n\n");
+        message.append("correctly with Retromod.\n\n");
         
         message.append("Error: ").append(error.getClass().getSimpleName()).append("\n");
         if (error.getMessage() != null) {
@@ -457,13 +457,13 @@ public class SafeCrashHandler {
         message.append("═══════════════════════════════════════\n\n");
         
         message.append("1. UNINSTALL \"").append(modId).append("\"\n");
-        message.append("   Remove this mod and continue using RetroMod\n");
+        message.append("   Remove this mod and continue using Retromod\n");
         message.append("   with your other mods.\n\n");
         
         message.append("2. FIND AN ALTERNATIVE\n");
         message.append("   Look for a similar mod that works with your\n");
         message.append("   Minecraft version, or has been tested with\n");
-        message.append("   RetroMod.\n\n");
+        message.append("   Retromod.\n\n");
         
         message.append("3. USE THE ORIGINAL VERSION\n");
         message.append("   Play on the Minecraft version that\n");

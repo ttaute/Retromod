@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.polyfill.thirdparty;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -22,7 +22,7 @@ import com.retromod.polyfill.PolyfillProvider;
  * </ul>
  *
  * This bridge does NOT bundle EMI. The user installs EMI 1.x normally;
- * RetroMod only redirects old 0.x class references to their 1.x equivalents.
+ * Retromod only redirects old 0.x class references to their 1.x equivalents.
  */
 public class EmiBridgePolyfill implements PolyfillProvider {
 
@@ -53,7 +53,7 @@ public class EmiBridgePolyfill implements PolyfillProvider {
     }
 
     @Override
-    public void registerPolyfills(RetroModTransformer transformer) {
+    public void registerPolyfills(RetromodTransformer transformer) {
         // =====================================================================
         // EMI 0.x -> 1.x class renames.
         // The package stays dev.emi.emi.api but some classes were renamed.

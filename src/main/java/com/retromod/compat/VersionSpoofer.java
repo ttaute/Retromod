@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.compat;
@@ -28,7 +28,7 @@ import java.util.Optional;
  * mod does its own version check in code.
  *
  * <h3>The problem this solves</h3>
- * <p>RetroMod already relaxes {@code "depends"} entries in mod metadata so
+ * <p>Retromod already relaxes {@code "depends"} entries in mod metadata so
  * Fabric Loader stops blocking mods at load time. That fixes metadata-level
  * incompatibilities. But some mods (REI, old tech mods, anything with a
  * "strict compatibility" check) also run code at init that asks Fabric Loader
@@ -48,7 +48,7 @@ import java.util.Optional;
  * </pre>
  *
  * <h3>How the spoofer works</h3>
- * <p>RetroMod's bytecode transformer redirects every call to
+ * <p>Retromod's bytecode transformer redirects every call to
  * {@code FabricLoader.getModContainer(modId)} inside transformed mods to
  * {@link #getModContainer(Object, String)}. We intercept the call, look up
  * {@code modId} in a curated spoof table, and either:</p>
@@ -76,14 +76,14 @@ import java.util.Optional;
  * <h3>Reflection-only implementation</h3>
  * <p>This class deliberately uses {@code Object} parameter types instead of
  * importing {@code net.fabricmc.loader.api.FabricLoader} / {@code ModContainer}
- * / {@code ModMetadata} / {@code Version}. RetroMod ships as a standalone JAR
+ * / {@code ModMetadata} / {@code Version}. Retromod ships as a standalone JAR
  * that also runs in the CLI, where Fabric Loader is not on the classpath.
  * Using reflection keeps the core JAR loadable in those environments; the
  * spoofer simply no-ops if Fabric types aren't present.</p>
  */
 public final class VersionSpoofer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-VersionSpoofer");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-VersionSpoofer");
 
     private static final String SPOOF_RESOURCE = "/retromod/version-spoofs.json";
 

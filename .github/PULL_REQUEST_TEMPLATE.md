@@ -33,7 +33,7 @@ How did you test this? Be specific:
 
 - [ ] If I added a shim, I registered it in `META-INF/services/com.retromod.core.VersionShim`
 - [ ] If I added a polyfill provider, I registered it in `META-INF/services/com.retromod.polyfill.PolyfillProvider`
-- [ ] I didn't hardcode an MC version string (used `RetroMod.TARGET_MC_VERSION` where needed)
+- [ ] I didn't hardcode an MC version string (used `Retromod.TARGET_MC_VERSION` where needed)
 - [ ] I didn't delete or weaken existing shims for older MC versions (1.12.2+ shims must stay)
 - [ ] `mvn test -Dexec.skip=true` passes locally
 - [ ] If this changes user-facing behavior, I updated the relevant page under `docs/`

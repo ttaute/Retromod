@@ -1,11 +1,11 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 RevivalSMP. Licensed under MIT.
  */
 package com.retromod.shim.api.fabric;
 
 import com.retromod.core.EnvironmentDetector;
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
  */
 public class RenderingBackendShim implements VersionShim {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-RenderBackend");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-RenderBackend");
 
     @Override
     public String getShimName() {
@@ -74,7 +74,7 @@ public class RenderingBackendShim implements VersionShim {
     }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         EnvironmentDetector.RenderingBackend backend = EnvironmentDetector.getRenderingBackend();
         LOGGER.info("Rendering backend: {} (arch: {}, os: {})",
             backend, EnvironmentDetector.getCpuArch(), EnvironmentDetector.getOsFamily());
@@ -108,7 +108,7 @@ public class RenderingBackendShim implements VersionShim {
      * Register redirects for the OpenGL → Vulkan transition.
      * These will activate when Minecraft switches to Vulkan.
      */
-    private void registerVulkanRedirects(RetroModTransformer transformer) {
+    private void registerVulkanRedirects(RetromodTransformer transformer) {
         LOGGER.info("Registering Vulkan rendering redirects");
 
         // GlStateManager → VkStateManager (or unified RenderStateManager)
@@ -157,7 +157,7 @@ public class RenderingBackendShim implements VersionShim {
      * Register redirects for Metal rendering on macOS.
      * Metal may be used directly on Apple Silicon for better performance.
      */
-    private void registerMetalRedirects(RetroModTransformer transformer) {
+    private void registerMetalRedirects(RetromodTransformer transformer) {
         LOGGER.info("Registering Metal rendering redirects (macOS)");
 
         // Metal uses similar abstractions to Vulkan, so most Vulkan redirects apply
@@ -177,7 +177,7 @@ public class RenderingBackendShim implements VersionShim {
      * Register future-proof redirects that work on ALL backends.
      * These handle common API changes that happen regardless of rendering backend.
      */
-    private void registerFutureProofRedirects(RetroModTransformer transformer) {
+    private void registerFutureProofRedirects(RetromodTransformer transformer) {
         // =====================================================================
         //  RenderSystem thread safety
         // =====================================================================

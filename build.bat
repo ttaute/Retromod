@@ -1,9 +1,9 @@
 @echo off
 REM ============================================================================
-REM RetroMod Build Script (Windows)
+REM Retromod Build Script (Windows)
 REM Copyright (c) 2026 RevivalSMP. MIT License.
 REM
-REM Builds all RetroMod outputs:
+REM Builds all Retromod outputs:
 REM   - CLI tool (standalone, all platforms)
 REM   - Fabric mod (for Fabric Loader)
 REM   - NeoForge mod (for NeoForge Loader)
@@ -12,7 +12,7 @@ REM ============================================================================
 set VERSION=1.0.0-beta.1
 
 echo ============================================
-echo   RetroMod Build Script v%VERSION%
+echo   Retromod Build Script v%VERSION%
 echo   MIT License - RevivalSMP
 echo ============================================
 echo.
@@ -25,7 +25,7 @@ if %ERRORLEVEL% neq 0 (
     exit /b 1
 )
 
-echo Building RetroMod...
+echo Building Retromod...
 echo.
 
 echo [1/5] Cleaning previous build...
@@ -76,7 +76,7 @@ jar xf "..\retromod-%VERSION%.jar"
 
 REM Remove NeoForge-specific files
 if exist "META-INF\neoforge.mods.toml" del "META-INF\neoforge.mods.toml"
-if exist "com\retromod\core\RetroModNeoForge.class" del "com\retromod\core\RetroModNeoForge.class"
+if exist "com\retromod\core\RetromodNeoForge.class" del "com\retromod\core\RetromodNeoForge.class"
 
 REM Repackage as Fabric mod
 jar cfm "..\..\dist\retromod-%VERSION%-fabric.jar" META-INF\MANIFEST.MF .
@@ -97,7 +97,7 @@ if exist "fabric.mod.json" del "fabric.mod.json"
 REM Update manifest for NeoForge
 (
 echo Manifest-Version: 1.0
-echo Implementation-Title: RetroMod
+echo Implementation-Title: Retromod
 echo Implementation-Version: 1.0.0
 echo Automatic-Module-Name: retromod
 ) > META-INF\MANIFEST.MF

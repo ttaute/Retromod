@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Performance monitor for RetroMod.
+ * Performance monitor for Retromod.
  * 
  * Tracks:
  * - Memory usage
@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class MemorySafetyMonitor {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Performance");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Performance");
     
     // Singleton instance
     private static MemorySafetyMonitor instance;
@@ -109,7 +109,7 @@ public class MemorySafetyMonitor {
         this.osBean = ManagementFactory.getOperatingSystemMXBean();
         
         // Start background monitoring thread
-        Thread monitor = new Thread(this::monitorLoop, "RetroMod-PerformanceMonitor");
+        Thread monitor = new Thread(this::monitorLoop, "Retromod-PerformanceMonitor");
         monitor.setDaemon(true);
         monitor.start();
     }
@@ -305,7 +305,7 @@ public class MemorySafetyMonitor {
         
         // Build the message
         StringBuilder message = new StringBuilder();
-        message.append("RetroMod Performance Issue Detected!\n\n");
+        message.append("Retromod Performance Issue Detected!\n\n");
         
         // Explain the specific problem
         switch (lastIssue) {
@@ -403,7 +403,7 @@ public class MemorySafetyMonitor {
                 int choice = JOptionPane.showOptionDialog(
                     null,
                     message,
-                    "RetroMod - Performance Critical",
+                    "Retromod - Performance Critical",
                     JOptionPane.YES_NO_OPTION,
                     JOptionPane.ERROR_MESSAGE,
                     null,
@@ -423,7 +423,7 @@ public class MemorySafetyMonitor {
                 JOptionPane.showMessageDialog(
                     null,
                     message,
-                    "RetroMod - Performance Warning",
+                    "Retromod - Performance Warning",
                     JOptionPane.WARNING_MESSAGE
                 );
                 warningShown = false;

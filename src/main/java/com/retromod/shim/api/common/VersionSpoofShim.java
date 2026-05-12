@@ -1,10 +1,10 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.shim.api.common;
 
-import com.retromod.core.RetroModTransformer;
+import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
@@ -19,12 +19,12 @@ import com.retromod.core.VersionShim;
  * instead of the real (potentially newer) installed version.</p>
  *
  * <h3>Why this is a VersionShim rather than inline init</h3>
- * <p>RetroMod's VersionShim SPI fires once, during transformer setup, on
+ * <p>Retromod's VersionShim SPI fires once, during transformer setup, on
  * every loader/environment. Registering the redirect there means every mod
- * transformed by RetroMod — whether via Fabric pre-launch, NeoForge
+ * transformed by Retromod — whether via Fabric pre-launch, NeoForge
  * constructor, CLI batch, or Java Agent — gets the same redirect applied
  * uniformly. Making it a shim also keeps the wiring file-local (no sprawl
- * into RetroMod.onInitialize or its loader-specific siblings).</p>
+ * into Retromod.onInitialize or its loader-specific siblings).</p>
  *
  * <h3>What this shim does NOT do</h3>
  * <p>It doesn't register the spoof rules themselves — those live in the
@@ -60,7 +60,7 @@ public final class VersionSpoofShim implements VersionShim {
     }
 
     @Override
-    public void registerRedirects(RetroModTransformer transformer) {
+    public void registerRedirects(RetromodTransformer transformer) {
         // Redirect FabricLoader.getModContainer(String) → VersionSpoofer.getModContainer(FabricLoader, String).
         //
         // devirtualize=true tells the transformer to:

@@ -1,5 +1,5 @@
 /*
- * RetroMod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.mapping;
@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
  */
 public class IntermediaryToMojangMapper {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger("RetroMod-Mapping");
+    private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Mapping");
     private static final String MAPPING_RESOURCE = "/intermediary-to-mojang.tsv";
     private static final String CLASS_MOVES_RESOURCE = "/mojang-class-moves-26.1.tsv";
 
@@ -248,9 +248,9 @@ public class IntermediaryToMojangMapper {
      * overwrite any matching entries with the same value).
      *
      * <p>This is the single entry point that <b>any</b> startup path should
-     * invoke to prepare a {@code RetroModTransformer} for Fabric intermediary
+     * invoke to prepare a {@code RetromodTransformer} for Fabric intermediary
      * remapping. Previously this wiring was duplicated inline in
-     * {@code RetroModPreLaunch}, which meant the CLI's {@code gaps} and
+     * {@code RetromodPreLaunch}, which meant the CLI's {@code gaps} and
      * {@code batch} commands couldn't benefit from it — AppleSkin and other
      * Fabric mods had all their intermediary class names show up as
      * "missing" in the gap report. Centralizing here fixes that for every
@@ -266,7 +266,7 @@ public class IntermediaryToMojangMapper {
      * @param transformer the transformer to populate; must not be null
      * @return number of class redirects registered (for diagnostic logging)
      */
-    public static int applyTo(com.retromod.core.RetroModTransformer transformer) {
+    public static int applyTo(com.retromod.core.RetromodTransformer transformer) {
         if (transformer == null) {
             throw new IllegalArgumentException("transformer must not be null");
         }
