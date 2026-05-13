@@ -1,4 +1,4 @@
-# RetroMod Polyfill Providers - ServiceLoader configuration
+# Retromod Polyfill Providers - ServiceLoader configuration
 # Copyright (c) 2026 Bownlux
 #
 # Polyfills re-implement removed APIs as compatibility bridges.

@@ -1,12 +1,12 @@
 ---
 name: build-and-deploy
-description: Build RetroMod from source and deploy it to a Minecraft installation for testing. Use when you need to rebuild after code changes and test in-game.
+description: Build Retromod from source and deploy it to a Minecraft installation for testing. Use when you need to rebuild after code changes and test in-game.
 argument-hint: "--skip-tests or --deploy"
 ---
 
 # Build and Deploy
 
-Build RetroMod and optionally deploy to the local Minecraft installation.
+Build Retromod and optionally deploy to the local Minecraft installation.
 
 ## Build
 
@@ -33,7 +33,7 @@ Since the JAR doesn't include dependencies, use Maven exec:
 
 ```bash
 mvn -f pom.xml exec:java \
-  -Dexec.mainClass="com.retromod.cli.RetroModCli" \
+  -Dexec.mainClass="com.retromod.cli.RetromodCli" \
   -Dexec.args="<command> [args]" -q
 ```
 
@@ -55,11 +55,11 @@ mvn -f pom.xml exec:java \
 ## Project Structure
 
 ```
-RetroMod/
+Retromod/
 ├── pom.xml                          # Maven build config (Java 21 target, ASM 9.7)
 ├── src/main/java/com/retromod/
-│   ├── core/                        # Core runtime (RetroMod, Transformer, Detectors)
-│   ├── cli/                         # CLI tool (RetroModCli)
+│   ├── core/                        # Core runtime (Retromod, Transformer, Detectors)
+│   ├── cli/                         # CLI tool (RetromodCli)
 │   ├── aot/                         # AOT compiler (AotCompiler, FullAotCompiler)
 │   ├── shim/                        # Version shims by loader
 │   │   ├── fabric/                  # Fabric shims (1.14→...→26.1)

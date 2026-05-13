@@ -2,12 +2,10 @@ title: Retromod
 description: >-
   Backwards compatibility layer for Minecraft mods — run older mods on
   newer versions. Supports Fabric, NeoForge, and Forge.
-# NOTE on casing: the GitHub repo's displayed name is "RetroMod"
-# (capital M), but the mod itself is named "Retromod" (capital R only)
-# and the GitHub Pages URL is https://bownlux.github.io/Retromod/.
-# baseurl below must match the Pages URL exactly — GitHub Pages URLs
-# are case-sensitive. Don't change this to /RetroMod/ even if the repo's
-# displayed name has the M capitalized; that's the repo, not the site.
+# baseurl must match the GitHub Pages URL exactly. GitHub Pages URLs
+# are case-sensitive and lock in the casing of the repo name as it was
+# when Pages was first set up — so leave this alone unless you also
+# disable + re-enable Pages in the repo settings.
 baseurl: "/Retromod"
 url: "https://bownlux.github.io"
 
