@@ -329,6 +329,54 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
+            // Transform "target" — used by MixinExtras annotations like
+            // @ModifyExpressionValue(target = "Lnet/minecraft/client/gui/Gui;getDebugCrosshair()Z")
+            // and by some standard @Inject variants. Same shape as @At's
+            // target argument, so we run it through the same redirector that
+            // transformAtAnnotation uses. Without this, a mixin whose OUTER
+            // @Mixin target gets renamed by Retromod still has stale class
+            // references inside its inner annotations — the mixin processor
+            // then refuses the injection with "specifies a target class 'X',
+            // which is not supported" (where X is the pre-rename class name).
+            //
+            // Crash report that motivated the addition: CustomHUD 4.1.3 on
+            // MC 26.1.2 — outer target renamed to GuiGraphicsExtractor
+            // correctly, but the @ModifyExpressionValue inner target still
+            // said net/minecraft/client/gui/Gui and the injection failed.
+            if ("target".equals(key)) {
+                if (value instanceof List<?> targets) {
+                    List<String> newTargets = new ArrayList<>();
+                    boolean changed = false;
+                    for (Object t : targets) {
+                        if (t instanceof String s) {
+                            String redirected = redirectMethodTarget(s);
+                            newTargets.add(redirected);
+                            if (!s.equals(redirected)) {
+                                changed = true;
+                                LOGGER.debug("Redirected @ModifyExpressionValue/@Inject target: {} -> {}", s, redirected);
+                            }
+                        } else {
+                            // Preserve non-string entries unchanged.
+                            // newTargets is typed as List<String> for the all-string case;
+                            // if we hit a non-string we fall back to leaving the original list alone.
+                            newTargets = null;
+                            break;
+                        }
+                    }
+                    if (newTargets != null && changed) {
+                        annotation.values.set(i + 1, newTargets);
+                        modified = true;
+                    }
+                } else if (value instanceof String s) {
+                    String redirected = redirectMethodTarget(s);
+                    if (!s.equals(redirected)) {
+                        annotation.values.set(i + 1, redirected);
+                        modified = true;
+                        LOGGER.debug("Redirected @ModifyExpressionValue/@Inject target: {} -> {}", s, redirected);
+                    }
+                }
+            }
+
             // Downgrade CAPTURE_FAILHARD to CAPTURE_FAILSOFT.
             //
             // WHY: "locals = LocalCapture.CAPTURE_FAILHARD" makes the mixin

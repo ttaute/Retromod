@@ -430,7 +430,13 @@ public class AotCompiler {
      */
     private byte[] transformClassSimple(byte[] classBytes, String className) {
         ClassReader reader = new ClassReader(classBytes);
-        ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        // SafeClassWriter (not the raw ClassWriter) — its getCommonSuperClass
+        // override catches the TypeNotPresentException ASM throws when it can't
+        // resolve an MC class via Class.forName(). Raw ClassWriter blew up the
+        // whole AOT pass on a single mod that referenced a target-MC class
+        // not present on the source classpath (e.g. JourneyMap referencing
+        // GuiGraphics during a 26.1.2 build off the game thread).
+        ClassWriter writer = new com.retromod.util.SafeClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         
         // Full transformation pass
         ClassVisitor visitor = new AotClassVisitor(Opcodes.ASM9, writer, className);

@@ -47,16 +47,73 @@ Either way, [file an issue](https://github.com/Bownlux/Retromod/issues) with the
 
 ## Java version errors
 
-You need **Java 25 or newer**. If you see something like:
+The Java version you need depends on which MC version you're running, **not** on Retromod itself. Retromod's bytecode targets Java 17, so the same JAR runs on Java 17, 21, and 25 — but MC itself has its own Java floor that grows over time:
 
-```
-UnsupportedClassVersionError: ... class file version 69.0
-```
+| Your Minecraft version | Java you need |
+|---|---|
+| MC 1.20 – 1.20.4 | Java 17 |
+| MC 1.20.5 – 1.21.x | Java 21 |
+| MC 26.1+ | Java 25 |
 
-...your Java runtime is too old. ASM 9.8 (which Retromod uses) only reads class file version 69 on Java 25+. Fixes:
+Retromod's per-MC build declares the matching Java requirement, so the loader will refuse with a friendly error if you have the wrong one.
 
-- **Use Minecraft's bundled runtime.** Modern Minecraft launchers install the right Java for you — make sure the profile you're launching is using it rather than a system-wide Java 17 or 21.
-- **Install Java 25 manually.** [Adoptium](https://adoptium.net/) has OpenJDK builds. After installing, point your launcher's profile at the new Java executable.
+### "Mod 'Retromod' requires version 21 or later of 'OpenJDK 64-Bit Server VM' (java)"
+
+(Or `version 25 or later`.) Fabric Loader is enforcing the Java requirement for your MC version — you have an older Java than your MC needs. Install the right Java for your MC version from [Adoptium](https://adoptium.net/), then:
+
+- **Prism / MultiMC / ATLauncher:** Right-click the instance → **Edit** → **Settings** → **Java** tab → uncheck "Use system Java" → point at the new Java install
+- **Vanilla launcher:** Edit the installation profile → **More Options** → **Java Executable** → point at the new install
+
+**A common misconception:** MC 1.20.1 *can* run on Java 21 or 25. Vanilla MC is forward-compatible — it was built against Java 17 but loads fine on later versions. The Fabric error message is about Retromod's declared requirement, not a Minecraft limitation.
+
+### "UnsupportedClassVersionError: class file version 69.0"
+
+This is the JVM rejecting bytecode that's newer than it knows how to load. Class file version 69 = Java 25, so this means a class file built for Java 25 is being loaded by a Java 21 (or older) JVM.
+
+If you're on MC 26.1+ and seeing this, you need to install **Java 25**. MC 26.1's own class files are Java 25 bytecode, so even though Retromod itself is Java 17 bytecode, MC won't load on Java 21.
+
+If you're on MC 1.20.x or 1.21.x and seeing this, something on your classpath is Java 25 bytecode that shouldn't be — usually a mod that requires a newer MC and got installed by mistake. Check `latest.log` for the class name in the error; it'll tell you which mod.
+
+## "I'm on Quilt — which build do I install?"
+
+The **Fabric** build. Drop `retromod-<version>+<MC>-fabric.jar` into your Quilt instance's `mods/` folder. There's no separate "Quilt build" — Quilt Loader runs Fabric mods natively, so the Fabric JAR works on Quilt unchanged. You'll need Quilted Fabric API (QFAPI) installed, which Quilt instances typically already have.
+
+Retromod has a `quilt.mod.json` baked into the Fabric JAR specifically so Quilt's mod list shows it with a proper icon and metadata instead of as "a Fabric mod loaded via compat." Same JAR, no extra step. See the [Quilt FAQ entry]({{ '/faq#does-it-work-with-quilt' | relative_url }}) for more.
+
+## "NoSuchFieldError: f_NNNNN_" or "NoSuchMethodError: m_NNNNNN_" on a Forge mod
+
+These are Forge SRG names — short numeric identifiers that old Forge mods (anything built with ForgeGradle's `reobfJar` task, basically every Forge mod for MC < 1.20.5) use to reference Minecraft members. Forge's runtime used to remap them back to real names; Forge 64.x for MC 26.1+ dropped that remap layer, so reobf'd mods crash on first reference.
+
+Retromod ships a dictionary that handles the common ones (~120 entries covering Block/Item statics and the highest-frequency Component/ResourceLocation methods), but it's an explicitly-incomplete starter set — the full SRG namespace has tens of thousands of entries.
+
+If you hit one of these errors:
+
+1. **Confirm it's an SRG-name pattern:** field starts with `f_`, method starts with `m_`, both end with an underscore and contain only digits in the middle. If yours doesn't match that pattern, it's a different problem — see "Verify reports missing methods" above.
+2. **Note the exact name** from the crash log (e.g. `f_220832_`).
+3. **Add it to Retromod's dictionary** — see [Adding SRG Mappings]({{ '/srg-mappings' | relative_url }}) for the one-line PR workflow. Looking up the Mojang name via [Linkie](https://linkie.shedaniel.dev/) takes ~30 seconds.
+4. **Or file an issue with the name** if you'd rather not PR — we'll add it.
+
+## Mixin failures: "@ModifyExpressionValue ... target class 'X' is not supported" / "@Shadow field gui was not located"
+
+Common with mods built for MC versions close to but not exactly matching your host (e.g. a 1.21.9 mod on 26.1.2). What's happening:
+
+Retromod rewrites the *outer* `@Mixin(targets = ...)` annotation to point at the renamed class — that part works, you'll see the rewritten target in the error message (e.g. `target net.minecraft.client.gui.GuiGraphicsExtractor`). But the mod also uses MixinExtras-style inner annotations like `@ModifyExpressionValue(target = "net/minecraft/client/gui/Gui")` and `@Shadow` field references against the old class — and Retromod doesn't yet rewrite the `target = "..."` strings nested inside those, or the field-name on `@Shadow`. So the mixin processor sees a target spec that's now invalid and refuses to apply the injection.
+
+This is a **known Retromod gap** (the mixin-extras inner-target rewriter is incomplete) — please file an issue with your `latest.log` if you hit it. We're tracking it for a future beta.
+
+**Workarounds in the meantime:**
+
+1. **Use a more recent version of the mod, if one exists for your MC version.** A mod built natively against 26.1+ won't have this problem at all — there's nothing for Retromod to rewrite.
+2. **Use an older host MC version** that's closer to the mod's source version. A 1.21.9 mod will translate to 1.21.10 or 1.21.11 much more reliably than to 26.1.2 (small hop = fewer renamed internals to bridge).
+3. **Some affected mods still partially work.** The failed mixin only disables one feature, not the whole mod — check whether the missing feature is something you actually use. The `Mixin apply for mod X failed` line in the log is a WARN, not always fatal; the fatal crash comes when the mod's `@Inject` was load-bearing for its `<clinit>`.
+
+The relevant known-broken mods so far: anything with a name like "CustomHUD" / "BetterHUD" / "BetterF3" on MC versions much newer than the mod was built for. Anything that ships its own mixins into MC's GUI internals is in this category — the GUI surface changes shape often.
+
+## "java.util.zip.ZipException: duplicate entry"
+
+Some mods (especially older Forge mods that JIJ-bundled Fabric API modules into a Forge package, or mods built with legacy bundler toolchains) ship JARs whose central directory lists the same entry twice. Retromod's transformer used to crash mid-write on the second occurrence — fixed in **beta.2**.
+
+If you see this on beta.1, the workaround is to update to beta.2 (or later). On beta.2+, Retromod logs a `Skipping duplicate JAR entry from source: ...` warning, keeps the first copy, and continues — the transform succeeds.
 
 ## Retromod button is missing from the title screen
 
