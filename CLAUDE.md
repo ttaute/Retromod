@@ -7,7 +7,7 @@ Retromod transforms older Minecraft mod bytecode so old mods work on newer MC ve
 ## Critical Context
 
 - **Target MC version:** 26.1 (Mojang removed ALL code obfuscation)
-- **Java:** Compiles and runs with Java 25. ASM 9.8 required for Java 25 class file support (major version 69).
+- **Java:** Built WITH Java 25 (we need the modern compiler to use ASM 9.8 features that read MC 26.1's class file format), but bytecode targets `--release 17` so the SAME JAR runs on Java 17, 21, and 25 — broad runtime compat is the entire point. `build-all.sh` sets the per-MC `"java"` constraint in fabric.mod.json based on what each MC version itself needs: `>=17` for MC 1.20–1.20.4, `>=21` for MC 1.20.5–1.21.x, **`>=25` for MC 26.x** (MC 26.1's own class files are Java 25 bytecode, so a Java 21 JVM can't load them). Don't accidentally bump `<release>` higher — that locks out MC 1.20.x users on Java 17. ASM 9.8 itself runs on Java 8+; it just READS class files up to v69 (Java 25), which has nothing to do with what bytecode WE emit.
 - **Intermediary names are dead in 26.1+.** All `class_XXXX`, `method_XXXX`, `field_XXXX` must map to Mojang official names.
 - **NeoForge already uses Mojang names** since 1.17 — NeoForge mods mainly need metadata patching, not name remapping.
 - **Fabric mods use intermediary names** — they need full intermediary→Mojang remapping for 26.1+.
@@ -58,12 +58,12 @@ mvn exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" -Dexec.args="<comm
 
 **Important:** Always pass `-Dexec.skip=true` during build to prevent Maven from running the CLI entrypoint.
 
-Output JAR: `target/retromod-1.0.0-beta.1.jar`
+Output JAR: `target/retromod-1.0.0-beta.2.jar`
 
 ## Deploy to Minecraft
 
 ```bash
-cp target/retromod-1.0.0-beta.1.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.0.0-beta.1+26.1.jar
+cp target/retromod-1.0.0-beta.2.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.0.0-beta.2+26.1.jar
 ```
 
 Game directory (macOS): `~/Library/Application Support/minecraft/`

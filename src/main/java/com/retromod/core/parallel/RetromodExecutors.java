@@ -143,12 +143,17 @@ public final class RetromodExecutors {
         // bugs for code assuming "loop done means all work done."
         List<ForEachTask<T>> tasks = new ArrayList<>(items.size());
         for (T item : items) tasks.add(new ForEachTask<>(item, action));
+        // sharedPool() returns a ForkJoinPool, whose invokeAll(Collection) is
+        // overridden to NOT declare InterruptedException — so we can't wrap an
+        // outer try/catch for InterruptedException (Java 21+ rejects "exception
+        // never thrown"). The inner lambda catches InterruptedException from
+        // future.get(), which is the actual throw site, so that case is covered.
+        // The outer try still catches RuntimeException for pool issues
+        // (RejectedExecutionException, etc.).
         try {
             sharedPool().invokeAll(tasks).forEach(future -> {
                 try { future.get(); } catch (InterruptedException | ExecutionException ignored) {}
             });
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
         } catch (Exception e) {
             LOGGER.warn("Parallel forEach encountered error: {}", e.getMessage());
         }
@@ -206,13 +211,14 @@ public final class RetromodExecutors {
         for (int i = 0; i < inputs.size(); i++) {
             tasks.add(new IndexedMapTask<>(i, inputs.get(i), fn, results, failed));
         }
-        try {
-            sharedPool().invokeAll(tasks).forEach(future -> {
-                try { future.get(); } catch (InterruptedException | ExecutionException ignored) {}
-            });
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        }
+        // sharedPool() returns a ForkJoinPool, whose invokeAll(Collection) is
+        // overridden to NOT declare InterruptedException — so we can't wrap an
+        // outer try/catch for it (Java 21+ rejects "exception never thrown").
+        // The inner lambda catches InterruptedException from future.get(),
+        // which is the actual throw site, so we're already covered.
+        sharedPool().invokeAll(tasks).forEach(future -> {
+            try { future.get(); } catch (InterruptedException | ExecutionException ignored) {}
+        });
         if (failed.get() > 0) {
             LOGGER.debug("parallelMap: {} of {} tasks failed", failed.get(), inputs.size());
         }

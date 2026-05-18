@@ -3,7 +3,7 @@
   "quilt_loader": {
     "group": "com.retromod",
     "id": "retromod",
-    "version": "1.0.0-beta.1",
+    "version": "${project.version}",
     "metadata": {
       "name": "Retromod",
       "description": "Backwards compatibility layer for Minecraft mods - run older mods on newer versions. Works on clients AND servers. Made by the Developers of revivalsmp.net.",
@@ -32,7 +32,7 @@
       },
       {
         "id": "minecraft",
-        "versions": ">=1.21"
+        "versions": ">=1.20"
       }
     ]
   }

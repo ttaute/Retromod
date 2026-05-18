@@ -14,7 +14,7 @@
 # Don't exit on error - we'll handle errors ourselves
 # set -e
 
-VERSION="1.0.0-beta.1"
+VERSION="1.0.0-beta.2"
 # Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
 # Security-only updates for versions before 26.1.
 MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2")
@@ -228,13 +228,75 @@ create_mod_jar() {
         return 1
     }
 
+    # Per-MC-version Java requirement. Retromod's compiled bytecode targets
+    # Java 17 so the same JAR runs on Java 17, 21, and 25 — but the fabric.mod.json
+    # "java" constraint is set per-MC-version so the loader rejects users running
+    # the wrong Java for their MC version (e.g. MC 26.1 with Java 21 won't work
+    # because MC 26.1's own class files are Java 25 bytecode).
+    case $MC_VERSION in
+        1.20|1.20.[1-4])    JAVA_REQ=">=17" ;;   # MC 1.20 - 1.20.4: Java 17
+        1.20.[5-9]|1.20.1[0-9]) JAVA_REQ=">=21" ;;   # MC 1.20.5+ bumped to Java 21
+        1.21*)              JAVA_REQ=">=21" ;;   # All of 1.21.x: Java 21
+        26.*|27.*|28.*)     JAVA_REQ=">=25" ;;   # MC 26.1+ bumped to Java 25
+        *)                  JAVA_REQ=">=17" ;;   # Conservative fallback
+    esac
+
+    # Per-MC Forge loader minimum. Each MC version ships a specific Forge
+    # loader number; we previously hardcoded "[52,)" which silently rejected
+    # every Forge build for MC 1.20.x (Forge 47-50) — our Forge JARs for
+    # those MC versions wouldn't actually load. Setting this per-MC fixes
+    # the mismatch.
+    case $MC_VERSION in
+        1.20|1.20.1)            FORGE_LV="47" ;;
+        1.20.2)                 FORGE_LV="48" ;;
+        1.20.3|1.20.4)          FORGE_LV="49" ;;
+        1.20.5|1.20.6)          FORGE_LV="50" ;;
+        1.21|1.21.0)            FORGE_LV="51" ;;
+        1.21.1|1.21.2)          FORGE_LV="52" ;;
+        1.21.3)                 FORGE_LV="53" ;;
+        1.21.4)                 FORGE_LV="54" ;;
+        1.21.5)                 FORGE_LV="55" ;;
+        1.21.6)                 FORGE_LV="56" ;;
+        1.21.7|1.21.8)          FORGE_LV="57" ;;
+        1.21.9|1.21.10|1.21.11) FORGE_LV="58" ;;
+        26.*)                   FORGE_LV="64" ;;
+        *)                      FORGE_LV="40" ;;  # Permissive fallback
+    esac
+
+    # Per-MC NeoForge loader minimum. NeoForge's versioning mostly mirrors
+    # the MC version (NeoForge X.Y.Z for MC X.Y), with 1.20.1 as the legacy
+    # 47.x outlier (NeoForge inherited Forge's version scheme for that
+    # initial MC version). Previously hardcoded "[4,)" — too low.
+    case $MC_VERSION in
+        1.20|1.20.1)            NEOFORGE_LV="47" ;;
+        1.20.2)                 NEOFORGE_LV="20.2" ;;
+        1.20.3)                 NEOFORGE_LV="20.3" ;;
+        1.20.4)                 NEOFORGE_LV="20.4" ;;
+        1.20.5)                 NEOFORGE_LV="20.5" ;;
+        1.20.6)                 NEOFORGE_LV="20.6" ;;
+        1.21|1.21.0)            NEOFORGE_LV="21.0" ;;
+        1.21.1)                 NEOFORGE_LV="21.1" ;;
+        1.21.2)                 NEOFORGE_LV="21.2" ;;
+        1.21.3)                 NEOFORGE_LV="21.3" ;;
+        1.21.4)                 NEOFORGE_LV="21.4" ;;
+        1.21.5)                 NEOFORGE_LV="21.5" ;;
+        1.21.6)                 NEOFORGE_LV="21.6" ;;
+        1.21.7)                 NEOFORGE_LV="21.7" ;;
+        1.21.8)                 NEOFORGE_LV="21.8" ;;
+        1.21.9)                 NEOFORGE_LV="21.9" ;;
+        1.21.10)                NEOFORGE_LV="21.10" ;;
+        1.21.11)                NEOFORGE_LV="21.11" ;;
+        26.1*)                  NEOFORGE_LV="26.1" ;;
+        *)                      NEOFORGE_LV="20" ;;  # Permissive fallback
+    esac
+
     # Remove other loaders' files
     case $LOADER in
         fabric)
             rm -f "$TEMP_DIR/META-INF/neoforge.mods.toml" 2>/dev/null
             rm -f "$TEMP_DIR/META-INF/mods.toml" 2>/dev/null
             rm -f "$TEMP_DIR/pack.mcmeta" 2>/dev/null
-            # Update fabric.mod.json with correct MC version
+            # Update fabric.mod.json with correct MC version + Java requirement
             if [ -f "$TEMP_DIR/fabric.mod.json" ]; then
                 if command -v python3 &> /dev/null; then
                     python3 -c "
@@ -243,6 +305,7 @@ try:
     with open('$TEMP_DIR/fabric.mod.json', 'r') as f:
         data = json.load(f)
     data['depends']['minecraft'] = '${MC_VERSION}'
+    data['depends']['java'] = '${JAVA_REQ}'
     data['version'] = '${VERSION}'
     with open('$TEMP_DIR/fabric.mod.json', 'w') as f:
         json.dump(data, f, indent=2)
@@ -252,6 +315,7 @@ except Exception as e:
                 else
                     # Fallback: use sed (less reliable but works without Python)
                     sed -i.bak "s/\"minecraft\": \"[^\"]*\"/\"minecraft\": \"${MC_VERSION}\"/" "$TEMP_DIR/fabric.mod.json" 2>/dev/null || true
+                    sed -i.bak "s/\"java\": \"[^\"]*\"/\"java\": \"${JAVA_REQ}\"/" "$TEMP_DIR/fabric.mod.json" 2>/dev/null || true
                     rm -f "$TEMP_DIR/fabric.mod.json.bak" 2>/dev/null
                 fi
             fi
@@ -264,21 +328,19 @@ except Exception as e:
             mkdir -p "$TEMP_DIR/META-INF"
             cat > "$TEMP_DIR/META-INF/mods.toml" << TOML
 modLoader = "javafml"
-loaderVersion = "[52,)"
+loaderVersion = "[${FORGE_LV},)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Bownlux/MC-Retromod/issues"
+issueTrackerURL = "https://github.com/Bownlux/Retromod/issues"
 
 [[mods]]
 modId = "retromod"
 version = "${VERSION}"
 displayName = "Retromod"
 description = '''
-Made by the Developers of revivalsmp.net
-
 Backwards compatibility layer for Minecraft mods.
 Run older Forge mods on Minecraft ${MC_VERSION}!
 
-Made by the Developers of revivalsmp.net
+Made by the Developers of revivalsmp.net.
 '''
 authors = "Bownlux"
 logoFile = "assets/retromod/icon.png"
@@ -286,7 +348,7 @@ logoFile = "assets/retromod/icon.png"
 [[dependencies.retromod]]
 modId = "forge"
 mandatory = true
-versionRange = "[52,)"
+versionRange = "[${FORGE_LV},)"
 ordering = "NONE"
 side = "BOTH"
 
@@ -306,21 +368,19 @@ TOML
             mkdir -p "$TEMP_DIR/META-INF"
             cat > "$TEMP_DIR/META-INF/neoforge.mods.toml" << TOML
 modLoader = "javafml"
-loaderVersion = "[4,)"
+loaderVersion = "[${NEOFORGE_LV},)"
 license = "MIT"
-issueTrackerURL = "https://github.com/Bownlux/MC-Retromod/issues"
+issueTrackerURL = "https://github.com/Bownlux/Retromod/issues"
 
 [[mods]]
 modId = "retromod"
 version = "${VERSION}"
 displayName = "Retromod"
 description = '''
-Made by the Developers of revivalsmp.net
-
 Backwards compatibility layer for Minecraft mods.
 Run older NeoForge mods on Minecraft ${MC_VERSION}!
 
-Made by the Developers of revivalsmp.net
+Made by the Developers of revivalsmp.net.
 '''
 authors = "Bownlux"
 logoFile = "assets/retromod/icon.png"
@@ -328,7 +388,7 @@ logoFile = "assets/retromod/icon.png"
 [[dependencies.retromod]]
 modId = "neoforge"
 type = "required"
-versionRange = "[21.0,)"
+versionRange = "[${NEOFORGE_LV},)"
 ordering = "NONE"
 side = "BOTH"
 
