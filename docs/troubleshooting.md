@@ -117,6 +117,14 @@ The relevant known-broken mods so far: anything with a name like "CustomHUD" / "
 
 **If you saw this on beta.2+ for a different MC version:** that's unexpected — the per-MC loaderVersion table in `build-all.sh` should match every Forge release. Please [open an issue](https://github.com/Bownlux/Retromod/issues) with your exact MC version and Forge loader version so we can fix the table.
 
+## Forge 1.20.x: "Modules retromod and com.google.gson export package X to module minecraft"
+
+The Java module system (JPMS), which Forge 1.20.1+ enforces strictly, refused to load because two modules both claim to export the same package to MC. This happens when Retromod's shaded JAR bundles a library (Gson, SLF4J, etc.) that Forge also bundles — both copies look like valid exporters and the resolver refuses to pick one.
+
+**Fixed in builds after beta.2.** The fix is build-side: every bundled dependency is now relocated under `com.retromod.shaded.*` so it can't collide with Forge's modules. If you're on the broken beta.2 build that hit this, grab a newer build.
+
+If you see this on a build that *should* be relocated, the relocation table in `pom.xml`'s `maven-shade-plugin` config might be missing a dependency. Open an issue with the exact package name from the error message and we'll add it.
+
 ## "java.util.zip.ZipException: duplicate entry"
 
 Some mods (especially older Forge mods that JIJ-bundled Fabric API modules into a Forge package, or mods built with legacy bundler toolchains) ship JARs whose central directory lists the same entry twice. Retromod's transformer used to crash mid-write on the second occurrence — fixed in **beta.2**.

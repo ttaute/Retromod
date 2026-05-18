@@ -2,9 +2,21 @@
 
 All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/) with the `1.0.0-beta.N` series leading up to stable 1.0.
 
+## [1.0.0-beta.3] — 2026-05-18
+
+Single-purpose hotfix release. **Only difference from beta.2 is the shaded-dependency relocation** — no other code changes, no new features.
+
+### Fixed
+
+- **Forge 1.20.1+ "Modules retromod and com.google.gson export package X to module minecraft" crash on launch.** The shaded fat JAR bundled Gson, SLF4J, and toml4j without relocation, so Forge's strict JPMS module resolver saw two modules claiming to export the same package to `minecraft` and refused to start. Every bundled dependency is now relocated under `com.retromod.shaded.*` (ASM was already done, this round adds Gson, SLF4J, and toml4j). Fabric/Quilt/NeoForge builds weren't crashing but received the same relocation for consistency and future-proofing.
+
+If you're on beta.2 and the mod loads for you fine, beta.3 is bytes-different but behavior-identical — no urgency to upgrade. If you're on beta.2 and you hit the JPMS crash above (Forge 1.20.x specifically), beta.3 is the fix.
+
+---
+
 ## [1.0.0-beta.2] — 2026-05-17
 
-This release focuses on **broadening the Java + loader-version range so the right Retromod build is actually loadable on every MC version we publish**, plus carrying the security/quality improvements from the past few weeks.
+This release focused on **broadening the Java + loader-version range so the right Retromod build is actually loadable on every MC version we publish**, plus carrying the security/quality improvements from the past few weeks.
 
 ### Fixed
 

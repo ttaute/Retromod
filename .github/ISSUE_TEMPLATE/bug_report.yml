@@ -15,7 +15,7 @@ body:
     attributes:
       label: Retromod version
       description: Visible in the in-game UI or the JAR filename.
-      placeholder: 1.0.0-beta.2
+      placeholder: 1.0.0-beta.3
     validations:
       required: true
 

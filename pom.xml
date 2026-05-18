@@ -6,7 +6,7 @@
 
     <groupId>com.retromod</groupId>
     <artifactId>retromod</artifactId>
-    <version>1.0.0-beta.2</version>
+    <version>1.0.0-beta.3</version>
     <packaging>jar</packaging>
 
     <name>Retromod</name>
@@ -360,10 +360,40 @@
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <relocations>
-                                <!-- Relocate ASM to avoid conflicts with mod loaders -->
+                                <!--
+                                    Relocate every bundled dependency under com.retromod.shaded.
+                                    Forge 1.20.1+ uses strict JPMS module resolution and refuses
+                                    to load if two modules export the same package to a third
+                                    module ("Modules retromod and X export package Y to module
+                                    minecraft"). Forge bundles its own Gson, its own SLF4J, and
+                                    its own ASM; without relocation, our shaded copies collide
+                                    with Forge's copies during module resolution and the whole
+                                    launch dies in BootstrapLauncher.
+
+                                    Bug that motivated adding Gson/SLF4J/toml4j here: a 1.20.1
+                                    Forge user on beta.2 hit
+                                        java.lang.module.ResolutionException: Modules retromod
+                                        and com.google.gson export package com.google.gson.stream
+                                        to module minecraft
+                                    Fabric/Quilt/NeoForge don't enforce this as strictly so the
+                                    bug only surfaced on Forge — but relocating defensively
+                                    everywhere means future MC/loader combos can't bite us.
+                                -->
                                 <relocation>
                                     <pattern>org.objectweb.asm</pattern>
                                     <shadedPattern>com.retromod.shaded.asm</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.gson</pattern>
+                                    <shadedPattern>com.retromod.shaded.gson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.slf4j</pattern>
+                                    <shadedPattern>com.retromod.shaded.slf4j</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.moandjiezana.toml</pattern>
+                                    <shadedPattern>com.retromod.shaded.toml4j</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
