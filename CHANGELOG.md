@@ -2,6 +2,21 @@
 
 All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/) with the `1.0.0-beta.N` series leading up to stable 1.0.
 
+## [1.0.0-beta.5] — 2026-05-19
+
+Hotfix for ASM classloader conflicts that beta.4 introduced on Fabric and NeoForge. **Everyone on beta.4 should upgrade** — beta.4 crashes on launch on Fabric and NeoForge.
+
+### Fixed
+
+- **Fabric + NeoForge crash on launch with ASM `LinkageError` / loader-constraint violation.** beta.4 un-relocated ASM to fix a Forge problem (the `EventSubclassTransformer` issue, #12), but that made the bundled ASM collide with the loader's own ASM: Fabric and NeoForge each bundle ASM and load `org.objectweb.asm.tree.ClassNode` in their classloader, so our duplicate copy in the mod classloader is a second class with the same name → `LinkageError`. Reported by @Derpgamer22 / @Rivmo / @LwkySad (#18, NeoForge) and @berwulf / @benio1394 (#19, Fabric).
+- **Root cause, properly fixed this time:** the mod JAR no longer bundles ASM at all. Every mod loader (Fabric, Forge, NeoForge) provides its own ASM and exposes it to mods, so Retromod just uses the loader's copy — exactly one ASM per runtime, no relocation, no duplicate, no conflict on any loader. `build-all.sh` strips `org/objectweb/asm/` from each per-loader mod JAR. The standalone CLI keeps its bundled ASM (it has no loader to borrow one from). This resolves the beta.3-vs-beta.4 flip-flop where relocating broke Forge and not-relocating broke Fabric/NeoForge — neither was right; the answer was to not ship ASM in the mod at all.
+
+### Note
+
+If you tested beta.4 and it crashed on Fabric/NeoForge, that's this bug. beta.5 is the fix. The classtweaker, NeoForge-loaderVersion, and Forge-AOT fixes from beta.4 are all still here — beta.5 only adds the ASM-stripping on top.
+
+---
+
 ## [1.0.0-beta.4] — 2026-05-19
 
 Bug-fix release closing out the wave of beta.2/beta.3 issue reports from the early-Modrinth-publish users. Three independent fixes; everyone running beta.2 or beta.3 should upgrade.

@@ -87,7 +87,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
-        LOGGER.info("║  Retromod v1.0.0-beta.4                                    ║");
+        LOGGER.info("║  Retromod v1.0.0-beta.5                                    ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
         
         try {
