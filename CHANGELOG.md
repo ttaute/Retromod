@@ -2,6 +2,20 @@
 
 All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/) with the `1.0.0-beta.N` series leading up to stable 1.0.
 
+## [1.0.0-beta.6] — 2026-05-20
+
+Another JPMS-conflict hotfix, this time for `javax.annotation`. Same family as the Gson (beta.3) and ASM (beta.5) conflicts — a bundled package colliding with a loader-provided module on Forge/NeoForge.
+
+### Fixed
+
+- **Forge + NeoForge crash on launch: `Modules jsr305 and retromod export package javax.annotation to module mixin_synthetic`.** We bundle `javax/annotation/{Nullable,Nonnull}` polyfill stubs so old mods referencing those annotations resolve. But Forge and NeoForge bundle Guava, which transitively provides `jsr305` as a JPMS module that also exports `javax.annotation` — and strict JPMS refuses two modules exporting the same package. Reported by @epiktechno on NeoForge 1.21.1 + Forge 1.20.1 (#20). The stub can't be relocated (a polyfill only works at the real package name), so `build-all.sh` now strips `javax/annotation/` from the Forge and NeoForge per-loader mod JARs — jsr305 provides the real ones there. Fabric keeps the stub (no JPMS enforcement, so no conflict; it stays as a harmless fallback) and so does the standalone CLI.
+
+### Note
+
+This is the third package in the bundled-dependency-vs-loader-module conflict family (Gson → relocate, ASM → strip, javax.annotation → strip on Forge/NeoForge). The remaining bundled polyfill packages (baubles/api, cofh/api, codechicken/nei, mcp/mobius/waila) are stubs for ancient 1.7–1.12 mods that are essentially never present as JPMS modules on modern MC, so they don't collide — left in place so the polyfill still works for the rare user translating one of those.
+
+---
+
 ## [1.0.0-beta.5] — 2026-05-19
 
 Hotfix for ASM classloader conflicts that beta.4 introduced on Fabric and NeoForge. **Everyone on beta.4 should upgrade** — beta.4 crashes on launch on Fabric and NeoForge.

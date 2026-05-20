@@ -18,13 +18,13 @@ mvn package
 mvn package -DskipTests -Dexec.skip=true -q
 ```
 
-Output: `target/retromod-1.0.0-beta.5.jar`
+Output: `target/retromod-1.0.0-beta.6.jar`
 
 ## Deploy
 
 ```bash
 MODS="$HOME/Library/Application Support/minecraft/mods"
-cp target/retromod-1.0.0-beta.5.jar "$MODS/retromod-1.0.0-beta.5+26.1.jar"
+cp target/retromod-1.0.0-beta.6.jar "$MODS/retromod-1.0.0-beta.6+26.1.jar"
 ```
 
 ## Run CLI Commands

@@ -14,7 +14,7 @@
 # Don't exit on error - we'll handle errors ourselves
 # set -e
 
-VERSION="1.0.0-beta.5"
+VERSION="1.0.0-beta.6"
 # Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
 # Security-only updates for versions before 26.1.
 MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2")
@@ -262,6 +262,35 @@ create_mod_jar() {
     # to provide one — and the CLI is a direct copy of the shaded jar, it
     # never goes through this extraction/strip path.
     rm -rf "$TEMP_DIR/org/objectweb/asm" 2>/dev/null
+
+    # Strip our javax.annotation polyfill stubs on Forge/NeoForge ONLY.
+    #
+    # We bundle javax/annotation/{Nullable,Nonnull}.class as polyfill stubs so
+    # old mods that reference javax.annotation.* resolve even when nothing else
+    # provides them. They CAN'T be relocated — a polyfill only works if it sits
+    # at the real package name the mod expects.
+    #
+    # But Forge and NeoForge bundle Guava, which pulls in jsr305 as a JPMS
+    # module that ALSO exports javax.annotation. Strict JPMS resolution then
+    # refuses to start: "Modules jsr305 and retromod export package
+    # javax.annotation to module mixin_synthetic" (issue #20, NeoForge 1.21.1
+    # + Forge 1.20.1). On those loaders jsr305 already provides the real
+    # javax.annotation, so our stub is redundant AND conflicting — strip it.
+    #
+    # Fabric does NOT enforce JPMS module boundaries (everything loads in the
+    # knot classloader), so there's no conflict there and the stub stays as a
+    # harmless fallback. Same for the standalone CLI.
+    #
+    # Why only javax.annotation and not our other polyfill packages
+    # (baubles/api, cofh/api, codechicken/nei, mcp/mobius/waila)? jsr305 is a
+    # near-universal transitive dependency so javax.annotation conflicts on
+    # essentially every Forge/NeoForge install. The others are stubs for
+    # ancient 1.7-1.12 mods that are basically never present as modules on
+    # modern MC, so they don't collide — and stripping them would break the
+    # polyfill for the rare user actually translating one of those old mods.
+    if [ "$LOADER" = "forge" ] || [ "$LOADER" = "neoforge" ]; then
+        rm -rf "$TEMP_DIR/javax/annotation" 2>/dev/null
+    fi
 
     # Per-MC-version Java requirement. Retromod's compiled bytecode targets
     # Java 17 so the same JAR runs on Java 17, 21, and 25 — but the fabric.mod.json

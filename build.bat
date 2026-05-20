@@ -9,7 +9,7 @@ REM   - Fabric mod (for Fabric Loader)
 REM   - NeoForge mod (for NeoForge Loader)
 REM ============================================================================
 
-set VERSION=1.0.0-beta.5
+set VERSION=1.0.0-beta.6
 
 echo ============================================
 echo   Retromod Build Script v%VERSION%
