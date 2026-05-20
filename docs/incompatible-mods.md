@@ -22,6 +22,23 @@ If a mod uses any of the following, **no automated bytecode tool — Retromod or
 
 If a mod hits any of those, the answer is "you need the original author to port it." There is no faster path.
 
+## Mixins into reworked vanilla methods (feature won't work, but the mod loads)
+
+This one isn't a property of the mod so much as of the gap you're crossing, and it's a *degraded-feature* problem, not a hard incompatibility. A mod that uses `@Inject` / `@Redirect` / `@ModifyArg` to hook a **vanilla** Minecraft method only works if that method still has the shape the mod compiled against. Retromod can rename a method and move a class, but it cannot re-point an injector when Mojang **reworked the method itself** — changed its parameter count, reordered its arguments, or swapped a parameter type — because the injection target the mod describes no longer exists to be matched.
+
+When this happens the loader reports `InvalidInjectionException: Invalid descriptor` and skips that one injection. Retromod treats these as non-fatal, so the mod still loads — the specific feature that mixin implemented just doesn't run.
+
+26.1 reworked a lot of these. Real examples from a single mod (Caverns & Chasms, 1.21.1 → 26.1, [#24](https://github.com/Bownlux/Retromod/issues/24)):
+
+- `AbstractFurnaceBlockEntity.burn` — gained `RegistryAccess`, a `RecipeHolder`, and the block-entity itself as parameters.
+- `BlockBehaviour.updateShape` — arguments reordered and `LevelReader` / `ScheduledTickAccess` / `RandomSource` inserted.
+- The player NBT-save hook — now writes to a `ValueOutput` instead of a `CompoundTag`.
+- `FallingBlockEntity` fall-damage hook — a `float` parameter became a `double`.
+
+There's no general fix for the injection itself: the mod's injector was written for a method body 26.1 deleted, so that hook stays inactive. The shorter the version jump, the less often this bites (1.21.1 → 1.21.8 reworks far fewer methods than 1.21.1 → 26.1).
+
+What *does* hard-crash — and what Retromod fixes — is when the same mod also references a **removed class**. Caverns & Chasms pulled the deleted `DirectionProperty` into `Blocks.<clinit>` during bootstrap, and that `NoClassDefFoundError` killed the game before any of the soft-failed mixins mattered. Retromod polyfills `DirectionProperty` (redirecting it to the surviving `EnumProperty`), so the mod now boots; the reworked-method mixins above still soft-fail, so those particular tweaks won't apply, but the game runs.
+
 ## Specific mods that will never work
 
 This is the obvious list. Everything here matches one or more of the general rules above. Other mods that match those rules belong here too — these are just the ones people ask about most.

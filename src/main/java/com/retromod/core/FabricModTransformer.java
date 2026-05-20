@@ -942,6 +942,17 @@ public class FabricModTransformer {
      * Without remapping these, Fabric Loader can't resolve mixin targets.
      */
     private void remapIntermediaryNames(Path dir) {
+        // 26.1+ ONLY. On a pre-26.1 host the Fabric runtime still uses intermediary
+        // names, so the mod's mixin configs / refmaps / accesswideners already match
+        // the runtime. Remapping them to Mojang names would make every mixin target
+        // miss (bugs #21/#29) — same root cause as the bytecode remap gate in
+        // RetromodPreLaunch.registerShimsForTransform.
+        if (!RetromodPreLaunch.isUnobfuscatedTarget(targetMcVersion)) {
+            LOGGER.info("Host MC {} is pre-26.1 — skipping intermediary→Mojang metadata "
+                + "remap (mods keep their working intermediary names)", targetMcVersion);
+            return;
+        }
+
         com.retromod.mapping.IntermediaryToMojangMapper mapper =
             com.retromod.mapping.IntermediaryToMojangMapper.getInstance();
 

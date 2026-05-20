@@ -61,6 +61,19 @@ Yes, and modpacks are actually one of the best use cases. Drop Retromod into the
 
 For CurseForge / Modrinth / ATLauncher packs specifically: include Retromod as a regular mod dependency, and add a post-install step (if your launcher supports it) that copies old mods into `retromod-input/` instead of `mods/`. Or skip the auto-install and tell users to use the in-game file picker.
 
+## How does Retromod handle a mod's dependencies? Old version or new?
+
+Translate the **whole set together**, and use the dependency version the mod was built against — not a new one.
+
+Retromod transforms a mod's bytecode (and the bytecode of any library it bundles via Jar-in-Jar) so it runs on the target MC. It does **not** swap a mod's dependency for a newer release. So:
+
+- **Bundled (JiJ) dependencies** are handled automatically — they ride along inside the mod JAR and get transformed with it.
+- **Separate library mods** (Cardinal Components, Architectury, Cloth Config, etc.) should be run through Retromod too: put the **old** version — the one your mods were built for — into `retromod-input/` alongside them. Retromod translates that old library up to the target MC.
+
+What you should *not* do is install a brand-new native build of a library next to old mods that depend on it. New major versions often rename packages or change their API, and the old mod is still calling the old one. The classic example is Cardinal Components: the project moved from `dev.onyxstudios.cca` (CCA 5.x and earlier) to `org.ladysnake.cca` (CCA 6.x). A mod built for the old API references `dev.onyxstudios.cca.*`; dropping in a modern `org.ladysnake` CCA next to it doesn't satisfy that — and if the mod *also* bundles its own old copy, you now have two CCAs fighting. Translate the old CCA with Retromod and remove the standalone modern one.
+
+Rule of thumb: if mod A was released for MC 1.20.1, gather A **and its dependencies as they existed for 1.20.1**, drop them all in `retromod-input/` together, and let Retromod move the whole set forward at once.
+
 ## Can I commercialize a modpack using Retromod?
 
 Yes. MIT license, no strings attached. You can:

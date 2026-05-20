@@ -292,6 +292,14 @@ create_mod_jar() {
         rm -rf "$TEMP_DIR/javax/annotation" 2>/dev/null
     fi
 
+    # Clean up any now-empty package directories left behind by the strips
+    # above (e.g. org/objectweb/ after asm/ is removed, javax/ after
+    # annotation/ is removed). Empty dirs don't constitute a JPMS package so
+    # they're harmless, but leaving dangling org/objectweb/ in the jar is
+    # confusing when auditing what packages a build exports. Depth-first so
+    # parent dirs that become empty are also removed.
+    find "$TEMP_DIR" -type d -empty -delete 2>/dev/null
+
     # Per-MC-version Java requirement. Retromod's compiled bytecode targets
     # Java 17 so the same JAR runs on Java 17, 21, and 25 — but the fabric.mod.json
     # "java" constraint is set per-MC-version so the loader rejects users running

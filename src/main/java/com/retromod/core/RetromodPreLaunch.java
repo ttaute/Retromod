@@ -100,8 +100,11 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             
             LOGGER.info("Target Minecraft version: {}", targetVersion);
 
-            // Step 0: Register shims BEFORE transforming so redirects are available
-            registerShimsForTransform();
+            // Step 0: Register shims BEFORE transforming so redirects are available.
+            // Pass the host MC version so 26.1-only transformations (intermediary→Mojang
+            // remap, 26.1 class moves) are NOT applied to pre-26.1 hosts, where the
+            // Fabric runtime still uses intermediary names. See bugs #21 and #29.
+            registerShimsForTransform(targetVersion);
 
             // Step 0.5: Load auto-fix fixes from previous launch.
             // These are redirects/patches discovered by analyzing crash logs from
@@ -156,11 +159,44 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     }
     
     /**
+     * Whether the host MC version is 26.1+ — the first unobfuscated MC release,
+     * where the Fabric runtime switched from intermediary names
+     * ({@code net.minecraft.class_XXXX}) to Mojang official names.
+     *
+     * <p>This gates all intermediary→Mojang remapping and 26.1 class moves.
+     * A Fabric mod built for any pre-26.1 version already references the
+     * intermediary names that the pre-26.1 runtime exposes, so it loads fine
+     * untouched. Remapping those references to Mojang names (Identifier,
+     * ParticleType, BuiltInRegistries, Component, …) on a pre-26.1 host
+     * produces classes that DO NOT EXIST at runtime, crashing the mod with
+     * {@code ClassNotFoundException} (bugs #21, #29).
+     *
+     * <p>MC 26.1 uses a year-based version scheme (26 = 2026), whose major
+     * component sorts above the legacy {@code 1.x.y} scheme numerically.
+     * Only an explicit major of 26+ is treated as unobfuscated; an
+     * unparseable/unknown version defaults to {@code true} to preserve the
+     * primary (published) 26.1 behavior.
+     */
+    static boolean isUnobfuscatedTarget(String hostVersion) {
+        if (hostVersion == null) return true;
+        try {
+            java.util.regex.Matcher m =
+                java.util.regex.Pattern.compile("^(\\d+)").matcher(hostVersion.trim());
+            if (!m.find()) return true; // unknown → assume 26.1+ (published behavior)
+            return Integer.parseInt(m.group(1)) >= 26;
+        } catch (Exception e) {
+            return true;
+        }
+    }
+
+    /**
      * Register all version shims and polyfills so that the bytecode transformer
      * has redirects available BEFORE AOT transformation runs.
      * Without this, mods are transformed with an empty redirect map.
+     *
+     * @param hostVersion the running MC version; gates 26.1-only remapping
      */
-    private void registerShimsForTransform() {
+    private void registerShimsForTransform(String hostVersion) {
         try {
             RetromodTransformer transformer = RetromodTransformer.getInstance();
 
@@ -185,13 +221,25 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             }
             LOGGER.info("Registered {} version shims for transformation", shimCount);
 
-            // Register intermediary→Mojang class mappings for bytecode remapping
-            // MC 26.1+ uses official names — all class_XXXX references in bytecode
-            // must be remapped to their Mojang official names
+            // Register intermediary→Mojang class mappings for bytecode remapping.
+            // CRITICAL: this is a 26.1+ ONLY transformation. MC 26.1 was the first
+            // version to drop obfuscation; before it, the Fabric RUNTIME exposes MC
+            // under intermediary names (net.minecraft.class_XXXX). A Fabric mod built
+            // for any pre-26.1 version already references those intermediary names and
+            // loads fine on a pre-26.1 host untouched. Remapping them to Mojang names
+            // here would rewrite working references into 26.1 names that don't exist at
+            // a pre-26.1 runtime → ClassNotFoundException (bugs #21, #29). So we only
+            // apply the remap / 26.1 class moves / Identifier ctor redirects on 26.1+.
             try {
                 com.retromod.mapping.IntermediaryToMojangMapper mapper =
                     com.retromod.mapping.IntermediaryToMojangMapper.getInstance();
-                if (mapper.isLoaded()) {
+                if (!mapper.isLoaded()) {
+                    LOGGER.warn("IntermediaryToMojangMapper not loaded — bytecode class remapping disabled");
+                } else if (!isUnobfuscatedTarget(hostVersion)) {
+                    LOGGER.info("Host MC {} is pre-26.1 (obfuscated; Fabric runtime uses "
+                        + "intermediary names) — skipping intermediary→Mojang remap and 26.1 "
+                        + "class moves so mods keep their working names (bugs #21/#29)", hostVersion);
+                } else {
                     // IMPORTANT: ASM ClassRemapper is single-pass, so we must compose
                     // intermediary→Mojang with class moves to get intermediary→final26.1 names.
                     // Otherwise class_4064→CycleOption stops there, but CycleOption→OptionInstance
@@ -235,8 +283,6 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                         "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
                     LOGGER.info("Registered {} intermediary→Mojang class redirects + {} class moves + 2 constructor redirects",
                         classRedirects, classMoves);
-                } else {
-                    LOGGER.warn("IntermediaryToMojangMapper not loaded — bytecode class remapping disabled");
                 }
             } catch (Exception e) {
                 LOGGER.warn("Could not register intermediary→Mojang mappings: {}", e.getMessage());

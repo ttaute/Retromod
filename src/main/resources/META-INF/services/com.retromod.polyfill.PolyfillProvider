@@ -48,6 +48,9 @@ com.retromod.polyfill.minecraft.rendering.RenderingPolyfill
 # Block class renames (The Flattening: BlockContainer -> BaseEntityBlock, etc.)
 com.retromod.polyfill.minecraft.block.BlockPolyfill
 
+# Block-state property removals (DirectionProperty -> EnumProperty + create() bridges)
+com.retromod.polyfill.minecraft.world.BlockPropertyPolyfill
+
 # Item class renames (ItemSword -> SwordItem, ItemStack NBT methods, etc.)
 com.retromod.polyfill.minecraft.item.ItemPolyfill
 
