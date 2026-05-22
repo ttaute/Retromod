@@ -2,7 +2,7 @@
 
 > Run older Minecraft mods on newer versions through bytecode transformation and API shimming.
 
-[![Java 17+](https://img.shields.io/badge/Java-17+-blue.svg)](https://adoptium.net/)
+[![Java 25+](https://img.shields.io/badge/Java-25+-blue.svg)](https://adoptium.net/)
 [![Minecraft 26.1](https://img.shields.io/badge/Minecraft-26.1-green.svg)](https://minecraft.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Beta](https://img.shields.io/badge/Status-Beta-orange.svg)]()
@@ -171,7 +171,7 @@ Retromod can also transform **resource packs** and **data packs** for version co
 
 ## Building
 
-Requires **Java 17+** to RUN Retromod (matches MC's own Java floor for older versions), **Java 25+** to BUILD it (we need Java 25's compiler to use ASM 9.8 features that read MC 26.1's class file format). The produced JAR targets Java 17 so users on every supported MC version can run it without installing a higher Java than their MC needs. `build-all.sh` then declares the appropriate per-MC-version `"java"` requirement (Java 17 for MC 1.20–1.20.4, Java 21 for MC 1.20.5–1.21.x, Java 25 for MC 26.x) so the loader rejects mismatched setups upfront.
+Needs **Java 25** to BUILD (the Java 25 compiler lets us use ASM 9.8 features that read MC 26.1's class file format) — and **Java 25** to RUN on the headline target, since Minecraft 26.1 itself requires Java 25. The produced JAR targets Java 17, so the *same* JAR also runs on **Java 17 / 21** when you're translating onto older Minecraft — you don't have to install a higher Java than your MC needs. `build-all.sh` declares the matching per-MC `"java"` requirement (Java 17 for MC 1.20–1.20.4, Java 21 for MC 1.20.5–1.21.x, **Java 25 for MC 26.x**) so the loader rejects mismatched setups upfront.
 
 ### Easy Build (Recommended)
 

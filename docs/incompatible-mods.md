@@ -63,7 +63,7 @@ This is the obvious list. Everything here matches one or more of the general rul
 
 | Mod | Why |
 |---|---|
-| **Create** | Ships [Flywheel](https://github.com/Jozufozu/Flywheel) — its own GL-level rendering library — and replaces large parts of MC's animation, networking, and contraption simulation. Internal API surface is also rewritten between MC versions, not renamed. |
+| **Create** *(and its add-ons)* | Ships [Flywheel](https://github.com/Jozufozu/Flywheel) — its own GL-level rendering library — and replaces large parts of MC's animation, networking, and contraption simulation. Internal API surface is also rewritten between MC versions, not renamed. Add-ons (**Create Aeronautics**, Create: Offroad, Create: Simulated, Ponder, …) build directly on Create's contraption/rendering internals and inherit the same incompatibility. |
 | **Applied Energistics 2 (AE2)** | Decades of deep MC integration, custom networking protocol, historically a coremod, and the channel/quantum systems get re-architected between versions. |
 | **Tinkers' Construct** | Replaces the tool and material system at the JSON-schema level *and* the bytecode level. The schema changes between versions are larger than any redirect table can cover. |
 | **IndustrialCraft / IC2** | Very deep MC integration, coremod heritage, energy network internals are tied to MC's tick scheduler in ways that break on every major MC update. |
@@ -77,11 +77,21 @@ This is the obvious list. Everything here matches one or more of the general rul
 | **OptiFine** | Proprietary, closed-source, ships as a Forge coremod. Even ignoring the license, the coremod transforms wouldn't survive translation. |
 | **Sodium**, **Iris Shaders**, **Embeddium** | These technically *load* via Retromod (they appear on [COMPATIBILITY.md](../COMPATIBILITY.md) with the `*` caveat), but their mixin injections target specific bytecode offsets in MC's renderer — when those offsets move between versions, no transformer can synthesize an injection point that wasn't there. Expect partial functionality at best. |
 | **Flywheel** | The rendering library Create depends on. Same shape problem as above — custom GL pipeline. |
+| **Veil** | A rendering framework (custom render pipeline, shaders, post-processing) that other mods build on. Same shape problem as the GL pipelines above — the render surface it hooks is rewritten between MC versions, not renamed. |
+| **Sable** *(and Sable Companion)* | Built on top of **Veil** — inherits Veil's custom-pipeline incompatibility. |
 | **ImmediatelyFast** and similar rendering-pipeline replacements | Same pattern — they wrap MC's rendering at a level that doesn't translate. |
 
 ### Loaders (these aren't mods, but people ask)
 
 Forge, NeoForge, Fabric Loader, and Quilt Loader are **mod loaders**, not mods. Retromod runs *on top of* them; it doesn't translate them. If you want a different loader, install that loader directly.
+
+## Old Forge mods on NeoForge — not yet (planned for 1.1.0)
+
+A 1.20.1-era **Forge** mod will not currently load on a modern **NeoForge** host. This isn't a "never" — it's "not yet."
+
+NeoForge 1.20.1 was its very first release, forked from Forge and still sharing essentially all of Forge's API: `ForgeRegistries` / `IForgeRegistry`, the `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext.get().getModEventBus()`, the `net.minecraftforge.*` package names, and so on. NeoForge then **replaced all of that** in 1.20.2+ — renamed packages, restructured the registry system (vanilla registries moved to `BuiltInRegistries`, `IForgeRegistry` removed), made the mod event bus a constructor parameter, reworked events and data generation. So a 1.20.1 Forge mod is, in API terms, *practically a Forge mod* — and translating it onto NeoForge 26.1.x means redoing the entire Forge→NeoForge migration, not a handful of class renames. Retromod gets these mods *scanned* by NeoForge (the metadata promotion in beta.9, #42), but the bytecode-level cross-loader translation is **scheduled for Retromod 1.1.0**, not the beta line.
+
+**What to do today:** run a Forge mod on a **Forge** host. On Forge 26.1.x those same APIs still exist natively, so it's a within-loader version bump (which Retromod handles) rather than a cross-loader rewrite. NeoForge mods translate to NeoForge fine; this limitation is specifically *Forge mod → NeoForge host*.
 
 ## Mods that load but are likely broken in-game
 

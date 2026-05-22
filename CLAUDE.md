@@ -58,12 +58,12 @@ mvn exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" -Dexec.args="<comm
 
 **Important:** Always pass `-Dexec.skip=true` during build to prevent Maven from running the CLI entrypoint.
 
-Output JAR: `target/retromod-1.0.0-beta.8.jar`
+Output JAR: `target/retromod-1.0.0-beta.9.jar`
 
 ## Deploy to Minecraft
 
 ```bash
-cp target/retromod-1.0.0-beta.8.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.0.0-beta.8+26.1.jar
+cp target/retromod-1.0.0-beta.9.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.0.0-beta.9+26.1.jar
 ```
 
 Game directory (macOS): `~/Library/Application Support/minecraft/`
@@ -139,6 +139,18 @@ When adding a new shim or polyfill, ALWAYS register it in the corresponding serv
 6. **Fabric is strictest.** Fabric checks mod versions BEFORE Retromod runs. That's why `retromod-input/` exists — mods get transformed there first, then moved to `mods/`.
 
 7. **The JAR doesn't bundle dependencies.** You can't run `java -jar retromod.jar` directly for CLI — use `mvn exec:java` instead.
+
+8. **Loader entry points must not reference another loader's classes.** `RetromodNeoForge`/`RetromodForge` load on NeoForge/Forge; if they touch a Fabric-only class — e.g. `RetromodPreLaunch implements net.fabricmc...PreLaunchEntrypoint` — the JVM drags that interface in and crashes at load with `NoClassDefFoundError`, *even with no mods* (#40). Same story for `Retromod implements ModInitializer`. Put loader-agnostic shared helpers on `RetromodVersion` (no loader supertype). `LoaderIsolationTest` scans the compiled entry points' constant pools and fails if they reference `net/fabricmc/` etc.
+
+9. **Gate shims by host version.** Register a shim only when `!RetromodVersion.mcVersionExceeds(shim.getTargetVersion(), host)` (i.e. target ≤ host), in all three entry points. The 1.21.11→26.1 shim renames API classes (Fabric `ScreenEvents$BeforeRender`→`BeforeExtract`, NeoForge `IItemHandler`→`ItemHandler`, …); applied on a pre-26.1 host it rewrites mods to 26.1-only names → `NoClassDefFoundError`/`VerifyError` (#21/#31/#32/#35/#38). Unlike the intermediary remap, API names are identical in mod and runtime, so this bites on Fabric too. The intermediary→Mojang remap is separately gated on `RetromodVersion.isUnobfuscatedTarget(host)` (26.1+ only, #21/#29).
+
+10. **NeoForge 1.20.1 mods need the toml RENAMED, not just patched.** NeoForge 1.20.2+ reads `META-INF/neoforge.mods.toml`; a 1.20.1 (Neo)Forge mod ships only `META-INF/mods.toml` and NeoForge SKIPS it at scan time ("is for Minecraft Forge or an older version of NeoForge") *before bytecode runs* (#42 — and the real cause of #38, which was wrongly blamed on the shim gate). `ForgeModTransformer.promoteToNeoForgeToml` (gated on `McReflect.isNeoForge()` + target ≥ 1.20.2) renames it, relaxes top-level `loaderVersion` to `[1,)`, and repoints the `forge` loader dependency → `neoforge` (NeoForge has no `forge` mod). Forge hosts keep `mods.toml`.
+
+11. **Versioning: bump when the published build is buggy; fix-in-place while unpublished.** Once a beta is published and a report lands against it, ship the fix as a NEW beta so reporters get a distinguishable build. A bump touches ALL of: `pom.xml`, `build-all.sh` `VERSION`, the hardcoded strings (`RetromodCli.VERSION`, `AotCompiler.AOT_VERSION`, `RetromodPreLaunch` banner, `RetromodClient` handshake write, `SafeCrashHandler`), a new `CHANGELOG.md` section (keep the old one), and the `1.0.0-beta.N` refs in CLAUDE.md + docs. While a beta is still unpublished, just fix in place — no bump.
+
+12. **Heavy/coremod mods can't be translated.** Create (ships Flywheel — custom GL renderer + coremods), Flywheel, Veil (rendering framework), and similar deep-integration/rendering mods are on [Mods That Can't Be Translated](docs/incompatible-mods.md). They fail with coremod/`getLoadingModList`/`VerifyError`/`CancellationException`-teardown symptoms regardless of metadata fixes (#25/#43). Don't chase these as transform bugs — confirm the mod list against the incompatible list first.
+
+13. **A 1.20.1 *Forge* mod on a *NeoForge* host is a 1.1.0 feature — don't chase it in beta.** NeoForge 1.20.1 was its first release and still shared Forge's API; NeoForge replaced all of it in 1.20.2+. So a 1.20.1 Forge mod uses APIs modern NeoForge threw out — `ForgeRegistries`/`IForgeRegistry`, `DeferredRegister.create(IForgeRegistry,…)`, `FMLJavaModLoadingContext.get().getModEventBus()`, `net.minecraftforge.*` packages — and translating it onto NeoForge 26.1.x is the *entire* Forge→NeoForge migration (registries → `BuiltInRegistries`/`Registries` `ResourceKey`s with new `create` signatures; mod-event-bus idiom; events; data gen), i.e. Sinytra-Connector-scale, not a redirect table. beta.9's toml promotion (#11/#42) only gets such a mod *scanned*; it then crashes at construct time (e.g. `NoClassDefFoundError: …/FMLJavaModLoadingContext`, then `NoSuchFieldError: NeoForgeRegistries … BLOCKS`). **Decision (Twigs, this session): defer to Retromod 1.1.0; documented as a known limitation; Forge mods go on a Forge host for now.** Known-good 1.1.0 building block, verified against NeoForge 26.1.2's `loader-11.0.13.jar`: `FMLJavaModLoadingContext.get().getModEventBus()` ↦ embed an ASM bridge **at the original class name** (no redirect — there's no equivalent NeoForge class) whose `getModEventBus()` is `ModLoadingContext.get().getActiveContainer().getEventBus()`; embed it via `RetromodTransformer.registerSyntheticClass` **only into mods that reference it** (NeoForge loads each mod as a JPMS module → embedding the same package into 2+ mods is a split-package crash). The NeoForge jar path (`ForgeModTransformer.repackageJar`) does **not** embed synthetics today — that wiring is part of the 1.1.0 work.
 
 ## Dependencies
 

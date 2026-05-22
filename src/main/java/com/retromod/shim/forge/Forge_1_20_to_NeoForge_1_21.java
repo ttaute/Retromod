@@ -194,7 +194,7 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "EVENT_BUS"
         );
     }
-    
+
     @Override
     public String[] getShimClasses() {
         return new String[] {

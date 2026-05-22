@@ -145,6 +145,13 @@ public class ForgeModTransformer {
             updateModsToml(tempDir, "META-INF/mods.toml");
             updateModsToml(tempDir, "META-INF/neoforge.mods.toml");
 
+            // Step 3.1: On a NeoForge host, promote a legacy META-INF/mods.toml to
+            // META-INF/neoforge.mods.toml. Modern NeoForge SKIPS a jar that only has
+            // mods.toml ("is for Minecraft Forge or an older version of NeoForge,
+            // and cannot be loaded") at scan time, before any bytecode runs — so a
+            // 1.20.1 (Neo)Forge mod never loads (issue #42; the real cause of #38).
+            promoteToNeoForgeToml(tempDir);
+
             // Step 3.5: Recursively patch metadata in JIJ (Jar-In-Jar) deps.
             // Mods like Create bundle dependencies (e.g. Flywheel) at
             // META-INF/jarjar/*.jar — those nested JARs have their own
@@ -451,6 +458,65 @@ public class ForgeModTransformer {
             Files.writeString(tomlFile, content);
             LOGGER.info("Updated {}: minecraft versionRange -> [{}]", tomlPath, targetMcVersion);
         }
+    }
+
+    /**
+     * On a NeoForge host (1.20.2+), promote a legacy {@code META-INF/mods.toml} to
+     * {@code META-INF/neoforge.mods.toml}.
+     *
+     * <p>NeoForge renamed its metadata file from {@code mods.toml} (the Forge name,
+     * also used by NeoForge 1.20.1) to {@code neoforge.mods.toml} in 1.20.2. Modern
+     * NeoForge SKIPS a jar that has only {@code mods.toml} at scan time — "File X is
+     * for Minecraft Forge or an older version of NeoForge, and cannot be loaded" —
+     * <em>before</em> any bytecode transform runs, so a 1.20.1 (Neo)Forge mod never
+     * loads at all (issue #42; the real cause behind #38, which was wrongly filed as
+     * a shim problem). We copy the (already version-patched) toml to the new name and
+     * relax the top-level {@code loaderVersion}.
+     *
+     * <p>Gated on the host actually being NeoForge, so a LexForge setup — which still
+     * uses {@code mods.toml} — is left untouched.
+     */
+    private void promoteToNeoForgeToml(Path tempDir) throws IOException {
+        if (!com.retromod.util.McReflect.isNeoForge()) return;
+        // Only NeoForge 1.20.2+ uses neoforge.mods.toml; 1.20.1 still wants mods.toml.
+        if (RetromodVersion.mcVersionExceeds("1.20.2", targetMcVersion)) return;
+
+        Path forgeToml = tempDir.resolve("META-INF/mods.toml");
+        Path neoToml = tempDir.resolve("META-INF/neoforge.mods.toml");
+        if (!Files.exists(forgeToml) || Files.exists(neoToml)) return;
+
+        String content = relaxLoaderVersion(Files.readString(forgeToml));
+        content = pointForgeDependencyAtNeoForge(content);
+        Files.writeString(neoToml, content);
+        Files.delete(forgeToml); // NeoForge keys off the filename; drop the legacy one
+        LOGGER.info("Promoted META-INF/mods.toml -> neoforge.mods.toml for NeoForge {} "
+                + "(was rejected as a Forge/old-NeoForge mod) (#42)", targetMcVersion);
+    }
+
+    /**
+     * Relax the top-level {@code loaderVersion} in a mods.toml to {@code "[1,)"}.
+     * The value a Forge/old-NeoForge mod declares (e.g. {@code "[47,)"} for Forge
+     * 1.20.1) is checked against the host's FancyModLoader version, which doesn't
+     * track that number, so a literal range rejects the mod on modern NeoForge.
+     */
+    static String relaxLoaderVersion(String toml) {
+        return toml.replaceAll("(?m)^(\\s*loaderVersion\\s*=\\s*)\"[^\"]*\"", "$1\"[1,)\"");
+    }
+
+    /**
+     * Repoint a mod's {@code forge} loader dependency at {@code neoforge}.
+     *
+     * <p>A Forge/1.20.1 mod declares a mandatory dependency on the {@code forge}
+     * mod-id, but NeoForge has no mod with that id, so it rejects the mod with
+     * "Mod X requires forge 0 or above — forge is not installed" (#42) — even after
+     * the metadata is promoted to {@code neoforge.mods.toml}. Pointing the
+     * dependency at {@code neoforge} (which IS present) satisfies it; its
+     * versionRange is already relaxed to {@code "[0,)"} by {@link #updateModsToml}.
+     * Only the {@code forge} dependency id is touched (the mod's own id and the
+     * {@code minecraft} dependency are left alone).
+     */
+    static String pointForgeDependencyAtNeoForge(String toml) {
+        return toml.replaceAll("(modId\\s*=\\s*)\"forge\"", "$1\"neoforge\"");
     }
 
     /**
