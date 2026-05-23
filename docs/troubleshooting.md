@@ -7,6 +7,24 @@ nav_order: 8
 
 This page covers the most common ways Retromod surprises people, and how to fix them. If your problem isn't here, [open an issue](https://github.com/Bownlux/Retromod/issues) — attach your `latest.log` and the contents of `config/retromod/verify-reports/` for the mod you're struggling with.
 
+> **First, two things that account for most reports:** (1) Retromod converts your mods on one launch and loads them on the **next** — you have to restart (see right below). (2) Some mods (Create, OptiFine, big rendering mods) **can't be translated at all** — see [My mod crashes no matter what](#my-mod-crashes-no-matter-what-i-do). Check those two before digging deeper.
+
+## I added mods but nothing loaded — do I need to restart?
+
+**Yes. Retromod converts on one launch and loads on the next.** This catches almost everyone the first time, so rule it out before anything else.
+
+What happens:
+
+1. You put old mods in `retromod-input/` (or pick them with the in-game file picker).
+2. On the **next launch**, Retromod transforms them, patches their metadata, and moves the finished JARs into `mods/`.
+3. The loader already scanned `mods/` before that move, so the converted mods aren't active *this* launch. Retromod shows a **"converted N mod(s) — the game needs to restart to load them"** prompt on the title screen.
+4. **Restart the game.** The converted mods are now in `mods/` and load normally.
+
+So a brand-new mod takes **two launches**: one to convert, one to run. After that it loads every time — it isn't re-converted.
+
+- The prompt is controlled by `restart_prompt` in `config/retromod/config.json` (default `true`). Setting it `false` doesn't skip conversion — you just have to remember to restart yourself.
+- **On Fabric, old mods can't go straight into `mods/`.** Fabric validates mod metadata *before* Retromod runs and rejects the old mod outright, so it never gets a chance to convert. `retromod-input/` is the inbox Retromod reads from — always stage old mods there on Fabric. (NeoForge and Forge can also convert a mod in place in `mods/`, backing the original up to `retromod-backups/`, but `retromod-input/` is the reliable path on every loader.)
+
 ## My mod doesn't load
 
 1. **Check `retromod-input/` and `retromod-backups/`.** If your mod is sitting in `retromod-input/` after a restart, Retromod didn't process it — check the log for a Retromod error on that filename. If it's in `mods/` but also in `retromod-backups/`, transformation ran at least once; look for runtime errors instead.
@@ -26,6 +44,17 @@ This page covers the most common ways Retromod surprises people, and how to fix 
 3. **Check the mod's mixins.** If the crash mentions `org.spongepowered.asm.mixin`, a mixin probably failed to apply. Disable `transform_mixins` temporarily to see whether the mod even attempts to load without mixin rewriting — if it does, you know the issue's in the mixin pass.
 
 4. **Look for `NoSuchMethodError` / `NoClassDefFoundError`.** These mean a reference didn't get remapped or polyfilled. If the verify report for this mod is empty, it likely means the reference is inside a mixin target or a reflective call — try turning on `remap_reflection` if it's off.
+
+## My mod crashes no matter what I do
+
+Some mods can't be translated by *any* bytecode tool, and no config change will fix them. If your crashing mod is one of these, it's expected — not a Retromod bug to chase:
+
+- **Create** (and add-ons like Create: Aeronautics), **Flywheel**, **Veil**, **Sable** — they ship their own GL rendering pipelines and coremod-level internals. Tell-tale symptoms: `getLoadingModList`, `VerifyError`, a coremod error, or a `CancellationException` during teardown.
+- **OptiFine** — a closed-source Forge coremod.
+- **Sodium / Iris / Embeddium** and similar deep rendering/mixin mods — often load but glitch or crash on specific scenes.
+- **Applied Energistics 2, Tinkers' Construct, IndustrialCraft, Thaumcraft** — decades of deep MC integration that gets re-architected between versions.
+
+The full list — with the "if a mod does X, it won't translate" rules behind it — is at **[Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }})**. Check your mod set against it *before* filing a transform bug; one incompatible mod in the loadout can take the whole launch down, and the fix is to remove that mod, not to debug Retromod.
 
 ## "unofficial build" or similar authenticity warning
 
@@ -109,6 +138,27 @@ This is a **known Retromod gap** (the mixin-extras inner-target rewriter is inco
 
 The relevant known-broken mods so far: anything with a name like "CustomHUD" / "BetterHUD" / "BetterF3" on MC versions much newer than the mod was built for. Anything that ships its own mixins into MC's GUI internals is in this category — the GUI surface changes shape often.
 
+## Crash: "VerifyError: Bad local variable type" pointing at a `…mixinextras$bridge` method
+
+A specific, common mixin crash: a `VerifyError` (often *"Bad local variable type"*) naming a generated method like `…$wrapOperation$…$mixinextras$bridge` or `…$modifyExpressionValue$…`. This is a MixinExtras `@WrapOperation` / `@ModifyExpressionValue` / `@Local` handler whose generated bridge assumed a vanilla method's local-variable layout that changed on your host MC. The captured `@Local` resolves to the wrong slot, so the bridge is invalid — and there's no safe automatic rewrite for it.
+
+Retromod already soft-fails many mixin problems (one bad mixin disables one feature instead of crashing the game). For the fatal ones it can't auto-handle, there's a **blocklist** that surgically removes the offending handler so the mod still loads with just that one feature inert:
+
+- A curated list ships inside Retromod (`/retromod/mixin-blocklist.json`).
+- You extend it with your own `config/retromod/mixin-blocklist.json` (entries from both files merge):
+
+  ```json
+  {
+    "blocked": [
+      { "mixin": "com/example/mod/mixin/SomeMixin", "methods": ["someMixin$badHandler"] }
+    ]
+  }
+  ```
+
+  `mixin` is the mixin class (`/`- or `.`-separated). List the specific handler method(s) in `methods` to strip just those (preferred); omit `methods` to disable every injector on that class. The crash log names both — the mixin class and the `…$mixinextras$bridge` handler.
+
+Please [file an issue](https://github.com/Bownlux/Retromod/issues) with your log if you hit one — it can join the curated list so nobody else has to blocklist it by hand.
+
 ## Forge: "needs language provider javafml:X or above" (e.g. javafml:52)
 
 `javafml` is Forge's Java-mod language provider — the number after the colon is the **Forge loader version**, not a separate library. So `javafml:52` means "Forge 52.x or later"; `javafml:47` means "Forge 47.x or later". Each MC version ships a specific Forge loader version: MC 1.20.1 → Forge 47, MC 1.21 → Forge 51, MC 1.21.1 → Forge 52, MC 26.1+ → Forge 64+.
@@ -124,6 +174,24 @@ The Java module system (JPMS), which Forge 1.20.1+ enforces strictly, refused to
 **Fixed in builds after beta.2.** The fix is build-side: every bundled dependency is now relocated under `com.retromod.shaded.*` so it can't collide with Forge's modules. If you're on the broken beta.2 build that hit this, grab a newer build.
 
 If you see this on a build that *should* be relocated, the relocation table in `pom.xml`'s `maven-shade-plugin` config might be missing a dependency. Open an issue with the exact package name from the error message and we'll add it.
+
+## NeoForge: my old (1.20.1) mod doesn't appear at all
+
+If a 1.20.1 (Neo)Forge mod simply isn't in the mod list — often with a log line like *"File X is for Minecraft Forge or an older version of NeoForge, and cannot be loaded"* — NeoForge skipped it at scan time, *before* Retromod's transforms run. NeoForge 1.20.2 renamed its metadata file from `META-INF/mods.toml` to `META-INF/neoforge.mods.toml`, and modern NeoForge ignores any jar that still ships only the old `mods.toml`.
+
+**Fixed in beta.9** — on a NeoForge host, Retromod now promotes `mods.toml` → `neoforge.mods.toml` (and relaxes the loader-version and dependency), so the mod gets recognized. **Update to beta.9 or later.**
+
+## NeoForge: a 1.20.1 *Forge* mod loads, then crashes (IForgeRegistry / FMLJavaModLoadingContext)
+
+If a 1.20.1 mod gets scanned but then crashes during mod construction with `NoClassDefFoundError: …/FMLJavaModLoadingContext`, `NoSuchFieldError: NeoForgeRegistries … BLOCKS`, or similar registry errors, this is a **known limitation**, not a bug to chase.
+
+1.20.1 was NeoForge's first release, when it still shared Forge's API (`ForgeRegistries`/`IForgeRegistry`, the old `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext`, `net.minecraftforge.*` packages). NeoForge replaced all of it in 1.20.2+, so a 1.20.1 *Forge* mod uses APIs modern NeoForge no longer has. Translating it onto NeoForge is the entire Forge→NeoForge migration, which is **planned for Retromod 1.1.0**, not the beta line.
+
+**What to do today:** run a Forge mod on a **Forge** host. On Forge 26.1.x those APIs still exist natively, so it's a within-loader version bump rather than a cross-loader rewrite. (NeoForge mods translate onto NeoForge fine — this is specifically *Forge mod → NeoForge host*.) Details: [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}).
+
+## Pre-26.1 host: old mod crashes on a 26.1-only name (`BeforeExtract`, `LevelRenderContext`, `ItemHandler`)
+
+If you're translating onto a **pre-26.1** host (1.21.8, 1.21.1, etc.) and an old mod crashes with a `NoClassDefFoundError` / `VerifyError` naming a 26.1-only API (`ScreenEvents$BeforeExtract`, `WorldRenderContext`→`LevelRenderContext`, NeoForge `ItemHandler`/`FluidHandler`), early betas applied the 26.1 renaming shims regardless of host. **Fixed in beta.7** — shims are now gated so a shim only runs when its target version is ≤ your host. **Update to beta.7 or later.** (Translating onto a 26.1 host was never affected.)
 
 ## "java.util.zip.ZipException: duplicate entry"
 

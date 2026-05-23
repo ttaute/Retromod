@@ -106,6 +106,15 @@ See [Authenticity]({{ '/authenticity' | relative_url }}) for the full breakdown 
 
 Partial compatibility. Sodium and Iris are mostly fine — they target modern MC APIs, which Retromod doesn't interfere with. OptiFine is trickier because it transforms the game in ways that overlap with what Retromod does; there's a dedicated `compat/OptiFineCompat.java` that handles some of the friction, but YMMV. Test with your specific rendering mod combo before committing to it.
 
+## Is there a list of mods that work?
+
+Yes — two of them:
+
+- **[Compatibility list](https://github.com/Bownlux/Retromod/blob/main/COMPATIBILITY.md)** — mods confirmed to load after transformation, grouped by the MC version they were built for, plus a recommended multi-mod test setup.
+- **[Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }})** — the honest "no" list and the rules behind it (rendering replacements, coremods, deep-integration mods like Create).
+
+Neither is exhaustive — the modding ecosystem is enormous and largely community-tested. If you confirm a mod works (or doesn't), an [issue](https://github.com/Bownlux/Retromod/issues) noting the mod, its version, your MC version, and the result genuinely helps — that collective testing is how the lists grow.
+
 ## Will it work for [specific mod]?
 
 The honest answer: try it and see. Simple content-only mods (items, blocks, recipes) almost always work. Mods that hook MC's internals for rendering, physics, or networking are hit-or-miss. Mods with extensive reflection or dynamic classloading may need `remap_reflection` enabled (it's on by default).

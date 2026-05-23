@@ -61,6 +61,21 @@ If you'd rather not touch a command line at all, the in-game flow is the simpler
 
 ---
 
+## Documentation
+
+| Doc | What's in it |
+|---|---|
+| **[Compatibility list](COMPATIBILITY.md)** | Which mods load after transformation, organized by source MC version, plus a recommended multi-mod test setup. |
+| **[Mods That Can't Be Translated](docs/incompatible-mods.md)** | The realistic "no" list — Create, OptiFine, rendering frameworks — and the rules behind why. |
+| **[Troubleshooting](docs/troubleshooting.md)** | The common crashes and confusions — *do I need to restart?*, Java-version errors, mixin crashes, NeoForge metadata — with fixes. |
+| **[FAQ](docs/faq.md)** | Safety, servers, modpacks, dependency handling, "will it work for my mod?" |
+| **[Installation](docs/installation.md)** | Per-launcher setup (Prism, MultiMC, the vanilla launcher). |
+| **[API Compatibility](API_COMPATIBILITY.md)** | The 34+ modding APIs Retromod shims. |
+
+A mod that won't convert, or a question that isn't answered? [Open an issue](https://github.com/Bownlux/Retromod/issues) or start a [discussion](https://github.com/Bownlux/Retromod/discussions).
+
+---
+
 ## Key Features
 
 ### Transformation pipeline
