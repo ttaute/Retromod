@@ -177,8 +177,23 @@ Retromod rewrites the mixin's **target** (it points at the right MC method), but
 
 **Workarounds:**
 1. **Use a build of the mod made for your MC version** if one exists — there's nothing to translate then.
-2. **Blocklist the offending handler** (see the section above) so the mod loads with just that one feature inert — stripping a save-data `@Inject` usually only loses some persisted extra data, not the whole mod.
+2. **Blocklist the offending handler** (see the section above) so the mod loads with just that one feature inert — stripping a save-data `@Inject` usually only loses some persisted extra data, not the whole mod. This works cleanly when the handler is *self-contained*; if the mixin's feature is spread across interdependent members (a `@Unique` field + interface + helper lambdas), stripping removes the injection error but the mod may still not construct — in that case it genuinely needs a build for your MC version.
 3. File an issue with the log so the specific signature change can be added to Retromod's mixin-translation table.
+
+## Crash: a transformed mod fails to construct with "ClassNotFoundException: net.minecraft.resources.ResourceLocation"
+
+If a mod Retromod transformed dies during construction with `NoClassDefFoundError` → `ClassNotFoundException` for a **core Minecraft class that obviously exists** (commonly `net.minecraft.resources.ResourceLocation`), thrown from the mod's own `<clinit>` via NeoForge's `ModuleClassLoader`:
+
+```
+Failed to create mod instance. ModID: <mod>
+java.lang.NoClassDefFoundError: net/minecraft/resources/ResourceLocation
+Caused by: java.lang.ClassNotFoundException: net.minecraft.resources.ResourceLocation
+  at net.neoforged.fml.classloading.ModuleClassLoader.loadClass(...)
+```
+
+…the class isn't actually missing — it's a **JPMS module-resolution** problem. A mod that ships no `module-info` or `Automatic-Module-Name` (MCreator output and many small mods) gets its module name *derived from the jar filename*, and spaces or other odd characters in that name break the module's ability to read core Minecraft.
+
+**Fixed in beta.10** — Retromod now sanitizes the transformed jar's output filename so the derived module name is always valid. **Update to beta.10 or later.** (Workaround on older builds: rename the transformed jar in `mods/` to remove spaces and special characters.) NeoForge/Forge only — Fabric is unaffected. Reported in #47 (Luminous Nether).
 
 ## Forge: "needs language provider javafml:X or above" (e.g. javafml:52)
 

@@ -25,6 +25,12 @@
       "methods": ["deeperdarker$decrementStackOnServer"],
       "issue": "#28",
       "reason": "MixinExtras @WrapOperation + @Local Level on HangingEntityItem.useOn, wrapping ItemStack.shrink(I). MC 26.1 restructured useOn, so the @Local Level resolves to a non-existent slot and MixinExtras emits an invalid bridge (VerifyError: Bad local variable type) that crashes at bootstrap. Stripping just this handler lets Deeper and Darker boot; the painting stack-decrement tweak is inert."
+    },
+    {
+      "mixin": "com/naterbobber/darkerdepths/mixin/PlayerMixin",
+      "methods": ["G$addAdditionalSaveData", "G$readAdditionalSaveData"],
+      "issue": "#48",
+      "reason": "@Inject handlers on Entity.addAdditionalSaveData/readAdditionalSaveData capture CompoundTag, but MC moved those params to ValueOutput/ValueInput in the 1.21.5 serialization (ValueIO/codec) refactor -> InvalidInjectionException (Invalid descriptor: expected ValueOutput, found CompoundTag) on 1.21.11. Not a rename (ValueOutput has a different API than CompoundTag), so the handler body can't be auto-retyped yet. Stripping these handlers removes the injection error. NOTE (#48): Darker Depths' death-anchor feature is interdependent (the stripped handlers leave orphaned helper lambdas + a @Unique field/interface), so this mod still does not fully construct after the strip — it's a PARTIAL soft-fail, kept here because the handlers are genuinely broken and the strip is correct as far as it goes. Mods with a self-contained broken handler soft-fail cleanly."
     }
   ]
 }

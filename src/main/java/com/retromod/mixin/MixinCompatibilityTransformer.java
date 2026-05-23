@@ -155,7 +155,48 @@ public class MixinCompatibilityTransformer {
         classNode.accept(writer);
         return writer.toByteArray();
     }
-    
+
+    /**
+     * Strip ONLY blocklisted mixin handler methods — no {@code @Mixin}/{@code @Inject}
+     * target remapping. The NeoForge/Forge transform path calls this (the Fabric path
+     * gets the same strip for free inside {@link #transformMixinClass}). NeoForge/Forge
+     * mixin targets already resolve under Mojang names, but a handler can still need
+     * stripping to soft-fail an otherwise-fatal injection — e.g. an {@code @Inject}
+     * whose captured parameter type changed out from under it
+     * ({@code addAdditionalSaveData}: {@code CompoundTag} → {@code ValueOutput}, the
+     * 1.21.5 ValueIO refactor; #48). Returns the input unchanged when the class isn't a
+     * blocklisted mixin, so it's safe to call on every class.
+     */
+    public byte[] stripBlocklistedHandlers(byte[] classBytes) {
+        ClassReader reader = new ClassReader(classBytes);
+        ClassNode classNode = new ClassNode();
+        reader.accept(classNode, 0);
+
+        if (!isMixinClass(classNode)) {
+            return classBytes;
+        }
+        Set<String> blockedMethods = MixinBlocklist.methodsToStrip(classNode.name);
+        if (blockedMethods == null) {
+            return classBytes;
+        }
+        int before = classNode.methods.size();
+        if (blockedMethods.isEmpty()) {
+            classNode.methods.removeIf(MixinCompatibilityTransformer::hasInjectorAnnotation);
+        } else {
+            classNode.methods.removeIf(m -> blockedMethods.contains(m.name));
+        }
+        int removed = before - classNode.methods.size();
+        if (removed == 0) {
+            return classBytes;
+        }
+        LOGGER.info("Mixin blocklist: stripped {} handler method(s) from {} "
+                + "— this mixin is known to crash on the target MC; the mod loads "
+                + "with that feature inert", removed, classNode.name);
+        ClassWriter writer = new ClassWriter(0);
+        classNode.accept(writer);
+        return writer.toByteArray();
+    }
+
     /**
      * Check if a class is a Mixin.
      */

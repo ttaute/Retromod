@@ -83,10 +83,12 @@ public class ForgeModTransformer {
 
     private final String targetMcVersion;
     private final RetromodTransformer bytecodeTransformer;
+    private final MixinCompatibilityTransformer mixinTransformer;
 
     public ForgeModTransformer(String targetMcVersion) {
         this.targetMcVersion = targetMcVersion;
         this.bytecodeTransformer = RetromodTransformer.getInstance();
+        this.mixinTransformer = new MixinCompatibilityTransformer(bytecodeTransformer);
     }
 
     /**
@@ -99,7 +101,19 @@ public class ForgeModTransformer {
     public Path transformMod(Path sourceJar, Path outputDir) throws IOException {
         String originalName = sourceJar.getFileName().toString();
         String baseName = originalName.replace(".jar", "");
-        String outputName = baseName + "-retromod.jar";
+        // NeoForge/Forge derive an automatic JPMS module name from the jar
+        // FILENAME when a mod ships no module-info / Automatic-Module-Name
+        // (common for MCreator and small mods). Spaces or other odd characters
+        // in that name break the derived module's reads, and the transformed
+        // mod's module then can't resolve core Minecraft classes — e.g.
+        // "ClassNotFoundException: net.minecraft.resources.ResourceLocation" in
+        // the mod's own <clinit> (#47, Luminous Nether: its jar name had spaces,
+        // while the exact same mod renamed without spaces loaded fine). Sanitize
+        // the output name so the derived module name is always valid. This is a
+        // NeoForge/Forge concern (Fabric's Knot loader has no JPMS modules), but
+        // a clean name is harmless everywhere.
+        String safeBaseName = baseName.replaceAll("[^A-Za-z0-9._-]", "_");
+        String outputName = safeBaseName + "-retromod.jar";
         Path outputJar = outputDir.resolve(outputName);
 
         LOGGER.info("Checking Forge/NeoForge mod: {}", originalName);
@@ -297,7 +311,13 @@ public class ForgeModTransformer {
                     .replace(".class", "")
                     .replace(File.separator, "/");
 
-                byte[] transformed = bytecodeTransformer.transformClass(original, className);
+                // Strip blocklisted mixin handlers first (NeoForge/Forge path; the
+                // Fabric path does this inside FabricModTransformer). No-op for any
+                // class that isn't a blocklisted mixin. Fixes #48 (Darker Depths'
+                // addAdditionalSaveData/readAdditionalSaveData @Injects that crash
+                // on the CompoundTag→ValueOutput signature change).
+                byte[] preStripped = mixinTransformer.stripBlocklistedHandlers(original);
+                byte[] transformed = bytecodeTransformer.transformClass(preStripped, className);
                 boolean wroteFirst = false;
                 if (transformed != null && transformed != original) {
                     Files.write(classFile, transformed);
