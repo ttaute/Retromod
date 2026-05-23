@@ -305,59 +305,62 @@ public class EnvironmentDetector {
     // =========================================================================
 
     private static boolean detectClient() {
-        // Check for client-specific classes
-        try {
-            Class.forName("net.minecraft.client.MinecraftClient");
+        // Existence-only probes (initialize=false) — see classExists(): detection
+        // must never trigger a Minecraft bootstrap class's <clinit>.
+        if (classExists("net.minecraft.client.MinecraftClient")
+                || classExists("net.minecraft.client.Minecraft")) {
             return true;
-        } catch (ClassNotFoundException e) {
-            // Try Forge/NeoForge naming
-            try {
-                Class.forName("net.minecraft.client.Minecraft");
-                return true;
-            } catch (ClassNotFoundException e2) {
-                // Not a client
-            }
         }
-
-        // Check Fabric API
-        try {
-            Class.forName("net.fabricmc.api.EnvType");
-        } catch (ClassNotFoundException e) {
-            // Fabric API not available
-        }
-
-        // Fallback: check if we have a display
+        // Fallback: if we have a display, we're almost certainly a client.
         return !detectHeadless();
     }
 
     private static boolean detectDedicatedServer() {
-        // Check for dedicated server class
-        try {
-            Class.forName("net.minecraft.server.dedicated.MinecraftDedicatedServer");
-            return true;
-        } catch (ClassNotFoundException e) {
-            // Try alternative naming
-            try {
-                Class.forName("net.minecraft.server.MinecraftServer");
-                // This exists on both client and server, so check for client absence
-                try {
-                    Class.forName("net.minecraft.client.MinecraftClient");
-                    return false; // Client exists, not dedicated server
-                } catch (ClassNotFoundException e2) {
-                    try {
-                        Class.forName("net.minecraft.client.Minecraft");
-                        return false; // Forge client exists
-                    } catch (ClassNotFoundException e3) {
-                        return true; // Server classes exist, client doesn't
-                    }
-                }
-            } catch (ClassNotFoundException e2) {
-                // Neither exists? Weird state
-            }
+        // The Minecraft runtime ships a MERGED jar, so server classes — even
+        // net.minecraft.server.dedicated.DedicatedServer and MinecraftServer — are
+        // present on a CLIENT too. Their presence is therefore NOT a reliable
+        // "this is a dedicated server" signal. The reliable signal is the ABSENCE
+        // of a client class.
+        boolean clientPresent = classExists("net.minecraft.client.MinecraftClient")
+                || classExists("net.minecraft.client.Minecraft");
+        if (clientPresent) {
+            return false; // integrated server on a client — not dedicated
         }
-
-        // Fallback: if headless, probably a server
+        // No client class present → if a server class is present, it's dedicated.
+        if (classExists("net.minecraft.server.MinecraftServer")
+                || classExists("net.minecraft.server.dedicated.DedicatedServer")) {
+            return true;
+        }
+        // Fallback: if headless, probably a server.
         return detectHeadless();
+    }
+
+    /**
+     * Test whether a class is present <em>without initializing it</em>.
+     *
+     * <p><b>Why this exists (#46):</b> the single-arg {@link Class#forName(String)}
+     * <em>initializes</em> the class. Probing a Minecraft bootstrap class such as
+     * {@code net.minecraft.server.MinecraftServer} that way during mod
+     * construction forced its {@code <clinit>} to run far too early. With a mod
+     * that mixins into those classes (Legacy4J mixins {@code MinecraftServer} and
+     * {@code LevelSettings}), that cascaded into {@code wily.legacy.client.PackAlbum.<clinit>},
+     * which reads {@code Minecraft.getInstance().gameDirectory} before the client
+     * singleton exists → {@link NullPointerException}. Retromod's mere presence
+     * then crashed an otherwise-working mod. Detection must observe, never trigger
+     * static initialization — hence the three-arg form with {@code initialize = false}.
+     */
+    static boolean classExists(String name) {
+        try {
+            ClassLoader cl = EnvironmentDetector.class.getClassLoader();
+            if (cl == null) {
+                cl = Thread.currentThread().getContextClassLoader();
+            }
+            Class.forName(name, false, cl);
+            return true;
+        } catch (Throwable ignored) {
+            // ClassNotFoundException (absent) or any LinkageError — treat as absent.
+            return false;
+        }
     }
 
     private static boolean detectHeadless() {

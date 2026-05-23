@@ -47,7 +47,7 @@ public class AotCompiler {
     private static final String AOT_MANIFEST_KEY = "Retromod-AOT-Version";
     
     // Current AOT compiler version (bump when shims change)
-    private static final String AOT_VERSION = "1.0.0-beta.9";
+    private static final String AOT_VERSION = "1.0.0-beta.10";
     
     private final ShimRegistry shimRegistry;
     private final RetromodTransformer transformer;

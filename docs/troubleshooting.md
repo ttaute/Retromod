@@ -159,6 +159,27 @@ Retromod already soft-fails many mixin problems (one bad mixin disables one feat
 
 Please [file an issue](https://github.com/Bownlux/Retromod/issues) with your log if you hit one — it can join the curated list so nobody else has to blocklist it by hand.
 
+## Crash: "InvalidInjectionException: Invalid descriptor … Expected (X) but found (Y)"
+
+A mod fails during construction with a mixin error shaped like:
+
+```
+Mixin apply for mod <mod> failed <mod>.mixins.json:SomeMixin -> net.minecraft.…:
+InvalidInjectionException: Invalid descriptor on …@Inject::handler(…OldType…)!
+  Expected (…NewType…) but found (…OldType…)
+```
+
+This happens when the mod's `@Inject` / `@Redirect` / `@ModifyArg` handler **captures a parameter whose type Minecraft changed** between the version the mod was built for and your host. The canonical case: `Entity.addAdditionalSaveData` / `readAdditionalSaveData` switched from `CompoundTag` to `ValueOutput` / `ValueInput` in the 1.21.5 serialization ("ValueIO" / codec) refactor — so a 1.21.1 mod's `@Inject(method = "addAdditionalSaveData")` still captures `CompoundTag`, and Mixin refuses to apply it on 1.21.11.
+
+Retromod rewrites the mixin's **target** (it points at the right MC method), but it does **not** yet rewrite the handler's **captured parameter types or body** — and it can't be a simple rename, because `ValueOutput` has a different API shape than `CompoundTag` (the handler body would have to be rewritten, not just re-typed). This is a **known limitation**, and it's independent of any third-party library — GeckoLib and friends load fine; this is purely an MC-internal signature change.
+
+**The confusing part — a misleading NPE downstream.** When a mod fails to construct, NeoForge marks the load as a **"broken mod state"** and silently skips every later client registration event (models, sprites, reload listeners). The game then crashes much later with something like a `NullPointerException` in `ModelManager.reload` / `PreparableReloadListener$SharedState.get` — which has *nothing* to do with the real cause. If you see that NPE, scroll **up** in the log for the first `Mixin apply for mod … failed` / `InvalidInjectionException` and a line like `Failed to wait for future Mod Construction, N errors found`. *That* earlier error is the one to fix.
+
+**Workarounds:**
+1. **Use a build of the mod made for your MC version** if one exists — there's nothing to translate then.
+2. **Blocklist the offending handler** (see the section above) so the mod loads with just that one feature inert — stripping a save-data `@Inject` usually only loses some persisted extra data, not the whole mod.
+3. File an issue with the log so the specific signature change can be added to Retromod's mixin-translation table.
+
 ## Forge: "needs language provider javafml:X or above" (e.g. javafml:52)
 
 `javafml` is Forge's Java-mod language provider — the number after the colon is the **Forge loader version**, not a separate library. So `javafml:52` means "Forge 52.x or later"; `javafml:47` means "Forge 47.x or later". Each MC version ships a specific Forge loader version: MC 1.20.1 → Forge 47, MC 1.21 → Forge 51, MC 1.21.1 → Forge 52, MC 26.1+ → Forge 64+.
