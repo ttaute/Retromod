@@ -1,6 +1,31 @@
 # Changelog
 
-All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/) with the `1.0.0-beta.N` series leading up to stable 1.0.
+All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/): the `1.0.0-beta.N` series then `1.0.0-rc.N` release candidates lead up to stable 1.0.
+
+## [1.0.0-rc.1] — 2026-05-24
+
+**First release candidate.** The transform pipeline is feature-complete; what remains are documented deep-API-change limitations (below), targeted for 1.1.0. This release is a large correctness pass on the mapping/transform core, driven by the NeoForge 1.21.11 reports (#50–#53).
+
+**NeoForge host-version detection (the keystone fix).** On FancyModLoader 10.x (NeoForge 21.11 / MC 1.21.11) Retromod silently mis-detected the host MC version and fell back to a hardcoded default, which then **gated out every version shim newer than that default** — so core renames like `ResourceLocation`→`Identifier` were never applied, and transformed mods crashed with `NoClassDefFoundError` on classes that had simply been renamed. `RetromodVersion.detectFmlMcVersion()` now reads the version across FML API generations (the 10.x `getCurrent().getVersionInfo()` shape and older static forms) and logs loudly instead of silently falling back. This underlies #50/#51/#52.
+
+**Host-version-aware vanilla class moves (NeoForge/Forge).** The `net/minecraft/*` rename/package-move table is no longer gated coarsely on "26.1+". Each rename is applied on a host only when that host actually has the new class and not the old one — i.e. the rename already happened by that host version. So a 1.21.11 host correctly gets the subset of renames that landed by 1.21.11 (≈800 of them), without the prior hazard of rewriting a working reference to a name that doesn't exist yet. Class existence is queried via the classloader that loaded Minecraft rather than a fragile MC-jar-on-disk search — which also fixed the fuzzy method resolver silently indexing the wrong jar (it had matched a `net/minecraftforge/…` library by substring → 0 classes).
+
+**Much larger, corrected mapping tables.**
+- **SRG → Mojang** (Forge reobf names): regenerated from MCPConfig + official Mojang mappings (the same join ForgeGradle performs) — ~53,000 verified entries, replacing a 117-entry starter set in which **56 entries were wrong** (e.g. `getNamespace`/`getPath` swapped; `f_50122_` mislabeled).
+- **Intermediary → Mojang** (Fabric): a multi-version method/field harvest (1.16.5 / 1.20.1 / 1.21.11) so a mod built for an older version whose intermediary ids were dropped from newer tiny files still resolves.
+- **Vanilla class moves/renames**: grew from 606 to ~900 entries — package reorganizations plus simple-name-*changed* renames paired by member-set similarity (`FarmBlock`→`FarmlandBlock`, `MobSpawnType`→`EntitySpawnReason`, `UseAnim`→`ItemUseAnimation`, `ElytraLayer`→`WingsLayer`, …).
+
+**Fuzzy method resolver — stack-safety guard.** When it redirects a call matched by name + arity, it now refuses the redirect if the original argument/return types aren't stack-compatible with the candidate (e.g. `AnimationUtils.swingWeaponDown(…,Mob,…)` became `(…,HumanoidArm,…)` in 1.21.11). Rewriting such a call emitted bytecode that fails verification — a class-load `VerifyError` that crashes the whole mod — instead of degrading to a far milder, often-never-hit `NoSuchMethodError`. This protects every transformed mod.
+
+**Mod-specific.**
+- **#50 Revamped Phantoms** — its `PhantomMixin` `@ModifyReturnValue` on `getDefaultDimensions` couldn't resolve a target on 1.21.11; the handler is self-contained, so it's soft-failed via the mixin blocklist and the mod loads with its goals feature intact.
+- **#53 Ultracraft** — all unresolved intermediary names now map (the reported `class_195` and 88 `method_NNNN` gaps are gone); remaining gaps are 26.1 rendering-API removals (a complex, rendering-heavy mod).
+
+**Mapping-data attribution** added to the README (Mojang obfuscation maps; Fabric intermediary, CC0-1.0; Forge MCPConfig) — Retromod's bundled name tables are derived/transformed works, not redistributions of the originals.
+
+> **Known limitations carried into 1.1.0:** #51 (Illagers Wear Armor) and #52 (Luminous: Nether) now construct and load far further than before, but their core feature code uses Minecraft/NeoForge APIs that were *structurally redesigned or removed* (armor-layer rendering → `EquipmentClientInfo`; `DeferredSpawnEggItem` deleted) — not renamed — so they need hand-written polyfills, planned for 1.1.0. See [Mods That Can't Be Translated](docs/incompatible-mods.md).
+
+---
 
 ## [1.0.0-beta.10] — 2026-05-23
 

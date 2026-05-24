@@ -135,6 +135,55 @@ class MixinBlocklistTest {
         assertTrue(names.contains("onSomething"), "non-listed handler survives");
     }
 
+    /** Build a minimal @Mixin class with two named handler methods + ctor. */
+    private static byte[] mixinClassWithMethods(String internalName, String... methodNames) {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
+        cw.visitAnnotation("Lorg/spongepowered/asm/mixin/Mixin;", false).visitEnd();
+        MethodVisitor ctor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        ctor.visitCode();
+        ctor.visitVarInsn(Opcodes.ALOAD, 0);
+        ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        ctor.visitInsn(Opcodes.RETURN);
+        ctor.visitMaxs(1, 1);
+        ctor.visitEnd();
+        for (String name : methodNames) {
+            MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PRIVATE, name, "()V", null, null);
+            mv.visitAnnotation("Lorg/spongepowered/asm/mixin/injection/Inject;", false).visitEnd();
+            mv.visitCode();
+            mv.visitInsn(Opcodes.RETURN);
+            mv.visitMaxs(0, 1);
+            mv.visitEnd();
+        }
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    @Test
+    @DisplayName("Bundled blocklist includes Revamped Phantoms' PhantomMixin handler (#50)")
+    void loadsBundledRevampedPhantomsEntry() {
+        MixinBlocklist.resetForTesting();
+        Set<String> m = MixinBlocklist.methodsToStrip(
+                "dev/lukebemish/revampedphantoms/mixin/PhantomMixin");
+        assertNotNull(m, "bundled blocklist should include PhantomMixin");
+        assertTrue(m.contains("revamped_phantoms$getDefaultDimensions"),
+                "the failing getDefaultDimensions handler must be listed");
+    }
+
+    @Test
+    @DisplayName("#50 NeoForge path: strip getDefaultDimensions, keep the goals handler")
+    void stripsPhantomDimensionsKeepsGoals() {
+        MixinBlocklist.resetForTesting(); // use the real bundled list
+        var t = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
+        Set<String> names = methodNames(t.stripBlocklistedHandlers(mixinClassWithMethods(
+                "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
+                "revamped_phantoms$getDefaultDimensions", "revamped_phantoms$registerGoals")));
+        assertFalse(names.contains("revamped_phantoms$getDefaultDimensions"),
+                "the failing dimension handler must be stripped (NeoForge path)");
+        assertTrue(names.contains("revamped_phantoms$registerGoals"),
+                "the unrelated goals handler must survive — self-contained soft-fail");
+    }
+
     @Test
     @DisplayName("A mixin not on the blocklist is left untouched")
     void nonBlockedClassUntouched() {

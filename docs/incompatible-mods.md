@@ -93,6 +93,17 @@ NeoForge 1.20.1 was its very first release, forked from Forge and still sharing 
 
 **What to do today:** run a Forge mod on a **Forge** host. On Forge 26.1.x those same APIs still exist natively, so it's a within-loader version bump (which Retromod handles) rather than a cross-loader rewrite. NeoForge mods translate to NeoForge fine; this limitation is specifically *Forge mod → NeoForge host*.
 
+## Mods built on structurally-redesigned APIs — not yet (planned for 1.1.0)
+
+Some mods now **construct and load much further** than the old missing-class crash — Retromod's renames carry them past startup and several render layers — but their *core feature* is built on a Minecraft or loader API that a later version didn't *rename*, it **redesigned or deleted**. Retromod can rename a class or remap a method; it can't reshape a mod's calls onto a differently-shaped API. These need hand-written **polyfills** (reimplement the old API on top of the new one), which is **1.1.0** work.
+
+| Mod | Where it hits the wall |
+|---|---|
+| **Illagers Wear Armor** (#51) | Loads past construction and several render layers, then fails on `ArmorMaterial$Layer` — which 1.21.x removed in favor of `EquipmentClientInfo`, a *different* API, not a rename. (It also calls `AnimationUtils.swingWeaponDown(…, Mob, …)`, which became `(…, HumanoidArm, …)`; Retromod now leaves that call alone rather than emit a `VerifyError`, so it degrades to a broken attack animation, not a crash.) |
+| **Luminous: Nether** (#52) | An MCreator mod that registers spawn eggs via NeoForge's `DeferredSpawnEggItem`, which NeoForge **deleted** in 21.11. There's no class to redirect to. |
+
+**The tell:** the crash is a `NoClassDefFoundError` / `VerifyError` on a vanilla or loader class whose replacement has a *different shape* — `EquipmentClientInfo` vs `ArmorMaterial$Layer`, `HumanoidArm` vs `Mob`, or simply gone (`DeferredSpawnEggItem`). If the replacement were just a rename, Retromod would already handle it (it now maps ~900 vanilla renames per host). Distinct from the deep-integration mods above: these are otherwise-simple content mods that happen to touch one redesigned API.
+
 ## Mods that load but are likely broken in-game
 
 A separate category from the "never works" list above. These mods get through Retromod's pipeline and the loader accepts them, but their actual gameplay features depend on bytecode positions that have moved. They're worth listing because people see them on the [COMPATIBILITY.md](../COMPATIBILITY.md) success list and assume they fully work:

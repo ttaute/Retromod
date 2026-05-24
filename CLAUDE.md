@@ -58,12 +58,12 @@ mvn exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" -Dexec.args="<comm
 
 **Important:** Always pass `-Dexec.skip=true` during build to prevent Maven from running the CLI entrypoint.
 
-Output JAR: `target/retromod-1.0.0-beta.10.jar`
+Output JAR: `target/retromod-1.0.0-rc.1.jar`
 
 ## Deploy to Minecraft
 
 ```bash
-cp target/retromod-1.0.0-beta.10.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.0.0-beta.10+26.1.jar
+cp target/retromod-1.0.0-rc.1.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.0.0-rc.1+26.1.jar
 ```
 
 Game directory (macOS): `~/Library/Application Support/minecraft/`
@@ -146,7 +146,7 @@ When adding a new shim or polyfill, ALWAYS register it in the corresponding serv
 
 10. **NeoForge 1.20.1 mods need the toml RENAMED, not just patched.** NeoForge 1.20.2+ reads `META-INF/neoforge.mods.toml`; a 1.20.1 (Neo)Forge mod ships only `META-INF/mods.toml` and NeoForge SKIPS it at scan time ("is for Minecraft Forge or an older version of NeoForge") *before bytecode runs* (#42 — and the real cause of #38, which was wrongly blamed on the shim gate). `ForgeModTransformer.promoteToNeoForgeToml` (gated on `McReflect.isNeoForge()` + target ≥ 1.20.2) renames it, relaxes top-level `loaderVersion` to `[1,)`, and repoints the `forge` loader dependency → `neoforge` (NeoForge has no `forge` mod). Forge hosts keep `mods.toml`.
 
-11. **Versioning: bump when the published build is buggy; fix-in-place while unpublished.** Once a beta is published and a report lands against it, ship the fix as a NEW beta so reporters get a distinguishable build. A bump touches ALL of: `pom.xml`, `build-all.sh` `VERSION`, the hardcoded strings (`RetromodCli.VERSION`, `AotCompiler.AOT_VERSION`, `RetromodPreLaunch` banner, `RetromodClient` handshake write, `SafeCrashHandler`), a new `CHANGELOG.md` section (keep the old one), and the `1.0.0-beta.N` refs in CLAUDE.md + docs. While a beta is still unpublished, just fix in place — no bump.
+11. **Versioning: bump when the published build is buggy; fix-in-place while unpublished.** Once a beta is published and a report lands against it, ship the fix as a NEW beta so reporters get a distinguishable build. A bump touches ALL of: `pom.xml`, `build-all.sh` `VERSION`, the hardcoded strings (`RetromodCli.VERSION`, `AotCompiler.AOT_VERSION`, `RetromodPreLaunch` banner, `RetromodClient` handshake write, `SafeCrashHandler`), a new `CHANGELOG.md` section (keep the old one) **mirrored into `docs/changelog.md`** (the Jekyll docs site can't include the root file — it's a synced copy with front matter), and the version refs in CLAUDE.md + docs. The series is now `1.0.0-beta.N` → `1.0.0-rc.N` → stable `1.0.0`. While a build is still unpublished, just fix in place — no bump.
 
 12. **Heavy/coremod mods can't be translated.** Create (ships Flywheel — custom GL renderer + coremods), Flywheel, Veil (rendering framework), and similar deep-integration/rendering mods are on [Mods That Can't Be Translated](docs/incompatible-mods.md). They fail with coremod/`getLoadingModList`/`VerifyError`/`CancellationException`-teardown symptoms regardless of metadata fixes (#25/#43). Don't chase these as transform bugs — confirm the mod list against the incompatible list first.
 

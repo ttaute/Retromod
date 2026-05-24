@@ -6,6 +6,7 @@ package com.retromod;
 
 import com.retromod.core.*;
 import com.retromod.aot.AotCompiler;
+import com.retromod.mapping.SrgToMojangMapper;
 import com.retromod.mixin.MixinCompatibilityTransformer;
 import com.retromod.shim.ShimRegistry;
 import com.retromod.shim.fabric.*;
@@ -94,6 +95,17 @@ public class RetromodTest {
         
         assertEquals("net/minecraft/resources/Identifier",
             classRedirects.get("net/minecraft/resources/ResourceLocation"));
+
+        // #51: LootContextParamSet (singular) renamed + moved to util/context/ContextKeySet
+        // by 1.21.11 (Illagers Wear Armor crashed on ContextKeySet$Builder). The PLURAL
+        // LootContextParamSets is unchanged and must NOT be redirected.
+        assertEquals("net/minecraft/util/context/ContextKeySet",
+            classRedirects.get("net/minecraft/world/level/storage/loot/parameters/LootContextParamSet"));
+        assertEquals("net/minecraft/util/context/ContextKeySet$Builder",
+            classRedirects.get("net/minecraft/world/level/storage/loot/parameters/LootContextParamSet$Builder"));
+        assertFalse(classRedirects.containsKey(
+            "net/minecraft/world/level/storage/loot/parameters/LootContextParamSets"),
+            "the plural LootContextParamSets must NOT be redirected");
     }
     
     // =========================================================
@@ -509,7 +521,116 @@ public class RetromodTest {
                 return null;
             }
         }, ClassReader.SKIP_CODE);
-        
+
         return hasShortMethods[0];
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // SRG → Mojang mapping data (src/main/resources/retromod/srg-to-mojang.tsv)
+    // Composed from MCPConfig 1.20.1 joined.tsrg ⋈ Mojang 1.20.1 official
+    // mappings (the ForgeGradle/SrgUtils obf-name join). These assertions
+    // also lock in the 56 corrections over the old hand-curated starter set.
+    // ═════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("SRG→Mojang dictionary loads with comprehensive coverage")
+    void srgToMojangLoadsComprehensively() {
+        SrgToMojangMapper mapper = SrgToMojangMapper.getInstance();
+        // Harvested from 1.20.1: tens of thousands of entries, not the old
+        // ~117-row starter set. Loose lower bounds so version bumps don't break it.
+        assertTrue(mapper.getFieldMap().size() > 20000,
+                "expected comprehensive field coverage, got " + mapper.getFieldMap().size());
+        assertTrue(mapper.getMethodMap().size() > 15000,
+                "expected comprehensive method coverage, got " + mapper.getMethodMap().size());
+    }
+
+    @Test
+    @DisplayName("SRG→Mojang corrections: the 56 formerly-wrong entries are right")
+    void srgToMojangCorrections() {
+        SrgToMojangMapper mapper = SrgToMojangMapper.getInstance();
+        Map<String, String> f = mapper.getFieldMap();
+        Map<String, String> m = mapper.getMethodMap();
+
+        // Fields the old curated file got wrong (verified vs upstream sources).
+        assertEquals("GRANITE", f.get("f_50122_"));   // was wrongly "GRAVEL"
+        assertEquals("OBSIDIAN", f.get("f_50080_"));   // was wrongly "GRANITE"
+
+        // ResourceLocation methods — getPath/getNamespace had been swapped,
+        // and m_135820_ had been "parse" (no such 1.20.1 method; it's tryParse).
+        assertEquals("tryParse", m.get("m_135820_"));
+        assertEquals("of", m.get("m_135822_"));
+        assertEquals("getPath", m.get("m_135815_"));
+        assertEquals("getNamespace", m.get("m_135827_"));
+
+        // Entries the old file already had right — must survive the regen.
+        assertEquals("STONE", f.get("f_50069_"));
+        assertEquals("literal", m.get("m_237113_"));
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // 26.1 vanilla class moves on the Mojang-named loader path (NeoForge/Forge)
+    // Gap A: the mojang-class-moves-26.1.tsv table used to be applied only on
+    // Fabric (+CLI). applyClassMovesOnly is what the NeoForge/Forge entry
+    // points now call (gated on a 26.1+ host) so those mods get the vanilla
+    // net/minecraft/* package reorganization too.
+    // ═════════════════════════════════════════════════════════════════════
+
+    @Test
+    @DisplayName("Gap A: applyClassMovesOnly rewrites 26.1 vanilla package moves")
+    void classMovesOnlyRewritesVanillaMoves() {
+        // applyClassMovesOnly is now host-version-aware: it filters each rename
+        // by the indexed host MC JAR. The test JVM has no MC JAR on the
+        // classpath, so it falls back to the coarse gate keyed on
+        // TARGET_MC_VERSION — pin it to a 26.1 (unobfuscated) host so the
+        // fallback applies the whole table. (The host-FILTERING path, where a
+        // 1.21.11 host gets only the renames that already landed there, is
+        // exercised at runtime / in the Prism repro, not in this unit test.)
+        String savedVer = RetromodVersion.TARGET_MC_VERSION;
+        RetromodVersion.TARGET_MC_VERSION = "26.1";
+        try {
+        int moves = com.retromod.mapping.IntermediaryToMojangMapper
+                .applyClassMovesOnly(transformer);
+        assertTrue(moves > 500, "expected the full 26.1 class-move table, got " + moves);
+
+        // Top-level relocation: net/minecraft/Util -> net/minecraft/util/Util
+        byte[] utilT = transformer.transformClass(
+                createTestClassWithTypeRef("net/minecraft/Util"), "test/gapa/UtilRef");
+        assertTrue(containsClassRef(utilT, "net/minecraft/util/Util"),
+                "net/minecraft/Util should move to net/minecraft/util/Util");
+
+        // critereon -> criterion package fix
+        byte[] critT = transformer.transformClass(
+                createTestClassWithTypeRef("net/minecraft/advancements/critereon/BlockPredicate"),
+                "test/gapa/CritRef");
+        assertTrue(containsClassRef(critT, "net/minecraft/advancements/criterion/BlockPredicate"),
+                "critereon should be rewritten to criterion");
+
+        // Flagship vanilla rename (also in the table): ResourceLocation -> Identifier
+        byte[] rlT = transformer.transformClass(
+                createTestClassWithTypeRef("net/minecraft/resources/ResourceLocation"),
+                "test/gapa/RlRef");
+        assertTrue(containsClassRef(rlT, "net/minecraft/resources/Identifier"),
+                "ResourceLocation should be rewritten to Identifier");
+
+        // A move from the 1.20.1->26.1.2 harvest (options-screen relocation):
+        // net/minecraft/client/gui/screens/VideoSettingsScreen
+        //   -> net/minecraft/client/gui/screens/options/VideoSettingsScreen
+        byte[] vsT = transformer.transformClass(
+                createTestClassWithTypeRef("net/minecraft/client/gui/screens/VideoSettingsScreen"),
+                "test/gapa/VideoRef");
+        assertTrue(containsClassRef(vsT, "net/minecraft/client/gui/screens/options/VideoSettingsScreen"),
+                "VideoSettingsScreen should move into the screens/options package");
+
+        // A move from the 1.16.5->26.1.2 harvest (worldgen structures relocation):
+        // net/minecraft/world/level/levelgen/structure/BuriedTreasurePieces
+        //   -> net/minecraft/world/level/levelgen/structure/structures/BuriedTreasurePieces
+        byte[] btT = transformer.transformClass(
+                createTestClassWithTypeRef("net/minecraft/world/level/levelgen/structure/BuriedTreasurePieces"),
+                "test/gapa/StructRef");
+        assertTrue(containsClassRef(btT, "net/minecraft/world/level/levelgen/structure/structures/BuriedTreasurePieces"),
+                "structure pieces should move into the structure/structures package");
+        } finally {
+            RetromodVersion.TARGET_MC_VERSION = savedVer;
+        }
     }
 }

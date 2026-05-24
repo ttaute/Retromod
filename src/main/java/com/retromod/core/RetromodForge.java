@@ -106,6 +106,23 @@ public class RetromodForge {
             LOGGER.warn("Could not register SRG mappings", e);
         }
 
+        // Vanilla net/minecraft/* class moves & renames. Forge mods are
+        // Mojang-named (post-SRG remap), so they skip the Fabric intermediary→
+        // Mojang remap — but they still need vanilla renames applied or they
+        // crash with NoClassDefFoundError. applyClassMovesOnly is host-version-
+        // aware: it consults the indexed host MC JAR and applies each rename
+        // only where the host has the NEW class and not the OLD one — so it
+        // works on a 1.21.11 host AND a 26.1 host, without the #9 hazard.
+        try {
+            int moves = com.retromod.mapping.IntermediaryToMojangMapper
+                    .applyClassMovesOnly(transformer);
+            if (moves > 0) {
+                LOGGER.info("Registered {} vanilla class move(s) for Forge", moves);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Could not register vanilla class moves", e);
+        }
+
         // AutoFix is OPT-IN on every loader. Mirror the security model from
         // Retromod.onInitialize (the Fabric entry point): logs/latest.log is
         // writable by any other mod via SLF4J, so a crafted log line that
@@ -227,26 +244,33 @@ public class RetromodForge {
      * leaves the default in place.
      */
     private static void detectMcVersionForForge() {
-        // New Forge / NeoForge unified FMLLoader
-        try {
-            Class<?> fmlLoader = Class.forName("net.neoforged.fml.loading.FMLLoader");
-            Object versionInfo = fmlLoader.getMethod("versionInfo").invoke(null);
-            String mcVersion = (String) versionInfo.getClass()
-                    .getMethod("mcVersion").invoke(versionInfo);
-            if (mcVersion != null) {
-                RetromodVersion.TARGET_MC_VERSION = mcVersion;
-                return;
-            }
-        } catch (Throwable ignored) {}
+        // New Forge / NeoForge unified FancyModLoader, robust across FML API
+        // generations. The old code only tried the static versionInfo() form,
+        // which NoSuchMethodException'd on FML 10.x and silently used the wrong
+        // default — gating out every newer-MC shim (#47/#51/#52). Shared with
+        // RetromodNeoForge via the loader-neutral RetromodVersion helper.
+        String mcVersion = RetromodVersion.detectFmlMcVersion();
+        if (mcVersion != null) {
+            RetromodVersion.TARGET_MC_VERSION = mcVersion;
+            return;
+        }
 
         // Legacy Forge MCPVersion fallback
         try {
             Class<?> mcpVersion = Class.forName("net.minecraftforge.versions.mcp.MCPVersion");
-            String mcVersion = (String) mcpVersion.getMethod("getMCVersion").invoke(null);
-            if (mcVersion != null) {
-                RetromodVersion.TARGET_MC_VERSION = mcVersion;
+            String mc = (String) mcpVersion.getMethod("getMCVersion").invoke(null);
+            if (mc != null && !mc.isBlank()) {
+                RetromodVersion.TARGET_MC_VERSION = mc;
+                return;
             }
         } catch (Throwable ignored) {}
+
+        // Couldn't detect — dangerous (the shim gate then skips every newer-MC
+        // shim and mods silently mistranslate). Fail loudly instead.
+        LOGGER.error("Retromod could NOT detect the Forge host MC version — "
+                + "falling back to {}. Version shims for newer MC will be SKIPPED, "
+                + "so mods may fail to translate. Please report your Forge/FML version.",
+                RetromodVersion.TARGET_MC_VERSION);
     }
 
     /**

@@ -6,7 +6,7 @@
 
     <groupId>com.retromod</groupId>
     <artifactId>retromod</artifactId>
-    <version>1.0.0-beta.10</version>
+    <version>1.0.0-rc.1</version>
     <packaging>jar</packaging>
 
     <name>Retromod</name>

@@ -635,3 +635,339 @@ net/minecraft/util/random/WeightedRandomList	net/minecraft/util/random/WeightedL
 net/minecraft/util/random/WeightedRandomList$WeightedEntry	net/minecraft/util/random/Weighted
 net/minecraft/util/random/SimpleWeightedRandomList	net/minecraft/util/random/WeightedList
 net/minecraft/util/random/SimpleWeightedRandomList$Builder	net/minecraft/util/random/WeightedList$Builder
+
+# =========================================================================
+# HARVESTED MOVES — 1.20.1 → 26.1.2 (added programmatically)
+# -------------------------------------------------------------------------
+# Composed by diffing this environment's MC 1.20.1 official class names
+# (from Mojang client/server mappings) against the 26.1.2 client jar's
+# real (unobfuscated) class names, then matching moved classes by simple
+# name. Each entry was confirmed real by EITHER belonging to a systematic
+# package-relocation cluster (>=3 classes moving the same package together)
+# OR >=50% member-name overlap (1.20.1 mappings vs 26.1.2 bytecode) OR a
+# move into the class's own sub-package. 6 ambiguous cross-domain singletons
+# were deliberately left out pending review. These fill gaps the original
+# hand-curated list missed (e.g. options screens -> screens/options, game
+# packets -> protocol/common, data-gen models -> client/data/models).
+# 70 entries.
+# =========================================================================
+net/minecraft/client/ParticleStatus	net/minecraft/server/level/ParticleStatus
+net/minecraft/client/RecipeBookCategories	net/minecraft/world/item/crafting/RecipeBookCategories
+net/minecraft/client/gui/screens/AccessibilityOptionsScreen	net/minecraft/client/gui/screens/options/AccessibilityOptionsScreen
+net/minecraft/client/gui/screens/ChatOptionsScreen	net/minecraft/client/gui/screens/options/ChatOptionsScreen
+net/minecraft/client/gui/screens/LanguageSelectScreen	net/minecraft/client/gui/screens/options/LanguageSelectScreen
+net/minecraft/client/gui/screens/LanguageSelectScreen$LanguageSelectionList	net/minecraft/client/gui/screens/options/LanguageSelectScreen$LanguageSelectionList
+net/minecraft/client/gui/screens/LanguageSelectScreen$LanguageSelectionList$Entry	net/minecraft/client/gui/screens/options/LanguageSelectScreen$LanguageSelectionList$Entry
+net/minecraft/client/gui/screens/MouseSettingsScreen	net/minecraft/client/gui/screens/options/MouseSettingsScreen
+net/minecraft/client/gui/screens/OnlineOptionsScreen	net/minecraft/client/gui/screens/options/OnlineOptionsScreen
+net/minecraft/client/gui/screens/OptionsScreen	net/minecraft/client/gui/screens/options/OptionsScreen
+net/minecraft/client/gui/screens/OptionsSubScreen	net/minecraft/client/gui/screens/options/OptionsSubScreen
+net/minecraft/client/gui/screens/SkinCustomizationScreen	net/minecraft/client/gui/screens/options/SkinCustomizationScreen
+net/minecraft/client/gui/screens/SoundOptionsScreen	net/minecraft/client/gui/screens/options/SoundOptionsScreen
+net/minecraft/client/gui/screens/VideoSettingsScreen	net/minecraft/client/gui/screens/options/VideoSettingsScreen
+net/minecraft/client/gui/screens/controls/ControlsScreen	net/minecraft/client/gui/screens/options/controls/ControlsScreen
+net/minecraft/client/gui/screens/controls/KeyBindsList	net/minecraft/client/gui/screens/options/controls/KeyBindsList
+net/minecraft/client/gui/screens/controls/KeyBindsList$CategoryEntry	net/minecraft/client/gui/screens/options/controls/KeyBindsList$CategoryEntry
+net/minecraft/client/gui/screens/controls/KeyBindsList$Entry	net/minecraft/client/gui/screens/options/controls/KeyBindsList$Entry
+net/minecraft/client/gui/screens/controls/KeyBindsList$KeyEntry	net/minecraft/client/gui/screens/options/controls/KeyBindsList$KeyEntry
+net/minecraft/client/gui/screens/controls/KeyBindsScreen	net/minecraft/client/gui/screens/options/controls/KeyBindsScreen
+net/minecraft/client/resources/DownloadedPackSource	net/minecraft/client/resources/server/DownloadedPackSource
+net/minecraft/commands/CommandFunction	net/minecraft/commands/functions/CommandFunction
+net/minecraft/core/BlockSource	net/minecraft/core/dispenser/BlockSource
+net/minecraft/data/models/BlockModelGenerators	net/minecraft/client/data/models/BlockModelGenerators
+net/minecraft/data/models/BlockModelGenerators$1	net/minecraft/client/data/models/BlockModelGenerators$1
+net/minecraft/data/models/BlockModelGenerators$BlockFamilyProvider	net/minecraft/client/data/models/BlockModelGenerators$BlockFamilyProvider
+net/minecraft/data/models/BlockModelGenerators$BlockStateGeneratorSupplier	net/minecraft/client/data/models/BlockModelGenerators$BlockStateGeneratorSupplier
+net/minecraft/data/models/BlockModelGenerators$BookSlotModelCacheKey	net/minecraft/client/data/models/BlockModelGenerators$BookSlotModelCacheKey
+net/minecraft/data/models/BlockModelGenerators$WoodProvider	net/minecraft/client/data/models/BlockModelGenerators$WoodProvider
+net/minecraft/data/models/ItemModelGenerators	net/minecraft/client/data/models/ItemModelGenerators
+net/minecraft/data/models/ModelProvider	net/minecraft/client/data/models/ModelProvider
+net/minecraft/data/models/blockstates/MultiPartGenerator	net/minecraft/client/data/models/blockstates/MultiPartGenerator
+net/minecraft/data/models/blockstates/MultiPartGenerator$Entry	net/minecraft/client/data/models/blockstates/MultiPartGenerator$Entry
+net/minecraft/data/models/blockstates/MultiVariantGenerator	net/minecraft/client/data/models/blockstates/MultiVariantGenerator
+net/minecraft/data/models/blockstates/PropertyDispatch	net/minecraft/client/data/models/blockstates/PropertyDispatch
+net/minecraft/data/models/blockstates/PropertyDispatch$C1	net/minecraft/client/data/models/blockstates/PropertyDispatch$C1
+net/minecraft/data/models/blockstates/PropertyDispatch$C2	net/minecraft/client/data/models/blockstates/PropertyDispatch$C2
+net/minecraft/data/models/blockstates/PropertyDispatch$C3	net/minecraft/client/data/models/blockstates/PropertyDispatch$C3
+net/minecraft/data/models/blockstates/PropertyDispatch$C4	net/minecraft/client/data/models/blockstates/PropertyDispatch$C4
+net/minecraft/data/models/blockstates/PropertyDispatch$C5	net/minecraft/client/data/models/blockstates/PropertyDispatch$C5
+net/minecraft/data/models/model/DelegatedModel	net/minecraft/client/data/models/model/DelegatedModel
+net/minecraft/data/models/model/ModelLocationUtils	net/minecraft/client/data/models/model/ModelLocationUtils
+net/minecraft/data/models/model/ModelTemplate	net/minecraft/client/data/models/model/ModelTemplate
+net/minecraft/data/models/model/ModelTemplates	net/minecraft/client/data/models/model/ModelTemplates
+net/minecraft/data/models/model/TextureMapping	net/minecraft/client/data/models/model/TextureMapping
+net/minecraft/data/models/model/TextureSlot	net/minecraft/client/data/models/model/TextureSlot
+net/minecraft/data/models/model/TexturedModel	net/minecraft/client/data/models/model/TexturedModel
+net/minecraft/data/models/model/TexturedModel$Provider	net/minecraft/client/data/models/model/TexturedModel$Provider
+net/minecraft/network/protocol/game/ClientboundCustomPayloadPacket	net/minecraft/network/protocol/common/ClientboundCustomPayloadPacket
+net/minecraft/network/protocol/game/ClientboundDisconnectPacket	net/minecraft/network/protocol/common/ClientboundDisconnectPacket
+net/minecraft/network/protocol/game/ClientboundKeepAlivePacket	net/minecraft/network/protocol/common/ClientboundKeepAlivePacket
+net/minecraft/network/protocol/game/ClientboundPingPacket	net/minecraft/network/protocol/common/ClientboundPingPacket
+net/minecraft/network/protocol/game/ClientboundUpdateEnabledFeaturesPacket	net/minecraft/network/protocol/configuration/ClientboundUpdateEnabledFeaturesPacket
+net/minecraft/network/protocol/game/ClientboundUpdateTagsPacket	net/minecraft/network/protocol/common/ClientboundUpdateTagsPacket
+net/minecraft/network/protocol/game/ServerboundClientInformationPacket	net/minecraft/network/protocol/common/ServerboundClientInformationPacket
+net/minecraft/network/protocol/game/ServerboundCustomPayloadPacket	net/minecraft/network/protocol/common/ServerboundCustomPayloadPacket
+net/minecraft/network/protocol/game/ServerboundKeepAlivePacket	net/minecraft/network/protocol/common/ServerboundKeepAlivePacket
+net/minecraft/network/protocol/game/ServerboundPongPacket	net/minecraft/network/protocol/common/ServerboundPongPacket
+net/minecraft/network/protocol/game/ServerboundResourcePackPacket	net/minecraft/network/protocol/common/ServerboundResourcePackPacket
+net/minecraft/network/protocol/game/ServerboundResourcePackPacket$Action	net/minecraft/network/protocol/common/ServerboundResourcePackPacket$Action
+net/minecraft/network/protocol/status/ClientboundPongResponsePacket	net/minecraft/network/protocol/ping/ClientboundPongResponsePacket
+net/minecraft/network/protocol/status/ServerboundPingRequestPacket	net/minecraft/network/protocol/ping/ServerboundPingRequestPacket
+net/minecraft/world/item/ArmorMaterial	net/minecraft/world/item/equipment/ArmorMaterial
+net/minecraft/world/item/ArmorMaterials	net/minecraft/world/item/equipment/ArmorMaterials
+net/minecraft/world/item/armortrim/ArmorTrim	net/minecraft/world/item/equipment/trim/ArmorTrim
+net/minecraft/world/item/armortrim/TrimMaterial	net/minecraft/world/item/equipment/trim/TrimMaterial
+net/minecraft/world/item/armortrim/TrimMaterials	net/minecraft/world/item/equipment/trim/TrimMaterials
+net/minecraft/world/item/armortrim/TrimPattern	net/minecraft/world/item/equipment/trim/TrimPattern
+net/minecraft/world/item/armortrim/TrimPatterns	net/minecraft/world/item/equipment/trim/TrimPatterns
+net/minecraft/world/level/chunk/ChunkStatus	net/minecraft/world/level/chunk/status/ChunkStatus
+
+# =========================================================================
+# HARVESTED MOVES — 1.16.5 → 26.1.2 (added programmatically)
+# -------------------------------------------------------------------------
+# Same method as the 1.20.1 block above, but baselined on MC 1.16.5 — the
+# oldest non-experimental version Retromod targets, so 1.16.5-era mods get
+# the same move coverage as newer ones. Diffed 1.16.5 official class names
+# vs the 26.1.2 client jar, matched by simple name, kept only moves confirmed
+# by a >=3-class package cluster, >=50% member overlap, or a same-subtree
+# move. 14 coincidental simple-name collisions were rejected (e.g. tags/Tag
+# vs nbt/Tag, block material/Material vs sprite Material). Largest clusters:
+# worldgen structure classes -> structure/structures and -> structure/pools.
+# 98 entries.
+# =========================================================================
+net/minecraft/Util$3	net/minecraft/util/Util$3
+net/minecraft/Util$4	net/minecraft/util/Util$4
+net/minecraft/client/multiplayer/ServerAddress	net/minecraft/client/multiplayer/resolver/ServerAddress
+net/minecraft/network/chat/TranslatableFormatException	net/minecraft/network/chat/contents/TranslatableFormatException
+net/minecraft/util/UniformInt	net/minecraft/util/valueproviders/UniformInt
+net/minecraft/world/level/TickPriority	net/minecraft/world/ticks/TickPriority
+net/minecraft/world/level/levelgen/feature/StructurePieceType	net/minecraft/world/level/levelgen/structure/pieces/StructurePieceType
+net/minecraft/world/level/levelgen/feature/structures/EmptyPoolElement	net/minecraft/world/level/levelgen/structure/pools/EmptyPoolElement
+net/minecraft/world/level/levelgen/feature/structures/FeaturePoolElement	net/minecraft/world/level/levelgen/structure/pools/FeaturePoolElement
+net/minecraft/world/level/levelgen/feature/structures/JigsawJunction	net/minecraft/world/level/levelgen/structure/pools/JigsawJunction
+net/minecraft/world/level/levelgen/feature/structures/JigsawPlacement	net/minecraft/world/level/levelgen/structure/pools/JigsawPlacement
+net/minecraft/world/level/levelgen/feature/structures/JigsawPlacement$PieceState	net/minecraft/world/level/levelgen/structure/pools/JigsawPlacement$PieceState
+net/minecraft/world/level/levelgen/feature/structures/JigsawPlacement$Placer	net/minecraft/world/level/levelgen/structure/pools/JigsawPlacement$Placer
+net/minecraft/world/level/levelgen/feature/structures/LegacySinglePoolElement	net/minecraft/world/level/levelgen/structure/pools/LegacySinglePoolElement
+net/minecraft/world/level/levelgen/feature/structures/ListPoolElement	net/minecraft/world/level/levelgen/structure/pools/ListPoolElement
+net/minecraft/world/level/levelgen/feature/structures/SinglePoolElement	net/minecraft/world/level/levelgen/structure/pools/SinglePoolElement
+net/minecraft/world/level/levelgen/feature/structures/StructurePoolElement	net/minecraft/world/level/levelgen/structure/pools/StructurePoolElement
+net/minecraft/world/level/levelgen/feature/structures/StructurePoolElementType	net/minecraft/world/level/levelgen/structure/pools/StructurePoolElementType
+net/minecraft/world/level/levelgen/feature/structures/StructureTemplatePool	net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool
+net/minecraft/world/level/levelgen/feature/structures/StructureTemplatePool$Projection	net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool$Projection
+net/minecraft/world/level/levelgen/structure/BuriedTreasurePieces	net/minecraft/world/level/levelgen/structure/structures/BuriedTreasurePieces
+net/minecraft/world/level/levelgen/structure/BuriedTreasurePieces$BuriedTreasurePiece	net/minecraft/world/level/levelgen/structure/structures/BuriedTreasurePieces$BuriedTreasurePiece
+net/minecraft/world/level/levelgen/structure/DesertPyramidPiece	net/minecraft/world/level/levelgen/structure/structures/DesertPyramidPiece
+net/minecraft/world/level/levelgen/structure/EndCityPieces	net/minecraft/world/level/levelgen/structure/structures/EndCityPieces
+net/minecraft/world/level/levelgen/structure/EndCityPieces$1	net/minecraft/world/level/levelgen/structure/structures/EndCityPieces$1
+net/minecraft/world/level/levelgen/structure/EndCityPieces$2	net/minecraft/world/level/levelgen/structure/structures/EndCityPieces$2
+net/minecraft/world/level/levelgen/structure/EndCityPieces$3	net/minecraft/world/level/levelgen/structure/structures/EndCityPieces$3
+net/minecraft/world/level/levelgen/structure/EndCityPieces$4	net/minecraft/world/level/levelgen/structure/structures/EndCityPieces$4
+net/minecraft/world/level/levelgen/structure/EndCityPieces$EndCityPiece	net/minecraft/world/level/levelgen/structure/structures/EndCityPieces$EndCityPiece
+net/minecraft/world/level/levelgen/structure/EndCityPieces$SectionGenerator	net/minecraft/world/level/levelgen/structure/structures/EndCityPieces$SectionGenerator
+net/minecraft/world/level/levelgen/structure/IglooPieces	net/minecraft/world/level/levelgen/structure/structures/IglooPieces
+net/minecraft/world/level/levelgen/structure/IglooPieces$IglooPiece	net/minecraft/world/level/levelgen/structure/structures/IglooPieces$IglooPiece
+net/minecraft/world/level/levelgen/structure/NetherFossilPieces	net/minecraft/world/level/levelgen/structure/structures/NetherFossilPieces
+net/minecraft/world/level/levelgen/structure/NetherFossilPieces$NetherFossilPiece	net/minecraft/world/level/levelgen/structure/structures/NetherFossilPieces$NetherFossilPiece
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$1	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$1
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$FitDoubleXRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$FitDoubleXRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$FitDoubleXYRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$FitDoubleXYRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$FitDoubleYRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$FitDoubleYRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$FitDoubleYZRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$FitDoubleYZRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$FitDoubleZRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$FitDoubleZRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$FitSimpleRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$FitSimpleRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$FitSimpleTopRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$FitSimpleTopRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$MonumentBuilding	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$MonumentBuilding
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$MonumentRoomFitter	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$MonumentRoomFitter
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentCoreRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentCoreRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentDoubleXRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentDoubleXRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentDoubleXYRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentDoubleXYRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentDoubleYRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentDoubleYRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentDoubleYZRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentDoubleYZRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentDoubleZRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentDoubleZRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentEntryRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentEntryRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentPenthouse	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentPenthouse
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentPiece	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentPiece
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentSimpleRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentSimpleRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentSimpleTopRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentSimpleTopRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$OceanMonumentWingRoom	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$OceanMonumentWingRoom
+net/minecraft/world/level/levelgen/structure/OceanMonumentPieces$RoomDefinition	net/minecraft/world/level/levelgen/structure/structures/OceanMonumentPieces$RoomDefinition
+net/minecraft/world/level/levelgen/structure/OceanRuinPieces	net/minecraft/world/level/levelgen/structure/structures/OceanRuinPieces
+net/minecraft/world/level/levelgen/structure/OceanRuinPieces$OceanRuinPiece	net/minecraft/world/level/levelgen/structure/structures/OceanRuinPieces$OceanRuinPiece
+net/minecraft/world/level/levelgen/structure/RuinedPortalPiece	net/minecraft/world/level/levelgen/structure/structures/RuinedPortalPiece
+net/minecraft/world/level/levelgen/structure/RuinedPortalPiece$Properties	net/minecraft/world/level/levelgen/structure/structures/RuinedPortalPiece$Properties
+net/minecraft/world/level/levelgen/structure/RuinedPortalPiece$VerticalPlacement	net/minecraft/world/level/levelgen/structure/structures/RuinedPortalPiece$VerticalPlacement
+net/minecraft/world/level/levelgen/structure/ShipwreckPieces	net/minecraft/world/level/levelgen/structure/structures/ShipwreckPieces
+net/minecraft/world/level/levelgen/structure/ShipwreckPieces$ShipwreckPiece	net/minecraft/world/level/levelgen/structure/structures/ShipwreckPieces$ShipwreckPiece
+net/minecraft/world/level/levelgen/structure/StrongholdPieces	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$1	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$1
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$2	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$2
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$3	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$3
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$ChestCorridor	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$ChestCorridor
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$FillerCorridor	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$FillerCorridor
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$FiveCrossing	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$FiveCrossing
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$LeftTurn	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$LeftTurn
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$Library	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$Library
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$PieceWeight	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$PieceWeight
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$PortalRoom	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$PortalRoom
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$PrisonHall	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$PrisonHall
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$RightTurn	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$RightTurn
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$RoomCrossing	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$RoomCrossing
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$SmoothStoneSelector	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$SmoothStoneSelector
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$StairsDown	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$StairsDown
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$StartPiece	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$StartPiece
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$Straight	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$Straight
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$StraightStairsDown	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$StraightStairsDown
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$StrongholdPiece	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$StrongholdPiece
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$StrongholdPiece$SmallDoorType	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$StrongholdPiece$SmallDoorType
+net/minecraft/world/level/levelgen/structure/StrongholdPieces$Turn	net/minecraft/world/level/levelgen/structure/structures/StrongholdPieces$Turn
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$FirstFloorRoomCollection	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$FirstFloorRoomCollection
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$FloorRoomCollection	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$FloorRoomCollection
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$MansionGrid	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$MansionGrid
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$MansionPiecePlacer	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$MansionPiecePlacer
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$PlacementData	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$PlacementData
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$SecondFloorRoomCollection	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$SecondFloorRoomCollection
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$SimpleGrid	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$SimpleGrid
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$ThirdFloorRoomCollection	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$ThirdFloorRoomCollection
+net/minecraft/world/level/levelgen/structure/WoodlandMansionPieces$WoodlandMansionPiece	net/minecraft/world/level/levelgen/structure/structures/WoodlandMansionPieces$WoodlandMansionPiece
+net/minecraft/world/level/storage/loot/BinomialDistributionGenerator	net/minecraft/world/level/storage/loot/providers/number/BinomialDistributionGenerator
+
+# =========================================================================
+# HARVESTED RENAMES — member-set matched (1.16.5/1.20.1/1.21.1 -> 26.1.2)
+# -------------------------------------------------------------------------
+# Simple-name-CHANGED renames (FarmBlock->FarmlandBlock, MobSpawnType->
+# EntitySpawnReason, FrameType->AdvancementType, ResourceLocation->Identifier,
+# ...). The package-move harvests above only matched same-simple-name classes;
+# these were paired by member-set similarity instead: a disappeared old class
+# is matched to the 26.1.2 class sharing the most member names, accepted only
+# at >=70% coverage of the smaller member set, >=0.5 Jaccard, and a clearly
+# unique best match. Anonymous inner classes ($1, $2) were excluded. Applied
+# host-version-aware at runtime, so each lands only where the host already has
+# the NEW name (a 1.21.11 host gets the subset that renamed by 1.21.11).
+# 117 entries.
+# =========================================================================
+net/minecraft/advancements/AdvancementList$Listener	net/minecraft/advancements/AdvancementTree$Listener
+net/minecraft/advancements/FrameType	net/minecraft/advancements/AdvancementType
+net/minecraft/advancements/critereon/ItemAttributeModifiersPredicate$EntryPredicate	net/minecraft/core/component/predicates/AttributeModifiersPredicate$EntryPredicate
+net/minecraft/advancements/critereon/ItemEnchantmentsPredicate	net/minecraft/core/component/predicates/EnchantmentsPredicate
+net/minecraft/advancements/critereon/ItemFireworkExplosionPredicate$FireworkPredicate	net/minecraft/core/component/predicates/FireworkExplosionPredicate$FireworkPredicate
+net/minecraft/advancements/critereon/ItemFireworksPredicate	net/minecraft/core/component/predicates/FireworksPredicate
+net/minecraft/advancements/critereon/ItemJukeboxPlayablePredicate	net/minecraft/core/component/predicates/JukeboxPlayablePredicate
+net/minecraft/advancements/critereon/ItemSubPredicates	net/minecraft/core/component/predicates/DataComponentPredicates
+net/minecraft/advancements/critereon/ItemTrimPredicate	net/minecraft/core/component/predicates/TrimPredicate
+net/minecraft/advancements/critereon/ItemWrittenBookPredicate	net/minecraft/core/component/predicates/WrittenBookPredicate
+net/minecraft/advancements/critereon/KilledByCrossbowTrigger$TriggerInstance	net/minecraft/advancements/criterion/KilledByArrowTrigger$TriggerInstance
+net/minecraft/client/gui/MapRenderer$MapInstance	net/minecraft/client/resources/MapTextureManager$MapInstance
+net/minecraft/client/gui/components/DebugScreenOverlay$AllocationRateCalculator	net/minecraft/client/gui/components/debug/DebugEntryMemory$AllocationRateCalculator
+net/minecraft/client/gui/components/PlayerFaceRenderer	net/minecraft/client/gui/components/PlayerFaceExtractor
+net/minecraft/client/gui/layouts/GridLayout$CellInhabitant	net/minecraft/client/gui/layouts/GridLayout$ChildContainer
+net/minecraft/client/gui/screens/BanNoticeScreen	net/minecraft/client/gui/screens/BanNoticeScreens
+net/minecraft/client/gui/screens/EditServerScreen	net/minecraft/client/gui/screens/ManageServerScreen
+net/minecraft/client/gui/screens/ReceivingLevelScreen$Reason	net/minecraft/client/gui/screens/LevelLoadingScreen$Reason
+net/minecraft/client/gui/screens/reporting/ChatReportScreen$DiscardReportWarningScreen	net/minecraft/client/gui/screens/reporting/AbstractReportScreen$DiscardReportWarningScreen
+net/minecraft/client/gui/screens/worldselection/CreateWorldScreen$DataPackReloadCookie	net/minecraft/client/gui/screens/worldselection/DataPackReloadCookie
+net/minecraft/client/gui/screens/worldselection/CreateWorldScreen$SelectedGameMode	net/minecraft/client/gui/screens/worldselection/WorldCreationUiState$SelectedGameMode
+net/minecraft/client/model/AgeableListModel	net/minecraft/client/model/BabyModelTransform
+net/minecraft/client/model/AxolotlModel	net/minecraft/client/model/animal/axolotl/AdultAxolotlModel
+net/minecraft/client/model/LavaSlimeModel	net/minecraft/client/model/monster/slime/MagmaCubeModel
+net/minecraft/client/model/ParrotModel$State	net/minecraft/client/model/animal/parrot/ParrotModel$Pose
+net/minecraft/client/multiplayer/ClientPacketListener$DeferredPacket	net/minecraft/client/multiplayer/ClientCommonPacketListenerImpl$DeferredPacket
+net/minecraft/client/multiplayer/chat/report/ChatReportBuilder$CannotBuildReason	net/minecraft/client/multiplayer/chat/report/Report$CannotBuildReason
+net/minecraft/client/multiplayer/chat/report/ChatReportBuilder$ChatReport	net/minecraft/client/multiplayer/chat/report/Report
+net/minecraft/client/particle/ParticleEngine$MutableSpriteSet	net/minecraft/client/particle/ParticleResources$MutableSpriteSet
+net/minecraft/client/renderer/FaceInfo$Constants	net/minecraft/client/renderer/FaceInfo$Extent
+net/minecraft/client/renderer/LevelRenderer$RenderChunkInfo	net/minecraft/client/renderer/SectionOcclusionGraph$Node
+net/minecraft/client/renderer/RenderType$OutlineProperty	net/minecraft/client/renderer/rendertype/RenderSetup$OutlineProperty
+net/minecraft/client/renderer/block/LiquidBlockRenderer	net/minecraft/client/renderer/block/FluidRenderer
+net/minecraft/client/renderer/block/ModelBlockRenderer$AdjacencyInfo	net/minecraft/client/renderer/block/BlockModelLighter$AdjacencyInfo
+net/minecraft/client/renderer/block/ModelBlockRenderer$AmbientVertexRemap	net/minecraft/client/renderer/block/BlockModelLighter$AmbientVertexRemap
+net/minecraft/client/renderer/block/ModelBlockRenderer$Cache	net/minecraft/client/renderer/block/BlockModelLighter$Cache
+net/minecraft/client/renderer/block/ModelBlockRenderer$SizeInfo	net/minecraft/client/renderer/block/BlockModelLighter$SizeInfo
+net/minecraft/client/renderer/block/model/BlockElement	net/minecraft/client/resources/model/cuboid/CuboidModelElement
+net/minecraft/client/renderer/block/model/BlockElementFace	net/minecraft/client/resources/model/cuboid/CuboidFace
+net/minecraft/client/renderer/block/model/BlockElementFace$Deserializer	net/minecraft/client/resources/model/cuboid/CuboidFace$Deserializer
+net/minecraft/client/renderer/block/model/BlockModel$Deserializer	net/minecraft/client/resources/model/cuboid/CuboidModel$Deserializer
+net/minecraft/client/renderer/block/model/BlockModel$GuiLight	net/minecraft/client/resources/model/UnbakedModel$GuiLight
+net/minecraft/client/renderer/block/model/ItemModelGenerator$SpanFacing	net/minecraft/client/resources/model/cuboid/ItemModelGenerator$SideDirection
+net/minecraft/client/renderer/block/model/ItemTransforms$TransformType	net/minecraft/world/item/ItemDisplayContext
+net/minecraft/client/renderer/chunk/ChunkRenderDispatcher$RenderChunk$RebuildTask$CompileResults	net/minecraft/client/renderer/chunk/SectionCompiler$Results
+net/minecraft/client/renderer/chunk/SectionRenderDispatcher$SectionTaskResult	net/minecraft/client/renderer/chunk/SectionRenderDispatcher$RenderSection$CompileTask$SectionTaskResult
+net/minecraft/client/renderer/entity/EnderDragonRenderer$DragonModel	net/minecraft/client/model/monster/dragon/EnderDragonModel
+net/minecraft/client/resources/model/BlockStateModelLoader$ModelGroupKey	net/minecraft/client/resources/model/ModelGroupCollector$GroupKey
+net/minecraft/client/resources/model/ModelBakery$ModelGroupKey	net/minecraft/client/resources/model/ModelGroupCollector$GroupKey
+net/minecraft/commands/CommandFunction$CacheableFunction	net/minecraft/commands/CacheableFunction
+net/minecraft/data/loot/BlockLoot	net/minecraft/data/loot/BlockLootSubProvider
+net/minecraft/data/worldgen/StructureFeatures	net/minecraft/world/level/levelgen/structure/BuiltinStructures
+net/minecraft/network/chat/TranslatableComponent	net/minecraft/network/chat/contents/TranslatableContents
+net/minecraft/network/protocol/common/custom/BrainDebugPayload$BrainDump	net/minecraft/util/debug/DebugBrainDump
+net/minecraft/network/protocol/game/ClientboundHorseScreenOpenPacket	net/minecraft/network/protocol/game/ClientboundMountScreenOpenPacket
+net/minecraft/network/protocol/game/ServerboundBlockEntityTagQuery	net/minecraft/network/protocol/game/ServerboundBlockEntityTagQueryPacket
+net/minecraft/network/protocol/game/ServerboundEntityTagQuery	net/minecraft/network/protocol/game/ServerboundEntityTagQueryPacket
+net/minecraft/network/protocol/login/ClientboundGameProfilePacket	net/minecraft/network/protocol/login/ClientboundLoginFinishedPacket
+net/minecraft/server/ServerFunctionManager$TraceCallbacks	net/minecraft/commands/execution/TraceCallbacks
+net/minecraft/server/commands/TeleportCommand$LookAtEntity	net/minecraft/server/commands/LookAt$LookAtEntity
+net/minecraft/server/network/TextFilterClient	net/minecraft/server/network/ServerTextFilter
+net/minecraft/server/network/TextFilterClient$IgnoreStrategy	net/minecraft/server/network/ServerTextFilter$IgnoreStrategy
+net/minecraft/server/network/TextFilterClient$PlayerContext	net/minecraft/server/network/ServerTextFilter$PlayerContext
+net/minecraft/server/packs/repository/Pack$Info	net/minecraft/server/packs/repository/Pack$Metadata
+net/minecraft/server/players/GameProfileCache	net/minecraft/server/players/CachedUserNameToIdResolver
+net/minecraft/util/datafix/ComponentDataFixUtils	net/minecraft/util/datafix/LegacyComponentDataFixUtils
+net/minecraft/util/datafix/fixes/AttributesRename	net/minecraft/util/datafix/fixes/AttributesRenameLegacy
+net/minecraft/util/datafix/fixes/ItemStackComponentRemainderFix	net/minecraft/util/datafix/fixes/DataComponentRemainderFix
+net/minecraft/util/profiling/jfr/stats/NetworkPacketSummary	net/minecraft/util/profiling/jfr/stats/IoSummary
+net/minecraft/util/profiling/jfr/stats/NetworkPacketSummary$PacketCountAndSize	net/minecraft/util/profiling/jfr/stats/IoSummary$CountAndSize
+net/minecraft/util/profiling/jfr/stats/NetworkPacketSummary$PacketIdentification	net/minecraft/util/profiling/jfr/stats/PacketIdentification
+net/minecraft/world/entity/AgableMob$AgableMobGroupData	net/minecraft/world/entity/AgeableMob$AgeableMobGroupData
+net/minecraft/world/entity/MobSpawnType	net/minecraft/world/entity/EntitySpawnReason
+net/minecraft/world/entity/RelativeMovement	net/minecraft/world/entity/Relative
+net/minecraft/world/entity/ai/behavior/WeightedList$WeightedEntry	net/minecraft/world/entity/ai/behavior/ShufflingList$WeightedEntry
+net/minecraft/world/entity/ai/goal/FollowBoatGoal	net/minecraft/world/entity/ai/goal/FollowPlayerRiddenEntityGoal
+net/minecraft/world/entity/animal/Fox$Type	net/minecraft/world/entity/animal/fox/Fox$Variant
+net/minecraft/world/entity/animal/IronGolem$Crackiness	net/minecraft/world/entity/Crackiness$Level
+net/minecraft/world/entity/animal/MushroomCow$MushroomType	net/minecraft/world/entity/animal/cow/MushroomCow$Variant
+net/minecraft/world/entity/vehicle/Boat$Status	net/minecraft/world/entity/vehicle/boat/AbstractBoat$Status
+net/minecraft/world/item/ArmorItem$Type	net/minecraft/world/item/equipment/ArmorType
+net/minecraft/world/item/FireworkRocketItem$Shape	net/minecraft/world/item/component/FireworkExplosion$Shape
+net/minecraft/world/item/FishBucketItem	net/minecraft/world/item/MobBucketItem
+net/minecraft/world/level/biome/Biome$ClimateParameters	net/minecraft/world/level/biome/Climate$ParameterPoint
+net/minecraft/world/level/block/AbstractGlassBlock	net/minecraft/world/level/block/TransparentBlock
+net/minecraft/world/level/block/BambooBlock	net/minecraft/world/level/block/BambooStalkBlock
+net/minecraft/world/level/block/EnchantmentTableBlock	net/minecraft/world/level/block/EnchantingTableBlock
+net/minecraft/world/level/block/FarmBlock	net/minecraft/world/level/block/FarmlandBlock
+net/minecraft/world/level/block/FungusBlock	net/minecraft/world/level/block/NetherFungusBlock
+net/minecraft/world/level/block/Lantern	net/minecraft/world/level/block/LanternBlock
+net/minecraft/world/level/block/PinkPetalsBlock	net/minecraft/world/level/block/FlowerBedBlock
+net/minecraft/world/level/block/PressurePlateBlock$Sensitivity	net/minecraft/world/level/block/state/properties/BlockSetType$PressurePlateSensitivity
+net/minecraft/world/level/block/Seagrass	net/minecraft/world/level/block/SeagrassBlock
+net/minecraft/world/level/block/SnowyDirtBlock	net/minecraft/world/level/block/SnowyBlock
+net/minecraft/world/level/block/TallSeagrass	net/minecraft/world/level/block/TallSeagrassBlock
+net/minecraft/world/level/block/entity/BeaconBlockEntity$BeaconBeamSection	net/minecraft/world/level/block/entity/BeaconBeamOwner$Section
+net/minecraft/world/level/block/entity/EnchantmentTableBlockEntity	net/minecraft/world/level/block/entity/EnchantingTableBlockEntity
+net/minecraft/world/level/block/entity/trialspawner/TrialSpawnerData	net/minecraft/world/level/block/entity/trialspawner/TrialSpawnerStateData
+net/minecraft/world/level/chunk/ChunkStatus$ChunkType	net/minecraft/world/level/chunk/status/ChunkType
+net/minecraft/world/level/dimension/end/DragonRespawnAnimation	net/minecraft/world/level/dimension/end/DragonRespawnStage
+net/minecraft/world/level/dimension/end/EndDragonFight	net/minecraft/world/level/dimension/end/EnderDragonFight
+net/minecraft/world/level/levelgen/feature/NoSurfaceOreFeature	net/minecraft/world/level/levelgen/feature/ScatteredOreFeature
+net/minecraft/world/level/levelgen/feature/SpikeFeature$EndSpike	net/minecraft/world/level/levelgen/feature/EndSpikeFeature$EndSpike
+net/minecraft/world/level/levelgen/feature/stateproviders/RuleBasedBlockStateProvider$Rule	net/minecraft/world/level/levelgen/feature/stateproviders/RuleBasedStateProvider$Rule
+net/minecraft/world/level/levelgen/structure/JunglePyramidPiece	net/minecraft/world/level/levelgen/structure/structures/JungleTemplePiece
+net/minecraft/world/level/levelgen/structure/MineShaftPieces$MineShaftCorridor	net/minecraft/world/level/levelgen/structure/structures/MineshaftPieces$MineShaftCorridor
+net/minecraft/world/level/levelgen/structure/MineShaftPieces$MineShaftCrossing	net/minecraft/world/level/levelgen/structure/structures/MineshaftPieces$MineShaftCrossing
+net/minecraft/world/level/levelgen/structure/MineShaftPieces$MineShaftRoom	net/minecraft/world/level/levelgen/structure/structures/MineshaftPieces$MineShaftRoom
+net/minecraft/world/level/levelgen/structure/NetherBridgePieces$NetherBridgePiece	net/minecraft/world/level/levelgen/structure/structures/NetherFortressPieces$NetherBridgePiece
+net/minecraft/world/level/levelgen/structure/NetherBridgePieces$StartPiece	net/minecraft/world/level/levelgen/structure/structures/NetherFortressPieces$StartPiece
+net/minecraft/world/level/levelgen/structure/SwamplandHutPiece	net/minecraft/world/level/levelgen/structure/structures/SwampHutPiece
+net/minecraft/world/level/material/MaterialColor	net/minecraft/world/level/material/MapColor
+net/minecraft/world/level/pathfinder/BlockPathTypes	net/minecraft/world/level/pathfinder/PathType
+net/minecraft/world/level/storage/DimensionDataStorage	net/minecraft/world/level/storage/SavedDataStorage
+net/minecraft/world/level/storage/loot/functions/CopyNbtFunction$Builder	net/minecraft/world/level/storage/loot/functions/CopyCustomDataFunction$Builder
+net/minecraft/world/level/storage/loot/functions/CopyNbtFunction$MergeStrategy	net/minecraft/world/level/storage/loot/functions/CopyCustomDataFunction$MergeStrategy
+net/minecraft/world/level/storage/loot/functions/LootingEnchantFunction$Builder	net/minecraft/world/level/storage/loot/functions/EnchantedCountIncreaseFunction$Builder
+
+# Manual renames the member-matcher missed (heavily refactored classes whose
+# member sets diverged, but the rename is verified against 1.21.11/26.1.2):
+net/minecraft/world/item/UseAnim	net/minecraft/world/item/ItemUseAnimation
+net/minecraft/world/level/storage/loot/parameters/LootContextParam	net/minecraft/util/context/ContextKey
+net/minecraft/client/renderer/entity/layers/ElytraLayer	net/minecraft/client/renderer/entity/layers/WingsLayer

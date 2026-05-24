@@ -309,6 +309,171 @@ public class IntermediaryToMojangMapper {
     }
 
     /**
+     * Register ONLY the 26.1 vanilla class moves plus the
+     * {@code ResourceLocation}→{@code Identifier} constructor redirects — the
+     * subset of {@link #applyTo} that applies to mods which <b>already use
+     * Mojang names</b> (NeoForge and Forge mods). Those mods must NOT receive
+     * the Fabric intermediary→Mojang remap (they have no {@code class_XXXX}
+     * names; that pass is Fabric-only), but they DO need the vanilla
+     * {@code net/minecraft/*} package reorganization applied, otherwise a mod
+     * referencing e.g. {@code net/minecraft/Util} or a repackaged entity
+     * crashes with {@code NoClassDefFoundError} on a 26.1 host.
+     *
+     * <p><b>Gating is the caller's responsibility:</b> only invoke on a 26.1+
+     * host ({@link com.retromod.core.RetromodVersion#isUnobfuscatedTarget}).
+     * On a pre-26.1 host these moves would rewrite a mod's <i>working</i>
+     * references into 26.1 names that don't exist yet — the same hazard the
+     * Fabric path guards against (#21/#29).
+     *
+     * <p>The {@code Identifier} constructor redirects are keyed on the post-move
+     * name: the class move above (or the loader's own shim) renames
+     * {@code ResourceLocation}→{@code Identifier} first, then
+     * {@code new Identifier(String)} is rewritten to {@code Identifier.parse}.
+     *
+     * @param transformer the transformer to populate; must not be null
+     * @return number of class-move redirects registered (for diagnostic logging)
+     */
+    public static int applyClassMovesOnly(com.retromod.core.RetromodTransformer transformer) {
+        if (transformer == null) {
+            throw new IllegalArgumentException("transformer must not be null");
+        }
+        IntermediaryToMojangMapper mapper = getInstance();
+        Map<String, String> classMoveMap = mapper.getClassMoves();
+        if (classMoveMap.isEmpty()) {
+            LOGGER.debug("applyClassMovesOnly: no class moves loaded; nothing to apply");
+            return 0;
+        }
+
+        // Host-version-aware filtering. The class-move table maps OLD vanilla
+        // names to their FINAL (26.1) names, but in this timeline many of those
+        // renames already happened by an intermediate version (e.g.
+        // ResourceLocation→Identifier and LootContextParamSet→ContextKeySet
+        // landed by 1.21.11). A rename should be applied on a given host iff the
+        // host actually has the NEW class but NOT the OLD one — i.e. the rename
+        // has happened by that host version. Gating the whole table on "26.1+"
+        // (isUnobfuscatedTarget) was too coarse: it left mods on a 1.21.11 host
+        // crashing with NoClassDefFoundError on names that were already renamed
+        // there (#50/#51/#52). Conversely, applying a 26.1-only rename on an
+        // older host would rewrite a working reference to a name that doesn't
+        // exist yet (the #9 hazard) — the NEW-on-host check prevents that.
+        //
+        // We ask the classloader that loaded MC whether a class exists, rather
+        // than locating + indexing the MC JAR on disk: on NeoForge the MC JAR
+        // isn't on java.class.path (it's a JPMS module), and the disk search
+        // mis-matched a library (srgutils) by substring, yielding an empty index.
+        java.util.function.Predicate<String> hostHasClass = buildHostClassCheck();
+        boolean haveHost = hostHasClass != null;
+        boolean unobfFallback =
+                com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
+                        com.retromod.core.RetromodVersion.TARGET_MC_VERSION);
+        if (!haveHost) {
+            LOGGER.warn("applyClassMovesOnly: could not query host classes — falling back to the "
+                    + "coarse 26.1 gate (apply-all={})", unobfFallback);
+        }
+
+        int applied = 0, skippedNewMissing = 0, skippedOldPresent = 0;
+        for (Map.Entry<String, String> entry : classMoveMap.entrySet()) {
+            String oldName = entry.getKey();
+            String newName = entry.getValue();
+            boolean apply;
+            if (haveHost) {
+                boolean oldOnHost = hostHasClass.test(oldName);
+                if (oldOnHost) {
+                    // Host still exposes the OLD name → the mod's reference is
+                    // already valid; renaming would be wrong.
+                    apply = false;
+                    skippedOldPresent++;
+                } else if (newName.startsWith("net/minecraft/")) {
+                    // Vanilla rename: only safe if the host actually has the NEW
+                    // name (otherwise it's a 26.1-only rename on an older host).
+                    apply = hostHasClass.test(newName);
+                    if (!apply) skippedNewMissing++;
+                } else {
+                    // Redirect to a non-vanilla replacement (Retromod polyfill,
+                    // JOML, blaze3d). The MC JAR won't contain it, so the
+                    // NEW-on-host check doesn't apply — the OLD class being gone
+                    // is the signal that the replacement is needed.
+                    apply = true;
+                }
+            } else {
+                apply = unobfFallback;
+            }
+            if (apply) {
+                transformer.registerClassRedirect(oldName, newName);
+                applied++;
+            }
+        }
+
+        // Identifier constructor redirects, only when the host actually has
+        // Identifier (so a `new ResourceLocation(...)` rewritten to
+        // `new Identifier(...)` by the class move lands on the static factory).
+        boolean identifierOnHost = haveHost
+                ? hostHasClass.test("net/minecraft/resources/Identifier")
+                : unobfFallback;
+        if (identifierOnHost) {
+            transformer.registerConstructorRedirect(
+                    "net/minecraft/resources/Identifier", "(Ljava/lang/String;)V",
+                    "net/minecraft/resources/Identifier", "parse",
+                    "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
+            transformer.registerConstructorRedirect(
+                    "net/minecraft/resources/Identifier", "(Ljava/lang/String;Ljava/lang/String;)V",
+                    "net/minecraft/resources/Identifier", "fromNamespaceAndPath",
+                    "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
+        }
+
+        LOGGER.info("Registered {} vanilla class moves for host MC {} (host-filtered: "
+                + "{} skipped new-missing, {} skipped old-present){}",
+                applied, com.retromod.core.RetromodVersion.TARGET_MC_VERSION,
+                skippedNewMissing, skippedOldPresent,
+                identifierOnHost ? " + 2 Identifier ctor redirects" : "");
+        return applied;
+    }
+
+    /**
+     * Build a predicate that answers "does internal class name {@code x} exist
+     * on the running Minecraft host?" without locating the MC JAR on disk
+     * (unreliable on NeoForge — MC is a JPMS module, not a java.class.path
+     * entry). Returns {@code null} if MC can't be reached from here (e.g. a unit
+     * test), so callers fall back to a coarse gate.
+     *
+     * <p>Strategy, in order of preference:
+     * <ol>
+     *   <li>{@code classLoader.getResource("a/b/C.class") != null} — checks the
+     *       class file exists WITHOUT loading/linking it (no class-init, no
+     *       early mixin/coremod transformation). Preferred.</li>
+     *   <li>If that classloader doesn't expose class-file resources (some module
+     *       loaders don't), fall back to {@code Class.forName(name, false,
+     *       loader)} — initialize=false, the same probe {@code EnvironmentDetector}
+     *       uses safely on NeoForge (#46). Loads/links but never runs {@code
+     *       <clinit>}.</li>
+     * </ol>
+     */
+    private static java.util.function.Predicate<String> buildHostClassCheck() {
+        try {
+            ClassLoader ctx = Thread.currentThread().getContextClassLoader();
+            // SharedConstants exists across every MC version Retromod targets.
+            Class<?> sentinel = Class.forName("net.minecraft.SharedConstants", false, ctx);
+            ClassLoader mc = sentinel.getClassLoader();
+            final ClassLoader loader = (mc != null) ? mc : ctx;
+            if (loader.getResource("net/minecraft/SharedConstants.class") != null) {
+                // getResource sees MC class files — cheap, no class loading.
+                return name -> loader.getResource(name + ".class") != null;
+            }
+            // Loader hides class-file resources; probe by name (no init).
+            return name -> {
+                try {
+                    Class.forName(name.replace('/', '.'), false, loader);
+                    return true;
+                } catch (Throwable t) {
+                    return false;
+                }
+            };
+        } catch (Throwable t) {
+            return null; // MC not loadable here → caller uses the coarse gate
+        }
+    }
+
+    /**
      * Get the full field mapping table (intermediary → Mojang).
      */
     public Map<String, String> getFieldMap() {

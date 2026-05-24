@@ -526,6 +526,23 @@ public class FuzzyMethodResolver {
 
         // Apply threshold logic
         if (bestMatch != null && bestScore >= THRESHOLD_AUTO_APPLY) {
+            // STACK-SAFETY GUARD: name+arity scoring can pick a method whose
+            // parameter TYPE changed incompatibly between versions — e.g.
+            // AnimationUtils.swingWeaponDown(…,Mob,…) became (…,HumanoidArm,…) in
+            // 1.21.11. Rewriting the call keeps the bytecode pushing the OLD type
+            // (Mob) into a slot typed for the NEW one (HumanoidArm) → VerifyError
+            // at class load, which kills the whole mod (e.g. blocks render-layer
+            // registration). Leaving the call alone instead degrades to a far
+            // milder latent NoSuchMethodError (often never hit). So refuse a
+            // redirect that wouldn't verify. (#51)
+            if (!isRedirectStackSafe(unresolvedParams, unresolvedReturn, bestMatch.descriptor())) {
+                LOGGER.info("[Retromod-Fuzzy] Suppressed type-incompatible redirect "
+                        + "{}.{}{} -> {}.{}{} (would VerifyError; left unresolved)",
+                        owner, name, descriptor,
+                        bestMatch.owner(), bestMatch.name(), bestMatch.descriptor());
+                boundedCachePut(methodResolveCache, cacheKey, EMPTY_METHOD_INFO);
+                return null;
+            }
             LOGGER.info("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
@@ -911,6 +928,48 @@ public class FuzzyMethodResolver {
     }
 
     /**
+     * Whether rewriting a call to {@code candDescriptor} is stack-safe given the
+     * caller's original parameter types {@code origParams} and return
+     * {@code origReturn}. The rewritten bytecode still pushes arguments of the
+     * ORIGINAL types, so the arities must match, each original arg type must be
+     * assignable to the candidate's parameter type, and the candidate's return
+     * must be assignable to where the original return is expected. Package-private
+     * for testing. (#51)
+     */
+    boolean isRedirectStackSafe(List<String> origParams, String origReturn, String candDescriptor) {
+        List<String> candParams = parseParameterTypes(candDescriptor);
+        if (origParams.size() != candParams.size()) {
+            return false; // differing arg count => stack-depth mismatch => VerifyError
+        }
+        for (int i = 0; i < origParams.size(); i++) {
+            if (!isTypeAssignable(origParams.get(i), candParams.get(i))) return false;
+        }
+        return isTypeAssignable(parseReturnType(candDescriptor), origReturn);
+    }
+
+    /**
+     * Can a value of JVM descriptor type {@code from} stand in where {@code to}
+     * is expected (is {@code from} a subtype of {@code to})? Conservative: when
+     * assignability can't be proven (unindexed class, differing primitive, mixed
+     * array/object), returns false so the caller declines the redirect rather
+     * than risk a VerifyError. Package-private for testing.
+     */
+    boolean isTypeAssignable(String from, String to) {
+        if (from.equals(to)) return true;
+        if (from.isEmpty() || to.isEmpty()) return false;
+        boolean fromRef = from.charAt(0) == 'L' || from.charAt(0) == '[';
+        boolean toRef   = to.charAt(0) == 'L'   || to.charAt(0) == '[';
+        if (fromRef != toRef) return false;   // primitive vs reference — never stack-compatible
+        if (!fromRef) return false;           // two DIFFERENT primitives — not stack-equal
+        if (from.charAt(0) == '[' || to.charAt(0) == '[') return false; // arrays: require exact (handled above)
+        String f = from.substring(1, from.length() - 1); // strip 'L' .. ';'
+        String t = to.substring(1, to.length() - 1);
+        if (f.equals(t)) return true;
+        if (t.equals("java/lang/Object")) return true;   // everything is an Object
+        return isAncestor(f, t, 6);            // f extends/implements t  =>  f <: t
+    }
+
+    /**
      * Walk the class hierarchy upward from {@code child} to check if
      * {@code ancestor} appears anywhere. Bounded by maxDepth to avoid
      * excessive traversal on deep hierarchies.
@@ -1101,29 +1160,49 @@ public class FuzzyMethodResolver {
      * @return path to the MC JAR, or null if not found
      */
     public static Path findMcJarFromClasspath() {
+        // 1) Most reliable, esp. on NeoForge where MC is a JPMS module and NOT on
+        //    java.class.path: the code source of an already-loaded MC class IS
+        //    the (patched) MC jar. SharedConstants exists on every MC version.
+        try {
+            Class<?> mc = Class.forName("net.minecraft.SharedConstants", false,
+                    Thread.currentThread().getContextClassLoader());
+            java.security.CodeSource cs = mc.getProtectionDomain().getCodeSource();
+            if (cs != null && cs.getLocation() != null) {
+                Path p = Path.of(cs.getLocation().toURI());
+                if (Files.exists(p) && p.toString().toLowerCase().endsWith(".jar")) {
+                    return p;
+                }
+            }
+        } catch (Throwable ignored) {
+            // MC not loaded here, or a non-file (union/memory) code source — fall through.
+        }
+
+        // 2) Fall back to a classpath scan. Match on the JAR FILE NAME, not the
+        //    whole path — the old "path contains 'minecraft'" check false-matched
+        //    library jars under .../net/minecraftforge/... (e.g. srgutils), which
+        //    then indexed 0 MC classes.
         String classpath = System.getProperty("java.class.path");
         if (classpath == null || classpath.isEmpty()) {
             return null;
         }
-
         String separator = System.getProperty("path.separator", ":");
-        String[] entries = classpath.split(separator);
-
-        for (String entry : entries) {
-            String lower = entry.toLowerCase();
-            // Look for the Minecraft client JAR
-            // Patterns:
-            //   minecraft-VERSION-client.jar (Prism/MultiMC)
-            //   VERSION.jar in .minecraft/versions/VERSION/ (vanilla)
-            //   minecraft-client-VERSION.jar (some launchers)
-            if (lower.contains("minecraft") && lower.endsWith(".jar")) {
-                Path jarPath = Path.of(entry);
-                if (Files.exists(jarPath)) {
-                    return jarPath;
-                }
+        for (String entry : classpath.split(separator)) {
+            Path jarPath = Path.of(entry);
+            String name = jarPath.getFileName() == null
+                    ? "" : jarPath.getFileName().toString().toLowerCase();
+            if (!name.endsWith(".jar")) continue;
+            // Real MC client jars: minecraft-<ver>-client.jar, minecraft-client-<ver>.jar,
+            //   minecraft-client-patched-<ver>.jar, or vanilla <ver>.jar lives in
+            //   .../versions/<ver>/. Exclude forge/neoforge/library jars.
+            boolean looksLikeMc =
+                    (name.startsWith("minecraft") && name.contains("client"))
+                    || name.matches("\\d[\\w.\\-]*\\.jar"); // bare version jar (vanilla)
+            boolean isLibrary = name.contains("forge") || name.contains("srgutils")
+                    || name.contains("fmlloader") || name.contains("loader");
+            if (looksLikeMc && !isLibrary && Files.exists(jarPath)) {
+                return jarPath;
             }
         }
-
         return null;
     }
 

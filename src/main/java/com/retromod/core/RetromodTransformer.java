@@ -294,6 +294,12 @@ public class RetromodTransformer implements ClassFileTransformer {
      * @param mcJarPath path to the Minecraft client JAR, or null to auto-detect
      */
     public void initFuzzyResolver(java.nio.file.Path mcJarPath) {
+        // Idempotent: indexing the MC JAR is expensive, and several startup
+        // paths now want the index ready early (e.g. host-version-aware class
+        // moves). Skip if we've already indexed.
+        if (this.fuzzyResolver != null && this.fuzzyResolver.isIndexed()) {
+            return;
+        }
         try {
             // Auto-detect if no path provided
             if (mcJarPath == null) {

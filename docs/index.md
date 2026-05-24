@@ -18,7 +18,7 @@ It works on Fabric, NeoForge, and Forge. The shim chain covers MC 1.12.2 (the Ja
   <a class="retromod-btn retromod-btn-ghost" href="{{ '/installation' | relative_url }}">Install guide →</a>
 </div>
 
-> **Heads up — this is a beta.** The pipeline works for the common case and for most simple-to-moderate mods. Deep-integration mods (rendering replacement, heavy mixin mods, mods with cross-version library quirks) still surface bugs in the transformer that I'm working through. If a mod doesn't work, please [file an issue with the log](https://github.com/Bownlux/Retromod/issues) — that's the fastest way to make the next version handle it.
+> **Heads up — this is a release candidate (1.0.0-rc.1).** The pipeline works for the common case and for most simple-to-moderate mods. The remaining known gaps are deep-integration mods — rendering replacement, heavy mixin mods, and mods built on APIs that were *structurally redesigned* (not just renamed) — tracked for polyfills in 1.1.0. If a mod doesn't work, please [file an issue with the log](https://github.com/Bownlux/Retromod/issues) — that's the fastest way to make the next version handle it.
 
 ## What it actually does
 

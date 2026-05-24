@@ -5,13 +5,13 @@
 [![Java 25+](https://img.shields.io/badge/Java-25+-blue.svg)](https://adoptium.net/)
 [![Minecraft 26.1](https://img.shields.io/badge/Minecraft-26.1-green.svg)](https://minecraft.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Beta](https://img.shields.io/badge/Status-Beta-orange.svg)]()
+[![Release Candidate](https://img.shields.io/badge/Status-RC.1-blueviolet.svg)]()
 
 **Made by the developers of [RevivalSMP.net](https://revivalsmp.net)**
 
 > **Fabric is the primary loader.** Retromod runs on Fabric, NeoForge, and Forge, but I personally use and test on Fabric — it's the loader I prefer (cleaner mod-loading model, smaller surface area, and easier for a project like this to work against). Fabric is where the most coverage and the fastest fixes land. NeoForge is well-supported and usually close behind. Forge support exists but tends to lag; Forge mods that were obfuscated with SRG names need additional handling that's still on the roadmap. If you're picking a loader from scratch and you want the smoothest Retromod experience, pick Fabric.
 
-> **This project is in beta (v1.0.0-beta.6).** The core pipeline is stable and tested; the transformer still has gaps for deep-integration mods (rendering replacement, heavy mixin mods) that we'll close in follow-up releases. Works well on the common case. Keep backups of your mod JARs — Retromod writes transformed copies alongside the originals, but anything that touches mod files warrants a backup. Please report issues on [GitHub Issues](https://github.com/Bownlux/Retromod/issues).
+> **This project is at its first release candidate (v1.0.0-rc.1).** The core pipeline is stable and tested across Fabric, NeoForge, and Forge. The remaining known gaps are deep-integration mods — ones built on Minecraft APIs that were *structurally redesigned* (rendering/model layers, removed loader helpers), not just renamed — which we'll address with polyfills in 1.1.0. The common case works well. Keep backups of your mod JARs — Retromod writes transformed copies alongside the originals, but anything that touches mod files warrants a backup. Please report issues on [GitHub Issues](https://github.com/Bownlux/Retromod/issues).
 
 Retromod is a drop-in Minecraft mod that transforms older mod bytecode at load time — rewriting renamed methods, redirecting removed APIs, and patching Mixin targets — so old mods just work. Supports **Fabric**, **NeoForge**, and **Forge** with version shims covering Minecraft 1.12.2 all the way through 26.1.
 
@@ -23,7 +23,7 @@ Retromod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 
 ### Fabric
 
-1. Download `retromod-1.0.0-beta.6.jar` and put it in `mods/`
+1. Download `retromod-1.0.0-rc.1.jar` and put it in `mods/`
 2. Launch Minecraft once, then close it — this creates the `retromod-input/` folder and a config that lets old mods load
 3. Put your old mods in the `retromod-input/` folder (in your `.minecraft` directory)
 4. Launch again — Retromod transforms them and shows a restart popup
@@ -71,6 +71,7 @@ If you'd rather not touch a command line at all, the in-game flow is the simpler
 | **[FAQ](docs/faq.md)** | Safety, servers, modpacks, dependency handling, "will it work for my mod?" |
 | **[Installation](docs/installation.md)** | Per-launcher setup (Prism, MultiMC, the vanilla launcher). |
 | **[API Compatibility](API_COMPATIBILITY.md)** | The 34+ modding APIs Retromod shims. |
+| **[Changelog](CHANGELOG.md)** | Release notes for every version — what changed and why. |
 
 A mod that won't convert, or a question that isn't answered? [Open an issue](https://github.com/Bownlux/Retromod/issues) or start a [discussion](https://github.com/Bownlux/Retromod/discussions).
 
@@ -239,7 +240,7 @@ The reason: **every release of Retromod has to know how to translate every suppo
 
 Some specific things people sometimes assume need branches and don't:
 
-- **Old MC version support** isn't a separate branch — the shims for 1.12.2, 1.14.4, 1.16.5, etc. all compile into the same `retromod-1.0.0-beta.6.jar`. Drop in a 1.16.5 mod, Retromod walks it through the chain. (See `src/main/java/com/retromod/shim/` — every version transition is a file in there.)
+- **Old MC version support** isn't a separate branch — the shims for 1.12.2, 1.14.4, 1.16.5, etc. all compile into the same `retromod-1.0.0-rc.1.jar`. Drop in a 1.16.5 mod, Retromod walks it through the chain. (See `src/main/java/com/retromod/shim/` — every version transition is a file in there.)
 - **Old Retromod versions** aren't kept on branches either — they're tagged commits. If you want the rc.1 source you check out the `v1.0.0-rc.1` tag.
 - **In-progress features** are just commits on `main`. I'm a solo dev; there's no team that needs to work on parallel features without stepping on each other, and feature-branching adds overhead with no payoff at this scale.
 
@@ -578,7 +579,7 @@ public class Fabric_X_to_Y implements VersionShim {
 
 ## Known Limitations
 
-> **Beta notice:** Retromod is in beta (v1.0.0-beta.6). The core pipeline is stable, but the transformer has known gaps for deep-integration mods (rendering replacement, heavy mixin mods, some cross-version library deps) that we'll close in follow-up releases. The majority of mods translate cleanly, but unusual or extremely complex mods may still surface issues — please report them. Backups are recommended whenever you use any tool that modifies mod JARs.
+> **Release candidate notice:** Retromod is at v1.0.0-rc.1. The core pipeline is stable, but the transformer has known gaps for deep-integration mods (rendering replacement, heavy mixin mods, and mods built on APIs that were structurally redesigned rather than renamed) that we'll address with polyfills in 1.1.0. The majority of mods translate cleanly, but unusual or extremely complex mods may still surface issues — please report them. Backups are recommended whenever you use any tool that modifies mod JARs.
 >
 > **Experimental notice (1.12.2–1.15.2):** The shim chain across these very old versions is the hardest part of the project to make 100% reliable. The API changes were enormous (The Flattening alone renamed hundreds of classes). Many mods do work, but expect more rough edges here than elsewhere. Simple mods have the best chance of translating cleanly.
 
@@ -623,4 +624,6 @@ If you used Retromod to translate your mod to a newer version, you can optionall
 
 **Bownlux** (author) · **[RevivalSMP.net](https://revivalsmp.net)** (development) · **[ASM](https://asm.ow2.io/)** · **[FabricMC](https://fabricmc.net/)** · **[NeoForged](https://neoforged.net/)** · **[MinecraftForge](https://minecraftforge.net/)**
 
-*Retromod is not affiliated with Mojang, Microsoft, FabricMC, NeoForged, or MinecraftForge.*
+**Mapping data:** Retromod's bundled name tables are derived/transformed works composed from — Minecraft obfuscation mappings © Mojang Studios / Microsoft (used for development & interoperability) · Fabric intermediary ([FabricMC/intermediary](https://github.com/FabricMC/intermediary), CC0-1.0) · Forge SRG ([MinecraftForge/MCPConfig](https://github.com/MinecraftForge/MCPConfig), © Forge Development LLC). They are *not* redistributions of the original mapping files.
+
+*Retromod is not affiliated with, endorsed by, or sponsored by Mojang, Microsoft, FabricMC, NeoForged, or MinecraftForge. Minecraft is a trademark of Mojang Synergies AB.*

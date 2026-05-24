@@ -71,15 +71,24 @@ public class RetromodNeoForge {
         // Detect MC version from NeoForge's loader. Same reasoning as Forge:
         // Retromod.<clinit> can't run on NeoForge (Fabric ModInitializer
         // missing), so we populate RetromodVersion ourselves.
-        try {
-            Class<?> fmlLoader = Class.forName("net.neoforged.fml.loading.FMLLoader");
-            Object versionInfo = fmlLoader.getMethod("versionInfo").invoke(null);
-            String mcVersion = (String) versionInfo.getClass()
-                    .getMethod("mcVersion").invoke(versionInfo);
-            if (mcVersion != null) {
-                RetromodVersion.TARGET_MC_VERSION = mcVersion;
-            }
-        } catch (Throwable ignored) {}
+        String mcVersion = RetromodVersion.detectFmlMcVersion();
+        if (mcVersion != null) {
+            RetromodVersion.TARGET_MC_VERSION = mcVersion;
+        } else {
+            // CRITICAL: if we can't read the host MC version we fall back to the
+            // hardcoded default, and the shim gate (target <= host) then SKIPS
+            // every shim newer than that default — silently dropping core renames
+            // like ResourceLocation->Identifier, so transformed mods crash with
+            // NoClassDefFoundError on classes that simply got renamed (#47/#51/#52).
+            // This previously happened on NeoForge FML 10.x, which renamed the
+            // version accessor (versionInfo() -> getCurrent().getVersionInfo()).
+            // Make the failure LOUD instead of silently mistranslating.
+            LOGGER.error("Retromod could NOT detect the NeoForge host MC version — "
+                    + "falling back to {}. Version shims for any newer MC will be "
+                    + "SKIPPED, so mods may fail to translate. Please report your "
+                    + "NeoForge/FML version so the detection can be updated.",
+                    RetromodVersion.TARGET_MC_VERSION);
+        }
 
         LOGGER.info("Retromod initializing on NeoForge (target MC: {})...",
                 RetromodVersion.TARGET_MC_VERSION);
@@ -110,6 +119,25 @@ public class RetromodNeoForge {
             }
         } catch (Exception e) {
             LOGGER.warn("Could not register SRG mappings", e);
+        }
+
+        // Vanilla net/minecraft/* class moves & renames. NeoForge mods are
+        // already Mojang-named, so they skip the Fabric intermediary→Mojang
+        // remap — but they still need vanilla renames applied (ResourceLocation
+        // ->Identifier, LootContextParamSet->ContextKeySet, repackaged entities,
+        // …) or they crash with NoClassDefFoundError. applyClassMovesOnly is
+        // host-version-aware: it consults the indexed host MC JAR and applies
+        // each rename only where the host actually has the NEW class and not the
+        // OLD one — so it works on a 1.21.11 host (#50/#51/#52) AND a 26.1 host,
+        // without the #9 hazard. No coarse 26.1 gate here anymore.
+        try {
+            int moves = com.retromod.mapping.IntermediaryToMojangMapper
+                    .applyClassMovesOnly(transformer);
+            if (moves > 0) {
+                LOGGER.info("Registered {} vanilla class move(s) for NeoForge", moves);
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Could not register vanilla class moves", e);
         }
 
         // AutoFix is OPT-IN on every loader. Mirror the security model from

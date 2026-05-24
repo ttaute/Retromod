@@ -101,4 +101,61 @@ public final class RetromodVersion {
         for (int i = 0; i < parts.length; i++) out[i] = Integer.parseInt(parts[i]);
         return out;
     }
+
+    // ── FancyModLoader host-version detection (NeoForge + new Forge) ─────────
+    // Reflection-only (string class names), so this stays loader-neutral and
+    // doesn't drag any FML class into RetromodVersion's linkage (the #40 lesson).
+    // The accessor changed shape across FML generations; the old code only tried
+    // the static {@code versionInfo()} form, which NoSuchMethodException'd on FML
+    // 10.x (NeoForge 21.11) and silently fell back to the hardcoded default —
+    // gating out every newer-MC shim and silently mistranslating mods
+    // (#47/#51/#52, the ResourceLocation→Identifier rename never applied).
+
+    /**
+     * Read the host MC version from FancyModLoader across API generations, or
+     * {@code null} if none work (caller should log loudly, not silently fall
+     * back to the default). Tries, in order:
+     * <ul>
+     *   <li>FML 10.x: {@code FMLLoader.getCurrent().getVersionInfo().mcVersion()}</li>
+     *   <li>older FML: static {@code FMLLoader.versionInfo().mcVersion()}</li>
+     *   <li>variant: static {@code FMLLoader.getVersionInfo().mcVersion()}</li>
+     * </ul>
+     */
+    public static String detectFmlMcVersion() {
+        final Class<?> fmlLoader;
+        try {
+            fmlLoader = Class.forName("net.neoforged.fml.loading.FMLLoader");
+        } catch (Throwable t) {
+            return null;
+        }
+        // FML 10.x — instance API reached via the static getCurrent()
+        try {
+            Object current = fmlLoader.getMethod("getCurrent").invoke(null);
+            if (current != null) {
+                String mc = mcVersionOf(fmlLoader.getMethod("getVersionInfo").invoke(current));
+                if (mc != null) return mc;
+            }
+        } catch (Throwable ignored) {}
+        // Older FML — static versionInfo()
+        try {
+            String mc = mcVersionOf(fmlLoader.getMethod("versionInfo").invoke(null));
+            if (mc != null) return mc;
+        } catch (Throwable ignored) {}
+        // Variant — static getVersionInfo()
+        try {
+            String mc = mcVersionOf(fmlLoader.getMethod("getVersionInfo").invoke(null));
+            if (mc != null) return mc;
+        } catch (Throwable ignored) {}
+        return null;
+    }
+
+    /** Pull {@code mcVersion()} off a VersionInfo-like object, or {@code null}. */
+    private static String mcVersionOf(Object versionInfo) {
+        if (versionInfo == null) return null;
+        try {
+            Object mc = versionInfo.getClass().getMethod("mcVersion").invoke(versionInfo);
+            if (mc instanceof String s && !s.isBlank()) return s;
+        } catch (Throwable ignored) {}
+        return null;
+    }
 }

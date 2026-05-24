@@ -31,6 +31,12 @@
       "methods": ["G$addAdditionalSaveData", "G$readAdditionalSaveData"],
       "issue": "#48",
       "reason": "@Inject handlers on Entity.addAdditionalSaveData/readAdditionalSaveData capture CompoundTag, but MC moved those params to ValueOutput/ValueInput in the 1.21.5 serialization (ValueIO/codec) refactor -> InvalidInjectionException (Invalid descriptor: expected ValueOutput, found CompoundTag) on 1.21.11. Not a rename (ValueOutput has a different API than CompoundTag), so the handler body can't be auto-retyped yet. Stripping these handlers removes the injection error. NOTE (#48): Darker Depths' death-anchor feature is interdependent (the stripped handlers leave orphaned helper lambdas + a @Unique field/interface), so this mod still does not fully construct after the strip — it's a PARTIAL soft-fail, kept here because the handlers are genuinely broken and the strip is correct as far as it goes. Mods with a self-contained broken handler soft-fail cleanly."
+    },
+    {
+      "mixin": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
+      "methods": ["revamped_phantoms$getDefaultDimensions"],
+      "issue": "#50",
+      "reason": "@ModifyReturnValue handler on a getDefaultDimensions/getDimensions method (returns EntityDimensions) fails injection on 1.21.11 with 'failed injection check, (0/1) succeeded. Scanned 0 target(s)' — the target method couldn't be resolved on the newer MC (renamed/re-signatured; mod ships no refMap). The handler body only rescales the dimensions' EntityAttachments via the mod's own Accessors util — it does NOT touch the mod's shared-goals feature (revamped_phantoms$goalHolder/registerGoals/getGoalHolder/HasSharedGoals), which injects fine — so this is a CLEAN, self-contained soft-fail: stripping it lets Revamped Phantoms construct with goals intact and only the phantom-size tweak inert. Contrast #48, which was interdependent."
     }
   ]
 }

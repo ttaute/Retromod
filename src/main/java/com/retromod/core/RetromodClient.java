@@ -157,10 +157,10 @@ public class RetromodClient implements ClientModInitializer {
             Class<?> packetByteBufsClass = Class.forName("net.fabricmc.fabric.api.networking.v1.PacketByteBufs");
             Object buf = packetByteBufsClass.getMethod("create").invoke(null);
 
-            // Write data: buf.writeString("retromod"), buf.writeString("1.0.0-beta.10")
+            // Write data: buf.writeString("retromod"), buf.writeString("1.0.0-rc.1")
             Method writeString = buf.getClass().getMethod("writeString", String.class);
             writeString.invoke(buf, "retromod");
-            writeString.invoke(buf, "1.0.0-beta.10");
+            writeString.invoke(buf, "1.0.0-rc.1");
 
             // Create Identifier: Identifier.of("retromod", "presence")
             // yarn: net.minecraft.util.Identifier, mojang: net.minecraft.resources.ResourceLocation
