@@ -51,7 +51,7 @@ Mods that have both client and server components need Retromod on both sides.
 
 **Not yet.** Retromod targets the *mod loaders* — Fabric, NeoForge, and Forge. Server software like Paper, Spigot, Bukkit, and Purpur runs **plugins**, not mods, and the plugin format and APIs (Bukkit API, NMS) are a different shape from the mod APIs Retromod is built around. Dropping Retromod into a Paper server's `plugins/` folder won't do anything.
 
-**Plugin support is planned for the future**, but development on it has not started yet. The current focus is closing out beta on the mod-loader side first; once that's stable, plugin support is the next major project. There's no committed timeline yet.
+**Plugin support is planned for the future**, but development on it has not started yet. The current focus is closing out the release candidate on the mod-loader side first; once that's stable, plugin support is the next major project. There's no committed timeline yet.
 
 If you run a Paper/Spigot/Bukkit/Purpur server and want this, opening a [GitHub issue](https://github.com/Bownlux/Retromod/issues) describing your specific use case is the most useful way to weigh in on the priority.
 
@@ -98,7 +98,7 @@ Newer target versions will be added as Minecraft releases them. Retromod is buil
 
 ## Why does verification say "unsigned"?
 
-Because the current beta builds aren't signed. Signing infrastructure is on the roadmap for the 1.0 release. In the meantime, UNSIGNED is expected on every build you see — it's not an error or a warning about your JAR specifically, it's just the current state of the project.
+Because the current release-candidate builds aren't signed. Signing infrastructure is on the roadmap for the 1.0 release. In the meantime, UNSIGNED is expected on every build you see — it's not an error or a warning about your JAR specifically, it's just the current state of the project.
 
 See [Authenticity]({{ '/authenticity' | relative_url }}) for the full breakdown of what each status means.
 

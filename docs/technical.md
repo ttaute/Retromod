@@ -105,7 +105,7 @@ Official release JARs are signed with my private key. At startup, `SignatureVeri
 | Status | Meaning |
 |--------|---------|
 | `OFFICIAL` | Signed by the official Retromod key — trusted. |
-| `UNSIGNED` | No signature. Either a beta/dev build or a fork. |
+| `UNSIGNED` | No signature. Either a release-candidate/dev build or a fork. |
 | `UNOFFICIAL` | Signed, but with a different key than the official one. |
 | `TAMPERED` | Signatures are present but verification failed — the JAR was modified after signing. |
 | `IMPOSTOR` | The manifest doesn't even claim to be Retromod. |

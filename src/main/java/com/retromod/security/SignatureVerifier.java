@@ -53,7 +53,7 @@ public final class SignatureVerifier {
      * is in "skeleton mode" — the code still runs but always reports
      * {@link Status#UNSIGNED} because there is no cert to compare against.
      * This is intentional: the infrastructure is in the codebase from day
-     * one so beta builds don't need to change code to become verifiable.
+     * one so release-candidate builds don't need to change code to become verifiable.
      *
      * <p>Format: 64 hex characters, uppercase, no separators. Example:
      * {@code "A1B2C3..."}.
@@ -162,7 +162,7 @@ public final class SignatureVerifier {
             if (expected.isEmpty()) {
                 return new VerificationResult(Status.UNSIGNED,
                         "JAR is signed but no official cert fingerprint is embedded " +
-                                "in this build (development/beta build)",
+                                "in this build (development/release-candidate build)",
                         jarPath, fingerprint(collectedCerts.get(0)));
             }
 
@@ -300,7 +300,7 @@ public final class SignatureVerifier {
     public enum Status {
         /** Signed with the official Retromod key — safe to trust as authentic. */
         OFFICIAL,
-        /** Not signed. Development/beta build or a modified fork. Still safe if you trust the source. */
+        /** Not signed. Development/release-candidate build or a modified fork. Still safe if you trust the source. */
         UNSIGNED,
         /** Signed, but not by the official key. A fork or third-party build. */
         UNOFFICIAL,

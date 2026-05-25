@@ -52,7 +52,7 @@ The authenticity status is intentionally **not** shown in the in-game settings s
 
 ## "I got an UNSIGNED warning, is my game going to explode?"
 
-No. Beta builds haven't all been signed yet, and lots of users build from source or install through third-party launchers that re-bundle mods. UNSIGNED is the most common non-OFFICIAL status and there's nothing wrong with it. The only status worth immediate action is IMPOSTOR, and even TAMPERED is more "huh, that's odd" than "run for the hills" unless you didn't intentionally modify the JAR.
+No. Release-candidate builds haven't all been signed yet, and lots of users build from source or install through third-party launchers that re-bundle mods. UNSIGNED is the most common non-OFFICIAL status and there's nothing wrong with it. The only status worth immediate action is IMPOSTOR, and even TAMPERED is more "huh, that's odd" than "run for the hills" unless you didn't intentionally modify the JAR.
 
 ## For fork maintainers
 

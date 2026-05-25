@@ -618,7 +618,7 @@ If you used Retromod to translate your mod to a newer version, you can optionall
 
 ## License
 
-[MIT License](LICENSE) — Copyright (c) 2026 RevivalSMP
+[MIT License](LICENSE) — Copyright (c) 2026 Bownlux
 
 ## Credits
 

@@ -60,7 +60,7 @@ The full list — with the "if a mod does X, it won't translate" rules behind it
 
 Harmless in most cases. Retromod doesn't block anything based on authenticity status — see [Authenticity]({{ '/authenticity' | relative_url }}) for the full breakdown. The short version:
 
-- **UNSIGNED** — totally normal, especially for beta builds. Ignore.
+- **UNSIGNED** — totally normal, especially for release-candidate builds. Ignore.
 - **UNOFFICIAL** — you're running a fork or a re-signed build. Fine if you trust where you got it.
 - **TAMPERED** / **IMPOSTOR** — if you didn't modify the JAR yourself, re-download from the [official releases page](https://github.com/Bownlux/Retromod/releases).
 
@@ -128,7 +128,7 @@ Common with mods built for MC versions close to but not exactly matching your ho
 
 Retromod rewrites the *outer* `@Mixin(targets = ...)` annotation to point at the renamed class — that part works, you'll see the rewritten target in the error message (e.g. `target net.minecraft.client.gui.GuiGraphicsExtractor`). But the mod also uses MixinExtras-style inner annotations like `@ModifyExpressionValue(target = "net/minecraft/client/gui/Gui")` and `@Shadow` field references against the old class — and Retromod doesn't yet rewrite the `target = "..."` strings nested inside those, or the field-name on `@Shadow`. So the mixin processor sees a target spec that's now invalid and refuses to apply the injection.
 
-This is a **known Retromod gap** (the mixin-extras inner-target rewriter is incomplete) — please file an issue with your `latest.log` if you hit it. We're tracking it for a future beta.
+This is a **known Retromod gap** (the mixin-extras inner-target rewriter is incomplete) — please file an issue with your `latest.log` if you hit it. We're tracking it for a future release.
 
 **Workarounds in the meantime:**
 
@@ -221,7 +221,7 @@ If a 1.20.1 (Neo)Forge mod simply isn't in the mod list — often with a log lin
 
 If a 1.20.1 mod gets scanned but then crashes during mod construction with `NoClassDefFoundError: …/FMLJavaModLoadingContext`, `NoSuchFieldError: NeoForgeRegistries … BLOCKS`, or similar registry errors, this is a **known limitation**, not a bug to chase.
 
-1.20.1 was NeoForge's first release, when it still shared Forge's API (`ForgeRegistries`/`IForgeRegistry`, the old `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext`, `net.minecraftforge.*` packages). NeoForge replaced all of it in 1.20.2+, so a 1.20.1 *Forge* mod uses APIs modern NeoForge no longer has. Translating it onto NeoForge is the entire Forge→NeoForge migration, which is **planned for Retromod 1.1.0**, not the beta line.
+1.20.1 was NeoForge's first release, when it still shared Forge's API (`ForgeRegistries`/`IForgeRegistry`, the old `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext`, `net.minecraftforge.*` packages). NeoForge replaced all of it in 1.20.2+, so a 1.20.1 *Forge* mod uses APIs modern NeoForge no longer has. Translating it onto NeoForge is the entire Forge→NeoForge migration, which is **planned for Retromod 1.1.0**, not the rc line.
 
 **What to do today:** run a Forge mod on a **Forge** host. On Forge 26.1.x those APIs still exist natively, so it's a within-loader version bump rather than a cross-loader rewrite. (NeoForge mods translate onto NeoForge fine — this is specifically *Forge mod → NeoForge host*.) Details: [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}).
 
