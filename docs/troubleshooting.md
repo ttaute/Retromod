@@ -56,13 +56,13 @@ Some mods can't be translated by *any* bytecode tool, and no config change will 
 
 The full list — with the "if a mod does X, it won't translate" rules behind it — is at **[Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }})**. Check your mod set against it *before* filing a transform bug; one incompatible mod in the loadout can take the whole launch down, and the fix is to remove that mod, not to debug Retromod.
 
-## "unofficial build" or similar authenticity warning
+## "You are using a Retromod Fork" / authenticity warning
 
 Harmless in most cases. Retromod doesn't block anything based on authenticity status — see [Authenticity]({{ '/authenticity' | relative_url }}) for the full breakdown. The short version:
 
-- **UNSIGNED** — totally normal, especially for release-candidate builds. Ignore.
-- **UNOFFICIAL** — you're running a fork or a re-signed build. Fine if you trust where you got it.
-- **TAMPERED** / **IMPOSTOR** — if you didn't modify the JAR yourself, re-download from the [official releases page](https://github.com/Bownlux/Retromod/releases).
+- **OFFICIAL** — the running code matches the official build hash. Nothing to do.
+- **MODIFIED** — a fork, a repack, a re-bundling launcher, or a corrupted download. Fine if you trust where you got it; if not, re-download and compare its SHA-256 against the [official releases page](https://github.com/Bownlux/Retromod/releases).
+- **IMPOSTOR** — the JAR doesn't even claim to be Retromod. If you didn't expect that, delete it and grab a fresh copy.
 
 ## Verify reports missing methods or classes
 
@@ -221,7 +221,7 @@ If a 1.20.1 (Neo)Forge mod simply isn't in the mod list — often with a log lin
 
 If a 1.20.1 mod gets scanned but then crashes during mod construction with `NoClassDefFoundError: …/FMLJavaModLoadingContext`, `NoSuchFieldError: NeoForgeRegistries … BLOCKS`, or similar registry errors, this is a **known limitation**, not a bug to chase.
 
-1.20.1 was NeoForge's first release, when it still shared Forge's API (`ForgeRegistries`/`IForgeRegistry`, the old `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext`, `net.minecraftforge.*` packages). NeoForge replaced all of it in 1.20.2+, so a 1.20.1 *Forge* mod uses APIs modern NeoForge no longer has. Translating it onto NeoForge is the entire Forge→NeoForge migration, which is **planned for Retromod 1.1.0**, not the rc line.
+1.20.1 was NeoForge's first release, when it still shared Forge's API (`ForgeRegistries`/`IForgeRegistry`, the old `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext`, `net.minecraftforge.*` packages). NeoForge replaced all of it in 1.20.2+, so a 1.20.1 *Forge* mod uses APIs modern NeoForge no longer has. Translating it onto NeoForge is the entire Forge→NeoForge migration, which is **planned for Retromod 1.2.0**, not the rc line.
 
 **What to do today:** run a Forge mod on a **Forge** host. On Forge 26.1.x those APIs still exist natively, so it's a within-loader version bump rather than a cross-loader rewrite. (NeoForge mods translate onto NeoForge fine — this is specifically *Forge mod → NeoForge host*.) Details: [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}).
 

@@ -16,6 +16,10 @@ import com.retromod.core.RetromodTransformer;
  *
  * Polyfills are discovered via ServiceLoader and can be toggled per-category
  * in config/retromod/config.json.
+ *
+ * <p><b>Public Addon API.</b> This is a stable extension point for third-party
+ * addons (see {@code docs/addons.md}). Across the 1.x line new methods will be
+ * added only as {@code default}s — existing signatures won't break.
  */
 public interface PolyfillProvider {
 

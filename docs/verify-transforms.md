@@ -29,7 +29,7 @@ It's especially valuable for:
 
 ## Turning it on and off
 
-Verify Transforms is **on by default** as of the current release candidate. Toggle it via:
+Verify Transforms is **on by default** as of 1.0.0. Toggle it via:
 
 - **GUI:** [in-game settings screen]({{ '/gui' | relative_url }}), **Verify Transforms** toggle.
 - **Config:** set `"verify_transforms": false` in `config/retromod/config.json`.

@@ -812,10 +812,26 @@ public class ForgeModTransformer {
         try (JarOutputStream jos = new JarOutputStream(
                 new BufferedOutputStream(Files.newOutputStream(outputJar)))) {
 
+            // Deduplicate entries. A source mod's central directory can list the
+            // same entry twice (or two entries collide on a case-insensitive
+            // filesystem), and JarOutputStream.putNextEntry throws ZipException
+            // on the second write — which would abort the whole transform and
+            // silently drop the mod. Keep the first copy, skip the rest. This
+            // mirrors the guard already in FabricModTransformer.
+            Set<String> writtenEntries = new java.util.HashSet<>();
+
             try (var walk = Files.walk(sourceDir)) {
                 for (Path file : walk.filter(Files::isRegularFile).toList()) {
                     String entryName = sourceDir.relativize(file).toString()
                         .replace(File.separator, "/");
+
+                    if (!writtenEntries.add(entryName)) {
+                        LOGGER.warn("Skipping duplicate JAR entry from source: {} "
+                                + "(the source mod's central directory lists this "
+                                + "entry more than once — keeping the first copy)",
+                                entryName);
+                        continue;
+                    }
 
                     JarEntry entry = new JarEntry(entryName);
                     jos.putNextEntry(entry);

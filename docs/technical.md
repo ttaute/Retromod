@@ -96,55 +96,47 @@ If Retromod is ever discontinued, all of this comes out. A verifier that fires f
 
 Retromod is MIT-licensed. Forks are allowed, encouraged, and legally fine — the license grants that right without any conditions beyond keeping the license text.
 
-There's a practical problem, though: **if a malicious actor publishes a JAR calling itself "Retromod" and the user downloads it from somewhere other than the official repo, we can't technically tell that apart from a legitimate fork.** Both show up as "unsigned" or "signed with a different key" to our verification code.
+There's a practical problem, though: **if a malicious actor publishes a JAR calling itself "Retromod" and the user downloads it from somewhere other than the official repo, we can't technically tell that apart from a legitimate fork.** Both show up the same way to our verification code: code that doesn't match the official build hash.
 
 ### How Retromod handles this
 
-Official release JARs are signed with my private key. At startup, `SignatureVerifier` checks the JAR's signature:
+Official builds embed a SHA-256 of Retromod's own classes. At startup, `SignatureVerifier` re-hashes the running JAR and compares:
 
 | Status | Meaning |
 |--------|---------|
-| `OFFICIAL` | Signed by the official Retromod key — trusted. |
-| `UNSIGNED` | No signature. Either a release-candidate/dev build or a fork. |
-| `UNOFFICIAL` | Signed, but with a different key than the official one. |
-| `TAMPERED` | Signatures are present but verification failed — the JAR was modified after signing. |
+| `OFFICIAL` | Bytecode matches the embedded official hash — the unmodified upstream build. |
+| `MODIFIED` | Bytecode differs from the official hash — a fork, a repack, or a corrupted download. |
 | `IMPOSTOR` | The manifest doesn't even claim to be Retromod. |
+| `UNKNOWN` | Can't tell — a dev/source build (no hash embedded), or not running from a JAR. |
+
+This is an integrity check, **not** cryptographic anti-tamper — there's no secret key, so a determined attacker can recompute the embedded hash. It catches accidental corruption and casual modification; for real verification, users compare the JAR's SHA-256 against the value published on the releases page.
 
 The official build emits a normal startup line like:
 
-> `[Retromod] ✓ Authenticity: OFFICIAL build — Signed by CN=Bownlux, …`
+> `[Retromod] ✓ Authenticity: OFFICIAL build — Bytecode matches the official build hash`
 
-For any other status (`UNSIGNED`, `UNOFFICIAL`, `TAMPERED`, `IMPOSTOR`) the verifier **automatically** emits:
+For any other status (`MODIFIED`, `IMPOSTOR`) the verifier **automatically** emits:
 
 > `You are using a Retromod Fork. If this was advertised as the official Retromod, this is NOT official! Check github.com/Bownlux/Retromod for the real thing.`
 
-The official build **never** emits this line — if the signature matches, it's the real thing.
+The official build **never** emits this line — if the hash matches, it's the unmodified build.
 
 ### I'm making a fork — what do I do?
 
-Forks are fine, encouraged, and fully MIT-licensed. If you keep the name "Retromod" in your fork's logs/UI, the fork notice fires automatically — no code you need to add, no flag to flip. That's the safe default: every build that isn't signed with my key announces itself, and a silent "Retromod" is an obvious red flag for users.
+Forks are fine, encouraged, and fully MIT-licensed. If you keep the name "Retromod" in your fork's logs/UI, the fork notice fires automatically — no code you need to add, no flag to flip. That's the safe default: every build whose code doesn't match the official hash announces itself, and a silent "Retromod" is an obvious red flag for users.
 
 **There's no customizable version on purpose.** If forks could pass arbitrary text, a malicious build could log something like "Official Retromod v1.2.3 — verified build" and users would have no way to tell. The fixed string plainly says "this is NOT official," which defeats that impersonation regardless of what the attacker calls themselves.
 
-The notice deliberately points users to the GitHub repo rather than an email address — otherwise a single inbox gets flooded with "please verify this JAR" requests from people who could just compare hashes themselves. The contact email below is for fork *maintainers* who want to negotiate dropping the notice, not for end users who want to verify their download.
-
+The notice deliberately points users to the GitHub repo rather than an email address — otherwise a single inbox gets flooded with "please verify this JAR" requests from people who could just compare hashes themselves.
 If you've renamed your project entirely (no "Retromod" branding in your logs, manifest, or UI), the announcement isn't necessary — the `Implementation-Title` manifest check will report `IMPOSTOR` if your manifest doesn't claim to be Retromod, which is accurate for "a build that isn't claiming to be Retromod."
 
 ### Can I drop the notice from my fork?
 
-Yes — reach out and we'll approve it. If you have a good reason (renamed project, official modpack partner, platform-verified distribution, etc.), email:
+**You don't need permission, and you don't need to contact anyone.** The MIT license already lets you change or remove anything in your fork — adding an approval requirement wouldn't be enforceable anyway, and gatekeeping it isn't the point.
 
-**[Bownlux@revivalsmp.net](mailto:Bownlux@revivalsmp.net)**
+What we *ask* — a community norm, not a rule — is that you **keep the notice**. It costs nothing, and it's the whole reason it works: if honest forks keep it, a build that's *missing* it stands out as a red flag, which is what protects users from malware wearing the Retromod name. So remove it if you truly must, but please don't — and never replace it with a fake "official / verified" line.
 
-Include:
-- The fork's name and repository URL
-- What you're changing (features added, focus area)
-- How users will get your build
-- Anything you'd like to credit
-
-**Response time: usually 1–3 days, up to 1 week in the worst case.** I'm not running a support desk — just a person with a normal life and other projects — so you'll get a reply, it just might not be instant.
-
-You'll get a short approval note back. This isn't a legal requirement (MIT doesn't allow adding conditions like this), it's a community norm to keep users safe from impersonators.
+If you've fully rebranded (no "Retromod" in your logs, manifest, or UI), the notice is moot anyway — see above.
 
 ### For users
 
@@ -162,17 +154,16 @@ Separately from signature checking, `SignatureVerifier` also reads the JAR's man
 
 This catches the trivial case of "someone renamed retromod.jar to something malicious.jar" and prevents some self-inflicted confusion.
 
-## How to verify manually with `jarsigner`
+## How to verify a download
 
-Users who want to independently verify a Retromod release can run Java's built-in `jarsigner`:
+The in-jar check is informational and can't defend against a determined attacker (there's no secret key). For real verification, compare the file's SHA-256 against the value published on the [GitHub releases page](https://github.com/Bownlux/Retromod/releases) — Modrinth shows one per file too:
 
 ```bash
-jarsigner -verify -verbose -certs retromod-1.0.0-rc.1.jar
+sha256sum retromod-1.0.0+26.1.jar       # Linux
+shasum -a 256 retromod-1.0.0+26.1.jar   # macOS
 ```
 
-If the JAR is signed by the official key, `jarsigner` will print the certificate subject and a "jar verified" line. If there are any modifications after signing, `jarsigner` will say so.
-
-This doesn't verify *which* key signed it — only that the signature is internally consistent. For fingerprint checking against the known official cert, compare the SHA-256 fingerprint `jarsigner` prints against the one published on the GitHub releases page.
+If it matches the published hash, you have the exact official file. That reference lives out-of-band on the trusted page, where a tamperer can't change it — the guarantee an embedded self-hash can't make on its own.
 
 ## Further reading
 

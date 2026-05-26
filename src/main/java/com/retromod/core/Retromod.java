@@ -129,7 +129,7 @@ public class Retromod implements ModInitializer {
         EnvironmentDetector.logEnvironment();
 
         // Verify authenticity of this Retromod build — informational only,
-        // never blocks. An unsigned or modified build still runs fine.
+        // never blocks. A modified or forked build still runs fine.
         com.retromod.security.SignatureVerifier.verifyAndLog();
 
         // Load configuration

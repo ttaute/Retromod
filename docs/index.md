@@ -18,7 +18,7 @@ It works on Fabric, NeoForge, and Forge. The shim chain covers MC 1.12.2 (the Ja
   <a class="retromod-btn retromod-btn-ghost" href="{{ '/installation' | relative_url }}">Install guide →</a>
 </div>
 
-> **Heads up — this is a release candidate (1.0.0-rc.1).** The pipeline works for the common case and for most simple-to-moderate mods. The remaining known gaps are deep-integration mods — rendering replacement, heavy mixin mods, and mods built on APIs that were *structurally redesigned* (not just renamed) — tracked for polyfills in 1.1.0. If a mod doesn't work, please [file an issue with the log](https://github.com/Bownlux/Retromod/issues) — that's the fastest way to make the next version handle it.
+> **Retromod 1.0.0 — stable release.** The pipeline works for the common case and for most simple-to-moderate mods. The remaining known gaps are deep-integration mods — rendering replacement, heavy mixin mods, and mods built on APIs that were *structurally redesigned* (not just renamed) — tracked for polyfills in 1.2.0. If a mod doesn't work, please [file an issue with the log](https://github.com/Bownlux/Retromod/issues) — that's the fastest way to make the next version handle it.
 
 ## What it actually does
 
@@ -63,8 +63,9 @@ The wiki is small but covers the things people ask about most.
 - [FAQ]({{ '/faq' | relative_url }}) — safety, servers, modpacks, commercial use, the legal stuff.
 - [Architecture]({{ '/architecture' | relative_url }}) — for people reading the source.
 - [Technical]({{ '/technical' | relative_url }}) — the security model, fork policy, and how the transformer works inside.
-- [Authenticity]({{ '/authenticity' | relative_url }}) — how to tell an official build from a tampered one.
+- [Authenticity]({{ '/authenticity' | relative_url }}) — how to tell an official build from a modified one.
 - [Contributing]({{ '/contributing' | relative_url }}) — how to add shims and polyfills, and the mod-author opt-out mechanism.
+- [Writing an Addon]({{ '/addons' | relative_url }}) — extend Retromod with your own shims, polyfills, and per-mod fixes, shipped as a separate mod (and the licensing for adopting them into core).
 - [Adding SRG Mappings]({{ '/srg-mappings' | relative_url }}) — fill gaps in the SRG → Mojang dictionary so more old Forge mods load. Easy first PR.
 - [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}) — the realistic "no" list. Specific mods (Create, OptiFine, AE2, …) and the general rules that put them there.
 

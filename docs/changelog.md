@@ -6,7 +6,27 @@ description: "Release notes for every Retromod version."
 
 # Changelog
 
-All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/): the `1.0.0-beta.N` series then `1.0.0-rc.N` release candidates lead up to stable 1.0.
+All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/). The 1.0.0 line ran `1.0.0-beta.N` → `1.0.0-rc.N` → stable `1.0.0`; from 1.1.0 on, minor/major releases use `snapshot.N` → `rc.N` → stable (patch releases ship directly).
+
+## [1.0.0] — 2026-05-25
+
+**Stable release.** Promoted from `1.0.0-rc.1` after a final security + correctness pass — no blocking issues. Changes since rc.1:
+
+### Added
+- **Addon API v1.** Third-party mods can extend Retromod with their own `VersionShim`s and `PolyfillProvider`s (via ServiceLoader), plus the file-based `mixin-blocklist.json` / `config.json`. A stable public API across the 1.x line — see [Writing an Addon](docs/addons.md).
+
+### Changed
+- **Build authenticity is now a self-hash integrity check (no signing, no keystore).** Official builds embed a SHA-256 of their own classes; the verifier reports `OFFICIAL` when the running code matches, otherwise it logs a fork notice. It detects modification/corruption, *not* a determined attacker — for real verification, compare a download's SHA-256 against the one published on the releases page. See [Authenticity](docs/authenticity.md).
+
+### Fixed
+- **Forge/NeoForge duplicate-zip-entry guard.** `ForgeModTransformer` now skips duplicate JAR entries instead of throwing `ZipException` and silently dropping the mod (the guard `FabricModTransformer` already had).
+
+### Roadmap (rescheduled)
+- **1.1.0 = the pre-26.1 Fabric bridge.** Old Fabric mods on a pre-26.1 host lose bridging for *changed/removed* APIs today (most simple mods still work via intermediary stability; pre-1.17 custom entity models don't). 1.1.0 reimplements those redesigned subsystems as polyfills.
+- The deep-API-change polyfills (structurally-redesigned APIs; Forge-mod-on-NeoForge) that rc.1 listed for 1.1.0 now ship in **1.2.0**, keeping one theme per release.
+
+### Versioning
+- From 1.0.0: patch releases (`1.0.1`, …) ship directly; minor/major (`1.1.0`, …) get a **snapshot** then an **rc** (Minecraft-style).
 
 ## [1.0.0-rc.1] — 2026-05-24
 

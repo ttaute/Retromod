@@ -85,17 +85,17 @@ This is the obvious list. Everything here matches one or more of the general rul
 
 Forge, NeoForge, Fabric Loader, and Quilt Loader are **mod loaders**, not mods. Retromod runs *on top of* them; it doesn't translate them. If you want a different loader, install that loader directly.
 
-## Old Forge mods on NeoForge — not yet (planned for 1.1.0)
+## Old Forge mods on NeoForge — not yet (planned for 1.2.0)
 
 A 1.20.1-era **Forge** mod will not currently load on a modern **NeoForge** host. This isn't a "never" — it's "not yet."
 
-NeoForge 1.20.1 was its very first release, forked from Forge and still sharing essentially all of Forge's API: `ForgeRegistries` / `IForgeRegistry`, the `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext.get().getModEventBus()`, the `net.minecraftforge.*` package names, and so on. NeoForge then **replaced all of that** in 1.20.2+ — renamed packages, restructured the registry system (vanilla registries moved to `BuiltInRegistries`, `IForgeRegistry` removed), made the mod event bus a constructor parameter, reworked events and data generation. So a 1.20.1 Forge mod is, in API terms, *practically a Forge mod* — and translating it onto NeoForge 26.1.x means redoing the entire Forge→NeoForge migration, not a handful of class renames. Retromod gets these mods *scanned* by NeoForge (the metadata promotion in beta.9, #42), but the bytecode-level cross-loader translation is **scheduled for Retromod 1.1.0**, not the rc line.
+NeoForge 1.20.1 was its very first release, forked from Forge and still sharing essentially all of Forge's API: `ForgeRegistries` / `IForgeRegistry`, the `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext.get().getModEventBus()`, the `net.minecraftforge.*` package names, and so on. NeoForge then **replaced all of that** in 1.20.2+ — renamed packages, restructured the registry system (vanilla registries moved to `BuiltInRegistries`, `IForgeRegistry` removed), made the mod event bus a constructor parameter, reworked events and data generation. So a 1.20.1 Forge mod is, in API terms, *practically a Forge mod* — and translating it onto NeoForge 26.1.x means redoing the entire Forge→NeoForge migration, not a handful of class renames. Retromod gets these mods *scanned* by NeoForge (the metadata promotion in beta.9, #42), but the bytecode-level cross-loader translation is **scheduled for Retromod 1.2.0**, not the rc line.
 
 **What to do today:** run a Forge mod on a **Forge** host. On Forge 26.1.x those same APIs still exist natively, so it's a within-loader version bump (which Retromod handles) rather than a cross-loader rewrite. NeoForge mods translate to NeoForge fine; this limitation is specifically *Forge mod → NeoForge host*.
 
-## Mods built on structurally-redesigned APIs — not yet (planned for 1.1.0)
+## Mods built on structurally-redesigned APIs — not yet (planned for 1.2.0)
 
-Some mods now **construct and load much further** than the old missing-class crash — Retromod's renames carry them past startup and several render layers — but their *core feature* is built on a Minecraft or loader API that a later version didn't *rename*, it **redesigned or deleted**. Retromod can rename a class or remap a method; it can't reshape a mod's calls onto a differently-shaped API. These need hand-written **polyfills** (reimplement the old API on top of the new one), which is **1.1.0** work.
+Some mods now **construct and load much further** than the old missing-class crash — Retromod's renames carry them past startup and several render layers — but their *core feature* is built on a Minecraft or loader API that a later version didn't *rename*, it **redesigned or deleted**. Retromod can rename a class or remap a method; it can't reshape a mod's calls onto a differently-shaped API. These need hand-written **polyfills** (reimplement the old API on top of the new one), which is **1.2.0** work.
 
 | Mod | Where it hits the wall |
 |---|---|
@@ -103,6 +103,16 @@ Some mods now **construct and load much further** than the old missing-class cra
 | **Luminous: Nether** (#52) | An MCreator mod that registers spawn eggs via NeoForge's `DeferredSpawnEggItem`, which NeoForge **deleted** in 21.11. There's no class to redirect to. |
 
 **The tell:** the crash is a `NoClassDefFoundError` / `VerifyError` on a vanilla or loader class whose replacement has a *different shape* — `EquipmentClientInfo` vs `ArmorMaterial$Layer`, `HumanoidArm` vs `Mob`, or simply gone (`DeferredSpawnEggItem`). If the replacement were just a rename, Retromod would already handle it (it now maps ~900 vanilla renames per host). Distinct from the deep-integration mods above: these are otherwise-simple content mods that happen to touch one redesigned API.
+
+## Old Fabric mods on a pre-26.1 host — most work, some don't (bridge in 1.1.0)
+
+This one is **loader- and host-specific**: it applies only to **Fabric** mods running on a **pre-26.1** host (e.g. a 1.16.5 mod on a 1.20.1 Fabric server). On a 26.1+ host it doesn't apply — there the full intermediary→Mojang translation runs and old Fabric mods are handled normally.
+
+Fabric mods ship in **intermediary** names (`class_1297`, `method_5773`), which Mojang keeps *stable across versions*. On a pre-26.1 host Retromod (correctly) leaves those names as-is — so a mod works as long as the APIs it touches **didn't change** between its version and the host. In practice **most simple content mods work untouched**: register a few items/blocks/entities, call common methods, and the names still resolve.
+
+Where it breaks is a mod that uses an API the game **changed or removed** in between — a method whose signature changed, a deleted class, or a **redesigned** subsystem. The clearest example is a mod with a **custom entity renderer/model written for 1.16.x or earlier**: Minecraft reworked the entire entity model/render system in 1.17 (the old `EntityModel`/`ModelPart` constructors gave way to the layer / `TexturedModelData` system), so that client code references APIs that no longer exist on a 1.20.1 runtime and crashes. That's a structural redesign, not a rename — Retromod can't bridge it by name-mapping alone.
+
+**What to do today:** run old Fabric mods on a **26.1 host** (the maintained path), where Retromod's full translation applies. **Targeted bridging for pre-26.1 Fabric hosts is planned for 1.1.0**, reimplementing the redesigned subsystems (starting with the pre-1.17 entity model system) as polyfills.
 
 ## Mods that load but are likely broken in-game
 

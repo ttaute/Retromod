@@ -12,7 +12,7 @@ Frequently asked questions about Retromod. If your question isn't here, check th
 Yes, within the usual caveats for running any third-party mod:
 
 - **The code is open source** under the [MIT license](https://github.com/Bownlux/Retromod/blob/main/LICENSE). You can read every line before running it.
-- **Releases are signed.** Retromod includes a [signature verifier]({{ '/authenticity' | relative_url }}) that distinguishes official builds from forks or tampered copies.
+- **Build-integrity check.** Retromod includes a [build check]({{ '/authenticity' | relative_url }}) that flags whether the running build is the unmodified official one (informational only).
 - **It modifies bytecode, nothing else.** Retromod doesn't talk to the network, doesn't touch files outside your game directory, and doesn't collect telemetry.
 - **Transformation is in-process.** The transformer runs inside Minecraft's JVM at mod load time; there's no separate daemon, no autostart, no system integration.
 
@@ -51,7 +51,7 @@ Mods that have both client and server components need Retromod on both sides.
 
 **Not yet.** Retromod targets the *mod loaders* — Fabric, NeoForge, and Forge. Server software like Paper, Spigot, Bukkit, and Purpur runs **plugins**, not mods, and the plugin format and APIs (Bukkit API, NMS) are a different shape from the mod APIs Retromod is built around. Dropping Retromod into a Paper server's `plugins/` folder won't do anything.
 
-**Plugin support is planned for the future**, but development on it has not started yet. The current focus is closing out the release candidate on the mod-loader side first; once that's stable, plugin support is the next major project. There's no committed timeline yet.
+**Plugin support is planned for the future**, but development on it has not started yet. The mod-loader side is now stable as of 1.0.0; plugin support is the next major project after that. There's no committed timeline yet.
 
 If you run a Paper/Spigot/Bukkit/Purpur server and want this, opening a [GitHub issue](https://github.com/Bownlux/Retromod/issues) describing your specific use case is the most useful way to weigh in on the priority.
 
@@ -96,9 +96,9 @@ Older source versions (pre-1.12.2) aren't supported because the mod ecosystem sh
 
 Newer target versions will be added as Minecraft releases them. Retromod is built around 26.1 specifically because it's the first fully unobfuscated MC release, which makes the mapping work straightforward.
 
-## Why does verification say "unsigned"?
+## What does it mean if the build isn't OFFICIAL?
 
-Because the current release-candidate builds aren't signed. Signing infrastructure is on the roadmap for the 1.0 release. In the meantime, UNSIGNED is expected on every build you see — it's not an error or a warning about your JAR specifically, it's just the current state of the project.
+Retromod compares the running build's code against an embedded hash of the official build. `OFFICIAL` means it matches; `MODIFIED` means it doesn't — a fork, a repack, a launcher that re-bundled it, or (rarely) a corrupted download; `UNKNOWN` is a dev/source build with no hash embedded. It's informational only and never blocks anything. For a real check, compare your file's SHA-256 against the one on the [releases page](https://github.com/Bownlux/Retromod/releases).
 
 See [Authenticity]({{ '/authenticity' | relative_url }}) for the full breakdown of what each status means.
 
