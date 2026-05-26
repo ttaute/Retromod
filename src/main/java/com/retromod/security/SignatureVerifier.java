@@ -68,7 +68,7 @@ public final class SignatureVerifier {
      * this class is excluded from the hash, so re-embedding doesn't invalidate
      * it. See {@code docs/authenticity.md}.
      */
-    private static final String EXPECTED_SELF_HASH = "1D31369B465A7A1A429CEAA59A96F06B79A7E374FD92A6ECBE883ED64D63E024";
+    private static final String EXPECTED_SELF_HASH = "CFBBDE634AED073C91245451D21C817B808B74934E372583912538244C24AEDF";
 
     /** This class's own jar entry — excluded from the hash (it carries the hash). */
     private static final String SELF_ENTRY = "com/retromod/security/SignatureVerifier.class";

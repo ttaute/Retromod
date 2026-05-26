@@ -23,7 +23,7 @@ Retromod is a drop-in Minecraft mod that transforms older mod bytecode at load t
 
 ### Fabric
 
-1. Download `retromod-1.0.0.jar` and put it in `mods/`
+1. Download `retromod-1.0.1.jar` and put it in `mods/`
 2. Launch Minecraft once, then close it — this creates the `retromod-input/` folder and a config that lets old mods load
 3. Put your old mods in the `retromod-input/` folder (in your `.minecraft` directory)
 4. Launch again — Retromod transforms them and shows a restart popup
@@ -240,7 +240,7 @@ The reason: **every release of Retromod has to know how to translate every suppo
 
 Some specific things people sometimes assume need branches and don't:
 
-- **Old MC version support** isn't a separate branch — the shims for 1.12.2, 1.14.4, 1.16.5, etc. all compile into the same `retromod-1.0.0.jar`. Drop in a 1.16.5 mod, Retromod walks it through the chain. (See `src/main/java/com/retromod/shim/` — every version transition is a file in there.)
+- **Old MC version support** isn't a separate branch — the shims for 1.12.2, 1.14.4, 1.16.5, etc. all compile into the same `retromod-1.0.1.jar`. Drop in a 1.16.5 mod, Retromod walks it through the chain. (See `src/main/java/com/retromod/shim/` — every version transition is a file in there.)
 - **Old Retromod versions** aren't kept on branches either — they're tagged commits. If you want the rc.1 source you check out the `v1.0.0-rc.1` tag.
 - **In-progress features** are just commits on `main`. I'm a solo dev; there's no team that needs to work on parallel features without stepping on each other, and feature-branching adds overhead with no payoff at this scale.
 

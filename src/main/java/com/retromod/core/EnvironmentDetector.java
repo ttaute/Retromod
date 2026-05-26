@@ -307,8 +307,9 @@ public class EnvironmentDetector {
     private static boolean detectClient() {
         // Existence-only probes (initialize=false) — see classExists(): detection
         // must never trigger a Minecraft bootstrap class's <clinit>.
-        if (classExists("net.minecraft.client.MinecraftClient")
-                || classExists("net.minecraft.client.Minecraft")) {
+        if (classExists("net.minecraft.client.MinecraftClient")   // Yarn (dev)
+                || classExists("net.minecraft.client.Minecraft")  // Mojang (26.1+, NeoForge)
+                || classExists("net.minecraft.class_310")) {      // intermediary — pre-26.1 Fabric runtime
             return true;
         }
         // Fallback: if we have a display, we're almost certainly a client.
@@ -322,7 +323,8 @@ public class EnvironmentDetector {
         // "this is a dedicated server" signal. The reliable signal is the ABSENCE
         // of a client class.
         boolean clientPresent = classExists("net.minecraft.client.MinecraftClient")
-                || classExists("net.minecraft.client.Minecraft");
+                || classExists("net.minecraft.client.Minecraft")
+                || classExists("net.minecraft.class_310"); // intermediary — pre-26.1 Fabric client
         if (clientPresent) {
             return false; // integrated server on a client — not dedicated
         }

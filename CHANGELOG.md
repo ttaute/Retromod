@@ -2,6 +2,16 @@
 
 All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/). The 1.0.0 line ran `1.0.0-beta.N` → `1.0.0-rc.N` → stable `1.0.0`; from 1.1.0 on, minor/major releases use `snapshot.N` → `rc.N` → stable (patch releases ship directly).
 
+## [1.0.1] — 2026-05-26
+
+A small correctness patch on the Fabric path and the (informational) transform verifier, from working the recent Fabric reports (#57, #58). No change to transform behaviour in the common case — these fix a runtime mis-detection and a bogus warning.
+
+### Fixed
+- **Fabric client mis-detected as a dedicated server on pre-26.1 hosts.** `EnvironmentDetector`'s client probe only knew the Mojang (`net.minecraft.client.Minecraft`) and Yarn (`net.minecraft.client.MinecraftClient`) client class names. On a real pre-26.1 Fabric runtime the client class is the *intermediary* `net.minecraft.class_310`, so the probe found no client class, concluded "dedicated server", and skipped client-side shims. The intermediary name is now probed in both `detectClient()` and `detectDedicatedServer()`. Surfaced while investigating #57.
+- **Verifier reported present classes as "Missing" (#58).** `TransformVerifier` flagged a class as missing whenever its own classloader couldn't load it — but that classloader can't see client classes from a server context, nor other-module classes under NeoForge's modular loading, even though they exist in the target MC. So the verify report listed classes that are actually present (e.g. `BlockColor`/`class_322`, `BakedModel`/`class_1087`, `ModelResourceLocation`/`class_1091`) as gaps. `canResolveClass` now falls back to Retromod's own mapping before declaring a gap. The verify report is informational only, so this never affected transforms — but the false alarms were misleading noise.
+
+> The `FabricItemGroupBuilderShim` `NoSuchMethodError` also reported in #57 is **not** fixed here — its proper fix is part of the pre-26.1 Fabric bridge planned for **1.1.0** (it's the same intermediary-name/descriptor mismatch that release addresses).
+
 ## [1.0.0] — 2026-05-25
 
 **Stable release.** Promoted from `1.0.0-rc.1` after a final security + correctness pass — no blocking issues. Changes since rc.1:

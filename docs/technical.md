@@ -159,8 +159,8 @@ This catches the trivial case of "someone renamed retromod.jar to something mali
 The in-jar check is informational and can't defend against a determined attacker (there's no secret key). For real verification, compare the file's SHA-256 against the value published on the [GitHub releases page](https://github.com/Bownlux/Retromod/releases) — Modrinth shows one per file too:
 
 ```bash
-sha256sum retromod-1.0.0+26.1.jar       # Linux
-shasum -a 256 retromod-1.0.0+26.1.jar   # macOS
+sha256sum retromod-1.0.1+26.1.jar       # Linux
+shasum -a 256 retromod-1.0.1+26.1.jar   # macOS
 ```
 
 If it matches the published hash, you have the exact official file. That reference lives out-of-band on the trusted page, where a tamperer can't change it — the guarantee an embedded self-hash can't make on its own.

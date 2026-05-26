@@ -58,7 +58,7 @@ mvn exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" -Dexec.args="<comm
 
 **Important:** Always pass `-Dexec.skip=true` during build to prevent Maven from running the CLI entrypoint.
 
-Output JAR: `target/retromod-1.0.0.jar`
+Output JAR: `target/retromod-1.0.1.jar`
 
 ## Release integrity (self-hash)
 
@@ -67,7 +67,7 @@ Official builds embed a SHA-256 of Retromod's own classes in `SignatureVerifier.
 **Embed the hash as the LAST release step** — any source change shifts it:
 ```bash
 mvn clean package -Dexec.skip=true                          # build the final jars
-python3 scripts/compute-self-hash.py target/retromod-1.0.0-all.jar
+python3 scripts/compute-self-hash.py target/retromod-1.0.1-all.jar
 # paste the 64-hex result into SignatureVerifier.EXPECTED_SELF_HASH, then rebuild
 ```
 Because the hash covers only Retromod's own code (not the relocated deps), **one value matches every per-loader dist jar** from `build-all.sh` (it strips bundled deps, not own classes — verified). In dev, leave `EXPECTED_SELF_HASH=""`: the verifier then reports `UNKNOWN` and logs the computed hash so you can grab it. No keystore, no signing.
@@ -75,7 +75,7 @@ Because the hash covers only Retromod's own code (not the relocated deps), **one
 ## Deploy to Minecraft
 
 ```bash
-cp target/retromod-1.0.0.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.0.0+26.1.jar
+cp target/retromod-1.0.1.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.0.1+26.1.jar
 ```
 
 Game directory (macOS): `~/Library/Application Support/minecraft/`

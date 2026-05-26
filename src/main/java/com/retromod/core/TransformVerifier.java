@@ -271,13 +271,48 @@ public final class TransformVerifier {
         return false;
     }
 
+    /** Internal names of classes known to exist in the target MC, from the mapping. */
+    private static volatile java.util.Set<String> knownTargetClasses;
+
+    /**
+     * Is this internal name a class the mapping knows exists in the target MC?
+     *
+     * <p>Used as a fallback when {@link Class#forName} can't load a class — which
+     * happens for legitimate, present classes the verifier's classloader simply
+     * can't see: client classes when verifying on a dedicated server, or classes
+     * in another module under NeoForge's modular loading. Without this, those
+     * showed up as bogus "Missing Classes" (#58).
+     */
+    private static boolean isKnownTargetClass(String internalName) {
+        java.util.Set<String> s = knownTargetClasses;
+        if (s == null) {
+            java.util.Set<String> built = new java.util.HashSet<>();
+            try {
+                var mapper = com.retromod.mapping.IntermediaryToMojangMapper.getInstance();
+                if (mapper.isLoaded()) {
+                    built.addAll(mapper.getClassMap().values());     // intermediary → Mojang(26.1)
+                    built.addAll(mapper.getClassMoves().keySet());   // pre-move Mojang names
+                    built.addAll(mapper.getClassMoves().values());   // post-move 26.1 names
+                }
+            } catch (Exception ignored) {
+                // mapping unavailable → fall through to the empty set (no fallback)
+            }
+            knownTargetClasses = s = built;
+        }
+        return s.contains(internalName);
+    }
+
     private static boolean canResolveClass(String internalName) {
         try {
             Class.forName(internalName.replace('/', '.'), false,
                     TransformVerifier.class.getClassLoader());
             return true;
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
-            return false;
+            // The verifier's classloader can't always see every MC class (client
+            // classes on a server, or other-module classes under NeoForge). Before
+            // declaring a real gap, confirm against the mapping: a known target
+            // class exists in MC — this was just a classloader-visibility miss.
+            return isKnownTargetClass(internalName);
         } catch (Exception e) {
             return true; // Avoid false positives
         }
