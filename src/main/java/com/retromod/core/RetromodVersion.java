@@ -91,6 +91,23 @@ public final class RetromodVersion {
         return 0;
     }
 
+    /**
+     * Whether {@code a} and {@code b} share the same {@code major.minor} (e.g. {@code 1.21}
+     * and {@code 1.21.1}, or {@code 26.1} and {@code 26.1.2}). Used by the automatic
+     * in-place mod scan to skip mods that only differ from the host by a <i>patch</i>:
+     * those are generally drop-in compatible, so transforming them is unnecessary churn
+     * and — worse — can break a working mod by firing API shims it never needed (#60). A
+     * mod that genuinely needs a within-minor transform can still be placed in
+     * {@code retromod-input/} explicitly. Unparseable (fewer than 2 components) → {@code false}
+     * (don't skip), so we never silently miss a real cross-version transform.
+     */
+    public static boolean sameMinorVersion(String a, String b) {
+        int[] pa = parseMcVersion(a);
+        int[] pb = parseMcVersion(b);
+        if (pa.length < 2 || pb.length < 2) return false;
+        return pa[0] == pb[0] && pa[1] == pb[1];
+    }
+
     private static int[] parseMcVersion(String v) {
         if (v == null) return new int[0];
         java.util.regex.Matcher m =

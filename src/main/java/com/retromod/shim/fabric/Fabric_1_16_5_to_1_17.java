@@ -20,6 +20,119 @@ public class Fabric_1_16_5_to_1_17 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
+        // ────────────────────────────────────────────────────────────────────────
+        // 1.16 → 1.17 PACKAGE REORGANIZATION CLASS REDIRECTS
+        //
+        // MC 1.17 was a sweeping package rename — most core types moved from the
+        // flat `net.minecraft.{block,entity,util,world}` layout into the modern
+        // categorized `net.minecraft.world.{entity,level,phys}.…` tree. Mods
+        // compiled against ≤1.16 reference the OLD paths in their constant
+        // pools; on a 1.17+ host those classes don't exist and you get
+        // NoClassDefFoundError the first time the mod touches one (which is
+        // usually during static-init or onInitialize — i.e. immediate crash).
+        //
+        // The audit (`audit-workspace/results.csv`) confirmed every 1.16.x mod
+        // in the top-50-by-downloads hits this — Lithium 1.16.4 alone has 80+
+        // references to `net/minecraft/world/World`, `net/minecraft/entity/Entity`,
+        // etc. Mapping each old path to its current location turns those
+        // unresolvable references into clean calls against the modern types.
+        //
+        // The redirects are at CLASS granularity — Retromod's ClassRemapper
+        // rewrites every owner-name + descriptor reference in the mod bytecode,
+        // including in method signatures, field types, and CONSTANT_Class pool
+        // entries. The METHOD redirects further down then rewrite the renamed
+        // methods on the now-correctly-owner-named calls.
+        // ────────────────────────────────────────────────────────────────────────
+
+        // Entity hierarchy: net/minecraft/entity/* → net/minecraft/world/entity/*
+        transformer.registerClassRedirect("net/minecraft/entity/Entity",
+                "net/minecraft/world/entity/Entity");
+        transformer.registerClassRedirect("net/minecraft/entity/LivingEntity",
+                "net/minecraft/world/entity/LivingEntity");
+        transformer.registerClassRedirect("net/minecraft/entity/MobEntity",
+                "net/minecraft/world/entity/Mob");
+        transformer.registerClassRedirect("net/minecraft/entity/player/PlayerEntity",
+                "net/minecraft/world/entity/player/Player");
+        transformer.registerClassRedirect("net/minecraft/entity/EntityType",
+                "net/minecraft/world/entity/EntityType");
+
+        // World/level: the W→L rename
+        transformer.registerClassRedirect("net/minecraft/world/World",
+                "net/minecraft/world/level/Level");
+        transformer.registerClassRedirect("net/minecraft/world/WorldView",
+                "net/minecraft/world/level/LevelReader");
+        transformer.registerClassRedirect("net/minecraft/world/chunk/Chunk",
+                "net/minecraft/world/level/chunk/ChunkAccess");
+        transformer.registerClassRedirect("net/minecraft/world/chunk/WorldChunk",
+                "net/minecraft/world/level/chunk/LevelChunk");
+
+        // Blocks + items: were flat, now nested under world/level + world/item
+        transformer.registerClassRedirect("net/minecraft/block/BlockState",
+                "net/minecraft/world/level/block/state/BlockState");
+        transformer.registerClassRedirect("net/minecraft/block/Block",
+                "net/minecraft/world/level/block/Block");
+        transformer.registerClassRedirect("net/minecraft/block/Blocks",
+                "net/minecraft/world/level/block/Blocks");
+        transformer.registerClassRedirect("net/minecraft/item/Item",
+                "net/minecraft/world/item/Item");
+        transformer.registerClassRedirect("net/minecraft/item/Items",
+                "net/minecraft/world/item/Items");
+        transformer.registerClassRedirect("net/minecraft/item/ItemStack",
+                "net/minecraft/world/item/ItemStack");
+
+        // Math types: most went to net.minecraft.core or net.minecraft.world.phys
+        transformer.registerClassRedirect("net/minecraft/util/math/BlockPos",
+                "net/minecraft/core/BlockPos");
+        transformer.registerClassRedirect("net/minecraft/util/math/Direction",
+                "net/minecraft/core/Direction");
+        transformer.registerClassRedirect("net/minecraft/util/math/Box",
+                "net/minecraft/world/phys/AABB");
+        transformer.registerClassRedirect("net/minecraft/util/math/Vec3d",
+                "net/minecraft/world/phys/Vec3");
+        transformer.registerClassRedirect("net/minecraft/util/math/ChunkPos",
+                "net/minecraft/world/level/ChunkPos");
+
+        // Identifier → ResourceLocation: the most-referenced single rename
+        transformer.registerClassRedirect("net/minecraft/util/Identifier",
+                "net/minecraft/resources/ResourceLocation");
+
+        // Client side: MinecraftClient → Minecraft, MatrixStack → PoseStack
+        transformer.registerClassRedirect("net/minecraft/client/MinecraftClient",
+                "net/minecraft/client/Minecraft");
+        transformer.registerClassRedirect("net/minecraft/client/util/math/MatrixStack",
+                "com/mojang/blaze3d/vertex/PoseStack");
+        transformer.registerClassRedirect("net/minecraft/client/render/VertexConsumer",
+                "com/mojang/blaze3d/vertex/VertexConsumer");
+        transformer.registerClassRedirect("net/minecraft/client/render/VertexConsumerProvider",
+                "net/minecraft/client/renderer/MultiBufferSource");
+        transformer.registerClassRedirect("net/minecraft/client/gui/screen/Screen",
+                "net/minecraft/client/gui/screens/Screen");
+        transformer.registerClassRedirect("net/minecraft/client/gui/hud/InGameHud",
+                "net/minecraft/client/gui/Gui");
+        transformer.registerClassRedirect("net/minecraft/client/render/entity/model/EntityModel",
+                "net/minecraft/client/model/EntityModel");
+
+        // Network: ClientConnection → Connection
+        transformer.registerClassRedirect("net/minecraft/network/ClientConnection",
+                "net/minecraft/network/Connection");
+
+        // Fabric API lifecycle-events: inner-class follow-on of the W→L rename.
+        // ClientTickEvents$StartWorldTick / $EndWorldTick were renamed to
+        // $StartLevelTick / $EndLevelTick in step with the MC World→Level rename
+        // since they're tick callbacks parameterized on the level type.
+        transformer.registerClassRedirect(
+                "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartWorldTick",
+                "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartLevelTick");
+        transformer.registerClassRedirect(
+                "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$EndWorldTick",
+                "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$EndLevelTick");
+        transformer.registerClassRedirect(
+                "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartWorldTick",
+                "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartLevelTick");
+        transformer.registerClassRedirect(
+                "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndWorldTick",
+                "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndLevelTick");
+
         // Tag system restructured
         transformer.registerClassRedirect(
             "net/minecraft/tag/ServerTagManagerHolder",

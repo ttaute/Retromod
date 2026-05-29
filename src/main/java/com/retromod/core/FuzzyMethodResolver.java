@@ -536,14 +536,14 @@ public class FuzzyMethodResolver {
             // milder latent NoSuchMethodError (often never hit). So refuse a
             // redirect that wouldn't verify. (#51)
             if (!isRedirectStackSafe(unresolvedParams, unresolvedReturn, bestMatch.descriptor())) {
-                LOGGER.info("[Retromod-Fuzzy] Suppressed type-incompatible redirect "
+                LOGGER.debug("[Retromod-Fuzzy] Suppressed type-incompatible redirect "
                         + "{}.{}{} -> {}.{}{} (would VerifyError; left unresolved)",
                         owner, name, descriptor,
                         bestMatch.owner(), bestMatch.name(), bestMatch.descriptor());
                 boundedCachePut(methodResolveCache, cacheKey, EMPTY_METHOD_INFO);
                 return null;
             }
-            LOGGER.info("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
+            LOGGER.debug("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore);
@@ -785,7 +785,7 @@ public class FuzzyMethodResolver {
 
         // Apply threshold logic (same thresholds as methods)
         if (bestMatch != null && bestScore >= THRESHOLD_AUTO_APPLY) {
-            LOGGER.info("[Retromod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
+            LOGGER.debug("[Retromod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore);

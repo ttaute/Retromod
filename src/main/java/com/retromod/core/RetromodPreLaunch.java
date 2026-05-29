@@ -87,7 +87,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
-        LOGGER.info("║  Retromod v1.0.1                                           ║");
+        LOGGER.info("║  Retromod v1.1.0-snapshot.1                                ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
         
         try {
@@ -223,6 +223,61 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             }
             LOGGER.info("Registered {} version shims for transformation ({} skipped as newer than host MC {})",
                 shimCount, skippedNewer, hostVersion);
+
+            // Pre-1.17 entity-model bridge (intermediary namespace) — pre-26.1 hosts ONLY.
+            // The old ModelPart self-construction API (new class_630(model,u,v) + addBox/
+            // texOffs/...) was removed in the 1.17 model rewrite; the names survive but the
+            // signatures/owners changed, so neither the name-keyed shims nor the (gated-off)
+            // intermediary→Mojang remap fix it. On a 26.x host class_630 doesn't exist and the
+            // runtime is Mojang-named, so this intermediary synthetic must NOT be injected there
+            // (its `extends class_630` would fail to load) — hence the pre-26.1 gate. (#55)
+            if (!isUnobfuscatedTarget(hostVersion)) {
+                try {
+                    com.retromod.shim.fabric.Pre1_17ModelBridge.register(transformer);
+                    LOGGER.info("Registered pre-1.17 entity-model bridge (ModelPart construction layer)");
+                } catch (Exception e) {
+                    LOGGER.warn("Could not register pre-1.17 model bridge: {}", e.getMessage());
+                }
+
+                // Pre-1.21.2 InteractionResult descriptor bridge — see class javadoc.
+                // class_1269 was rebuilt as a sealed interface in 1.21.2, breaking every
+                // pre-1.21.2 mod that compiled `GETSTATIC class_1269.field_5811 :
+                // Lclass_1269;` (AutoConfig on Earth2Java was the first repro). The
+                // bridge auto-probes the host and is a true no-op on hosts where the
+                // legacy shape is still intact, so it's safe to register unconditionally
+                // alongside the model bridge.
+                try {
+                    com.retromod.shim.fabric.Pre1_21_2InteractionResultBridge.register(transformer);
+                } catch (Exception e) {
+                    LOGGER.warn("Could not register pre-1.21.2 InteractionResult bridge: {}", e.getMessage());
+                }
+
+                // Pre-1.20.5 Identifier (ResourceLocation) ctor bridge — the public
+                // (String) and (String, String) ctors were removed in 1.20.5 in favor
+                // of static parse / fromNamespaceAndPath factories. RegistryPolyfill
+                // already handles the MOJANG-named variants of this redirect, but on
+                // pre-26.1 Fabric the bytecode keeps intermediary names (class_2960)
+                // and those Mojang-keyed redirects never fire. This bridge fills the
+                // gap, auto-discovering the host's intermediary factory names so it
+                // works across the version range without a per-MC table.
+                try {
+                    com.retromod.shim.fabric.Pre1_20_5IdentifierCtorBridge.register(transformer);
+                } catch (Exception e) {
+                    LOGGER.warn("Could not register pre-1.20.5 Identifier ctor bridge: {}", e.getMessage());
+                }
+
+                // Pre-1.18.2 Biome.Category stand-in — class_1959$class_1961 was
+                // deleted in 1.18.2 (categories → tags). Inject a synthetic enum +
+                // class redirect + Biome.getCategory rewrite so pre-1.18.2 spawn
+                // helpers (Earth2Java's BiomeSpawnHelper is the canonical case)
+                // load instead of crashing in <clinit>. See class javadoc on the
+                // inert-functional trade-off.
+                try {
+                    com.retromod.shim.fabric.Pre1_18_2BiomeCategoryBridge.register(transformer);
+                } catch (Exception e) {
+                    LOGGER.warn("Could not register pre-1.18.2 Biome.Category bridge: {}", e.getMessage());
+                }
+            }
 
             // Register intermediary→Mojang class mappings for bytecode remapping.
             // CRITICAL: this is a 26.1+ ONLY transformation. MC 26.1 was the first

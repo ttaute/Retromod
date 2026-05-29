@@ -115,6 +115,9 @@ com.retromod.shim.forge.Forge_1_21_11_to_26_1
 
 # Fabric API shims (networking, registry, rendering, etc.)
 com.retromod.shim.api.fabric.FabricApiShim
+com.retromod.shim.api.fabric.FabricRendererApiShim
+com.retromod.shim.api.fabric.FabricRendererMaterialBridge
+com.retromod.shim.api.fabric.FabricNetworkingV0Bridge
 com.retromod.shim.api.fabric.ModMenuApiShim
 com.retromod.shim.api.fabric.ClothConfigApiShim
 com.retromod.shim.api.fabric.ReiApiShim

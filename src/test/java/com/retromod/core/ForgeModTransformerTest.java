@@ -66,4 +66,32 @@ class ForgeModTransformerTest {
         assertTrue(out.contains("modId = \"minecraft\""), "minecraft dep untouched");
         assertTrue(out.contains("versionRange=\"[1.21.1,)\""), "minecraft versionRange untouched");
     }
+
+    @Test
+    @DisplayName("#62: a missing license is added as a root-table key (before [[mods]])")
+    void addsMissingLicense() {
+        String in = "modLoader=\"javafml\"\nloaderVersion=\"[47,)\"\n\n[[mods]]\nmodId=\"survivalisland\"\n";
+        String out = ForgeModTransformer.ensureLicense(in);
+        assertTrue(out.contains("license="), "license must be added: " + out);
+        // Must stay in the root table — i.e. appear before the [[mods]] header.
+        assertTrue(out.indexOf("license=") < out.indexOf("[[mods]]"),
+                "license must precede the [[mods]] table: " + out);
+        assertTrue(out.contains("modId=\"survivalisland\""), "existing content preserved");
+    }
+
+    @Test
+    @DisplayName("#62: an existing license is left untouched")
+    void keepsExistingLicense() {
+        String in = "modLoader=\"javafml\"\nlicense=\"MIT\"\n[[mods]]\nmodId=\"x\"\n";
+        assertEquals(in, ForgeModTransformer.ensureLicense(in),
+                "must not modify a toml that already declares a license");
+    }
+
+    @Test
+    @DisplayName("#62: license is added even when there is no table header")
+    void addsLicenseWithNoTableHeader() {
+        String in = "modLoader=\"javafml\"\nloaderVersion=\"[47,)\"\n";
+        String out = ForgeModTransformer.ensureLicense(in);
+        assertTrue(out.contains("license="), "license must be added even with no [table]: " + out);
+    }
 }

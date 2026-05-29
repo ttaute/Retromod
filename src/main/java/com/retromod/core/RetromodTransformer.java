@@ -377,8 +377,31 @@ public class RetromodTransformer implements ClassFileTransformer {
 
     /**
      * Register a class redirect (for relocated/renamed classes).
+     *
+     * <p>Identity redirects ({@code A → A}) are explicitly ignored — they were
+     * historically used in older shim files as "this class is part of our compat
+     * surface" placeholders, but {@code Map.put} semantics meant they silently
+     * <b>overwrote</b> legitimate redirects from other shims. Concrete case the
+     * compat-audit caught: {@code RenderingBackendShim} registered
+     * {@code MatrixStack → MatrixStack} as a no-op marker, which clobbered
+     * {@code Fabric_1_16_5_to_1_17}'s real redirect of
+     * {@code MatrixStack → com/mojang/blaze3d/vertex/PoseStack}; every
+     * pre-1.17-Yarn mod ended up with stale MatrixStack refs and a
+     * {@code NoClassDefFoundError} at first render. Same pattern hit FRAPI
+     * renames (QuadEmitter, MeshBuilder, Renderer) via {@code SodiumIrisApiShim}.
+     *
+     * <p>Rather than chase down and delete every offending registration site
+     * (40+ across legacy shims), the guard here makes them no-ops. Callers
+     * that genuinely need an entry "exist in the map" can still use a real
+     * second target — but identity has no semantic meaning at the remapper
+     * level and is always a bug.</p>
      */
     public void registerClassRedirect(String oldClass, String newClass) {
+        if (oldClass.equals(newClass)) {
+            // Identity redirect — see method javadoc for the rationale.
+            LOGGER.debug("Ignored identity class-redirect registration for: {}", oldClass);
+            return;
+        }
         classRedirects.put(oldClass, newClass);
         classRedirectsVersion.incrementAndGet(); // Invalidate cached remapper
         cachedRemapper = null;
@@ -663,7 +686,7 @@ public class RetromodTransformer implements ClassFileTransformer {
 
         // Debug: log class redirect count for first few classes (once per class, not per pass)
         if (className != null && (className.contains("Mixin") || className.contains("mixin"))) {
-            LOGGER.info("transformClass({}) with {} class redirects, {} method redirects",
+            LOGGER.debug("transformClass({}) with {} class redirects, {} method redirects",
                 className, classRedirects.size(), methodRedirects.size());
         }
 
@@ -1848,7 +1871,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     FuzzyMethodResolver.MethodInfo fuzzyMatch =
                             resolver.resolveMethod(owner, name, descriptor);
                     if (fuzzyMatch != null) {
-                        LOGGER.info("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
+                        LOGGER.debug("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
                                 owner, name, descriptor,
                                 fuzzyMatch.owner(), fuzzyMatch.name(), fuzzyMatch.descriptor(),
                                 fuzzyMatch.score());
@@ -1929,7 +1952,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                 if (patterns != null) {
                     PatternHeuristics.PatternResult patternMatch = patterns.resolveMethod(owner, name, descriptor);
                     if (patternMatch != null && patternMatch.confidence() >= 0.6) {
-                        LOGGER.info("[Retromod-Pattern] Resolved {}.{}{} -> {}.{}{} (rule: {}, confidence: {})",
+                        LOGGER.debug("[Retromod-Pattern] Resolved {}.{}{} -> {}.{}{} (rule: {}, confidence: {})",
                                 owner, name, descriptor,
                                 patternMatch.newOwner(), patternMatch.newName(), patternMatch.newDescriptor(),
                                 patternMatch.rule(), patternMatch.confidence());
@@ -1949,7 +1972,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                             resolver.resolveMethod(owner, name, descriptor);
                     if (fuzzyMatch != null) {
                         // Fuzzy match found with confidence >= 70% — apply the redirect
-                        LOGGER.info("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
+                        LOGGER.debug("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
                                 owner, name, descriptor,
                                 fuzzyMatch.owner(), fuzzyMatch.name(), fuzzyMatch.descriptor(),
                                 fuzzyMatch.score());
@@ -2065,7 +2088,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     FuzzyMethodResolver.FieldInfo fuzzyMatch =
                             resolver.resolveField(owner, name, descriptor);
                     if (fuzzyMatch != null) {
-                        LOGGER.info("[Retromod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
+                        LOGGER.debug("[Retromod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
                                 owner, name, descriptor,
                                 fuzzyMatch.owner(), fuzzyMatch.name(), fuzzyMatch.descriptor(),
                                 fuzzyMatch.score());

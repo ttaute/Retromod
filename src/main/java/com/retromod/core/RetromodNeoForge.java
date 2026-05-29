@@ -433,7 +433,8 @@ public class RetromodNeoForge {
             for (Path modJar : jars) {
                 try {
                     var info = detector.detectVersion(modJar);
-                    if (info != null && info.needsTransformation(RetromodVersion.TARGET_MC_VERSION)) {
+                    if (info != null && info.needsTransformation(RetromodVersion.TARGET_MC_VERSION)
+                            && !RetromodVersion.sameMinorVersion(info.targetMcVersion(), RetromodVersion.TARGET_MC_VERSION)) {
                         String fileName = modJar.getFileName().toString();
                         LOGGER.info("Found incompatible mod in mods/: {} ({})", fileName, info.targetMcVersion());
 
@@ -505,7 +506,8 @@ public class RetromodNeoForge {
             for (java.io.File modFile : modFiles) {
                 try {
                     var info = detector.detectVersion(modFile.toPath());
-                    if (info != null && info.needsTransformation(RetromodVersion.TARGET_MC_VERSION)) {
+                    if (info != null && info.needsTransformation(RetromodVersion.TARGET_MC_VERSION)
+                            && !RetromodVersion.sameMinorVersion(info.targetMcVersion(), RetromodVersion.TARGET_MC_VERSION)) {
                         String sourceVersion = info.targetMcVersion();
                         
                         // Runtime-transform NeoForge mods that need it

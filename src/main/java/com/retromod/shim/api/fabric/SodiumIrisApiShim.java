@@ -100,24 +100,18 @@ public class SodiumIrisApiShim implements VersionShim {
         );
         
         // ============================================================
-        // FABRIC RENDERING API (FRAPI) CHANGES
+        // FABRIC RENDERING API (FRAPI) — DELETED IDENTITY REDIRECTS
+        //
+        // The previous form registered identity redirects (`A → A`) for
+        // Renderer / MeshBuilder / QuadEmitter "for Indium/Sodium FRAPI compat,"
+        // but Map.put semantics meant they CLOBBERED legitimate redirects
+        // installed by FabricRendererApiShim (which actually moves these
+        // classes to `/client/renderer/v1/*` to match the relocation in
+        // Fabric API 0.110+). Net effect: every mod the audit ran through
+        // ended up with stale `v1/QuadEmitter` etc. references and an
+        // NoClassDefFoundError at first call. Removed; the relocation shim
+        // owns these mappings.
         // ============================================================
-        
-        // Indium compatibility - FRAPI on Sodium
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/renderer/v1/Renderer",
-            "net/fabricmc/fabric/api/renderer/v1/Renderer"
-        );
-        
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/renderer/v1/mesh/MeshBuilder",
-            "net/fabricmc/fabric/api/renderer/v1/mesh/MeshBuilder"
-        );
-        
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/renderer/v1/mesh/QuadEmitter",
-            "net/fabricmc/fabric/api/renderer/v1/mesh/QuadEmitter"
-        );
         
         // ============================================================
         // IRIS SHADER API CHANGES

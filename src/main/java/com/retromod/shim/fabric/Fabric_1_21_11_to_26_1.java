@@ -73,6 +73,35 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         // Fabric API 26.1 renamed many packages to match Mojang naming
         // ============================================================
 
+        // --- 26.1 MC class moves/renames (from compat-audit findings) ---
+        // GuiGraphics was renamed to GuiGraphicsExtractor — the type that bundles
+        // PoseStack + BufferSource + scissor stack for in-GUI rendering. Mods that
+        // accept a `GuiGraphics` parameter from any GUI hook (every overlay/HUD/
+        // screen mod does this) crash on 26.1 with NoClassDefFoundError.
+        transformer.registerClassRedirect(
+            "net/minecraft/client/gui/GuiGraphics",
+            "net/minecraft/client/gui/GuiGraphicsExtractor"
+        );
+
+        // RenderType + RenderTypes moved into their own `rendertype` sub-package.
+        // The 1.21.11 path is `client/renderer/RenderType`; 26.1 wants
+        // `client/renderer/rendertype/RenderType`. Hits every render-hook mod.
+        transformer.registerClassRedirect(
+            "net/minecraft/client/renderer/RenderType",
+            "net/minecraft/client/renderer/rendertype/RenderType"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraft/client/renderer/RenderTypes",
+            "net/minecraft/client/renderer/rendertype/RenderTypes"
+        );
+
+        // BlockAndTintGetter moved from `world/level/` into `client/renderer/block/`
+        // when the type became client-only (server doesn't tint).
+        transformer.registerClassRedirect(
+            "net/minecraft/world/level/BlockAndTintGetter",
+            "net/minecraft/client/renderer/block/BlockAndTintGetter"
+        );
+
         // --- Networking: S2C/C2S → Clientbound/Serverbound ---
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/C2SConfigurationChannelEvents",

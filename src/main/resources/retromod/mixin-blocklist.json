@@ -37,6 +37,12 @@
       "methods": ["revamped_phantoms$getDefaultDimensions"],
       "issue": "#50",
       "reason": "@ModifyReturnValue handler on a getDefaultDimensions/getDimensions method (returns EntityDimensions) fails injection on 1.21.11 with 'failed injection check, (0/1) succeeded. Scanned 0 target(s)' — the target method couldn't be resolved on the newer MC (renamed/re-signatured; mod ships no refMap). The handler body only rescales the dimensions' EntityAttachments via the mod's own Accessors util — it does NOT touch the mod's shared-goals feature (revamped_phantoms$goalHolder/registerGoals/getGoalHolder/HasSharedGoals), which injects fine — so this is a CLEAN, self-contained soft-fail: stripping it lets Revamped Phantoms construct with goals intact and only the phantom-size tweak inert. Contrast #48, which was interdependent."
+    },
+    {
+      "mixin": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "methods": ["revamped_phantoms$onHurtsTarget"],
+      "issue": "#69 (re-open of #50)",
+      "reason": "@Inject handler on the sweep-attack hurt path fails injection on 1.21.11 with the same shape as the #50 PhantomMixin failure: 'failed injection check, (0/1) succeeded. Scanned 0 target(s). No refMap loaded.' The target method's signature changed in vanilla and the mod ships no refMap, so the handler can't be repaired by remapping. The sweep-attack tweak is self-contained (it doesn't touch the shared-goals or phantom-size features handled by the other entry), so stripping just this handler is a clean soft-fail: Revamped Phantoms loads with the sweep-attack tweak inert and the rest intact."
     }
   ]
 }

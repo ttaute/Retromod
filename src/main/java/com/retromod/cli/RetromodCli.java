@@ -36,7 +36,7 @@ import java.util.*;
  */
 public class RetromodCli {
     
-    private static final String VERSION = "1.0.1";
+    private static final String VERSION = "1.1.0-snapshot.1";
     private static final String TARGET_MC_VERSION = "26.1";
     
     private static ShimRegistry shimRegistry;
@@ -164,6 +164,22 @@ public class RetromodCli {
         
         // Forge shims - legacy Forge to NeoForge transition
         shimRegistry.register(new Forge_1_20_to_NeoForge_1_21());
+
+        // ── ServiceLoader pickup for everything ELSE in META-INF/services ──
+        // The hardcoded `new XYZ()` block above covers every version-jump shim by
+        // class reference, but the API shims (FabricApiShim, FabricRendererApiShim,
+        // ModMenuApiShim, …) only live in META-INF/services and weren't being
+        // picked up by the CLI — so transforms via `retromod transform ...` were
+        // running a SUBSET of what the runtime would apply, making transformed
+        // jars look broken even when an in-game boot would fix them. We dedupe by
+        // class so adding a new shim doesn't double-fire it.
+        java.util.Set<Class<?>> already = new java.util.HashSet<>();
+        for (VersionShim s : shimRegistry.getAllShims()) already.add(s.getClass());
+        for (VersionShim s : java.util.ServiceLoader.load(VersionShim.class)) {
+            if (already.add(s.getClass())) {
+                shimRegistry.register(s);
+            }
+        }
     }
     
     /**
@@ -426,15 +442,46 @@ public class RetromodCli {
             TARGET_MC_VERSION
         );
 
-        if (chain.isEmpty()) {
-            System.out.println("No transformation needed or no shim available.");
-            return;
-        }
-
         RetromodTransformer transformer = RetromodTransformer.getInstance();
         for (VersionShim shim : chain) {
             System.out.println("Applying: " + shim.getShimName());
             shim.registerRedirects(transformer);
+        }
+
+        // API shims (FabricApiShim, FabricRendererApiShim, …) sit in a separate
+        // namespace — their source/target are Fabric API release numbers, not MC
+        // version strings, so BFS over the MC version graph never reaches them.
+        // RetromodPreLaunch handles this at runtime by iterating getAllShims()
+        // and registering every shim whose target ≤ host; we mirror that here so
+        // `transform` produces the same output it would on a real boot. Without
+        // this, the renderer-API relocation (and other API renames) never fire
+        // through the CLI even though they fire fine when the mod loads in-game.
+        java.util.Set<VersionShim> chainSet = new java.util.HashSet<>(chain);
+        int apiApplied = 0;
+        for (VersionShim shim : shimRegistry.getAllShims()) {
+            if (chainSet.contains(shim)) continue;
+            String loader = shim.getModLoaderType();
+            if (loader != null && !"any".equalsIgnoreCase(loader)
+                    && !loader.equalsIgnoreCase(info.modLoaderType())) continue;
+            // Heuristic: API shims have non-MC version strings (e.g. "0.50.0"),
+            // never matched by the MC version graph. Anything not in `chain`
+            // that lives in `com.retromod.shim.api.*` is one — include it.
+            String pkg = shim.getClass().getName();
+            if (!pkg.startsWith("com.retromod.shim.api.")) continue;
+            try {
+                shim.registerRedirects(transformer);
+                apiApplied++;
+            } catch (Exception e) {
+                // Best-effort — one bad API shim shouldn't kill the rest.
+            }
+        }
+
+        if (chain.isEmpty() && apiApplied == 0) {
+            System.out.println("No transformation needed or no shim available.");
+            return;
+        }
+        if (apiApplied > 0) {
+            System.out.println("Applied " + apiApplied + " API shim(s) alongside the version chain.");
         }
 
         transformJar(modPath, outputPath, transformer, info);

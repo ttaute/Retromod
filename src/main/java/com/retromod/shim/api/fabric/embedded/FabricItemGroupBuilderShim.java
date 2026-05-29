@@ -58,6 +58,34 @@ public class FabricItemGroupBuilderShim {
     }
     
     /**
+     * Legacy static {@code FabricItemGroupBuilder.build(Identifier, Supplier<ItemStack>) → ItemGroup}
+     * (the form #57's callers hit — Earth2Java's {@code Earth2JavaMod.<clinit>} among others).
+     * Previously absent, so the class-redirect-rewritten call resolved to nothing and the mod
+     * hard-crashed with {@code NoSuchMethodError}. Delegates to the modern-API path used by
+     * {@link #build()} after wiring the id + icon supplier.
+     *
+     * <p>The MC types in this signature are compile-time stubs (see
+     * {@code src/main/java/net/minecraft/class_2960.java} and {@code class_1761.java}); they're
+     * stripped from the production jar so MC's real classes resolve at runtime — this is the
+     * same compile-only-stub trick the {@code @Mod} stubs use.
+     */
+    public static net.minecraft.class_1761 build(net.minecraft.class_2960 id, Supplier<?> stack) {
+        try {
+            FabricItemGroupBuilderShim builder = create(id);
+            if (stack != null) builder.icon(stack);
+            Object result = builder.build();
+            return (net.minecraft.class_1761) result;
+        } catch (Throwable t) {
+            // Best-effort: when neither the modern nor legacy Fabric ItemGroup API resolves on
+            // the host, returning null lets the caller's static init keep going (Earth2Java's
+            // {@code Earth2JavaMod.<clinit>}, #57). Items may end up ungrouped in creative tabs
+            // but the mod itself loads, which is strictly better than an ExceptionInInitializerError
+            // taking the whole entry point down.
+            return null;
+        }
+    }
+
+    /**
      * Build the item group using the new API.
      */
     public Object build() {

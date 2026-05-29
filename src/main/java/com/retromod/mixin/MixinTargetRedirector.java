@@ -138,7 +138,7 @@ public class MixinTargetRedirector {
             }
             
             if (modified) {
-                LOGGER.info("Redirected {} Mixin target(s) in {}", redirectCount, classNode.name);
+                LOGGER.debug("Redirected {} Mixin target(s) in {}", redirectCount, classNode.name);
                 
                 ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
                 classNode.accept(writer);

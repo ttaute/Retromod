@@ -469,6 +469,12 @@ public class ForgeModTransformer {
         // Strategy: find [[dependencies.xxx]] blocks and update the minecraft one
         content = updateMinecraftVersionRange(content);
 
+        // Forge 1.16+ requires a top-level `license` field; mods from before it
+        // (and some old ones) omit it, so Forge fatally rejects the transformed jar
+        // with "Missing License Information in file …" (#62). Add a neutral default
+        // when the source has none — Forge only needs a non-empty value.
+        content = ensureLicense(content);
+
         // Add Retromod marker if not present
         if (!content.contains("retromod_transformed")) {
             content = content + "\n# Transformed by Retromod (original version modified)\n";
@@ -521,6 +527,28 @@ public class ForgeModTransformer {
      */
     static String relaxLoaderVersion(String toml) {
         return toml.replaceAll("(?m)^(\\s*loaderVersion\\s*=\\s*)\"[^\"]*\"", "$1\"[1,)\"");
+    }
+
+    /**
+     * Ensure the toml declares a top-level {@code license} field. Forge 1.16+ fatally
+     * rejects a mod whose {@code mods.toml} lacks one ("Missing License Information in
+     * file …"), which a mod authored before that became mandatory will hit after
+     * transformation (#62). If absent, insert a neutral {@code "All Rights Reserved"} —
+     * Forge only needs a non-empty value, and we don't assert a real license the author
+     * never declared. Inserted before the first table header so it stays in the root
+     * table (TOML requires top-level keys to precede any {@code [table]}).
+     */
+    static String ensureLicense(String toml) {
+        if (java.util.regex.Pattern.compile("(?m)^\\s*license\\s*=").matcher(toml).find()) {
+            return toml; // already declares a license — leave the author's value untouched
+        }
+        String line = "license=\"All Rights Reserved\" # added by Retromod (source declared none) (#62)\n";
+        java.util.regex.Matcher firstTable =
+                java.util.regex.Pattern.compile("(?m)^\\s*\\[").matcher(toml);
+        if (firstTable.find()) {
+            return toml.substring(0, firstTable.start()) + line + toml.substring(firstTable.start());
+        }
+        return toml.endsWith("\n") ? toml + line : toml + "\n" + line;
     }
 
     /**
