@@ -17,7 +17,14 @@
     "",
     "Format: each entry needs a 'mixin' (the mixin class, '/' or '.' separated). If",
     "'methods' is given, only those handler methods are stripped (surgical, preferred).",
-    "If 'methods' is omitted/empty, every injector handler on the class is stripped."
+    "If 'methods' is omitted/empty, every injector handler on the class is stripped.",
+    "",
+    "Add '\"strip\": \"class\"' to neutralize the WHOLE mixin instead of stripping",
+    "handlers — Retromod repoints the @Mixin annotation at a non-existent target so",
+    "the framework skips it entirely (the harmless 'target not found' path). Use this",
+    "for mixins that ADD AN INTERFACE to their target (handler-stripping leaves the",
+    "interface unapplied → ClassCastException downstream, #68) or that have an",
+    "interdependent critical @Inject failure where partial stripping leaves orphans (#69)."
   ],
   "blocked": [
     {
@@ -40,9 +47,21 @@
     },
     {
       "mixin": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
-      "methods": ["revamped_phantoms$onHurtsTarget"],
+      "strip": "class",
       "issue": "#69 (re-open of #50)",
-      "reason": "@Inject handler on the sweep-attack hurt path fails injection on 1.21.11 with the same shape as the #50 PhantomMixin failure: 'failed injection check, (0/1) succeeded. Scanned 0 target(s). No refMap loaded.' The target method's signature changed in vanilla and the mod ships no refMap, so the handler can't be repaired by remapping. The sweep-attack tweak is self-contained (it doesn't touch the shared-goals or phantom-size features handled by the other entry), so stripping just this handler is a clean soft-fail: Revamped Phantoms loads with the sweep-attack tweak inert and the rest intact."
+      "reason": "@Inject handler revamped_phantoms$onHurtsTarget fails injection on 1.21.11 as a CRITICAL failure: 'InjectionError: failed injection check, (0/1) succeeded. Scanned 0 target(s). No refMap loaded' — the target method signature changed in vanilla and the mod ships no refMap, so it can't be repaired by remapping. Confirmed against the #69 re-open log (the crash that took down DataComponents/EntityType <clinit>). Upgraded from handler-strip to whole-class strip ('strip':'class'): the sweep-attack tweak is a single self-contained mixin, so neutralizing the whole class is equivalent in scope but guarantees the critical injection can never fire regardless of any @Unique/helper interdependency. Revamped Phantoms loads with the sweep-attack tweak inert; PhantomMixin's shared-goals + size features stay live via the separate handler-strip entry above."
+    },
+    {
+      "mixin": "grondag/darkness/mixin/MixinLightTexture",
+      "strip": "class",
+      "issue": "#68",
+      "reason": "True Darkness (grondag.darkness, the base mod that True Darkness Biomes depends on). MixinLightTexture does '@Mixin(LightTexture.class) implements LightmapAccess' — it makes the vanilla LightTexture implement darkness's LightmapAccess duck-interface. On 1.21.11 it fails to apply ('InvalidMixinException: @Shadow field lightTexture was not located in the target class LightTexture. No refMap loaded') because the shadowed field's surrounding structure changed and the mod ships no refMap. A field rename can't fix it (the structure moved, not just the name), and handler-stripping is useless here — there are no injector handlers, the mixin's whole job is adding the interface. Whole-class strip neutralizes it cleanly. Pairs with the MixinGameRenderer entry below."
+    },
+    {
+      "mixin": "grondag/darkness/mixin/MixinGameRenderer",
+      "strip": "class",
+      "issue": "#68",
+      "reason": "True Darkness's MixinGameRenderer.onRenderLevel handler DID apply, and on first level render it casts the vanilla LightTexture to grondag.darkness.LightmapAccess -> ClassCastException (the actual fatal crash in #68, on world load). The cast only fails because MixinLightTexture (above) couldn't add the interface. Even if handler-stripping removed onRenderLevel, darkness's lighting would be half-wired; neutralizing the whole render-mixin pair is the clean soft-fail: True Darkness's darker-lighting feature goes inert but the mod loads and the game runs (vs the current crash-on-world-create). MixinDynamicTexture / MixinEndEffects / MixinNetherEffects are left alone — Effects already skip gracefully (their target inner classes moved), DynamicTexture applies fine."
     }
   ]
 }

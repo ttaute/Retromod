@@ -195,4 +195,125 @@ class MixinBlocklistTest {
                 "non-blocked mixin keeps all handlers");
         assertTrue(names.contains("onSomething"));
     }
+
+    // ── Whole-class strip ("strip": "class") — #68 / #69 ───────────────────────
+
+    /** Build a @Mixin(value = {targetInternal.class}) class, for neutralization tests. */
+    private static byte[] mixinClassWithTarget(String internalName, String targetInternal) {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
+        org.objectweb.asm.AnnotationVisitor av =
+                cw.visitAnnotation("Lorg/spongepowered/asm/mixin/Mixin;", false);
+        org.objectweb.asm.AnnotationVisitor arr = av.visitArray("value");
+        arr.visit(null, org.objectweb.asm.Type.getObjectType(targetInternal));
+        arr.visitEnd();
+        av.visitEnd();
+
+        MethodVisitor ctor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        ctor.visitCode();
+        ctor.visitVarInsn(Opcodes.ALOAD, 0);
+        ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        ctor.visitInsn(Opcodes.RETURN);
+        ctor.visitMaxs(1, 1);
+        ctor.visitEnd();
+        // An @Inject handler — must NOT remain reachable once neutralized.
+        MethodVisitor inj = cw.visitMethod(Opcodes.ACC_PRIVATE, "onRenderLevel", "()V", null, null);
+        inj.visitAnnotation("Lorg/spongepowered/asm/mixin/injection/Inject;", false).visitEnd();
+        inj.visitCode();
+        inj.visitInsn(Opcodes.RETURN);
+        inj.visitMaxs(0, 1);
+        inj.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    /** Read the @Mixin annotation's string {@code targets} list from a class. */
+    private static java.util.List<String> mixinStringTargets(byte[] bytes) {
+        ClassNode cn = new ClassNode();
+        new ClassReader(bytes).accept(cn, 0);
+        java.util.List<org.objectweb.asm.tree.AnnotationNode> anns =
+                cn.invisibleAnnotations != null ? cn.invisibleAnnotations
+                        : (cn.visibleAnnotations != null ? cn.visibleAnnotations : java.util.List.of());
+        for (var a : anns) {
+            if (!"Lorg/spongepowered/asm/mixin/Mixin;".equals(a.desc) || a.values == null) continue;
+            for (int i = 0; i < a.values.size(); i += 2) {
+                if ("targets".equals(a.values.get(i)) && a.values.get(i + 1) instanceof java.util.List<?> l) {
+                    java.util.List<String> out = new java.util.ArrayList<>();
+                    for (Object o : l) out.add(String.valueOf(o));
+                    return out;
+                }
+            }
+        }
+        return java.util.List.of();
+    }
+
+    /** Whether the @Mixin annotation still declares any Class[] {@code value} targets. */
+    private static boolean hasMixinValueTargets(byte[] bytes) {
+        ClassNode cn = new ClassNode();
+        new ClassReader(bytes).accept(cn, 0);
+        java.util.List<org.objectweb.asm.tree.AnnotationNode> anns =
+                cn.invisibleAnnotations != null ? cn.invisibleAnnotations
+                        : (cn.visibleAnnotations != null ? cn.visibleAnnotations : java.util.List.of());
+        for (var a : anns) {
+            if (!"Lorg/spongepowered/asm/mixin/Mixin;".equals(a.desc) || a.values == null) continue;
+            for (int i = 0; i < a.values.size(); i += 2) {
+                if ("value".equals(a.values.get(i)) && a.values.get(i + 1) instanceof java.util.List<?> l
+                        && !l.isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @Test
+    @DisplayName("Whole-class strip repoints @Mixin target to a non-existent placeholder (Fabric path)")
+    void wholeClassStripNeutralizesMixinFabric() {
+        MixinBlocklist.setForTesting(
+                Map.of("test/InterfaceMixin", Set.of()),
+                Set.of("test/InterfaceMixin")); // full strip
+        var t = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
+
+        byte[] out = t.transformMixinClass(
+                mixinClassWithTarget("test/InterfaceMixin", "net/minecraft/SomeTarget"));
+        assertTrue(mixinStringTargets(out).contains("retromod/stripped/InterfaceMixin"),
+                "neutralized mixin must point at the placeholder so the framework skips it");
+        assertFalse(hasMixinValueTargets(out),
+                "the original Class[] value target must be cleared");
+    }
+
+    @Test
+    @DisplayName("Whole-class strip also works on the NeoForge/Forge path (stripBlocklistedHandlers)")
+    void wholeClassStripNeutralizesMixinNeoForge() {
+        MixinBlocklist.setForTesting(
+                Map.of("test/InterfaceMixin", Set.of()),
+                Set.of("test/InterfaceMixin"));
+        var t = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
+
+        byte[] out = t.stripBlocklistedHandlers(
+                mixinClassWithTarget("test/InterfaceMixin", "net/minecraft/SomeTarget"));
+        assertTrue(mixinStringTargets(out).contains("retromod/stripped/InterfaceMixin"),
+                "NeoForge path must neutralize too — #68 True Darkness is a NeoForge mod");
+    }
+
+    @Test
+    @DisplayName("Bundled blocklist marks True Darkness render mixins as full-class strips (#68)")
+    void bundledDarknessEntriesAreFullStrip() {
+        MixinBlocklist.resetForTesting();
+        assertTrue(MixinBlocklist.isFullStrip("grondag/darkness/mixin/MixinLightTexture"),
+                "MixinLightTexture (interface-adder) must be a whole-class strip");
+        assertTrue(MixinBlocklist.isFullStrip("grondag/darkness/mixin/MixinGameRenderer"),
+                "MixinGameRenderer (the ClassCastException consumer) must be a whole-class strip");
+    }
+
+    @Test
+    @DisplayName("Bundled blocklist marks Revamped Phantoms' SweepAttackMixin as full-class strip (#69)")
+    void bundledSweepAttackIsFullStrip() {
+        MixinBlocklist.resetForTesting();
+        assertTrue(MixinBlocklist.isFullStrip("dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin"),
+                "SweepAttackMixin's critical injection failure needs whole-class strip");
+        // PhantomMixin stays a surgical handler-strip (preserves the shared-goals feature).
+        assertFalse(MixinBlocklist.isFullStrip("dev/lukebemish/revampedphantoms/mixin/PhantomMixin"),
+                "PhantomMixin must remain handler-strip so goals/size features stay live");
+    }
 }

@@ -98,6 +98,24 @@ public class MixinCompatibilityTransformer {
         
         LOGGER.debug("Transforming Mixin class: {}", classNode.name);
 
+        // Whole-class neutralization takes precedence over handler stripping.
+        // For mixins that add an interface to their target (#68 darkness
+        // MixinLightTexture → LightmapAccess) or have an interdependent critical
+        // @Inject failure (#69), removing handlers isn't enough — the mixin must
+        // not apply AT ALL. We rewrite its @Mixin target to a non-existent class
+        // so the framework skips it with a harmless "target not found", the same
+        // graceful path MC's own moved inner classes take.
+        if (MixinBlocklist.isFullStrip(classNode.name)) {
+            if (neutralizeMixin(classNode)) {
+                ClassWriter w = new ClassWriter(0);
+                classNode.accept(w);
+                LOGGER.info("Mixin blocklist: fully neutralized {} (whole-class strip) "
+                        + "— known to crash on the target MC; the mod loads with that "
+                        + "mixin's feature inert", classNode.name);
+                return w.toByteArray();
+            }
+        }
+
         // Strip blocklisted handler methods FIRST. Some mixin handlers fatally
         // crash on the target MC and can't be repaired by remapping — chiefly a
         // MixinExtras @WrapOperation/@ModifyExpressionValue that captures a @Local
@@ -175,6 +193,22 @@ public class MixinCompatibilityTransformer {
         if (!isMixinClass(classNode)) {
             return classBytes;
         }
+
+        // Whole-class neutralization (see transformMixinClass for rationale). The
+        // NeoForge/Forge path needs this too — #68 (True Darkness) is a NeoForge
+        // mod, and its interface-adding MixinLightTexture can't be soft-failed by
+        // removing handlers, only by making the whole mixin not apply.
+        if (MixinBlocklist.isFullStrip(classNode.name)) {
+            if (neutralizeMixin(classNode)) {
+                ClassWriter w = new ClassWriter(0);
+                classNode.accept(w);
+                LOGGER.info("Mixin blocklist: fully neutralized {} (whole-class strip) "
+                        + "— known to crash on the target MC; the mod loads with that "
+                        + "mixin's feature inert", classNode.name);
+                return w.toByteArray();
+            }
+        }
+
         Set<String> blockedMethods = MixinBlocklist.methodsToStrip(classNode.name);
         if (blockedMethods == null) {
             return classBytes;
@@ -195,6 +229,53 @@ public class MixinCompatibilityTransformer {
         ClassWriter writer = new ClassWriter(0);
         classNode.accept(writer);
         return writer.toByteArray();
+    }
+
+    /**
+     * Neutralize an entire mixin by repointing its {@code @Mixin} annotation at a
+     * non-existent target class. The Mixin framework then logs a benign
+     * "@Mixin target ... was not found" and skips the whole class — no handlers
+     * apply, no interface gets added, no {@code @Shadow}/{@code @Inject} is
+     * resolved. This is the exact graceful path MC's own moved/renamed inner
+     * classes already take (e.g. True Darkness's MixinEndEffects/MixinNetherEffects
+     * target {@code DimensionSpecialEffects$EndEffects} which moved in 1.21.11 —
+     * "target not found", non-fatal, even under a {@code "required": true} config).
+     *
+     * <p>Clears both the {@code value} (Class[] targets) and {@code targets}
+     * (String[] targets) attributes, then sets {@code targets} to a single
+     * Retromod-namespaced placeholder that's guaranteed never to exist. Returns
+     * {@code true} if the {@code @Mixin} annotation was found and rewritten.
+     *
+     * @see MixinBlocklist#isFullStrip(String)
+     */
+    private boolean neutralizeMixin(ClassNode classNode) {
+        AnnotationNode mixinAnn = null;
+        for (List<AnnotationNode> anns : List.of(
+                classNode.visibleAnnotations != null ? classNode.visibleAnnotations : List.<AnnotationNode>of(),
+                classNode.invisibleAnnotations != null ? classNode.invisibleAnnotations : List.<AnnotationNode>of())) {
+            for (AnnotationNode a : anns) {
+                if (MIXIN_DESC.equals(a.desc)) { mixinAnn = a; break; }
+            }
+            if (mixinAnn != null) break;
+        }
+        if (mixinAnn == null) return false;
+
+        if (mixinAnn.values == null) mixinAnn.values = new ArrayList<>();
+        // Drop existing value (Class[] targets) and targets (String[] targets).
+        for (int i = mixinAnn.values.size() - 2; i >= 0; i -= 2) {
+            Object k = mixinAnn.values.get(i);
+            if ("value".equals(k) || "targets".equals(k)) {
+                mixinAnn.values.remove(i + 1);
+                mixinAnn.values.remove(i);
+            }
+        }
+        // Point at a guaranteed-absent placeholder so the framework skips it.
+        String simple = classNode.name.substring(classNode.name.lastIndexOf('/') + 1);
+        List<String> placeholder = new ArrayList<>();
+        placeholder.add("retromod/stripped/" + simple);
+        mixinAnn.values.add("targets");
+        mixinAnn.values.add(placeholder);
+        return true;
     }
 
     /**
