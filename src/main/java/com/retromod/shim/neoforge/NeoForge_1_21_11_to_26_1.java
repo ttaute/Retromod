@@ -60,6 +60,15 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
 
+        // Vanilla 1.21.11 → 26.1 class moves, shared with the Fabric 26.1 shim.
+        // GuiGraphics→GuiGraphicsExtractor, RenderType(s)→rendertype/*,
+        // BlockAndTintGetter relocation. These also live in mojang-class-moves-26.1.tsv
+        // (applied at runtime via IntermediaryToMojangMapper.applyTo), but registering
+        // them in the shim chain too guarantees they apply in BOTH the CLI/audit path
+        // and the runtime regardless of whether the mapper is loaded. Idempotent —
+        // double-registration with the same target is a harmless Map.put. (#64)
+        com.retromod.shim.common.Common_1_21_11_to_26_1_ClassMoves.register(transformer);
+
         // ============================================================
         // ENTITY TYPE SPLITS
         // EntityType.BOAT/CHEST_BOAT split into per-wood types in 26.1

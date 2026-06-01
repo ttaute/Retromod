@@ -5,7 +5,7 @@ nav_order: 11
 
 # Architecture
 
-A high-level tour of how Retromod turns an old mod JAR into one that loads on new Minecraft. This is aimed at potential contributors — if you're just trying to get a mod to work, [Troubleshooting]({{ '/troubleshooting' | relative_url }}) is probably a better starting point.
+A high-level tour of how Retromod turns an old mod JAR into one that loads on new Minecraft. This is aimed at potential contributors. If you're just trying to get a mod to work, [Troubleshooting]({{ '/troubleshooting' | relative_url }}) is probably a better starting point.
 
 ## The big picture
 
@@ -89,7 +89,7 @@ The heart of the transformation path. Version shims are small classes that decla
 - `toVersion` (e.g. `"1.20.2"`)
 - a set of class/method/field redirects
 
-They're registered via `META-INF/services/com.retromod.core.VersionShim`. For a given source → target pair, `ShimRegistry` runs a breadth-first search over the shim graph to find the shortest valid chain. For 1.16.5 → 26.1.2 that might be 8–10 hops, each hop a different shim applying its own redirect batch.
+They're registered via `META-INF/services/com.retromod.core.VersionShim`. For a given source → target pair, `ShimRegistry` runs a breadth-first search over the shim graph to find the shortest valid chain. For 1.16.5 → 26.1.2 that might be 8–10 hops, each hop a different shim applying its own batch of redirects.
 
 Version aliases (e.g. "1.20" matches "1.20.0") are handled by the registry so shim authors don't have to declare every point release.
 
@@ -108,14 +108,14 @@ ClassReader → ClassRemapper → RetromodClassVisitor → ClassWriter
 
 - `ClassReader` parses the input `.class`.
 - `ClassRemapper` handles the bulk of name rewriting (classes, methods, fields, signatures).
-- `RetromodClassVisitor` does the fine-grained stuff: individual instruction rewrites, mixin annotation fixups, reflection call rewrites.
+- `RetromodClassVisitor` does the fine-grained stuff: individual instruction rewrites, mixin annotation fixups, and reflection call rewrites.
 - `ClassWriter` emits the result.
 
 For mixin code specifically, `MixinCompatibilityTransformer` and `MixinTargetRedirector` run a second pass to rewrite `@Inject`/`@Redirect` targets and refmap contents.
 
 ### 4. `IntermediaryToMojangMapper`
 
-26.1 was the first fully unobfuscated Minecraft release — Mojang shipped real names. But Fabric mods were compiled against intermediary names (`class_1234`, `method_5678`). This mapper holds ~230 intermediary → Mojang mappings and composes them with TinyV2 and ProGuard mapping files via `MappingComposer`.
+26.1 was the first fully unobfuscated Minecraft release, so Mojang shipped real names. But Fabric mods were compiled against intermediary names (`class_1234`, `method_5678`). This mapper holds ~230 intermediary → Mojang mappings and composes them with TinyV2 and ProGuard mapping files via `MappingComposer`.
 
 Every visitor in the chain consults the mapper when it encounters an intermediary name.
 
@@ -140,7 +140,7 @@ Old mods declare version ranges that reject modern Minecraft out of the box. For
 - **Fabric:** replace `"minecraft"` constraint with the exact target version, relax `fabricloader`/`fabric-api` to `"*"`.
 - **NeoForge/Forge:** widen minecraft `versionRange` to `[<lower>,)`, demote non-core deps to `type="optional"`, handle both bracket ranges and bare versions.
 
-TOML parsing is careful because the standard TOML library doesn't round-trip `[[array.of.tables]]` nicely — instead, `ForgeModTransformer.updateMinecraftVersionRange()` processes the file line-by-line, tracking the current `[[dependencies.modid]]` block.
+TOML parsing is careful here because the standard TOML library doesn't round-trip `[[array.of.tables]]` nicely. Instead, `ForgeModTransformer.updateMinecraftVersionRange()` processes the file line-by-line, tracking the current `[[dependencies.modid]]` block.
 
 ### 7. Output
 
@@ -150,9 +150,9 @@ If AOT is on, a serialized cache entry is also written to `config/retromod/aot-c
 
 ## Runtime entry points
 
-- **Fabric:** `RetromodPreLaunch` runs as a Fabric PreLaunchEntrypoint — it fires *before* Fabric's mod scan, which lets it transform mods in `retromod-input/` and move them into `mods/` before Fabric decides to reject them.
+- **Fabric:** `RetromodPreLaunch` runs as a Fabric PreLaunchEntrypoint. It fires *before* Fabric's mod scan, which lets it transform mods in `retromod-input/` and move them into `mods/` before Fabric decides to reject them.
 - **NeoForge:** `RetromodNeoForge` runs at mod construction time. Less control over ordering than Fabric's pre-launch, but NeoForge is friendlier about mod version checks.
-- **Forge:** `RetromodForge` — similar shape to the NeoForge entry point.
+- **Forge:** `RetromodForge`, which is the same shape as the NeoForge entry point.
 - **Java Agent:** `com.retromod.agent` exposes `premain`/`agentmain` for running Retromod as a `-javaagent`, outside any specific loader.
 
 ## Verification
@@ -169,10 +169,10 @@ After transformation, [Verify Transforms]({{ '/verify-transforms' | relative_url
 
 Most contributions fall into one of a few buckets, each with a dedicated skill in `.claude/skills/`:
 
-- Adding a new version shim — `add-version-shim`
-- Adding a polyfill for a removed API — `add-polyfill`
-- Mapping work (intermediary ↔ Mojang ↔ SRG) — `mapping-work`
-- Debugging a crash caused by transformation — `debug-crash`
-- Loader compatibility (Fabric/NeoForge/Forge) — `mod-loader-compat`
+- Adding a new version shim: `add-version-shim`
+- Adding a polyfill for a removed API: `add-polyfill`
+- Mapping work (intermediary ↔ Mojang ↔ SRG): `mapping-work`
+- Debugging a crash caused by transformation: `debug-crash`
+- Loader compatibility (Fabric/NeoForge/Forge): `mod-loader-compat`
 
 See [Contributing]({{ '/contributing' | relative_url }}) for the workflow.

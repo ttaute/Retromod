@@ -93,6 +93,11 @@ public class RetromodNeoForge {
         LOGGER.info("Retromod initializing on NeoForge (target MC: {})...",
                 RetromodVersion.TARGET_MC_VERSION);
 
+        // Write the default config.json if missing. Previously only the Fabric
+        // entry point did this, so Forge/NeoForge users saw an empty
+        // config/retromod/ with no editable config (#74).
+        RetromodConfig.ensureDefaultConfig();
+
         // Detect environment
         boolean isServer = EnvironmentDetector.isDedicatedServer();
         LOGGER.info("Environment: {}", isServer ? "Dedicated Server" : "Client");

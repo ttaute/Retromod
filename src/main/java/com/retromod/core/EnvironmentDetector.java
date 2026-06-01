@@ -365,6 +365,20 @@ public class EnvironmentDetector {
         }
     }
 
+    /**
+     * Public, non-initializing host-class existence probe ({@code initialize=false},
+     * same contract as {@link #classExists(String)} — see its javadoc on why we must
+     * never trigger {@code <clinit>}). Used by the mixin compatibility layer to detect
+     * a {@code @Mixin} target that was removed on the host MC and can't be remapped
+     * (#79), so the mixin can be neutralized before it crashes the game.
+     *
+     * @param binaryName the binary class name (e.g. {@code net.minecraft.world.level.storage.loot.LootDataManager})
+     * @return {@code true} if the class is loadable on the host without initializing it
+     */
+    public static boolean hostClassExists(String binaryName) {
+        return classExists(binaryName);
+    }
+
     private static boolean detectHeadless() {
         // Check Java's headless mode
         if (GraphicsEnvironment.isHeadless()) {

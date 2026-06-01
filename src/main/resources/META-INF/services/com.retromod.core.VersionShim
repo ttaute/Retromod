@@ -118,6 +118,9 @@ com.retromod.shim.api.fabric.FabricApiShim
 com.retromod.shim.api.fabric.FabricRendererApiShim
 com.retromod.shim.api.fabric.FabricRendererMaterialBridge
 com.retromod.shim.api.fabric.FabricNetworkingV0Bridge
+com.retromod.shim.api.fabric.FabricClientNetworkingV1Shim
+com.retromod.shim.api.fabric.FabricBlockSettingsShim
+com.retromod.shim.api.fabric.FabricBlockRenderLayerBridge
 com.retromod.shim.api.fabric.ModMenuApiShim
 com.retromod.shim.api.fabric.ClothConfigApiShim
 com.retromod.shim.api.fabric.ReiApiShim

@@ -1170,11 +1170,23 @@ public class FabricModTransformer {
                 // Extract nested JAR
                 extractJar(jarFile, tempDir);
 
-                // Transform bytecode
-                transformClasses(tempDir);
+                // Transform bytecode. CAPTURE the count — a nested library jar that
+                // is PURE registration/helper code (no accesswidener, no mixins, no
+                // refmap, and a fabric.mod.json with no version constraint to loosen)
+                // has its classes remapped here but reports zero metadata changes, so
+                // without counting these the repackage below is skipped and the
+                // remapped bytecode is silently discarded. That is exactly what broke
+                // Rubinated Nether (#71): it registers all its content through the
+                // JIJ-bundled "Critter" library (uwu.serenity.critter), whose
+                // Registry.register calls are full of intermediary names (class_2378,
+                // class_7924, …). With the transform thrown away, those calls hit dead
+                // intermediary names on a 26.1 host and silently no-op → the mod loads
+                // but registers nothing ("loads but empty"). Counting class transforms
+                // toward the repackage decision keeps Critter's remapped bytecode.
+                int classesTransformed = transformClasses(tempDir);
 
                 // Recursively remap intermediary names in metadata
-                int remapped = 0;
+                int remapped = classesTransformed;
                 // Build class lookup once for mixin stripping in this nested JAR
                 Map<String, byte[]> nestedClassLookup = null;
 

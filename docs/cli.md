@@ -9,7 +9,7 @@ Retromod ships with a command-line tool (`RetromodCli`) for transforming mods ou
 
 ## Running the CLI
 
-One quirk: **the published JAR doesn't bundle its dependencies**, so `java -jar retromod.jar ...` won't work. You run the CLI through Maven instead, from a checkout of the repo:
+One quirk: **the published JAR doesn't bundle its dependencies**, so `java -jar retromod.jar ...` won't work. You run the CLI through Maven instead, from a checkout of the repo.
 
 ```bash
 git clone https://github.com/Bownlux/Retromod.git
@@ -24,7 +24,7 @@ The `-q` flag keeps Maven quiet so you only see Retromod's output. Every example
 
 ## Commands
 
-### `transform` — transform a single mod
+### `transform`: transform a single mod
 
 ```bash
 mvn exec:java \
@@ -36,7 +36,7 @@ Transforms `mod.jar` in-place to target the current `TARGET_MC_VERSION` (26.1.2)
 
 Output: `path/to/mod.jar` (transformed), `path/to/mod.jar.bak` (original).
 
-### `transform --verify` — transform and verify
+### `transform --verify`: transform and verify
 
 ```bash
 mvn exec:java \
@@ -46,7 +46,7 @@ mvn exec:java \
 
 Same as `transform`, but after transformation runs the [verifier]({{ '/verify-transforms' | relative_url }}) and writes a report to `config/retromod/verify-reports/`. Non-zero exit if verification finds unresolved references.
 
-### `batch` — transform every mod in a folder
+### `batch`: transform every mod in a folder
 
 ```bash
 mvn exec:java \
@@ -62,7 +62,7 @@ Pass `--verify` to verify each mod after transforming:
 -Dexec.args="batch /path/to/mods --verify"
 ```
 
-### `aot` — AOT-compile a folder of mods
+### `aot`: AOT-compile a folder of mods
 
 ```bash
 mvn exec:java \
@@ -74,7 +74,7 @@ Runs the full AOT compiler over every mod in the folder, writing cache entries i
 
 Useful for bulk-preparing a modpack on a faster machine before shipping it out.
 
-### `embed` — bake Retromod into a mod JAR
+### `embed`: bake Retromod into a mod JAR
 
 ```bash
 mvn exec:java \
@@ -84,7 +84,7 @@ mvn exec:java \
 
 Embeds a minimal Retromod runtime directly into `mod.jar` so the mod can self-transform at load time without needing Retromod installed separately. Produces a self-contained JAR that works on a vanilla Fabric/NeoForge/Forge install.
 
-### `diff` — show what transformation *would* do
+### `diff`: show what transformation *would* do
 
 ```bash
 mvn exec:java \
@@ -94,7 +94,7 @@ mvn exec:java \
 
 Dry-run: prints the class/method/field renames, mixin target rewrites, and metadata changes Retromod would apply, without actually writing anything. Great for "what is Retromod going to do to my mod?" before you commit.
 
-### `shims` — list registered shims
+### `shims`: list registered shims
 
 ```bash
 mvn exec:java \
@@ -130,7 +130,7 @@ Not a Retromod flag, but worth mentioning. Pass `-q` to Maven to suppress its pr
 ## Scripting tips
 
 - Every command returns a non-zero exit on error, so you can chain with `&&` or check `$?` in shell scripts.
-- `batch` logs one line per mod to stdout — easy to `grep` for specific mod IDs or failures.
+- `batch` logs one line per mod to stdout, so it's easy to `grep` for specific mod IDs or failures.
 - Verify reports are plain text; parse them with whatever you like.
 
 ## See also

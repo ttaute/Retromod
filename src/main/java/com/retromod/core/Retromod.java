@@ -460,78 +460,20 @@ public class Retromod implements ModInitializer {
     }
     
     /**
-     * Load configuration from JSON file.
-     * Auto-generates a default config if one doesn't exist.
+     * Load configuration from JSON file, generating the default if missing.
+     * Delegates to the loader-agnostic {@link RetromodConfig} so the Fabric,
+     * Forge, and NeoForge entry points all write the identical default (#74).
      */
     private void loadConfig() {
-        Path configDir = Path.of("config/retromod");
-        Path configPath = configDir.resolve("config.json");
-
+        var config = RetromodConfig.loadOrNull();
+        if (config == null) return;
         try {
-            java.nio.file.Files.createDirectories(configDir);
+            if (config.has("use_aot")) useAotCompilation = config.get("use_aot").getAsBoolean();
+            if (config.has("transform_mixins")) transformMixins = config.get("transform_mixins").getAsBoolean();
+            if (config.has("polyfills_enabled")) polyfillsEnabled = config.get("polyfills_enabled").getAsBoolean();
+            LOGGER.info("Loaded config from {}", RetromodConfig.CONFIG_PATH);
         } catch (Exception e) {
-            LOGGER.warn("Could not create config directory", e);
-        }
-
-        if (configPath.toFile().exists()) {
-            try {
-                String json = java.nio.file.Files.readString(configPath);
-                var config = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
-
-                if (config.has("use_aot")) useAotCompilation = config.get("use_aot").getAsBoolean();
-                if (config.has("transform_mixins")) transformMixins = config.get("transform_mixins").getAsBoolean();
-                if (config.has("polyfills_enabled")) polyfillsEnabled = config.get("polyfills_enabled").getAsBoolean();
-
-                LOGGER.info("Loaded config from {}", configPath);
-            } catch (Exception e) {
-                LOGGER.warn("Could not load config, using defaults", e);
-            }
-        } else {
-            // Auto-generate default config
-            generateDefaultConfig(configPath);
-        }
-    }
-
-    /**
-     * Generate a default config.json with comments explaining each option.
-     */
-    private void generateDefaultConfig(Path configPath) {
-        String defaultConfig = """
-                {
-                  "_comment": "Retromod Configuration - https://github.com/Bownlux/Retromod",
-
-                  "use_aot": true,
-                  "use_hybrid": true,
-                  "instruction_level_granularity": true,
-
-                  "transform_mixins": true,
-                  "transform_refmaps": true,
-
-                  "remap_reflection": true,
-
-                  "log_level": "INFO",
-                  "log_transformations": false,
-
-                  "target_mc_version": "auto",
-
-                  "debug": false,
-                  "dump_bytecode": false,
-
-                  "force_translate_complex": false,
-
-                  "polyfills_enabled": true,
-
-                  "verify_transforms": true,
-
-                  "_network_comment": "Retromod never initiates network downloads without user consent. The flag below is OFF by default — flip it to true to enable the optional Modrinth lookup (queries Modrinth's public API to suggest native versions of mods you're transforming). No JAR files are ever auto-downloaded; the CLI's 'archive download' command is the only path that fetches files, and it prompts before each download.",
-                  "check_for_native_versions": false
-                }
-                """;
-        try {
-            java.nio.file.Files.writeString(configPath, defaultConfig);
-            LOGGER.info("Generated default config at {}", configPath);
-        } catch (Exception e) {
-            LOGGER.warn("Could not generate default config", e);
+            LOGGER.warn("Could not apply config, using defaults", e);
         }
     }
     

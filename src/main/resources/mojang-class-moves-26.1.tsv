@@ -971,3 +971,29 @@ net/minecraft/world/level/storage/loot/functions/LootingEnchantFunction$Builder	
 net/minecraft/world/item/UseAnim	net/minecraft/world/item/ItemUseAnimation
 net/minecraft/world/level/storage/loot/parameters/LootContextParam	net/minecraft/util/context/ContextKey
 net/minecraft/client/renderer/entity/layers/ElytraLayer	net/minecraft/client/renderer/entity/layers/WingsLayer
+# --- snapshot.2: additional 26.1 package moves found by the compat audit ---
+# GlStateManager moved com.mojang.blaze3d.platform → .opengl in the 26.1 render
+# rewrite. The outer class moved cleanly (top compat-audit gap, ~31 refs).
+com/mojang/blaze3d/platform/GlStateManager	com/mojang/blaze3d/opengl/GlStateManager
+# Its inner blend-factor enums were PROMOTED to top-level in the same platform
+# package (26.1): GlStateManager$SourceFactor → SourceFactor, $DestFactor →
+# DestFactor. The intermediary harvest (class_4535/class_4534) still emits the
+# old inner names, so map them here. Enum constants (SRC_ALPHA, …) are unchanged,
+# so this is a clean type move. Sole-blocker for 4 mods in the 5000-mod audit.
+com/mojang/blaze3d/platform/GlStateManager$SourceFactor	com/mojang/blaze3d/platform/SourceFactor
+com/mojang/blaze3d/platform/GlStateManager$DestFactor	com/mojang/blaze3d/platform/DestFactor
+# Yarn name Item$Settings → Mojang Item$Properties. A handful of otherwise
+# fully-remapped Fabric content mods (Macaw's furniture family, farmer's knives,
+# runes) carry a stray Yarn *class* reference to Item.Settings while their method
+# calls are intermediary (remapped fine) — so the class rename is the sole gap.
+# Top sole-blocker (6+ mods) in the 5000-mod audit.
+net/minecraft/item/Item$Settings	net/minecraft/world/item/Item$Properties
+# VillagerTrades moved world.entity.npc → world.item.trading in 26.1. Outer type
+# resolves; the $ItemListing inner interface was removed (custom-trade mods that
+# implement it need re-authoring — tracked as a known limitation).
+net/minecraft/world/entity/npc/VillagerTrades	net/minecraft/world/item/trading/VillagerTrades
+# BlockRenderLayerMap removed from the 26.1-era Fabric API → Retromod no-op stand-in
+# (FabricBlockRenderLayerBridge injects the synthetic). Non-vanilla target: applied
+# only on the 26.1+ path (where the real class is gone). Soft-fail — render-layer
+# registration is inert (transparent blocks render solid), but the mod loads.
+net/fabricmc/fabric/api/blockrenderlayer/v1/BlockRenderLayerMap	com/retromod/generated/legacyfabric/BlockRenderLayerMap

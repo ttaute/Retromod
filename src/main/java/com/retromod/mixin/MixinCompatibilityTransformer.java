@@ -63,22 +63,47 @@ public class MixinCompatibilityTransformer {
         for (var entry : transformer.getMethodRedirects().entrySet()) {
             var key = entry.getKey();
             var target = entry.getValue();
-            
-            // Mixin format: "method" or "Lowner;method(desc)return" 
+
+            // Mixin format: "method" or "Lowner;method(desc)return"
             String oldRef = key.name();
             String newRef = target.name();
-            
+
             if (!oldRef.equals(newRef)) {
-                methodTargetRedirects.put(oldRef, newRef);
-                
-                // Also add full reference format
+                // The OWNER-QUALIFIED full reference is always safe — it can only
+                // match a @At/@Inject/@Invoker target that names this exact owner.
                 String oldFull = "L" + key.owner() + ";" + key.name() + key.desc();
                 String newFull = "L" + target.owner() + ";" + target.name() + target.desc();
                 methodTargetRedirects.put(oldFull, newFull);
+
+                // The BARE-NAME redirect is owner-agnostic, so only add it for
+                // GLOBALLY-UNIQUE obfuscated names (intermediary method_XXXX, SRG
+                // m_NNNNN_). A plain name like "register"/"create"/"get" is wildly
+                // ambiguous: a mod-API-specific redirect (e.g. AutoRegLib's
+                // NetworkHandler.register → registerPacket) would otherwise rename
+                // EVERY mixin @Invoker/@At that resolves to "register" — including
+                // a vanilla BlockEntityType invoker, which is exactly what crashed
+                // Reinforced Barrels with "No candidates matching registerPacket"
+                // on BlockEntityType (#66). Obfuscated names don't have this
+                // collision because each method_XXXX/m_NNNNN_ is unique to one
+                // method across the whole game.
+                if (isGloballyUniqueName(oldRef)) {
+                    methodTargetRedirects.put(oldRef, newRef);
+                }
             }
         }
-        
+
         LOGGER.info("Built {} Mixin target redirects", methodTargetRedirects.size());
+    }
+
+    /**
+     * Whether a method name is a globally-unique obfuscated identifier
+     * (intermediary {@code method_XXXX} or SRG {@code m_NNNNN_}) safe to use as
+     * an owner-agnostic bare-name redirect key, vs an ambiguous human name like
+     * {@code register} that must only be matched owner-qualified.
+     */
+    private static boolean isGloballyUniqueName(String name) {
+        return name.startsWith("method_")
+                || (name.startsWith("m_") && name.endsWith("_") && name.length() > 3);
     }
     
     /**
@@ -114,6 +139,21 @@ public class MixinCompatibilityTransformer {
                         + "mixin's feature inert", classNode.name);
                 return w.toByteArray();
             }
+        }
+
+        // Auto-neutralize a mixin whose @Mixin target is a removed (non-remappable)
+        // MC class — otherwise the framework throws ClassMetadataNotFoundException
+        // mid-transform and crashes the whole game during bootstrap (#79, Spelunkery
+        // → removed LootDataManager). The automatic complement to the curated list.
+        String removedTarget = mixinTargetsRemovedClass(classNode);
+        if (removedTarget != null && neutralizeMixin(classNode)) {
+            ClassWriter w = new ClassWriter(0);
+            classNode.accept(w);
+            LOGGER.info("Mixin auto-neutralized {} — its @Mixin target {} was removed on "
+                    + "this MC and can't be remapped; applying it would crash the game. "
+                    + "The mod loads with that mixin's feature inert.",
+                    classNode.name, removedTarget);
+            return w.toByteArray();
         }
 
         // Strip blocklisted handler methods FIRST. Some mixin handlers fatally
@@ -209,6 +249,19 @@ public class MixinCompatibilityTransformer {
             }
         }
 
+        // Auto-neutralize a removed-target mixin (#79) — see transformMixinClass.
+        // The NeoForge/Forge path needs this too: #79 (Spelunkery) is a Forge mod.
+        String removedTarget = mixinTargetsRemovedClass(classNode);
+        if (removedTarget != null && neutralizeMixin(classNode)) {
+            ClassWriter w = new ClassWriter(0);
+            classNode.accept(w);
+            LOGGER.info("Mixin auto-neutralized {} — its @Mixin target {} was removed on "
+                    + "this MC and can't be remapped; applying it would crash the game. "
+                    + "The mod loads with that mixin's feature inert.",
+                    classNode.name, removedTarget);
+            return w.toByteArray();
+        }
+
         Set<String> blockedMethods = MixinBlocklist.methodsToStrip(classNode.name);
         if (blockedMethods == null) {
             return classBytes;
@@ -302,6 +355,105 @@ public class MixinCompatibilityTransformer {
      */
     private boolean isInterfaceMixin(ClassNode classNode) {
         return (classNode.access & Opcodes.ACC_INTERFACE) != 0 && isMixinClass(classNode);
+    }
+
+    /**
+     * Auto-detect a mixin whose {@code @Mixin} target is a Minecraft class that was
+     * <b>removed</b> on the host runtime (not merely renamed) — and therefore can't be
+     * remapped to anything. Applying such a mixin makes the Mixin framework throw
+     * {@code ClassMetadataNotFoundException} mid-transform, which is FATAL: it aborts
+     * the whole class-transform pass and crashes the game during MC bootstrap (often
+     * with a misleading vanilla-class stacktrace — {@code Blocks.<clinit>} etc. — that
+     * names no mod). Issue #79: Spelunkery (1.20.1) targets
+     * {@code world/level/storage/loot/LootDataManager}, deleted in the 1.21 loot-data
+     * refactor (→ {@code ReloadableServerRegistries} + {@code LootDataType}, a different
+     * API), so it can't be remapped — the game dies before any curated blocklist helps.
+     *
+     * <p>This is the automatic complement to the curated {@link MixinBlocklist}: instead
+     * of needing every offending mixin named in advance, we detect the removed-target
+     * case generically and neutralize it (the mod loads with that one mixin's feature
+     * inert). Only fires when ALL of:
+     * <ul>
+     *   <li>the target is a {@code net/minecraft/} class (we never judge mod/library
+     *       classes — those legitimately resolve later via JiJ/companion mods);</li>
+     *   <li>after resolving through our class redirects + intermediary map, the class
+     *       STILL doesn't exist on the host ({@code initialize=false} probe, #14);</li>
+     *   <li>we're not in a context where the probe is unreliable (no MC on the
+     *       classpath at all → bail, don't strip everything).</li>
+     * </ul>
+     *
+     * @return the removed target's internal name if the mixin should be neutralized,
+     *         or {@code null} if every target resolves (the normal case).
+     */
+    private String mixinTargetsRemovedClass(ClassNode classNode) {
+        return mixinTargetsRemovedClass(classNode,
+                com.retromod.core.EnvironmentDetector::hostClassExists);
+    }
+
+    /**
+     * Testable core of {@link #mixinTargetsRemovedClass(ClassNode)}: the host-class
+     * probe is injected so a unit test can simulate a runtime where a given vanilla
+     * class is present or absent (the real test JVM has no Minecraft on its classpath).
+     *
+     * @param hostHasClass predicate: does this binary class name resolve on the host?
+     */
+    String mixinTargetsRemovedClass(ClassNode classNode, java.util.function.Predicate<String> hostHasClass) {
+        // Sanity gate: if MC itself isn't resolvable through the probe, every "absent"
+        // is a false negative — never strip on that. Cheap, and keyed on a class that
+        // exists on EVERY supported host (Blocks, or its intermediary alias pre-26.1).
+        if (!hostHasClass.test("net.minecraft.world.level.block.Blocks")
+                && !hostHasClass.test("net.minecraft.class_2246")) {
+            return null;
+        }
+
+        AnnotationNode mixinAnn = null;
+        for (List<AnnotationNode> anns : List.of(
+                classNode.visibleAnnotations != null ? classNode.visibleAnnotations : List.<AnnotationNode>of(),
+                classNode.invisibleAnnotations != null ? classNode.invisibleAnnotations : List.<AnnotationNode>of())) {
+            for (AnnotationNode a : anns) {
+                if (MIXIN_DESC.equals(a.desc)) { mixinAnn = a; break; }
+            }
+            if (mixinAnn != null) break;
+        }
+        if (mixinAnn == null || mixinAnn.values == null) return null;
+
+        List<String> targets = new ArrayList<>();
+        for (int i = 0; i + 1 < mixinAnn.values.size(); i += 2) {
+            Object key = mixinAnn.values.get(i);
+            Object val = mixinAnn.values.get(i + 1);
+            if ("value".equals(key) && val instanceof List<?> classes) {
+                // Class[] targets — each entry is an ASM Type.
+                for (Object t : classes) {
+                    if (t instanceof Type type && type.getSort() == Type.OBJECT) {
+                        targets.add(type.getInternalName());
+                    }
+                }
+            } else if ("targets".equals(key) && val instanceof List<?> strings) {
+                // String[] targets — fully-qualified names, '.'-separated.
+                for (Object s : strings) {
+                    if (s instanceof String str && !str.isEmpty()) {
+                        targets.add(str.replace('.', '/'));
+                    }
+                }
+            }
+        }
+
+        for (String target : targets) {
+            if (!target.startsWith("net/minecraft/")) {
+                continue; // only judge vanilla classes; mod/library targets resolve elsewhere
+            }
+            // Resolve through whatever Retromod would rewrite this to: a class redirect
+            // (e.g. a 26.1 package move) or the intermediary→Mojang class map. The host
+            // probe is the real authority — redirects just give us the better name to ask.
+            String resolved = transformer.getClassRedirects().getOrDefault(target, target);
+            boolean resolvedExists = hostHasClass.test(resolved.replace('/', '.'));
+            boolean origExists = resolved.equals(target) ? resolvedExists
+                    : hostHasClass.test(target.replace('/', '.'));
+            if (!resolvedExists && !origExists) {
+                return target; // genuinely removed — neutralize this mixin
+            }
+        }
+        return null;
     }
 
     /**

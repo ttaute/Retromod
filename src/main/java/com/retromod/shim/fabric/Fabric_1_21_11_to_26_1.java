@@ -73,43 +73,20 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         // Fabric API 26.1 renamed many packages to match Mojang naming
         // ============================================================
 
-        // --- 26.1 MC class moves/renames (from compat-audit findings) ---
-        // GuiGraphics was renamed to GuiGraphicsExtractor — the type that bundles
-        // PoseStack + BufferSource + scissor stack for in-GUI rendering. Mods that
-        // accept a `GuiGraphics` parameter from any GUI hook (every overlay/HUD/
-        // screen mod does this) crash on 26.1 with NoClassDefFoundError.
-        transformer.registerClassRedirect(
-            "net/minecraft/client/gui/GuiGraphics",
-            "net/minecraft/client/gui/GuiGraphicsExtractor"
-        );
-
-        // RenderType + RenderTypes moved into their own `rendertype` sub-package.
-        // The 1.21.11 path is `client/renderer/RenderType`; 26.1 wants
-        // `client/renderer/rendertype/RenderType`. Hits every render-hook mod.
-        transformer.registerClassRedirect(
-            "net/minecraft/client/renderer/RenderType",
-            "net/minecraft/client/renderer/rendertype/RenderType"
-        );
-        transformer.registerClassRedirect(
-            "net/minecraft/client/renderer/RenderTypes",
-            "net/minecraft/client/renderer/rendertype/RenderTypes"
-        );
-
-        // BlockAndTintGetter moved from `world/level/` into `client/renderer/block/`
-        // when the type became client-only (server doesn't tint).
-        transformer.registerClassRedirect(
-            "net/minecraft/world/level/BlockAndTintGetter",
-            "net/minecraft/client/renderer/block/BlockAndTintGetter"
-        );
+        // --- 26.1 vanilla MC class moves (shared with the NeoForge 26.1 shim) ---
+        // GuiGraphics→GuiGraphicsExtractor, RenderType(s)→rendertype/*,
+        // BlockAndTintGetter relocation. These are loader-agnostic Mojang renames,
+        // so they live in one place and fix both Fabric and NeoForge mods. (#64)
+        com.retromod.shim.common.Common_1_21_11_to_26_1_ClassMoves.register(transformer);
 
         // --- Networking: S2C/C2S → Clientbound/Serverbound ---
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/C2SConfigurationChannelEvents",
-            "net/fabricmc/fabric/api/networking/v1/ServerboundConfigurationChannelEvents"
+            "net/fabricmc/fabric/api/client/networking/v1/ServerboundConfigurationChannelEvents"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/C2SPlayChannelEvents",
-            "net/fabricmc/fabric/api/networking/v1/ServerboundPlayChannelEvents"
+            "net/fabricmc/fabric/api/client/networking/v1/ServerboundPlayChannelEvents"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/S2CConfigurationChannelEvents",
@@ -139,15 +116,15 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderEvents",
-            "net/fabricmc/fabric/api/client/rendering/v1/LevelRenderEvents"
+            "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderEvents"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderContext",
-            "net/fabricmc/fabric/api/client/rendering/v1/LevelRenderContext"
+            "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderContext"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/event/lifecycle/v1/ServerEntityWorldChangeEvents",
-            "net/fabricmc/fabric/api/event/lifecycle/v1/ServerEntityLevelChangeEvents"
+            "net/fabricmc/fabric/api/entity/event/v1/ServerEntityLevelChangeEvents"
         );
 
         // --- ScreenHandler → Menu renames ---
@@ -180,13 +157,13 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         // Client-side itemgroup package
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/itemgroup/v1/ItemGroupEvents",
-            "net/fabricmc/fabric/api/client/creativetab/v1/CreativeModeTabEvents"
+            "net/fabricmc/fabric/api/creativetab/v1/CreativeModeTabEvents"
         );
 
         // --- Rendering renames ---
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/BlockRenderLayerMap",
-            "net/fabricmc/fabric/api/client/rendering/v1/ChunkSectionLayerMap"
+            "com/retromod/generated/legacyfabric/BlockRenderLayerMap"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/EntityModelLayerRegistry",
@@ -198,17 +175,17 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/DrawItemStackOverlayCallback",
-            "net/fabricmc/fabric/api/client/rendering/v1/RenderItemDecorationsCallback"
+            "net/fabricmc/fabric/api/client/rendering/v1/ExtractItemDecorationsCallback"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/model/BakedModelManager",
-            "net/fabricmc/fabric/api/client/model/FabricModelManager"
+            "net/fabricmc/fabric/api/client/model/loading/v1/FabricModelManager"
         );
 
         // --- Registry renames ---
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/event/registry/FuelRegistryEvents",
-            "net/fabricmc/fabric/api/event/registry/FuelValueEvents"
+            "net/fabricmc/fabric/api/registry/FuelValueEvents"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/registry/CompostingChanceRegistry",
@@ -244,17 +221,17 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/entity/FabricTrackedDataRegistry",
-            "net/fabricmc/fabric/api/entity/FabricEntityDataRegistry"
+            "net/fabricmc/fabric/api/object/builder/v1/entity/FabricEntityDataRegistry"
         );
 
         // --- Transfer API renames ---
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/transfer/v1/storage/base/FabricReadView",
-            "net/fabricmc/fabric/api/transfer/v1/storage/base/FabricValueInput"
+            "net/fabricmc/fabric/api/serialization/v1/value/FabricValueInput"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/transfer/v1/storage/base/FabricWriteView",
-            "net/fabricmc/fabric/api/transfer/v1/storage/base/FabricValueOutput"
+            "net/fabricmc/fabric/api/serialization/v1/value/FabricValueOutput"
         );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/transfer/v1/item/InventoryStorage",
@@ -909,7 +886,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         // fabric-rendering-api-v1 world subpackage → level
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/world/WorldRenderContext",
-            "net/fabricmc/fabric/api/client/rendering/v1/LevelRenderContext"
+            "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderContext"
         );
     }
 

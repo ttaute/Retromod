@@ -5,7 +5,7 @@ nav_order: 12
 
 # Contributing
 
-Thanks for your interest in contributing. Retromod is a solo project that's quickly turning into a community effort, and the kinds of things contributors tend to work on — adding shims, writing polyfills, filling mapping gaps — directly improve the tool for every user. Here's how to get set up and get something merged.
+Thanks for your interest in contributing. Retromod started as a solo project and is turning into a community effort, and the kinds of things contributors tend to work on (adding shims, writing polyfills, filling mapping gaps) directly improve the tool for every user. Here's how to get set up and get something merged.
 
 ## Ground rules
 
@@ -22,14 +22,13 @@ cd Retromod
 mvn package -q -DskipTests -Dexec.skip=true
 ```
 
-If that produces `target/retromod-1.1.0-snapshot.1.jar`, you're good. Java 25 is required — see [Troubleshooting]({{ '/troubleshooting' | relative_url }}) if the build complains about class file versions.
+If that produces `target/retromod-1.1.0-snapshot.1.jar`, you're good. Java 25 is required. See [Troubleshooting]({{ '/troubleshooting' | relative_url }}) if the build complains about class file versions.
 
 ## The skills
 
 Most contributions fall into a handful of well-trodden workflows. Each has a skill file under `.claude/skills/` that walks through the exact steps: which files to touch, what tests to add, common pitfalls.
 
-
-If you're using Claude Code, these skills activate automatically based on the task. Otherwise, open the corresponding file under `.claude/skills/` and follow it by hand — they're written to be readable as plain Markdown.
+If you're using Claude Code, these skills activate automatically based on the task. Otherwise, open the corresponding file under `.claude/skills/` and follow it by hand. They're written to be readable as plain Markdown.
 
 ## Easy first PRs
 
@@ -51,7 +50,7 @@ Standard fork-and-PR workflow:
 4. Make your change. Commit with a descriptive message.
 5. Push and open a PR against `main`.
 
-Keep PRs focused — one logical change per PR. If you fix a bug and notice unrelated cleanup while you're there, split it into a second PR.
+Keep PRs focused, one logical change per PR. If you fix a bug and notice unrelated cleanup while you're there, split it into a second PR.
 
 ## Build and test
 
@@ -65,13 +64,13 @@ mvn package -Dexec.skip=true
 # Tests only
 mvn test -Dexec.skip=true
 
-# Lite build (1.20+ only, no legacy polyfills — smaller JAR)
+# Lite build (1.20+ only, no legacy polyfills, smaller JAR)
 mvn package -P lite -DskipTests -Dexec.skip=true
 ```
 
 Always pass `-Dexec.skip=true` so Maven doesn't run the CLI entrypoint mid-build.
 
-Tests use JUnit 5. When adding a new shim or polyfill, add a test for it — even a simple "this class loads and registers" test catches a lot of wiring bugs.
+Tests use JUnit 5. When adding a new shim or polyfill, add a test for it. Even a simple "this class loads and registers" test catches a lot of wiring bugs.
 
 ## Test on a real install
 
@@ -88,7 +87,7 @@ Adjust the path for your OS (see [Installation]({{ '/installation' | relative_ur
 
 The repo's CI (`.github/workflows/ci.yml`) runs tests on every push and PR, auto-reverts failed pushes, and auto-closes failed PRs.
 
-**Break-glass bypass:** if you push within 5 minutes of a revert, CI skips tests. This is for unsticking the tree when CI itself is broken — don't use it to land untested code. Use it, document why in the commit message, and fix CI in a follow-up PR.
+**Break-glass bypass:** if you push within 5 minutes of a revert, CI skips tests. This is for unsticking the tree when CI itself is broken; don't use it to land untested code. If you use it, document why in the commit message and fix CI in a follow-up PR.
 
 If CI reverts a change you think was correct, the first thing to check is whether the linter pass disagreed with it — sometimes the linter rewrites things the test suite doesn't like. The CLAUDE.md has notes on common gotchas.
 
@@ -96,9 +95,9 @@ If CI reverts a change you think was correct, the first thing to check is whethe
 
 - Java 25. Use modern features where they genuinely help; don't force records/sealed types where a plain class is clearer.
 - No tabs, 4-space indent, standard Java conventions.
-- Keep methods focused — if a method is getting long enough to need internal section comments, it probably wants to be two methods.
+- Keep methods focused. If a method is getting long enough to need internal section comments, it probably wants to be two methods.
 - Log messages: `logger.info(...)` for things users should see, `logger.debug(...)` for things only contributors care about.
-- Don't hardcode `"1.21.11"` or any other MC version string. Use `Retromod.TARGET_MC_VERSION` — the linter has reverted this specific mistake more than once.
+- Don't hardcode `"1.21.11"` or any other MC version string. Use `Retromod.TARGET_MC_VERSION`. The linter has reverted this specific mistake more than once.
 
 ## Preserving old shims
 
@@ -118,7 +117,7 @@ If a commit is a revert, say what was reverted and why. If a commit is a break-g
 
 ## Questions?
 
-- Something's unclear in a skill? Open an issue — skills are documentation too.
+- Something's unclear in a skill? Open an issue. Skills are documentation too.
 - Not sure if a change is wanted? Open a discussion first.
 - Stuck on a specific transformation problem? Attach `latest.log`, the verify report, and the mod JAR to an issue.
 

@@ -14,7 +14,7 @@
 # Don't exit on error - we'll handle errors ourselves
 # set -e
 
-VERSION="1.1.0-snapshot.1"
+VERSION="1.1.0-snapshot.2"
 # Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
 # Security-only updates for versions before 26.1.
 MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2")
@@ -573,6 +573,38 @@ echo "  Total:    ${TOTAL_COUNT} JARs"
 if [ $FAILED -gt 0 ]; then
     echo ""
     echo "  WARNING: ${FAILED} JAR(s) failed to build"
+fi
+
+# ---- Release-integrity gate ----------------------------------------------
+# The per-loader counts above are computed from `find` on the real output, so
+# they can't over-report. But two silent-partial failures still need catching:
+#   (1) create_mod_jar returning 0 while emitting nothing (e.g. a cwd/path bug
+#       that makes every `mv` miss) — FAILED stays 0 but TOTAL collapses.
+#   (2) a whole loader producing zero jars.
+# Guard with an expected floor + a hard non-zero exit so CI and the release
+# flow actually fail instead of shipping an empty/partial dist/.
+EXPECTED_MIN=${EXPECTED_MIN:-60}   # 22 Fabric + 22 Forge + 19 NeoForge + 1 CLI = 64; floor leaves slack
+RELEASE_OK=1
+if [ "$TOTAL_COUNT" -lt "$EXPECTED_MIN" ]; then
+    echo ""
+    echo "  ERROR: produced ${TOTAL_COUNT} JARs, expected at least ${EXPECTED_MIN}."
+    echo "         dist/ is INCOMPLETE — do not publish this build."
+    RELEASE_OK=0
+fi
+for pair in "Fabric:${FABRIC_COUNT}" "Forge:${FORGE_COUNT}" "NeoForge:${NEOFORGE_COUNT}" "CLI:${CLI_COUNT}"; do
+    name=${pair%%:*}; n=${pair##*:}
+    if [ "$n" -eq 0 ]; then
+        echo "  ERROR: ${name} produced 0 JARs — a whole loader is missing."
+        RELEASE_OK=0
+    fi
+done
+
+echo ""
+if [ "$RELEASE_OK" -eq 1 ] && [ "$FAILED" -eq 0 ]; then
+    echo "  ✓ dist/ looks complete (${TOTAL_COUNT} JARs, no failures)."
+else
+    echo "  ✗ Build did NOT pass the release-integrity gate. See errors above."
+    exit 1
 fi
 
 echo ""

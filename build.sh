@@ -11,7 +11,7 @@
 
 set -e
 
-VERSION="1.1.0-snapshot.1"
+VERSION="1.1.0-snapshot.2"
 
 echo "============================================"
 echo "  Retromod Build Script v${VERSION}"

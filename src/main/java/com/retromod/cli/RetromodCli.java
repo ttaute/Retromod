@@ -36,7 +36,7 @@ import java.util.*;
  */
 public class RetromodCli {
     
-    private static final String VERSION = "1.1.0-snapshot.1";
+    private static final String VERSION = "1.1.0-snapshot.2";
     private static final String TARGET_MC_VERSION = "26.1";
     
     private static ShimRegistry shimRegistry;
@@ -476,12 +476,65 @@ public class RetromodCli {
             }
         }
 
-        if (chain.isEmpty() && apiApplied == 0) {
+        // Apply the vanilla 26.1 class-move table (mojang-class-moves-26.1.tsv) when
+        // targeting 26.1+. At runtime the loader entry points call
+        // IntermediaryToMojangMapper.applyTo / applyClassMovesOnly; the CLI never did,
+        // so `retromod transform` (and the compat audit built on it) saw far more
+        // "missing class" gaps than a real boot — every GuiGraphics→GuiGraphicsExtractor,
+        // MobSpawnType→…, etc. showed unresolved here while resolving fine in-game.
+        // With no host MC on the CLI classpath, applyClassMovesOnly falls back to
+        // apply-all for the 26.1 target, which is exactly right since the CLI always
+        // targets 26.1.
+        int classMovesApplied = 0;
+        if (com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
+            try {
+                // Apply the moves directly rather than via applyClassMovesOnly():
+                // that method host-gates on RetromodVersion.TARGET_MC_VERSION (auto-
+                // detected, "1.21.4" in a standalone CLI), so its no-host fallback
+                // evaluates false and registers nothing. The CLI always targets 26.1
+                // (RetromodCli.TARGET_MC_VERSION), so applying ALL moves is correct —
+                // these are exactly the renames an in-game 26.1 boot would do.
+                var moves = com.retromod.mapping.IntermediaryToMojangMapper
+                        .getInstance().getClassMoves();
+                for (var e : moves.entrySet()) {
+                    transformer.registerClassRedirect(e.getKey(), e.getValue());
+                    classMovesApplied++;
+                }
+            } catch (Exception e) {
+                // Best-effort — the chain + API shims still apply without the moves.
+            }
+
+            // Also wire the Fabric intermediary→Mojang MEMBER-name mappings
+            // (class_XXXX → Mojang class, method_XXXX / field_XXXX → Mojang names).
+            // The class-move loop above only covers vanilla PACKAGE moves; without
+            // these member mappings a distributed Fabric mod's bytecode keeps its
+            // intermediary names and its Registry.register calls resolve to dead
+            // names on 26.1 → it loads but registers nothing. RetromodPreLaunch does
+            // this at runtime (registerIntermediaryNameMappings); the CLI must match,
+            // both for `transform` output parity and so the compat audit (built on the
+            // CLI) reflects what an in-game boot actually produces. This is the same
+            // gap that left Rubinated Nether's JIJ "Critter" registry lib unremapped (#71).
+            try {
+                int memberMappings = com.retromod.mapping.IntermediaryToMojangMapper
+                        .applyTo(transformer);
+                if (memberMappings > 0) {
+                    System.out.println("Applied intermediary→Mojang member mappings ("
+                            + memberMappings + ").");
+                }
+            } catch (Exception e) {
+                // Best-effort — class moves already applied above.
+            }
+        }
+
+        if (chain.isEmpty() && apiApplied == 0 && classMovesApplied == 0) {
             System.out.println("No transformation needed or no shim available.");
             return;
         }
         if (apiApplied > 0) {
             System.out.println("Applied " + apiApplied + " API shim(s) alongside the version chain.");
+        }
+        if (classMovesApplied > 0) {
+            System.out.println("Applied " + classMovesApplied + " vanilla 26.1 class move(s).");
         }
 
         transformJar(modPath, outputPath, transformer, info);
@@ -1015,7 +1068,26 @@ public class RetromodCli {
                     if (!entry.isDirectory()) {
                         byte[] data = com.retromod.util.ZipSecurity.safeReadAllBytes(jis);
 
-                        if (entry.getName().endsWith(".mixins.json") ||
+                        if (entry.getName().endsWith(".class")) {
+                            // Transform the nested jar's BYTECODE too — not just its
+                            // metadata. Many mods register all their content through a
+                            // JIJ-bundled library (Critter, Botarium, Moonlight, …)
+                            // whose Registry.register calls are full of intermediary
+                            // names; without remapping these the calls hit dead
+                            // intermediary names on a 26.1 host and silently no-op, so
+                            // the mod loads but registers nothing (#71, Rubinated
+                            // Nether → Critter). Mirrors the runtime path's
+                            // FabricModTransformer.remapNestedJar.
+                            String className = entry.getName().substring(0,
+                                    entry.getName().length() - ".class".length());
+                            try {
+                                byte[] t = RetromodTransformer.getInstance()
+                                        .transformClass(data, className);
+                                if (t != null && t != data) { data = t; modified = true; }
+                            } catch (Exception ignored) {
+                                // leave the class untouched on any transform error
+                            }
+                        } else if (entry.getName().endsWith(".mixins.json") ||
                             entry.getName().endsWith("mixin.json") ||
                             (entry.getName().contains("mixin") && entry.getName().endsWith(".json"))) {
                             byte[] patched = makeMixinConfigNonFatal(data);

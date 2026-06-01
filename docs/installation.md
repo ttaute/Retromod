@@ -5,7 +5,7 @@ nav_order: 2
 
 # Installation
 
-Retromod installs like any other Minecraft mod — drop the JAR in your `mods/` folder and launch the game. There's no installer, no wizard, no account to make.
+Retromod installs like any other Minecraft mod: drop the JAR in your `mods/` folder and launch the game. There's no installer, no wizard, no account to make.
 
 ## Requirements
 
@@ -51,8 +51,8 @@ cp ~/Downloads/retromod-1.0.1.jar \
 
 The first time Retromod runs, it creates two folders inside your game directory:
 
-- **`config/retromod/`** — holds `config.json` and subfolders like `verify-reports/` and `aot-cache/`. Safe to edit, safe to delete (Retromod will regenerate defaults).
-- **`retromod-input/`** — the inbox. Drop old mods here and Retromod will transform them on the next launch, then move them to `mods/`. This is the only way to install old Fabric mods — Fabric rejects them before Retromod gets a chance to help if they're placed directly in `mods/`.
+- **`config/retromod/`** holds `config.json` and subfolders like `verify-reports/` and `aot-cache/`. Safe to edit, safe to delete (Retromod will regenerate defaults).
+- **`retromod-input/`** is the inbox. Drop old mods here and Retromod will transform them on the next launch, then move them to `mods/`. This is the only way to install old Fabric mods: Fabric rejects them before Retromod gets a chance to help if they're placed directly in `mods/`.
 
 After first launch, you'll see a **Retromod** button on the title screen. That's your sign everything's wired up.
 
@@ -62,4 +62,4 @@ Delete the old `retromod-*.jar` from `mods/` and drop in the new one. Your confi
 
 ## Uninstalling
 
-Remove the JAR from `mods/`. Your transformed mods stay transformed — they live in `mods/` as regular JARs now, not linked to Retromod anymore. To revert a mod, copy the original from `retromod-backups/` back into `mods/`.
+Remove the JAR from `mods/`. Your transformed mods stay transformed; they live in `mods/` as regular JARs now, not linked to Retromod anymore. To revert a mod, copy the original from `retromod-backups/` back into `mods/`.
