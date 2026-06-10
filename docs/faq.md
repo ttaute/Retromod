@@ -110,7 +110,7 @@ Partial compatibility. Sodium and Iris are mostly fine since they target modern 
 
 Yes, three of them:
 
-- The [Compatibility DB]({{ '/compatdb' | relative_url }}) — community reports with badges (Diamond → Borked), the exact versions used, and details, ProtonDB-style. Add your own with the report form linked there.
+- The [Compatibility DB]({{ '/compatdb/' | relative_url }}) — community reports with badges (Diamond → Borked), the exact versions used, and details, ProtonDB-style. Add your own with the report form linked there.
 - The [compatibility list](https://github.com/Bownlux/Retromod/blob/main/COMPATIBILITY.md) covers mods confirmed to load after transformation, grouped by the MC version they were built for, plus a recommended multi-mod test setup.
 - [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}) is the "no" list and the rules behind it (rendering replacements, coremods, deep-integration mods like Create).
 

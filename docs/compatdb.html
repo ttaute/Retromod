@@ -1,0 +1,243 @@
+---
+title: Compatibility DB
+nav_order: 6
+layout: null
+permalink: /compatdb/
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retromod DB — mod compatibility reports</title>
+<meta name="description" content="Community-reported mod compatibility for Retromod, ProtonDB-style: badges, versions, bundles, and details.">
+<style>
+:root {
+  --bg:#14161a; --bg2:#1c1f26; --bg3:#252a33; --line:#2f3540;
+  --fg:#e8eaed; --fg2:#9aa3af; --accent:#5ad0ff;
+  --diamond:#7fe7ff; --gold:#ffd24d; --iron:#c2c8d0; --copper:#ff9c54; --borked:#ff6b6b; --bundle:#c79bff;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.topbar { display:flex; align-items:center; gap:1em; padding:.8em 1.2em; background:var(--bg2); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+.brand { font-weight:800; font-size:1.15em; letter-spacing:.3px; color:var(--fg); }
+.brand span { color:var(--accent); }
+.topbar .right { margin-left:auto; display:flex; gap:1.1em; font-size:.9em; }
+.hero { text-align:center; padding:2.2em 1em 1.2em; }
+.hero h1 { margin:.1em 0 .15em; font-size:1.9em; }
+.hero p { color:var(--fg2); margin:.2em auto .9em; max-width:42em; }
+.stats { display:flex; gap:2.2em; justify-content:center; margin:.4em 0 1.2em; color:var(--fg2); font-size:.92em; }
+.stats b { color:var(--fg); font-size:1.25em; display:block; text-align:center; }
+.searchwrap { max-width:620px; margin:0 auto; padding:0 1em; }
+#q { width:100%; padding:.75em 1.1em; font-size:1.05em; color:var(--fg); background:var(--bg3); border:1px solid var(--line); border-radius:12px; outline:none; }
+#q:focus { border-color:var(--accent); }
+.filters { display:flex; flex-wrap:wrap; gap:.45em; justify-content:center; margin:1em auto .4em; padding:0 1em; max-width:760px; }
+.chip { padding:.28em .85em; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--fg2); cursor:pointer; font-size:.85em; }
+.chip.active { color:#10222b; background:var(--accent); border-color:var(--accent); font-weight:600; }
+.chip[data-filter=diamond].active { background:var(--diamond); border-color:var(--diamond); }
+.chip[data-filter=gold].active    { background:var(--gold); border-color:var(--gold); }
+.chip[data-filter=iron].active    { background:var(--iron); border-color:var(--iron); }
+.chip[data-filter=copper].active  { background:var(--copper); border-color:var(--copper); }
+.chip[data-filter=borked].active  { background:var(--borked); border-color:var(--borked); }
+main { max-width:860px; margin:0 auto; padding:0 1em 3em; }
+.count { color:var(--fg2); font-size:.85em; text-align:center; margin:.5em 0 1em; }
+.card { display:flex; gap:1em; background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:1em 1.1em; margin:.7em 0; }
+.medal { flex:0 0 96px; align-self:stretch; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:9px; font-weight:800; font-size:.86em; color:#10141a; text-align:center; padding:.5em .3em; }
+.m-diamond { background:var(--diamond);} .m-gold { background:var(--gold);} .m-iron { background:var(--iron);} .m-copper { background:var(--copper);} .m-borked { background:var(--borked);}
+.medal small { font-weight:600; opacity:.75; }
+.body { flex:1; min-width:0; }
+.title { display:flex; flex-wrap:wrap; align-items:baseline; gap:.6em; }
+.title h3 { margin:0; font-size:1.12em; }
+.tag-bundle { font-size:.72em; font-weight:700; color:#221540; background:var(--bundle); border-radius:999px; padding:.1em .6em; }
+.links { margin-left:auto; display:flex; gap:.7em; font-size:.84em; white-space:nowrap; }
+.meta { color:var(--fg2); font-size:.83em; margin:.25em 0; }
+.meta code { color:var(--fg); background:var(--bg3); padding:0 .35em; border-radius:5px; }
+.mods { display:flex; flex-wrap:wrap; gap:.4em; margin:.35em 0; }
+.modchip { border:1px solid var(--line); background:var(--bg3); border-radius:999px; padding:.08em .65em; font-size:.8em; }
+.sum { margin:.25em 0; }
+details.more { margin:.3em 0 0; } details.more summary { cursor:pointer; color:var(--fg2); font-size:.85em; }
+details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
+.foot { color:var(--fg2); font-size:.74em; margin-top:.45em; opacity:.8; }
+#empty { text-align:center; color:var(--fg2); padding:2em 0; display:none; }
+.legend { display:flex; flex-wrap:wrap; gap:.9em; justify-content:center; color:var(--fg2); font-size:.8em; margin:.4em 0 0; }
+.dot { display:inline-block; width:.7em; height:.7em; border-radius:50%; margin-right:.3em; vertical-align:baseline; }
+/* submit panel */
+.submit { background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:1.1em 1.2em; margin:2em 0 0; }
+.submit h2 { margin:.1em 0 .4em; font-size:1.15em; }
+.submit p { color:var(--fg2); font-size:.9em; margin:.3em 0 .8em; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:.7em; }
+.grid label { font-size:.8em; color:var(--fg2); display:block; }
+.grid input, .grid select, .submit textarea { width:100%; padding:.5em .7em; color:var(--fg); background:var(--bg3); border:1px solid var(--line); border-radius:8px; font-size:.92em; }
+.submit textarea { min-height:4.5em; margin-top:.2em; }
+.full { grid-column:1 / -1; }
+#go { margin-top:.9em; padding:.6em 1.4em; font-size:1em; font-weight:700; color:#10222b; background:var(--accent); border:none; border-radius:10px; cursor:pointer; }
+#bundlebox { display:none; }
+.note { font-size:.78em; color:var(--fg2); margin-top:.6em; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand">Retromod <span>DB</span></span>
+  <div class="right">
+    <a href="{{ '/' | relative_url }}">← Docs</a>
+    <a href="https://modrinth.com/mod/retromod">Modrinth</a>
+    <a href="https://github.com/Bownlux/Retromod">GitHub</a>
+  </div>
+</div>
+
+{% assign entries = site.data.compatdb | sort: "name" %}
+{% assign total = entries | size %}
+{% assign nborked = entries | where: "badge", "borked" | size %}
+{% assign ndiamond = entries | where: "badge", "diamond" | size %}
+{% assign ngold = entries | where: "badge", "gold" | size %}
+
+<div class="hero">
+  <h1>Does it run through Retromod?</h1>
+  <p>Community reports of real mods run through Retromod — the exact versions used and how well it actually went. Honest beats optimistic: <i>"loads but X is broken"</i> is the most useful report there is.</p>
+  <div class="stats">
+    <div><b>{{ total }}</b> reports</div>
+    <div><b>{{ ndiamond | plus: ngold }}</b> gold or better</div>
+    <div><b>{{ nborked }}</b> borked</div>
+  </div>
+  <div class="searchwrap"><input id="q" type="search" placeholder="Search mods…" autocomplete="off"></div>
+  <div class="filters" id="f-badge">
+    <button class="chip active" data-filter="all">All</button>
+    <button class="chip" data-filter="diamond">⛏ Diamond</button>
+    <button class="chip" data-filter="gold">🥇 Gold</button>
+    <button class="chip" data-filter="iron">⚙ Iron</button>
+    <button class="chip" data-filter="copper">🟠 Copper</button>
+    <button class="chip" data-filter="borked">💥 Borked</button>
+  </div>
+  <div class="filters" id="f-loader">
+    <button class="chip active" data-loader="all">All loaders</button>
+    <button class="chip" data-loader="fabric">Fabric</button>
+    <button class="chip" data-loader="neoforge">NeoForge</button>
+    <button class="chip" data-loader="forge">Forge</button>
+  </div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--diamond)"></span>indistinguishable from native</span>
+    <span><span class="dot" style="background:var(--gold)"></span>minor quirks</span>
+    <span><span class="dot" style="background:var(--iron)"></span>something broken</span>
+    <span><span class="dot" style="background:var(--copper)"></span>major features inert</span>
+    <span><span class="dot" style="background:var(--borked)"></span>crashes / unusable</span>
+  </div>
+</div>
+
+<main>
+  <div class="count" id="count"></div>
+  <div id="list">
+  {% for e in entries %}
+  {% if e.bundle %}{% capture sname %}{{ e.name }} {% for m in e.mods %}{{ m.name }} {% endfor %}{% endcapture %}{% else %}{% capture sname %}{{ e.name }}{% endcapture %}{% endif %}
+  <div class="card" data-name="{{ sname | downcase }}" data-badge="{{ e.badge }}" data-loader="{{ e.loader }}">
+    <div class="medal m-{{ e.badge }}">
+      {% case e.badge %}{% when 'diamond' %}⛏<br>DIAMOND{% when 'gold' %}🥇<br>GOLD{% when 'iron' %}⚙<br>IRON{% when 'copper' %}🟠<br>COPPER{% else %}💥<br>BORKED{% endcase %}
+      <small>Retromod {{ e.retromod }}</small>
+    </div>
+    <div class="body">
+      <div class="title">
+        <h3>{{ e.name }}</h3>
+        {% if e.bundle %}<span class="tag-bundle">📦 BUNDLE</span>{% endif %}
+        <span class="links">
+          {% unless e.bundle %}
+          {% if e.links.modrinth %}<a href="{{ e.links.modrinth }}">Modrinth</a>{% endif %}
+          {% if e.links.curseforge %}<a href="{{ e.links.curseforge }}">CurseForge</a>{% endif %}
+          {% if e.links.github %}<a href="{{ e.links.github }}">GitHub</a>{% endif %}
+          {% endunless %}
+          {% if e.issue %}<a href="https://github.com/Bownlux/Retromod/issues/{{ e.issue }}">#{{ e.issue }}</a>{% endif %}
+        </span>
+      </div>
+      {% if e.bundle %}
+      <div class="mods">{% for m in e.mods %}<span class="modchip">{% if m.link %}<a href="{{ m.link }}">{{ m.name }}</a>{% else %}{{ m.name }}{% endif %} {{ m.version }}{% if m.source_mc %} <span style="opacity:.65">(MC {{ m.source_mc }})</span>{% endif %}</span>{% endfor %}</div>
+      <div class="meta">all together → host MC <code>{{ e.host_mc }}</code> · {{ e.loader }}</div>
+      {% else %}
+      <div class="meta">mod <code>{{ e.mod_version }}</code> (built for MC {{ e.source_mc }}) → host MC <code>{{ e.host_mc }}</code> · {{ e.loader }}</div>
+      {% endif %}
+      <div class="sum">{{ e.summary }}</div>
+      {% if e.details %}<details class="more"><summary>Details</summary><p>{{ e.details }}</p></details>{% endif %}
+      <div class="foot">reported by {{ e.reporter }} · {{ e.date }}</div>
+    </div>
+  </div>
+  {% endfor %}
+  </div>
+  <p id="empty">No reports match. Be the first — add yours below. 👇</p>
+
+  <div class="submit" id="add">
+    <h2>Add your report</h2>
+    <p>Fill this in and hit submit — it opens a <b>pre-filled</b> GitHub report (you just press one button there). A bot then turns it into a pull request against the database automatically; once a maintainer merges, your report is live. No YAML, no manual issue writing. <span style="opacity:.8">(A GitHub account is the only requirement — it's what keeps spam out.)</span></p>
+    <div class="grid">
+      <div><label>Report type</label><select id="s-type"><option value="Single mod">Single mod</option><option value="Bundle (multiple mods together)">Bundle (mods together)</option></select></div>
+      <div><label>Mod name (or bundle label)</label><input id="s-name" placeholder="AppleSkin — or 'My QoL pack'"></div>
+      <div><label>Mod link</label><input id="s-link" placeholder="https://modrinth.com/mod/…"></div>
+      <div><label>Mod version + built-for MC</label><input id="s-ver" placeholder="2.5.2, built for 1.20.1"></div>
+      <div><label>Host MC you ran it on</label><input id="s-host" placeholder="26.1.2"></div>
+      <div><label>Loader</label><select id="s-loader"><option>Fabric</option><option>NeoForge</option><option>Forge</option></select></div>
+      <div><label>Retromod version</label><input id="s-rm" placeholder="1.1.0-snapshot.3"></div>
+      <div><label>Badge</label><select id="s-badge">
+        <option>Diamond — indistinguishable from native; everything works</option>
+        <option>Gold — fully playable; minor or cosmetic quirks only</option>
+        <option>Iron — core features work; something noticeable is broken</option>
+        <option>Copper — loads and runs, but major features are missing/inert</option>
+        <option>Borked — crashes or unusable</option>
+      </select></div>
+      <div class="full"><label>One-line summary</label><input id="s-sum" placeholder="Hunger overlay works; tooltip values slightly off"></div>
+      <div class="full" id="bundlebox"><label>Bundle mods — one per line: name | version | built-for MC | link</label>
+        <textarea id="s-bundle" placeholder="AppleSkin | 2.5.2 | 1.20.1 | https://modrinth.com/mod/appleskin&#10;Chunky | 1.2.164 | 1.18.2 | https://modrinth.com/mod/chunky"></textarea></div>
+      <div class="full"><label>Details (what works, what doesn't, log snippets)</label><textarea id="s-det"></textarea></div>
+    </div>
+    <button id="go">Submit via GitHub →</button>
+    <div class="note">Power users: you can also PR <a href="https://github.com/Bownlux/Retromod/blob/main/docs/_data/compatdb.yml">docs/_data/compatdb.yml</a> directly.</div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var badge='all', loader='all', q='';
+  var cards=[].slice.call(document.querySelectorAll('.card'));
+  function apply(){
+    var n=0;
+    cards.forEach(function(c){
+      var ok=(badge==='all'||c.dataset.badge===badge)&&(loader==='all'||c.dataset.loader===loader)&&(q===''||c.dataset.name.indexOf(q)!==-1);
+      c.style.display=ok?'':'none'; if(ok)n++;
+    });
+    document.getElementById('count').textContent=n+' / '+cards.length+' reports';
+    document.getElementById('empty').style.display=n?'none':'';
+  }
+  function wire(id,attr,set){
+    var box=document.getElementById(id);
+    box.addEventListener('click',function(ev){
+      var b=ev.target.closest('.chip'); if(!b)return;
+      box.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});
+      b.classList.add('active'); set(b.dataset[attr]); apply();
+    });
+  }
+  wire('f-badge','filter',function(v){badge=v;});
+  wire('f-loader','loader',function(v){loader=v;});
+  document.getElementById('q').addEventListener('input',function(e){q=e.target.value.trim().toLowerCase();apply();});
+  apply();
+
+  // submit panel → pre-filled GitHub issue-form URL (the bot converts it to a PR)
+  var typeSel=document.getElementById('s-type');
+  typeSel.addEventListener('change',function(){
+    document.getElementById('bundlebox').style.display = typeSel.value.indexOf('Bundle')===0 ? '' : 'none';
+  });
+  document.getElementById('go').addEventListener('click',function(){
+    var v=function(id){return document.getElementById(id).value.trim();};
+    var name=v('s-name'); if(!name){document.getElementById('s-name').focus();return;}
+    var p=new URLSearchParams({
+      template:'compat_report.yml',
+      title:'[Compat] '+name+' on '+(v('s-host')||'?'),
+      report_type:typeSel.value,
+      mod_name:name, mod_link:v('s-link'), mod_version:v('s-ver'),
+      host:v('s-host'), loader:document.getElementById('s-loader').value,
+      retromod_version:v('s-rm'),
+      badge:document.getElementById('s-badge').value,
+      summary:v('s-sum'), details:v('s-det'), bundle_mods:v('s-bundle')
+    });
+    window.open('https://github.com/Bownlux/Retromod/issues/new?'+p.toString(),'_blank');
+  });
+})();
+</script>
+</body>
+</html>

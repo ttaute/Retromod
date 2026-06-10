@@ -1,0 +1,137 @@
+# Turns "Compatibility report" issues (the compat_report.yml form) into PRs that
+# append the entry to docs/_data/compatdb.yml — nobody hand-writes YAML.
+#
+# Flow: user submits the pre-filled form (the Compatibility DB page builds the
+# URL) → this workflow parses the structured body → opens a PR with the YAML
+# entry → a maintainer merges → GitHub Pages rebuilds → the report is live.
+# The PR review is the moderation step, so this never commits to main directly.
+#
+# Issue bodies are untrusted input: every value is emitted as an escaped,
+# double-quoted YAML scalar (newlines stripped or indented into a block), so a
+# crafted body can't inject YAML structure or extra entries.
+name: Compat report → PR
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  to-pr:
+    if: contains(github.event.issue.labels.*.name, 'compat-report')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+
+            // ── parse the issue-form body: "### <label>\n\n<value>" sections ──
+            const sections = {};
+            for (const m of body.matchAll(/###\s+([^\n]+)\n+([\s\S]*?)(?=\n###\s|$)/g)) {
+              sections[m[1].trim()] = m[2].trim();
+            }
+            const get = (label) => {
+              const k = Object.keys(sections).find(s => s.toLowerCase().startsWith(label.toLowerCase()));
+              const v = k ? sections[k] : '';
+              return (v === '_No response_' || v === 'None') ? '' : v;
+            };
+
+            const reportType = get('Report type');
+            const isBundle   = /^bundle/i.test(reportType);
+            const name       = get('Mod name');
+            const link       = get('Mod link');
+            const verRaw     = get('Mod version');
+            const host       = get('Host MC');
+            const loader     = (get('Mod loader') || 'fabric').toLowerCase();
+            const retromod   = get('Retromod version');
+            const badgeRaw   = get('Badge');
+            const summary    = get('One-line summary');
+            const details    = get('Details');
+            const bundleRaw  = get('Bundle mod list');
+
+            if (!name || !badgeRaw) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number,
+                body: 'Could not parse this report (missing mod name or badge). If you edited the issue freehand, please use the form fields — or a maintainer will add it manually.' });
+              return;
+            }
+
+            const badge = (badgeRaw.split('—')[0] || badgeRaw).trim().toLowerCase().split(/\s/)[0];
+            if (!['diamond','gold','iron','copper','borked'].includes(badge)) {
+              core.setFailed(`Unrecognized badge: ${badgeRaw}`); return;
+            }
+
+            // "2.5.2, built for 1.20.1" → version + source MC (best effort; PR is reviewed)
+            let modVersion = verRaw, sourceMc = '';
+            const bf = verRaw.match(/^(.*?)[,;]?\s*built\s+for\s+(.+)$/i);
+            if (bf) { modVersion = bf[1].trim(); sourceMc = bf[2].trim(); }
+
+            // ── safe YAML emission: escaped double-quoted scalars only ──
+            const q = (s) => '"' + String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]+/g, ' ').trim() + '"';
+            const today = new Date().toISOString().slice(0, 10);
+
+            let entry = `\n- name: ${q(name)}\n`;
+            if (isBundle) {
+              entry += `  bundle: true\n  badge: ${badge}\n  host_mc: ${q(host)}\n  loader: ${loader}\n  retromod: ${q(retromod)}\n  mods:\n`;
+              const lines = bundleRaw.split('\n').map(l => l.trim()).filter(Boolean);
+              for (const l of lines) {
+                const p = l.split('|').map(x => x.trim());
+                entry += `    - name: ${q(p[0] || '?')}\n`;
+                if (p[1]) entry += `      version: ${q(p[1])}\n`;
+                if (p[2]) entry += `      source_mc: ${q(p[2])}\n`;
+                if (p[3]) entry += `      link: ${q(p[3])}\n`;
+              }
+              if (!lines.length && link) entry += `    - name: ${q(name)}\n      link: ${q(link)}\n`;
+            } else {
+              entry += `  badge: ${badge}\n  mod_version: ${q(modVersion)}\n`;
+              if (sourceMc) entry += `  source_mc: ${q(sourceMc)}\n`;
+              entry += `  host_mc: ${q(host)}\n  loader: ${loader}\n  retromod: ${q(retromod)}\n`;
+              if (link) {
+                const site = /modrinth/i.test(link) ? 'modrinth' : /curseforge/i.test(link) ? 'curseforge' : 'github';
+                entry += `  links:\n    ${site}: ${q(link)}\n`;
+              }
+            }
+            entry += `  summary: ${q(summary || 'No summary given.')}\n`;
+            if (details) entry += `  details: ${q(details)}\n`;
+            entry += `  reporter: ${q(issue.user.login)}\n  date: ${q(today)}\n  issue: ${issue.number}\n`;
+
+            // ── branch + commit + PR ──
+            const path = 'docs/_data/compatdb.yml';
+            const base = context.payload.repository.default_branch;
+            const branch = `compat-report/issue-${issue.number}`;
+
+            const baseRef = await github.rest.git.getRef({ ...context.repo, ref: `heads/${base}` });
+            try {
+              await github.rest.git.createRef({ ...context.repo, ref: `refs/heads/${branch}`, sha: baseRef.data.object.sha });
+            } catch (e) { // branch exists (edited issue) → reset it to base
+              await github.rest.git.updateRef({ ...context.repo, ref: `heads/${branch}`, sha: baseRef.data.object.sha, force: true });
+            }
+
+            const file = await github.rest.repos.getContent({ ...context.repo, path, ref: base });
+            const current = Buffer.from(file.data.content, 'base64').toString('utf8');
+            await github.rest.repos.createOrUpdateFileContents({
+              ...context.repo, path, branch,
+              message: `compatdb: ${name} (${badge}) — from #${issue.number}`,
+              content: Buffer.from(current + entry).toString('base64'),
+              sha: file.data.sha,
+            });
+
+            const prs = await github.rest.pulls.list({ ...context.repo, state: 'open', head: `${context.repo.owner}:${branch}` });
+            let prUrl;
+            if (prs.data.length) {
+              prUrl = prs.data[0].html_url;
+            } else {
+              const pr = await github.rest.pulls.create({
+                ...context.repo, base, head: branch,
+                title: `Compat DB: ${name} — ${badge}`,
+                body: `Auto-generated from #${issue.number} (reported by @${issue.user.login}).\n\nReview the entry, then merge to publish it on the [Compatibility DB](https://bownlux.github.io/Retromod/compatdb/).\n\nCloses #${issue.number}.`,
+              });
+              prUrl = pr.data.html_url;
+            }
+            await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number,
+              body: `Thanks! Your report was converted into a database entry automatically: ${prUrl}\n\nOnce a maintainer merges it, it appears on the [Compatibility DB](https://bownlux.github.io/Retromod/compatdb/).` });
