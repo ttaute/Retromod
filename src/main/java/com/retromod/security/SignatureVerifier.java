@@ -21,18 +21,23 @@ import java.util.jar.JarFile;
 import java.util.jar.Manifest;
 
 /**
- * Checks whether the running Retromod build is the unmodified official one.
+ * Checks whether the running Retromod build still matches the published
+ * release hash — that the bytecode hasn't changed since it was shipped.
  *
  * <h2>How it works</h2>
  * The build embeds a SHA-256 of Retromod's own compiled classes
  * ({@link #EXPECTED_SELF_HASH}). At startup this class re-hashes its own
- * bytecode and compares: a match means "this is the official, unmodified
- * build"; a mismatch fires a fork notice in the log.
+ * bytecode and compares: a match reports {@link Status#VERIFIED} — the bytecode
+ * is unchanged from the published release; a mismatch fires a fork notice in
+ * the log.
  *
- * <h2>Important: this is an integrity check, not cryptographic anti-tamper</h2>
- * There is <b>no secret key</b>. A determined attacker who edits the bytecode
- * can simply recompute the embedded hash (or strip this class). So this does
- * <i>not</i> stop a deliberate impersonator. What it reliably catches is
+ * <h2>Why "verified" and not "official"</h2>
+ * A match means the hash lines up — <b>not</b> that this is provably the genuine
+ * official build. There is <b>no secret key</b>, so a determined attacker who
+ * edits the bytecode can recompute the embedded hash (or strip this class) and
+ * still show a match. We deliberately report {@link Status#VERIFIED} ("the hash
+ * checks out") rather than claiming officialness the in-jar hash can't prove.
+ * What it reliably catches is
  * <b>accidental corruption</b> (a truncated/garbled download) and
  * <b>casual modification</b> (a repack that didn't bother to update the hash) —
  * for those, a build that <i>quietly</i> differs from official stands out.
@@ -68,7 +73,7 @@ public final class SignatureVerifier {
      * this class is excluded from the hash, so re-embedding doesn't invalidate
      * it. See {@code docs/authenticity.md}.
      */
-    private static final String EXPECTED_SELF_HASH = "BB41F818511511447527093077C169C848A46C8B863C4FBA3105E3E1C1303A14";
+    private static final String EXPECTED_SELF_HASH = "4026E51F497C0999F02C686B5E0DA04894B6FC14296D8E477AA56AD36975A89E";
 
     /** This class's own jar entry — excluded from the hash (it carries the hash). */
     private static final String SELF_ENTRY = "com/retromod/security/SignatureVerifier.class";
@@ -138,11 +143,11 @@ public final class SignatureVerifier {
                         "Self-hash not embedded in this build", jarPath, actual);
             }
             if (actual.equalsIgnoreCase(expected)) {
-                return new VerificationResult(Status.OFFICIAL,
-                        "Bytecode matches the official build hash", jarPath, actual);
+                return new VerificationResult(Status.VERIFIED,
+                        "Bytecode matches the published release hash", jarPath, actual);
             }
             return new VerificationResult(Status.MODIFIED,
-                    "Bytecode differs from the official build hash", jarPath, actual);
+                    "Bytecode differs from the published release hash", jarPath, actual);
 
         } catch (Exception e) {
             return new VerificationResult(Status.UNKNOWN,
@@ -235,7 +240,7 @@ public final class SignatureVerifier {
 
     /**
      * @deprecated the notice is now emitted automatically by {@link #logResult}
-     *     whenever the status is not OFFICIAL. Kept as a no-op shim for any
+     *     whenever the status is not VERIFIED. Kept as a no-op shim for any
      *     external callers.
      */
     @Deprecated
@@ -245,7 +250,7 @@ public final class SignatureVerifier {
 
     private static void logResult(VerificationResult result) {
         switch (result.status()) {
-            case OFFICIAL -> LOGGER.info("[Retromod] ✓ Authenticity: OFFICIAL build — {}",
+            case VERIFIED -> LOGGER.info("[Retromod] ✓ Authenticity: VERIFIED — {}",
                     result.detail());
             case MODIFIED -> {
                 LOGGER.warn("[Retromod] ⚠ Authenticity: MODIFIED build — {}",
@@ -275,9 +280,9 @@ public final class SignatureVerifier {
     // ──────────────────────────────────────────────────────────────────────
 
     public enum Status {
-        /** Bytecode matches the embedded official hash — unmodified official build. */
-        OFFICIAL,
-        /** Bytecode differs from the official hash — a fork, repack, or corruption. */
+        /** Bytecode matches the embedded release hash — unchanged since publish. */
+        VERIFIED,
+        /** Bytecode differs from the release hash — a fork, repack, or corruption. */
         MODIFIED,
         /** Manifest says this JAR isn't Retromod at all. */
         IMPOSTOR,
@@ -288,8 +293,16 @@ public final class SignatureVerifier {
     public record VerificationResult(Status status, String detail,
                                      Path jarPath, String selfHash) {
 
-        /** Is this the unmodified official build? */
-        public boolean isOfficial() { return status == Status.OFFICIAL; }
+        /** Does the bytecode match the published release hash? */
+        public boolean isVerified() { return status == Status.VERIFIED; }
+
+        /**
+         * @deprecated a hash match doesn't prove provenance (no secret key), so
+         *     the status is {@link Status#VERIFIED}, not "official". Use
+         *     {@link #isVerified()}. Kept delegating for external callers.
+         */
+        @Deprecated
+        public boolean isOfficial() { return isVerified(); }
 
         /** Should the user be nudged that this might not be the genuine build? */
         public boolean isSuspicious() {
@@ -298,7 +311,7 @@ public final class SignatureVerifier {
 
         public String displayLine() {
             return switch (status) {
-                case OFFICIAL -> "§aOfficial Retromod build§r";
+                case VERIFIED -> "§aVerified build§r";
                 case MODIFIED -> "§eModified / unofficial build§r";
                 case IMPOSTOR -> "§cNot Retromod (manifest mismatch)§r";
                 case UNKNOWN  -> "§7Authenticity unknown§r";

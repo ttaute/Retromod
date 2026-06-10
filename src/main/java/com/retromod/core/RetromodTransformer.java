@@ -589,13 +589,58 @@ public class RetromodTransformer implements ClassFileTransformer {
      * implements the new interface.
      */
     public void registerSuperclassRedirect(String oldSuperclass, String newSuperclass, String... addInterfaces) {
-        superclassRedirects.put(oldSuperclass, new SuperclassRedirect(newSuperclass, addInterfaces));
+        superclassRedirects.put(oldSuperclass, new SuperclassRedirect(newSuperclass, addInterfaces, false));
         LOGGER.debug("Registered superclass redirect: {} -> {} (+ {} interfaces)",
                 oldSuperclass, newSuperclass, addInterfaces.length);
     }
-    
+
+    /**
+     * Rebase a class's superclass from {@code oldSuperclass} to {@code newSuperclass}
+     * (both <b>classes</b>), rewriting the {@code extends} clause <i>and</i> any
+     * {@code super(...)} constructor calls to the old base — but <b>nothing else</b>.
+     *
+     * <p>Use this when the new base provides the old base's constructors so subclasses
+     * keep linking (e.g. the pre-1.17 model bridge's {@code LegacyModelBase_*}). Unlike a
+     * plain {@link #registerClassRedirect} — which rewrites <i>every</i> reference to the
+     * old type, including a modern mod's mixin {@code @Inject} handler that merely captures
+     * it as a parameter (the #70 Arcanus crash) — this only touches the inheritance edge,
+     * so a mod that doesn't actually extend the base is unaffected. Other references stay
+     * as the old type, which is correct because the new base is a subtype of it.
+     */
+    public void registerSuperclassRebase(String oldSuperclass, String newSuperclass) {
+        superclassRedirects.put(oldSuperclass, new SuperclassRedirect(newSuperclass, new String[0], true));
+        LOGGER.debug("Registered superclass REBASE (extends + super ctor): {} -> {}",
+                oldSuperclass, newSuperclass);
+    }
+
+    /**
+     * TEST-ONLY: wipe all registered redirect state (class/method/field/constructor/
+     * superclass redirects, synthetic classes, embedded shims) so a test can assert on
+     * the <i>absence</i> of registrations — e.g. that a host-gated shim registers
+     * nothing on a pre-26.1 host. The singleton accumulates state across the whole
+     * JVM otherwise, which makes absence assertions meaningless.
+     *
+     * <p>Deliberately does NOT touch the intermediary/SRG mapping tables or pattern
+     * heuristics — those are loaded from bundled resources, not per-shim state.
+     * Never call this from production code.
+     */
+    public void clearRedirectsForTesting() {
+        methodRedirects.clear();
+        classRedirects.clear();
+        fieldRedirects.clear();
+        superclassRedirects.clear();
+        constructorRedirects.clear();
+        fieldAccessorRedirects.clear();
+        superCtorRedirects.clear();
+        syntheticClasses.clear();
+        embeddedShimClasses.clear();
+        methodRedirectOwners.clear();
+        classRedirectsVersion.incrementAndGet();
+        cachedRemapper = null;
+    }
+
     @Override
-    public byte[] transform(ClassLoader loader, String className, 
+    public byte[] transform(ClassLoader loader, String className,
             Class<?> classBeingRedefined, ProtectionDomain protectionDomain, 
             byte[] classfileBuffer) {
         
@@ -1368,15 +1413,21 @@ public class RetromodTransformer implements ClassFileTransformer {
             super(api, classVisitor);
         }
 
-        // Stored for fixing invokespecial on indirect interface methods
+        // Stored for fixing invokespecial on indirect interface methods.
+        // currentSuperName = EFFECTIVE direct superclass (post-rebase); used by the
+        // non-<init> super-call fixup so it targets the real direct super.
+        // currentSuperNameOriginal = the super as written in the source bytecode; used
+        // to recognize a super() <init> call that needs its owner rebased (#70).
         private String currentSuperName = null;
+        private String currentSuperNameOriginal = null;
         private Set<String> currentDirectInterfaces = Set.of();
 
         @Override
         public void visit(int version, int access, String name, String signature,
                 String superName, String[] interfaces) {
             this.currentClassName = name;
-            this.currentSuperName = superName;
+            this.currentSuperName = superName;            // effective (overwritten below if rebased)
+            this.currentSuperNameOriginal = superName;    // as written in source
             this.currentDirectInterfaces = interfaces != null
                 ? Set.of(interfaces) : Set.of();
             // Reset bridge generator for each new class
@@ -1402,6 +1453,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     LOGGER.debug("Rewriting superclass of {} from {} to {}",
                             name, superName, redirect.newSuperclass());
                     String newSuper = redirect.newSuperclass();
+                    this.currentSuperName = newSuper; // effective direct super is the new base
                     String[] newInterfaces = mergeInterfaces(interfaces, redirect.addInterfaces());
                     super.visit(version, access, name, signature, newSuper, newInterfaces);
                     return;
@@ -1449,12 +1501,15 @@ public class RetromodTransformer implements ClassFileTransformer {
             // TODO: Only apply bridges when the method ACTUALLY has the old descriptor
 
             MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-            // OPTIMIZATION: Only wrap if we have redirects
+            // OPTIMIZATION: Only wrap if we have redirects. superclassRedirects is included
+            // because a class→class rebase rewrites super(...) <init> owners in the method
+            // body (#70), and the non-<init> invokespecial fixup also lives in the wrapper.
             if (methodRedirects.isEmpty() && fieldRedirects.isEmpty() && constructorRedirects.isEmpty()
-                    && fieldAccessorRedirects.isEmpty()) {
+                    && fieldAccessorRedirects.isEmpty() && superclassRedirects.isEmpty()) {
                 return mv;
             }
-            return new RetromodMethodVisitor(api, mv, currentClassName, currentSuperName, currentDirectInterfaces);
+            return new RetromodMethodVisitor(api, mv, currentClassName, currentSuperName,
+                    currentSuperNameOriginal, currentDirectInterfaces);
         }
 
         @Override
@@ -1496,14 +1551,17 @@ public class RetromodTransformer implements ClassFileTransformer {
 
         // Inherited from enclosing RetromodClassVisitor for invokespecial fixups
         private final String classOwnName;
-        private final String classSuperName;
+        private final String classSuperName;          // effective (post-rebase) direct super
+        private final String classSuperNameOriginal;  // super as written in source (for #70 rebase match)
         private final Set<String> classDirectInterfaces;
 
         public RetromodMethodVisitor(int api, MethodVisitor methodVisitor,
-                String className, String superName, Set<String> directInterfaces) {
+                String className, String superName, String superNameOriginal,
+                Set<String> directInterfaces) {
             super(api, methodVisitor);
             this.classOwnName = className;
             this.classSuperName = superName;
+            this.classSuperNameOriginal = superNameOriginal;
             this.classDirectInterfaces = directInterfaces;
         }
 
@@ -1847,6 +1905,25 @@ public class RetromodTransformer implements ClassFileTransformer {
                 }
             }
 
+            // #70: rebased superclass — rewrite the super(...) <init> owner to the new base.
+            // Scoped to the DIRECT super() call (owner == the class's original superclass,
+            // and pendingNewClass == null so it's not a `new`), so it never touches other
+            // references to the base type (e.g. a mixin @Inject handler capturing it as a
+            // param — the Arcanus crash). Only fires for class→class rebases that opted in.
+            if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)
+                    && pendingNewClass == null
+                    && classSuperNameOriginal != null && owner.equals(classSuperNameOriginal)
+                    && !superclassRedirects.isEmpty()) {
+                SuperclassRedirect rebase = superclassRedirects.get(owner);
+                if (rebase != null && rebase.rewriteSuperCtor()) {
+                    LOGGER.debug("Rebased super() owner: {}.<init>{} -> {}",
+                            owner, descriptor, rebase.newSuperclass());
+                    super.visitMethodInsn(Opcodes.INVOKESPECIAL, rebase.newSuperclass(),
+                            name, descriptor, false);
+                    return;
+                }
+            }
+
             // OPTIMIZATION: Fast path - skip if owner not in our redirect set.
             // But still try pattern heuristics and fuzzy resolution for unresolved
             // references, since they cover the entire MC API surface.
@@ -1911,7 +1988,27 @@ public class RetromodTransformer implements ClassFileTransformer {
                         owner, name, descriptor,
                         target.owner, target.name, target.desc);
 
-                if (target.devirtualize()) {
+                // AUTO-DEVIRTUALIZE: an instance call whose redirect target takes
+                // exactly one extra parameter can only mean "receiver becomes arg 0"
+                // — an instance call cannot grow a parameter any other way (nothing
+                // here pushes extra args). Dozens of bridge redirects were registered
+                // through the 6-arg form without the devirtualize flag; emitting them
+                // as INVOKEVIRTUAL pops receiver+arg where only the receiver was
+                // pushed → stack underflow → ASM Frame.merge AIOOBE when Mixin
+                // recomputes frames over the broken handler (the spawn-mod
+                // MobBucketItemMixin bootstrap crash). Deciding at emit time fixes
+                // every such registration at once, past and future.
+                boolean devirt = target.devirtualize();
+                if (!devirt
+                        && (opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE)
+                        && org.objectweb.asm.Type.getArgumentTypes(target.desc()).length
+                           == org.objectweb.asm.Type.getArgumentTypes(descriptor).length + 1) {
+                    LOGGER.debug("Auto-devirtualizing redirect {}.{}{} -> {}.{}{} (receiver-as-arg0 shape)",
+                            owner, name, descriptor, target.owner, target.name, target.desc);
+                    devirt = true;
+                }
+
+                if (devirt) {
                     // Instance → static: change opcode and use static descriptor.
                     // INVOKESTATIC is never INVOKESPECIAL, so the helper is a no-op
                     // here, but use it for consistency with the other emission sites.
@@ -2129,7 +2226,7 @@ public class RetromodTransformer implements ClassFileTransformer {
         String setterOwner, String setterName, String setterDesc
     ) {}
     /** Superclass rewrite: changes extends + adds interface implementations. */
-    public record SuperclassRedirect(String newSuperclass, String[] addInterfaces) {}
+    public record SuperclassRedirect(String newSuperclass, String[] addInterfaces, boolean rewriteSuperCtor) {}
     /** Lookup key for constructor redirects: matches (class being constructed, constructor descriptor). */
     public record ConstructorKey(String className, String constructorDesc) {}
     /** Target of a constructor→factory redirect: the static method to call instead. */

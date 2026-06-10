@@ -123,11 +123,18 @@ public class GuiPolyfill implements PolyfillProvider {
             "net/minecraft/client/gui/FontRenderer",
             "net/minecraft/client/gui/Font");
 
-        // Old Gui utility class (1.12) → GuiComponent (1.17-1.19) → removed in 1.20
-        // Redirect to GuiComponent which the RenderingPolyfill handles further if needed
-        transformer.registerClassRedirect(
-            "net/minecraft/client/gui/Gui",
-            "net/minecraft/client/gui/GuiComponent");
+        // NO redirect for "net/minecraft/client/gui/Gui" — the name is ERA-AMBIGUOUS.
+        // In 1.12 MCP it was the static drawing helper (drawTexturedModalRect, …),
+        // but in Mojang official mappings (1.14.4+) the SAME FQN is the HUD class
+        // (the GuiIngame successor that mods mixin into constantly). The old
+        // Gui→GuiComponent redirect chained with GuiComponent→GuiGraphicsExtractor
+        // and hijacked every modern HUD reference: AppleSkin's InGameHudMixin had
+        // its @Mixin target rewritten class_329→Gui→…→GuiGraphicsExtractor while
+        // its @Inject selector still said Gui → InvalidInjectionException, HUD dead
+        // (caught in the snapshot.3 in-game pass). A 1.12 drawing-helper reference
+        // now resolves to the modern Gui class instead — semantically wrong for
+        // pre-1.13 mods, but those are below Retromod's supported floor, and the
+        // modern meaning must win.
 
         // InventoryEffectRenderer was removed — redirect to AbstractContainerScreen
         transformer.registerClassRedirect(

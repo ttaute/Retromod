@@ -96,9 +96,9 @@ Older source versions (pre-1.12.2) aren't supported because the mod ecosystem sh
 
 Newer target versions will be added as Minecraft releases them. Retromod is built around 26.1 specifically because it's the first fully unobfuscated MC release, which makes the mapping work straightforward.
 
-## What does it mean if the build isn't OFFICIAL?
+## What does it mean if the build isn't VERIFIED?
 
-Retromod compares the running build's code against an embedded hash of the official build. `OFFICIAL` means it matches. `MODIFIED` means it doesn't: a fork, a repack, a launcher that re-bundled it, or (rarely) a corrupted download. `UNKNOWN` is a dev/source build with no hash embedded. It's informational only and never blocks anything. For a real check, compare your file's SHA-256 against the one on the [releases page](https://github.com/Bownlux/Retromod/releases).
+Retromod compares the running build's code against a hash embedded at release time. `VERIFIED` means it matches — the bytecode is unchanged from what was published (it doesn't *prove* the build is genuine, since the hash has no secret key; it means the hash checks out). `MODIFIED` means it doesn't match: a fork, a repack, a launcher that re-bundled it, or (rarely) a corrupted download. `UNKNOWN` is a dev/source build with no hash embedded. It's informational only and never blocks anything. For a real check, compare your file's SHA-256 against the one on the [releases page](https://github.com/Bownlux/Retromod/releases).
 
 See [Authenticity]({{ '/authenticity' | relative_url }}) for the full breakdown of what each status means.
 
@@ -108,8 +108,9 @@ Partial compatibility. Sodium and Iris are mostly fine since they target modern 
 
 ## Is there a list of mods that work?
 
-Yes, two of them:
+Yes, three of them:
 
+- The [Compatibility DB]({{ '/compatdb' | relative_url }}) — community reports with badges (Diamond → Borked), the exact versions used, and details, ProtonDB-style. Add your own with the report form linked there.
 - The [compatibility list](https://github.com/Bownlux/Retromod/blob/main/COMPATIBILITY.md) covers mods confirmed to load after transformation, grouped by the MC version they were built for, plus a recommended multi-mod test setup.
 - [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}) is the "no" list and the rules behind it (rendering replacements, coremods, deep-integration mods like Create).
 

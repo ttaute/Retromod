@@ -1,0 +1,223 @@
+# Retromod community compatibility database (rendered by docs/compatdb.md).
+#
+# One entry per (mod + source version + host) combination that someone actually
+# ran. Add yours via the "Compatibility report" issue form on GitHub, or PR this
+# file directly. Keep details honest — "loads but X is broken" beats "works".
+#
+# Badges (pick ONE):
+#   diamond — indistinguishable from running natively; everything works
+#   gold    — fully playable; minor or cosmetic quirks only
+#   iron    — core features work; something noticeable is broken or inert
+#   copper  — loads and runs, but major features are missing/inert
+#   borked  — crashes or unusable
+#
+# Fields:
+#   name, badge, mod_version, source_mc (version the mod was built for),
+#   host_mc, loader (fabric|neoforge|forge), retromod (version used),
+#   links: {modrinth|curseforge|github: url}, summary (one line),
+#   details (longer, optional), reporter, date (YYYY-MM-DD), issue (optional #N)
+#
+# BUNDLE reports ("I used all these mods at once") — mods often behave
+# differently in combination. Set `bundle: true`, use `name` as a label for the
+# combo, and list the mods under `mods:` (each: name, version, source_mc,
+# link). One badge applies to the whole combo. If you can attribute the
+# failure to one mod, ALSO file a single-mod entry for it.
+
+- name: EMI
+  badge: gold
+  mod_version: "2.x"
+  source_mc: "1.21.1"
+  host_mc: "26.1.2"
+  loader: neoforge
+  retromod: "1.1.0-snapshot.3"
+  links:
+    modrinth: https://modrinth.com/mod/emi
+  summary: Recipe viewer loads and indexes recipes after the RecipesUpdatedEvent rename fix.
+  details: >-
+    Crashed at construct time on snapshot.2 and earlier
+    (NoClassDefFoundError: RecipesUpdatedEvent — the event was renamed in the
+    1.21.4 line). Fixed by a class redirect in snapshot.3; the listener only
+    re-triggers EMI's own reload, so the rename is all it needed.
+  reporter: Bownlux
+  date: 2026-06-10
+  issue: 82
+
+- name: Rubinated Nether
+  badge: gold
+  mod_version: "1.x"
+  source_mc: "1.21.1"
+  host_mc: "26.1.2"
+  loader: fabric
+  retromod: "1.1.0-snapshot.2"
+  links:
+    modrinth: https://modrinth.com/mod/rubinated-nether
+  summary: Content registers correctly once jar-in-jar libraries get their bytecode remapped.
+  details: >-
+    Loaded with no content before snapshot.2 — it registers everything through
+    the bundled Critter library, whose remapped nested bytecode was being
+    discarded. Fixed in snapshot.2 (#71): nested JIJ libraries keep their
+    remap now.
+  reporter: Bownlux
+  date: 2026-06-01
+  issue: 71
+
+- name: Arcanus Continuum
+  badge: borked
+  mod_version: "0.112.11"
+  source_mc: "1.20.1"
+  host_mc: "1.21.11"
+  loader: fabric
+  retromod: "1.1.0-snapshot.3"
+  links:
+    modrinth: https://modrinth.com/mod/arcanus
+  summary: Retromod no longer corrupts its mixins, but its bundled reach-entity-attributes still can't apply on 1.21.11.
+  details: >-
+    snapshot.3 fixed the Retromod-caused failure (the model bridge was
+    rewriting its mixin handler descriptors — #70). What remains is the mod's
+    own jar-in-jar reach-entity-attributes 2.4.0, whose 1.20.1-era mixins
+    target methods that changed by 1.21.11 (multiple critical injection
+    failures). Needs the mixin-handler re-typing work tracked for a later
+    release, or a 1.21.x build of the mod.
+  reporter: Bownlux
+  date: 2026-06-10
+  issue: 70
+
+- name: Deeper and Darker
+  badge: borked
+  mod_version: "1.3.3-plus-b"
+  source_mc: "1.21"
+  host_mc: "26.1.2"
+  loader: fabric
+  retromod: "1.1.0-snapshot.3"
+  links:
+    modrinth: https://modrinth.com/mod/deeperdarker
+  summary: Transforms cleanly but the game dies silently at the mod list when it loads.
+  details: >-
+    The transform itself completes (metadata patched, bridges embedded), but
+    the first boot with the transformed jar terminates the JVM right after the
+    mod list prints, with no exception, crash report, or hs_err. Under
+    investigation — the silent-death signature doesn't match any known
+    Retromod failure mode yet.
+  reporter: Bownlux
+  date: 2026-06-08
+
+- name: True Darkness Biomes
+  badge: copper
+  mod_version: "1.x"
+  source_mc: "1.20.1"
+  host_mc: "1.21.11"
+  loader: fabric
+  retromod: "1.1.0-snapshot.1"
+  links:
+    modrinth: https://modrinth.com/mod/true-darkness-refabricated
+  summary: Loads and plays after whole-class mixin stripping; the darkened-light rendering itself is inert.
+  details: >-
+    Crashed on world create before snapshot.1 (ClassCastException in its
+    LightTexture mixin). The render mixins are whole-class-stripped now (#68),
+    so worlds load — but that means the actual darkness effect doesn't apply.
+  reporter: Bownlux
+  date: 2026-05-29
+  issue: 68
+
+- name: Earth2Java
+  badge: iron
+  mod_version: "1.7.0"
+  source_mc: "1.16.4"
+  host_mc: "1.21.11"
+  loader: fabric
+  retromod: "1.0.1"
+  links:
+    modrinth: https://modrinth.com/mod/earth2java
+  summary: A 1.16 mod that loads on 1.21.11 after the item-group builder and InteractionResult bridges.
+  details: >-
+    Needed the FabricItemGroupBuilder overload fix (#57) and the pre-1.21.2
+    InteractionResult field-descriptor bridge. Mobs and items are present;
+    pre-1.17 custom model rendering depends on the model bridge and may show
+    visual gaps.
+  reporter: Bownlux
+  date: 2026-05-27
+  issue: 57
+
+- name: Spawn
+  badge: borked
+  mod_version: "1.0.3"
+  source_mc: "1.20.1"
+  host_mc: "26.1.2"
+  loader: fabric
+  retromod: "1.1.0-snapshot.3"
+  links:
+    modrinth: https://modrinth.com/mod/spawn-mod
+  summary: Loads to the title screen, but its 1.20.1 worldgen datapack can't parse on 26.1 — worlds won't load or create while it's installed.
+  details: >-
+    The bytecode side mostly works (the game reaches the title screen), but the
+    mod ships datapack worldgen — biomes, configured/placed features, carvers —
+    in 1.20.1 JSON formats that 26.1 can't parse (schema changes plus renamed
+    c: tag conventions). Registry loading fails, which blocks entering or
+    creating ANY world while the mod is present. Migrating datapack data across
+    MC versions is a separate subsystem Retromod doesn't have yet. Its entity
+    registration also trips a FabricEntityTypeBuilder inner-class gap (tracked).
+  reporter: Bownlux
+  date: 2026-06-10
+
+- name: AsyncParticles
+  badge: copper
+  mod_version: "5.3.0"
+  source_mc: "1.21.5"
+  host_mc: "1.21.11"
+  loader: fabric
+  retromod: "1.0.1"
+  links:
+    modrinth: https://modrinth.com/mod/asyncparticles
+  summary: The game runs with it installed, but the async-particle optimization (and its config) is inert on a non-matching host.
+  details: >-
+    AsyncParticles is coremod-class - it wraps the Mixin service itself and
+    generates conditional mixins at load time. On 1.21.11 its own machinery
+    cancels most of its mixins, and its core @Overwrite targets a
+    ParticleEngine method whose signature changed, so it cannot apply. An
+    @Overwrite body is the replacement code itself; no redirect can rewrite it
+    for a changed method. Listed on Mods That Can't Be Translated. (#63)
+  reporter: rorrem09-tech
+  date: 2026-05-30
+  issue: 63
+
+- name: "AppleSkin + Chunky (together)"
+  bundle: true
+  badge: borked
+  host_mc: "26.1.2"
+  loader: fabric
+  retromod: "1.1.0-snapshot.3"
+  mods:
+    - name: AppleSkin
+      version: "2.5.2"
+      source_mc: "1.20.1"
+      link: https://modrinth.com/mod/appleskin
+    - name: Chunky
+      version: "1.2.164"
+      source_mc: "1.18.2"
+      link: https://modrinth.com/mod/chunky
+  summary: Both load to the title screen together, but the world crashes on load in the server tick loop.
+  details: >-
+    Crash is attributable to Chunky - NoSuchMethodError on
+    TicketType.create(String, Comparator), the 1.18-era chunk-ticket API that
+    26.1 reworked. AppleSkin alone was not isolated in this run, which is
+    exactly what bundle reports are for. See the single-mod Chunky entry.
+  reporter: Bownlux
+  date: 2026-06-10
+
+- name: Chunky
+  badge: borked
+  mod_version: "1.2.164"
+  source_mc: "1.18.2"
+  host_mc: "26.1.2"
+  loader: fabric
+  retromod: "1.1.0-snapshot.3"
+  links:
+    modrinth: https://modrinth.com/mod/chunky
+  summary: Loads and registers, but any world crashes on load - its 1.18 chunk-ticket API call no longer exists.
+  details: >-
+    NoSuchMethodError in the server tick loop:
+    TicketType.create(String, Comparator). 26.1 reworked TicketType, and
+    Chunky creates its chunk-loading ticket with the old 1.18 signature.
+    Needs a TicketType bridge in Retromod (tracked) or a current Chunky build.
+  reporter: Bownlux
+  date: 2026-06-10

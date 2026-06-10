@@ -60,7 +60,7 @@ The full list, with the "if a mod does X, it won't translate" rules behind it, i
 
 Harmless in most cases. Retromod doesn't block anything based on authenticity status; see [Authenticity]({{ '/authenticity' | relative_url }}) for the full breakdown. The short version:
 
-- **OFFICIAL** means the running code matches the official build hash. Nothing to do.
+- **VERIFIED** means the running code matches the embedded release hash (unchanged from what was published). Nothing to do.
 - **MODIFIED** is a fork, a repack, a re-bundling launcher, or a corrupted download. Fine if you trust where you got it; if not, re-download and compare its SHA-256 against the [official releases page](https://github.com/Bownlux/Retromod/releases).
 - **IMPOSTOR** means the JAR doesn't even claim to be Retromod. If you didn't expect that, delete it and grab a fresh copy.
 

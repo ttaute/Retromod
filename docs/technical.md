@@ -104,16 +104,16 @@ Official builds embed a SHA-256 of Retromod's own classes. At startup, `Signatur
 
 | Status | Meaning |
 |--------|---------|
-| `OFFICIAL` | Bytecode matches the embedded official hash: the unmodified upstream build. |
-| `MODIFIED` | Bytecode differs from the official hash: a fork, a repack, or a corrupted download. |
+| `VERIFIED` | Bytecode matches the embedded release hash: unchanged from the published build. (A hash match isn't proof of provenance — there's no secret key — so the status says "verified," not "official.") |
+| `MODIFIED` | Bytecode differs from the release hash: a fork, a repack, or a corrupted download. |
 | `IMPOSTOR` | The manifest doesn't even claim to be Retromod. |
 | `UNKNOWN` | Can't tell: a dev/source build (no hash embedded), or not running from a JAR. |
 
 This is an integrity check, **not** cryptographic anti-tamper. There's no secret key, so a determined attacker can recompute the embedded hash. It catches accidental corruption and casual modification; for real verification, users compare the JAR's SHA-256 against the value published on the releases page.
 
-The official build emits a normal startup line like:
+The published build emits a normal startup line like:
 
-> `[Retromod] ✓ Authenticity: OFFICIAL build — Bytecode matches the official build hash`
+> `[Retromod] ✓ Authenticity: VERIFIED — Bytecode matches the published release hash`
 
 For any other status (`MODIFIED`, `IMPOSTOR`) the verifier **automatically** emits:
 
@@ -146,7 +146,7 @@ If your logs contain a fork-notice line and you thought you downloaded the offic
 2. If it came from a reputable modpack or fork you trust, the notice is expected. It just means the JAR isn't the official upstream build, so no action needed.
 3. If it came from a site you don't recognize, treat it as suspicious. It could be malware using the Retromod name.
 
-If you don't see any fork notice AND the authenticity log line isn't `OFFICIAL`, that's also a red flag: a legitimate fork maintainer should have added the notice.
+If you don't see any fork notice AND the authenticity log line isn't `VERIFIED`, that's also a red flag: a legitimate fork maintainer should have added the notice.
 
 ## The `Implementation-Title` check
 

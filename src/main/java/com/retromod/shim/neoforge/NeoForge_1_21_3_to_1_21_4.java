@@ -25,6 +25,17 @@ public class NeoForge_1_21_3_to_1_21_4 implements VersionShim {
             "net/neoforged/neoforge/data/event/GatherDataEvent",
             "net/neoforged/neoforge/data/event/GatherDataEvent$Client"
         );
+
+        // RecipesUpdatedEvent → RecipesReceivedEvent (#82). This is a 1.21.4-era
+        // change, not 26.1: the old event last shipped in NeoForge 1.21.1 (vanilla
+        // 1.21.2 stopped syncing the full RecipeManager) and the successor exists
+        // from 1.21.4 on, byte-identical through 26.1 (verified by branch diff).
+        // Living here, the redirect covers a 1.21.1 mod landing on ANY 1.21.4+
+        // host — the 26.1 shim's copy only covered the final hop.
+        transformer.registerClassRedirect(
+            "net/neoforged/neoforge/client/event/RecipesUpdatedEvent",
+            "net/neoforged/neoforge/client/event/RecipesReceivedEvent"
+        );
     }
 
     @Override public String[] getShimClasses() { return new String[0]; }

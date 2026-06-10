@@ -1,6 +1,6 @@
 # Retromod - Claude Development Guide
 
-Retromod transforms older Minecraft mod bytecode so old mods work on newer MC versions. It supports Fabric, NeoForge, and Forge with 145 version shims and 30 polyfill providers (328 redirects).
+Retromod transforms older Minecraft mod bytecode so old mods work on newer MC versions. It supports Fabric, NeoForge, and Forge with ~120 version shims and ~35 polyfill providers (counts drift — `grep -cv '^#' META-INF/services/...` for the current numbers).
 
 **Repository:** https://github.com/Bownlux/Retromod.git
 
@@ -58,7 +58,7 @@ mvn exec:java -Dexec.mainClass="com.retromod.cli.RetromodCli" -Dexec.args="<comm
 
 **Important:** Always pass `-Dexec.skip=true` during build to prevent Maven from running the CLI entrypoint.
 
-Output JAR: `target/retromod-1.1.0-snapshot.1.jar`
+Output JAR: `target/retromod-1.1.0-snapshot.3.jar`
 
 ## Release integrity (self-hash)
 
@@ -67,7 +67,7 @@ Official builds embed a SHA-256 of Retromod's own classes in `SignatureVerifier.
 **Embed the hash as the LAST release step** — any source change shifts it:
 ```bash
 mvn clean package -Dexec.skip=true                          # build the final jars
-python3 scripts/compute-self-hash.py target/retromod-1.1.0-snapshot.1-all.jar
+python3 scripts/compute-self-hash.py target/retromod-1.1.0-snapshot.3-all.jar
 # paste the 64-hex result into SignatureVerifier.EXPECTED_SELF_HASH, then rebuild
 ```
 Because the hash covers only Retromod's own code (not the relocated deps), **one value matches every per-loader dist jar** from `build-all.sh` (it strips bundled deps, not own classes — verified). In dev, leave `EXPECTED_SELF_HASH=""`: the verifier then reports `UNKNOWN` and logs the computed hash so you can grab it. No keystore, no signing.
@@ -75,7 +75,7 @@ Because the hash covers only Retromod's own code (not the relocated deps), **one
 ## Deploy to Minecraft
 
 ```bash
-cp target/retromod-1.1.0-snapshot.1.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.1.0-snapshot.1+26.1.jar
+cp target/retromod-1.1.0-snapshot.3.jar ~/Library/Application\ Support/minecraft/mods/retromod-1.1.0-snapshot.3+26.1.jar
 ```
 
 Game directory (macOS): `~/Library/Application Support/minecraft/`
@@ -118,8 +118,8 @@ Game directory (macOS): `~/Library/Application Support/minecraft/`
 ## ServiceLoader Registration
 
 Shims and polyfills are discovered via ServiceLoader:
-- `META-INF/services/com.retromod.core.VersionShim` — 145 entries
-- `META-INF/services/com.retromod.polyfill.PolyfillProvider` — 55 entries
+- `META-INF/services/com.retromod.core.VersionShim` (~120 entries)
+- `META-INF/services/com.retromod.polyfill.PolyfillProvider` (~35 entries)
 
 When adding a new shim or polyfill, ALWAYS register it in the corresponding services file.
 
@@ -128,6 +128,14 @@ When adding a new shim or polyfill, ALWAYS register it in the corresponding serv
 - **Framework:** JUnit 5 (Jupiter)
 - **Test file:** `src/test/java/com/retromod/RetromodTest.java`
 - **Run:** `mvn test -Dexec.skip=true`
+
+### Per-issue regression process (REQUIRED when fixing a reported issue)
+
+When you fix a user-reported issue, add a regression case for it to the **Retromod test mod** so the bug can't silently come back, then verify in-game:
+
+1. **Add a test case to the test mod for the affected loader.** The test-mod projects are `retromod-test-mod/` (Fabric), `retromod-test-mod-forge/` (Forge), and `retromod-test-mod-neoforge/` (NeoForge). If the bug is loader-specific, add it only to that loader's project. **If the bug can occur on multiple loaders, add the case to ALL of them.** Test cases follow the harness shape in `retromod-test-mod/src/main/java/com/retromod/testmod/tests/` — implement `Test` (a tiny `description()` + `run()` returning `TestResult`); the runner reports pass/fail per test in the launch log. Use the `TestNN<Name>` / load-to-verify pattern of `Test05SuperKeyPressed` for transform/verify regressions.
+2. **Then test Retromod end-to-end with BOTH** the test mod (the new case must pass) **and the actual mod that wasn't working** (it must now load/run). Deploy the proper per-loader dist jar from `build-all.sh` (NOT the raw `-all.jar` — it bundles ASM and hits a `LinkageError` on Fabric; build-all strips it).
+3. **Still add a JUnit unit test** for the fix at the transform level (it's the authoritative, host-independent guarantee). Some issues are host-version- or mappings-specific (e.g. a pre-26.1-only model-bridge bug) and can't be faithfully reproduced by the modern-MC test mod alone — for those, the JUnit test plus launching the failing mod is the real coverage, and the test-mod case is a smoke check.
 
 ## CI/CD
 

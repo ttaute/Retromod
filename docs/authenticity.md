@@ -5,13 +5,13 @@ nav_order: 7
 
 # Authenticity / build integrity
 
-Retromod includes a check that tells you whether the running build is the **unmodified official one**. It's purely informational: Retromod runs regardless of what it finds, and no feature is gated on it. This page explains how it works, what it can and can't promise, and how to verify a download.
+Retromod includes a check that tells you whether the running build still matches the **published release** — that its bytecode is unchanged since it shipped. It's purely informational: Retromod runs regardless of what it finds, and no feature is gated on it. This page explains how it works, what it can and can't promise, and how to verify a download.
 
 ## How it works
 
 The official build embeds a SHA-256 of Retromod's own compiled classes. At startup, the verifier re-hashes the running JAR's own bytecode and compares the two:
 
-- A match means this is the official, unmodified build.
+- A match means the bytecode is unchanged from the published release (status **VERIFIED**).
 - A mismatch means the code differs, so a fork notice is logged.
 
 The hash covers only Retromod's own `com/retromod/` classes, not the bundled libraries (ASM, Gson, …), which the per-loader builds strip or relocate. That's why one value is valid across every official Fabric/NeoForge/Forge dist JAR.
@@ -23,7 +23,7 @@ It's an **integrity / modification check**. It reliably catches:
 - Accidental corruption: a truncated or garbled download.
 - Casual modification: a repack or fork that changed the code but didn't update the embedded hash.
 
-It is **not** cryptographic anti-tamper. There's **no secret key**, so a determined attacker who edits the bytecode can simply recompute the embedded hash (or strip the check). Don't read "OFFICIAL" as a guarantee against a malicious actor; read it as "this looks like the unmodified upstream build."
+It is **not** cryptographic anti-tamper. There's **no secret key**, so a determined attacker who edits the bytecode can simply recompute the embedded hash (or strip the check). That's exactly why the status reads **VERIFIED** ("the hash checks out") rather than "official" — a match can't *prove* a build is the genuine upstream one, only that the bytecode is unchanged from whatever hash is embedded. Read it as "this looks like the unmodified upstream build," not as a guarantee against a malicious actor.
 
 **For real verification, compare hashes out-of-band.** Modrinth and GitHub publish a SHA-256 for every release file, shown on the download page. Compare the file you downloaded against that number. It lives on the trusted page, where a tamperer can't change it, and that's the part an in-jar hash can't provide.
 
@@ -36,11 +36,11 @@ It is also **not**:
 
 The verifier logs one of these at startup (search your log for `[Retromod] ... Authenticity:`):
 
-### OFFICIAL
-The running classes match the embedded official hash, i.e. the unmodified upstream build. This is what you get downloading a release straight from the [GitHub releases page](https://github.com/Bownlux/Retromod/releases) (or Modrinth) and not modifying it.
+### VERIFIED
+The running classes match the embedded release hash: the bytecode is unchanged from the published build. This is what you get downloading a release straight from the [GitHub releases page](https://github.com/Bownlux/Retromod/releases) (or Modrinth) and not modifying it. (It reads "verified," not "official," on purpose — see [What this is, and what it isn't](#what-this-is-and-what-it-isnt) for what a hash match can and can't prove.)
 
 ### MODIFIED
-The classes differ from the official hash: a fork, a repack, or (occasionally) a corrupted download. Not inherently malicious, just not byte-for-byte the official build. If you didn't expect that, re-check where you got the file and compare its SHA-256 against the official releases page.
+The classes differ from the release hash: a fork, a repack, or (occasionally) a corrupted download. Not inherently malicious, just not byte-for-byte the official build. If you didn't expect that, re-check where you got the file and compare its SHA-256 against the official releases page.
 
 ### IMPOSTOR
 The JAR's manifest doesn't even claim to be Retromod. This is the one to worry about. It's the shape of a deliberate attempt to pass something else off as Retromod. Don't run it; grab a fresh copy from GitHub.

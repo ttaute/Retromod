@@ -69,6 +69,7 @@ This is the obvious list. Everything here matches one or more of the general rul
 | **IndustrialCraft / IC2** | Very deep MC integration, coremod heritage, energy network internals are tied to MC's tick scheduler in ways that break on every major MC update. |
 | **Thaumcraft** | Magic systems tied to MC's internal aspect/research data structures, which change between versions. The mod has been redesigned multiple times and its older incarnations are tied to specific MC internals. |
 | **Botania** *(deep mixin variants)* | Heavily mixin-based with injection points tied to specific bytecode offsets. Some Botania features may load, but full-functionality compatibility is the same problem as Sodium/Iris below, only worse. |
+| **AsyncParticles** | Wraps the Mixin *service itself* (a custom `IClassBytecodeProvider` redirect plus a class-adjuster that generates conditional mixins at load time) and `@Overwrite`s particle-engine internals whose signatures shift between MC versions. The game runs with it installed, but its own machinery cancels most of its mixins on a non-matching host and the core `@Overwrite` can't find its target — so the optimization (and its config) is inert. An `@Overwrite` body *is* the replacement code; no redirect table can rewrite it for a changed method. (#63) |
 
 ### Rendering replacement / shader
 

@@ -87,7 +87,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
-        LOGGER.info("║  Retromod v1.1.0-snapshot.2                                ║");
+        LOGGER.info("║  Retromod v1.1.0-snapshot.3                                ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
         
         try {
@@ -97,8 +97,15 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                 gameDir = Path.of(".");
             }
             String targetVersion = getMinecraftVersion();
-            
+
             LOGGER.info("Target Minecraft version: {}", targetVersion);
+
+            // Publish the detected host BEFORE shims register: API shims self-gate on
+            // RetromodVersion.isUnobfuscatedTarget(RetromodVersion.TARGET_MC_VERSION)
+            // (the 26.1-only Fabric API bridges must not hijack still-alive pre-26.1
+            // APIs — pitfall #9). Without this, the field still holds its compile-time
+            // default during prelaunch and the gate mis-fires.
+            RetromodVersion.TARGET_MC_VERSION = targetVersion;
 
             // Step 0: Register shims BEFORE transforming so redirects are available.
             // Pass the host MC version so 26.1-only transformations (intermediary→Mojang

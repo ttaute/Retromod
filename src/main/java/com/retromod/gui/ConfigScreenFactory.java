@@ -114,10 +114,13 @@ public final class ConfigScreenFactory {
             int bottomMargin = 8;    // gap above screen edge
             int doneHeight   = 20;
             int doneGap      = 8;    // gap between content and Done button
+            int statusHeight = 16;   // authenticity status line above Done
+            int statusGap    = 4;
 
             int doneY = height - bottomMargin - doneHeight;
+            int statusY = doneY - statusGap - statusHeight;
             int contentTop = topMargin;
-            int contentBottom = doneY - doneGap;
+            int contentBottom = statusY - doneGap; // status band is reserved like Done
             int contentH = Math.max(50, contentBottom - contentTop);
 
             int rowWidth   = 300;
@@ -164,6 +167,19 @@ public final class ConfigScreenFactory {
                         makePressAction(() -> toggleAndRebuild(screen, config, parentScreen, key)),
                         startX + labelWidth + 4, rowY, toggleWidth, rowH);
                 addWidget(screen, toggleBtn);
+            }
+
+            // ── AUTHENTICITY STATUS LINE (label-style row above Done) ─────
+            // displayLine() is §-colored ("§aVerified build§r", …) and verify()
+            // is cached after the startup verifyAndLog(), so no I/O happens on
+            // the render thread. Informational only — pressing does nothing.
+            Object statusText = McI18n.literal(
+                    com.retromod.security.SignatureVerifier.verify().displayLine());
+            if (statusText != null) {
+                Object statusRow = buildButton(statusText,
+                        makePressAction(() -> { }),
+                        width / 2 - rowWidth / 2, statusY, rowWidth, statusHeight);
+                addWidget(screen, statusRow);
             }
 
             // ── DONE BUTTON (always at fixed bottom) ──────────────────────

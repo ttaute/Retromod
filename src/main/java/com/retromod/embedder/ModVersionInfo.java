@@ -21,17 +21,49 @@ public record ModVersionInfo(
 ) {
     /**
      * Check if this mod needs transformation to work on the target version.
+     *
+     * <p>The comparison precision follows what the mod actually declared, which is
+     * the key to getting both of these right at once:
+     *
+     * <ul>
+     *   <li><b>A specific patch version</b> ({@code "1.21.1"}, three components):
+     *       compared at full precision. A mod built for 1.21.1 on a 1.21.11 host
+     *       genuinely needs translation (MC changed APIs across those patches), so
+     *       {@code 1.21.1 < 1.21.11} → transform.</li>
+     *   <li><b>A whole-minor floor</b> ({@code "1.20"}, two components): compared at
+     *       minor precision. Forge mods declare their MC dependency as a range like
+     *       {@code [1.20,)}, so the detector reports the floor {@code "1.20"}. On a
+     *       1.20.1 host that's the same minor and the mod runs natively, so it's
+     *       skipped. Comparing the floor at patch precision was the #84 bug:
+     *       {@code "1.20" < "1.20.1"} wrongly looked like "needs transformation"
+     *       and Retromod backed up and rewrote a mod that already worked.</li>
+     * </ul>
+     *
+     * <p>So a 1.20.x mod on a 1.20.1 host is left alone (#84), while a 1.21.1 mod
+     * on a 1.21.11 host is still translated. A {@code null} or unparseable target
+     * is left alone rather than transformed on a guess.
      */
     public boolean needsTransformation(String currentMcVersion) {
-        if (targetMcVersion == null || targetMcVersion.equals(currentMcVersion)) {
+        if (targetMcVersion == null || currentMcVersion == null
+                || targetMcVersion.equals(currentMcVersion)) {
             return false;
         }
-        
-        // Parse and compare versions
+
         int[] target = parseVersion(targetMcVersion);
         int[] current = parseVersion(currentMcVersion);
-        
-        // Needs transformation if built for older version
+        if (target.length < 2 || current.length < 2) {
+            return false; // unparseable version on either side — don't guess
+        }
+
+        // Compare at the precision the MOD declared. A bare major.minor target
+        // (e.g. "1.20", a Forge range floor) is a whole-minor declaration → compare
+        // minor-to-minor so same-minor patches don't trigger a needless transform.
+        // A specific "major.minor.patch" target is compared in full so an older
+        // patch on a newer-patch host (1.21.1 → 1.21.11) is correctly translated.
+        if (target.length == 2) {
+            int[] currentMinor = {current[0], current[1]};
+            return compareVersions(target, currentMinor) < 0;
+        }
         return compareVersions(target, current) < 0;
     }
     

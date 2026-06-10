@@ -203,33 +203,52 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
         // NeoForge API renames/deprecations in the 26.1 update
         // ============================================================
 
-        // IItemHandler → ItemHandler (NeoForge dropped "I" prefix convention)
+        // NO handler-interface redirects: the old capability interfaces SURVIVE in
+        // 26.1 (verified against neoforge-26.1.2.60-beta-universal.jar) —
+        // items/IItemHandler, items/IItemHandlerModifiable, fluids/capability/
+        // IFluidHandler and energy/IEnergyStorage all still ship (deprecated since
+        // the 1.21.9 Transfer Rework, slated for removal later, but present). The
+        // previous "dropped-I-prefix" redirects here pointed at classes that DON'T
+        // EXIST (items/ItemHandler, fluids/FluidHandler) or at the wrong thing
+        // entirely (energy/EnergyStorage is the concrete impl class, not a renamed
+        // interface — redirecting the interface onto it corrupts `implements`
+        // clauses), so they broke every item/fluid/energy-handler mod they touched.
+        // (ForgeSpawnEggItem also dropped: neither it nor NeoForgeSpawnEggItem
+        // exists in 26.1 — spawn eggs went data-driven — so that redirect just
+        // swapped one missing class for another.)
+
+        // BlockEvent$BreakEvent → level/block/BreakBlockEvent (26.1 moved block
+        // events into their own subpackage; same ctor shape, still cancellable —
+        // verified in the 26.1.2 universal jar). Block-break listeners are one of
+        // the most common event subscriptions in content mods.
         transformer.registerClassRedirect(
-            "net/neoforged/neoforge/items/IItemHandler",
-            "net/neoforged/neoforge/items/ItemHandler"
-        );
-        transformer.registerClassRedirect(
-            "net/neoforged/neoforge/items/IItemHandlerModifiable",
-            "net/neoforged/neoforge/items/ItemHandlerModifiable"
+            "net/neoforged/neoforge/event/level/BlockEvent$BreakEvent",
+            "net/neoforged/neoforge/event/level/block/BreakBlockEvent"
         );
 
-        // IFluidHandler → FluidHandler
+        // RenderLevelStageEvent stage-inner renames (26.1 render-pipeline pass
+        // split; verified in the 26.1.2 universal jar). $AfterEntities → the opaque
+        // feature pass (where entities render); $AfterParticles → translucent
+        // particles. ($AfterTripwireBlocks was removed with no successor — left
+        // unmapped on purpose.) NeoForge events are classes dispatched by exact
+        // type, so a class redirect retargets both the listener's parameter and
+        // the subscription — no SAM/lambda hazard.
         transformer.registerClassRedirect(
-            "net/neoforged/neoforge/fluids/IFluidHandler",
-            "net/neoforged/neoforge/fluids/FluidHandler"
+            "net/neoforged/neoforge/client/event/RenderLevelStageEvent$AfterEntities",
+            "net/neoforged/neoforge/client/event/RenderLevelStageEvent$AfterOpaqueFeatures"
+        );
+        transformer.registerClassRedirect(
+            "net/neoforged/neoforge/client/event/RenderLevelStageEvent$AfterParticles",
+            "net/neoforged/neoforge/client/event/RenderLevelStageEvent$AfterTranslucentParticles"
         );
 
-        // IEnergyStorage → EnergyStorage
+        // RecipesUpdatedEvent → RecipesReceivedEvent (26.1 client-event rename).
+        // EMI and other recipe-viewer mods listen for this on the client; the old
+        // name was deleted, so they crash at construct time with
+        // NoClassDefFoundError: net/neoforged/neoforge/client/event/RecipesUpdatedEvent (#82).
         transformer.registerClassRedirect(
-            "net/neoforged/neoforge/energy/IEnergyStorage",
-            "net/neoforged/neoforge/energy/EnergyStorage"
-        );
-
-        // ForgeSpawnEggItem → NeoForgeSpawnEggItem (already renamed in earlier versions,
-        // but some older NeoForge mods still reference the Forge name)
-        transformer.registerClassRedirect(
-            "net/neoforged/neoforge/common/ForgeSpawnEggItem",
-            "net/neoforged/neoforge/common/NeoForgeSpawnEggItem"
+            "net/neoforged/neoforge/client/event/RecipesUpdatedEvent",
+            "net/neoforged/neoforge/client/event/RecipesReceivedEvent"
         );
 
         // ============================================================

@@ -110,10 +110,9 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientWorldEvents",
             "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientLevelEvents"
         );
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/event/lifecycle/v1/ServerWorldEvents",
-            "net/fabricmc/fabric/api/event/lifecycle/v1/ServerLevelEvents"
-        );
+        // ServerWorldEvents → ServerLevelEvents is handled by FabricServerWorldEventsShim,
+        // NOT a plain redirect: the $Load/$Unload SAM methods renamed
+        // onWorldLoad/onWorldUnload → onLevelLoad/onLevelUnload (a lambda trap).
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderEvents",
             "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderEvents"
@@ -125,6 +124,34 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/event/lifecycle/v1/ServerEntityWorldChangeEvents",
             "net/fabricmc/fabric/api/entity/event/v1/ServerEntityLevelChangeEvents"
+        );
+        // Tick-event inner interfaces: $Start/EndWorldTick → $Start/EndLevelTick.
+        // The 26.1 Fabric API finished the World→Level rename on these nested SAMs
+        // (the outer ClientTickEvents/ServerTickEvents kept their names). The SAM
+        // methods (onStartTick/onEndTick) are UNCHANGED — only the parameter went
+        // ClientWorld/ServerWorld → ClientLevel/ServerLevel, which the 26.1
+        // intermediary→Mojang harvest already remaps in the mod's lambda — so this
+        // is a true redirect, not a lambda trap (verified the host has only the
+        // $*LevelTick inners, with the same onStartTick/onEndTick descriptor).
+        // The 1.16.5→1.17 shim has the same entries, but its chain only covers
+        // ≤1.16 mods; a 1.19–1.21 mod reaches 26.1 through this shim, so the
+        // redirect has to live here too (audit: ClientTickEvents$EndWorldTick was a
+        // sole blocker for ~10 mods despite the outer class resolving fine).
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartWorldTick",
+            "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartLevelTick"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$EndWorldTick",
+            "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$EndLevelTick"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartWorldTick",
+            "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartLevelTick"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndWorldTick",
+            "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndLevelTick"
         );
 
         // --- ScreenHandler → Menu renames ---
@@ -142,10 +169,13 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         );
 
         // --- ItemGroup → CreativeTab renames ---
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/itemgroup/v1/ItemGroupEvents",
-            "net/fabricmc/fabric/api/creativetab/v1/CreativeModeTabEvents"
-        );
+        // NOTE: ItemGroupEvents itself (the holder + its ModifyEntries/ModifyEntriesAll
+        // SAMs) is handled by FabricItemGroupEventsShim, NOT a plain class redirect:
+        // CreativeModeTabEvents renamed modifyEntriesEvent→modifyOutputEvent (so a
+        // redirect would NoSuchMethodError) and the SAM method renamed
+        // modifyEntries→modifyOutput (a lambda trap). Only the straight data-class
+        // renames live here. FabricItemGroupEntries→FabricCreativeModeTabOutput MUST
+        // stay: the shim's addAfter→insertAfter method renames key on the new owner.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/itemgroup/v1/FabricItemGroup",
             "net/fabricmc/fabric/api/creativetab/v1/FabricCreativeModeTab"
@@ -154,21 +184,16 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/itemgroup/v1/FabricItemGroupEntries",
             "net/fabricmc/fabric/api/creativetab/v1/FabricCreativeModeTabOutput"
         );
-        // Client-side itemgroup package
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/client/itemgroup/v1/ItemGroupEvents",
-            "net/fabricmc/fabric/api/creativetab/v1/CreativeModeTabEvents"
-        );
 
         // --- Rendering renames ---
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/BlockRenderLayerMap",
             "com/retromod/generated/legacyfabric/BlockRenderLayerMap"
         );
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/client/rendering/v1/EntityModelLayerRegistry",
-            "net/fabricmc/fabric/api/client/rendering/v1/ModelLayerRegistry"
-        );
+        // EntityModelLayerRegistry → ModelLayerRegistry is handled by
+        // FabricEntityModelLayerShim, NOT a plain redirect: the provider SAM renamed
+        // createModelData → createLayerDefinition (a lambda trap; same LayerDefinition
+        // return type, so only the SAM name needs bridging).
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/LivingEntityFeatureRendererRegistrationCallback",
             "net/fabricmc/fabric/api/client/rendering/v1/LivingEntityRenderLayerRegistrationCallback"
@@ -507,6 +532,55 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/registry/FabricPotionBrewingBuilder"
         );
 
+        // --- 26.1 batch verified against fabric-api 0.145.4 + the official ---
+        // --- migration map (docs.fabricmc.net/develop/porting/fabric-api)  ---
+        // Particle API: factory → provider naming. The inner SAM kept its method
+        // name (`create`) — only its param type changed (FabricSpriteProvider →
+        // FabricSpriteSet, redirected below), so the inner redirect is lambda-safe
+        // (verified by javap on both jars, same rule as the tick events).
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/client/particle/v1/ParticleFactoryRegistry",
+            "net/fabricmc/fabric/api/client/particle/v1/ParticleProviderRegistry"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/client/particle/v1/ParticleFactoryRegistry$PendingParticleFactory",
+            "net/fabricmc/fabric/api/client/particle/v1/ParticleProviderRegistry$PendingParticleProvider"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/client/particle/v1/FabricSpriteProvider",
+            "net/fabricmc/fabric/api/client/particle/v1/FabricSpriteSet"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/client/particle/v1/ParticleRendererRegistry",
+            "net/fabricmc/fabric/api/client/particle/v1/ParticleGroupRegistry"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/particle/v1/FabricBlockStateParticleEffect",
+            "net/fabricmc/fabric/api/particle/v1/FabricBlockParticleOption"
+        );
+        // Rendering/texture + item/poi/entity-data/gamerule renames (straight
+        // class renames, old gone + new present in 0.145.4).
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/client/rendering/v1/AtlasSourceRegistry",
+            "net/fabricmc/fabric/api/client/rendering/v1/SpriteSourceRegistry"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/item/v1/ComponentTooltipAppenderRegistry",
+            "net/fabricmc/fabric/api/item/v1/ItemComponentTooltipProviderRegistry"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/object/builder/v1/world/poi/PointOfInterestHelper",
+            "net/fabricmc/fabric/api/object/builder/v1/world/poi/PoiHelper"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/object/builder/v1/entity/FabricTrackedDataRegistry",
+            "net/fabricmc/fabric/api/object/builder/v1/entity/FabricEntityDataRegistry"
+        );
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/gamerule/v1/FabricGameRuleVisitor",
+            "net/fabricmc/fabric/api/gamerule/v1/FabricGameRuleTypeVisitor"
+        );
+
 
         // ============================================================
         // FABRIC API METHOD RENAMES
@@ -516,9 +590,12 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         // ScreenEvents: render → extract renames
         // The inner interfaces were renamed (AfterRender → AfterExtract, etc.)
         // AND the SAM method name changed (afterRender → afterExtract).
-        // We generate synthetic stub interfaces with the OLD method names so that
-        // old mod lambdas can be created without NoClassDefFoundError.
-        // The callbacks won't actually fire (wrong method name in Event), but the mod loads.
+        // We generate synthetic interfaces with the OLD method names so that
+        // old mod lambdas can be created without NoClassDefFoundError. Each synthetic
+        // EXTENDS the renamed interface and bridges it with a default method
+        // (afterExtract → afterRender), so the old interface stays functional (one
+        // abstract method), registration into the real Event<AfterExtract> works
+        // natively, and the callbacks DO fire — no reflection involved.
         transformer.registerSyntheticClass(
             "net/fabricmc/fabric/api/client/screen/v1/ScreenEvents$AfterRender",
             generateScreenEventInterface("AfterRender", "afterRender"));

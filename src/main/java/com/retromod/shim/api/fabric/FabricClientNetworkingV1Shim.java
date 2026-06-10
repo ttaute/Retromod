@@ -100,6 +100,18 @@ public class FabricClientNetworkingV1Shim implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
+        // 26.1+ hosts ONLY (pitfall #9). The synthetic SAM deliberately declares
+        // MOJANG param types (see class javadoc) — on a pre-26.1 intermediary runtime
+        // those don't resolve, so the redirect would turn a clean
+        // ClassNotFoundException into a LambdaConversionException at link time. The
+        // bridge's reflective contracts are also only verified against 26.1.
+        if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
+                com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
+            LOGGER.debug("[Retromod] client-networking v1 bridge skipped (host {} < 26.1)",
+                    com.retromod.core.RetromodVersion.TARGET_MC_VERSION);
+            return;
+        }
+
         // (0) The reflective bridge is a real compiled class (java.* only) — embed it
         //     into every transformed mod jar so the redirected static calls resolve.
         transformer.registerEmbeddedShim(BRIDGE.replace('/', '.'));

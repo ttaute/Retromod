@@ -47,7 +47,7 @@ public class AotCompiler {
     private static final String AOT_MANIFEST_KEY = "Retromod-AOT-Version";
     
     // Current AOT compiler version (bump when shims change)
-    private static final String AOT_VERSION = "1.1.0-snapshot.2";
+    private static final String AOT_VERSION = "1.1.0-snapshot.3";
 
     // Lazily-cached self-hash of the running Retromod jar. Used to stamp every AOT
     // cache entry so that ANY change to Retromod's own classes — release-to-release

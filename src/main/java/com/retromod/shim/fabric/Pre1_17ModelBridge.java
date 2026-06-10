@@ -148,7 +148,13 @@ public final class Pre1_17ModelBridge {
             String legacy = "com/retromod/generated/LegacyModelBase_"
                     + base.substring(base.lastIndexOf('_') + 1);
             transformer.registerSyntheticClass(legacy, generateLegacyBase(legacy, base, oldDescs));
-            transformer.registerClassRedirect(base, legacy);
+            // #70: rebase the EXTENDS + super(...) only — NOT a global class redirect.
+            // A plain class redirect rewrote EVERY reference to the base, including a
+            // modern (1.20.1) mod's mixin @Inject handler that merely captures it as a
+            // parameter (Arcanus: "Expected (class_583) but found (LegacyModelBase_583)").
+            // The rebase touches only the inheritance edge; LegacyModelBase_<N> is a
+            // subtype of the base, so untouched references stay valid.
+            transformer.registerSuperclassRebase(base, legacy);
         }
 
         probeHostModelApi();

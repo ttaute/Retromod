@@ -107,7 +107,31 @@ public class RetromodTest {
             "net/minecraft/world/level/storage/loot/parameters/LootContextParamSets"),
             "the plural LootContextParamSets must NOT be redirected");
     }
-    
+
+    @Test
+    @DisplayName("Fabric 26.1 shim redirects tick-event $WorldTick inners → $LevelTick (safe SAM)")
+    void testTickEventInnerRedirects26_1() {
+        // snapshot.3: the 26.1 Fabric API renamed the nested tick SAMs
+        // $Start/EndWorldTick → $Start/EndLevelTick while keeping the outer
+        // ClientTickEvents/ServerTickEvents names and the onStartTick/onEndTick SAM
+        // method. The pre-existing entries lived only in the 1.16.5→1.17 shim,
+        // whose chain never covers a 1.19–1.21 mod, so those mods broke on 26.1.
+        // This is a true redirect (verified against fabric-api 0.145.4: host has
+        // only the $*LevelTick inners with the same descriptor), not a lambda trap.
+        new Fabric_1_21_11_to_26_1().registerRedirects(transformer);
+        var cr = transformer.getClassRedirects();
+
+        assertEquals("net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$EndLevelTick",
+            cr.get("net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$EndWorldTick"),
+            "ClientTickEvents$EndWorldTick must redirect to $EndLevelTick on 26.1");
+        assertEquals("net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartLevelTick",
+            cr.get("net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartWorldTick"));
+        assertEquals("net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndLevelTick",
+            cr.get("net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndWorldTick"));
+        assertEquals("net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartLevelTick",
+            cr.get("net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartWorldTick"));
+    }
+
     // =========================================================
     // SHIM CHAIN RESOLUTION TESTS
     // =========================================================
