@@ -62,6 +62,20 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
 #empty { text-align:center; color:var(--fg2); padding:2em 0; display:none; }
 .legend { display:flex; flex-wrap:wrap; gap:.9em; justify-content:center; color:var(--fg2); font-size:.8em; margin:.4em 0 0; }
 .dot { display:inline-block; width:.7em; height:.7em; border-radius:50%; margin-right:.3em; vertical-align:baseline; }
+/* mode toggle + audit view */
+.modes { display:flex; gap:.5em; justify-content:center; margin:1.1em 0 .2em; }
+.mode { padding:.45em 1.2em; border-radius:10px; border:1px solid var(--line); background:var(--bg3); color:var(--fg2); cursor:pointer; font-size:.95em; font-weight:600; }
+.mode.active { color:#10222b; background:var(--accent); border-color:var(--accent); }
+#audit { display:none; }
+.banner { background:#2a2417; border:1px solid #5c4d1f; color:#e8d9a0; border-radius:10px; padding:.7em 1em; font-size:.88em; margin:.8em 0; }
+.arow { display:flex; gap:.8em; align-items:baseline; padding:.5em .7em; border-bottom:1px solid var(--line); font-size:.92em; }
+.arow:hover { background:var(--bg2); }
+.apill { flex:0 0 64px; text-align:center; font-size:.72em; font-weight:800; border-radius:999px; padding:.15em 0; color:#10141a; }
+.p-clean { background:#7fe7a8; } .p-gaps { background:var(--copper); } .p-fail { background:var(--borked); } .p-skip { background:#6b7280; color:#e8eaed; }
+.arow .nm { font-weight:600; min-width:0; }
+.arow .mt { color:var(--fg2); font-size:.85em; white-space:nowrap; }
+.arow .gp { color:var(--fg2); font-size:.8em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; text-align:right; }
+#more { display:block; margin:1em auto; padding:.5em 1.4em; border-radius:10px; border:1px solid var(--line); background:var(--bg3); color:var(--fg); cursor:pointer; }
 /* submit panel */
 .submit { background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:1.1em 1.2em; margin:2em 0 0; }
 .submit h2 { margin:.1em 0 .4em; font-size:1.15em; }
@@ -102,6 +116,10 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
     <div><b>{{ nborked }}</b> borked</div>
   </div>
   <div class="searchwrap"><input id="q" type="search" placeholder="Search mods…" autocomplete="off"></div>
+  <div class="modes">
+    <button class="mode active" data-mode="community">💬 Community reports</button>
+    <button class="mode" data-mode="audit">🔬 Audit — top 5,000 Modrinth mods</button>
+  </div>
   <div class="filters" id="f-badge">
     <button class="chip active" data-filter="all">All</button>
     <button class="chip" data-filter="diamond">⛏ Diamond</button>
@@ -163,6 +181,28 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
   </div>
   <p id="empty">No reports match. Be the first — add yours below. 👇</p>
 
+  <div id="audit">
+    <div class="banner">
+      🔬 <b>Static audit, not gameplay.</b> The top 5,000 Modrinth mods were run through Retromod
+      1.1.0-snapshot.2's transform (target MC 26.1.2, May 30 2026) and checked for unresolved
+      Minecraft/Fabric-API references — <b>Clean = transforms with zero unresolved references</b>,
+      which is necessary but not sufficient for "works in game" (runtime behavior, datapacks, and
+      bridge-backed APIs aren't measured; bridge fixes since the audit aren't reflected). Treat
+      Gaps as "needs Retromod work or a port", not as a verdict on the mod. Community reports
+      above are the ground truth — <a href="#add">add yours</a>.
+    </div>
+    <div class="filters" id="f-verdict">
+      <button class="chip active" data-verdict="all">All</button>
+      <button class="chip" data-verdict="clean">✅ Clean transform</button>
+      <button class="chip" data-verdict="gaps">⚠️ API gaps</button>
+      <button class="chip" data-verdict="fail">✖ Transform failed</button>
+      <button class="chip" data-verdict="skip">⏭ Skipped</button>
+    </div>
+    <div class="count" id="acount"></div>
+    <div id="alist"></div>
+    <button id="more" style="display:none">Show more</button>
+  </div>
+
   <div class="submit" id="add">
     <h2>Add your report</h2>
     <p>Fill this in and hit submit — it opens a <b>pre-filled</b> GitHub report (you just press one button there). A bot then turns it into a pull request against the database automatically; once a maintainer merges, your report is live. No YAML, no manual issue writing. <span style="opacity:.8">(A GitHub account is the only requirement — it's what keeps spam out.)</span></p>
@@ -214,8 +254,70 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
   }
   wire('f-badge','filter',function(v){badge=v;});
   wire('f-loader','loader',function(v){loader=v;});
-  document.getElementById('q').addEventListener('input',function(e){q=e.target.value.trim().toLowerCase();apply();});
   apply();
+
+  // ── audit tab: lazy-loaded static-analysis results ──
+  var mode='community', audit=null, averdict='all', ashown=0, PAGE=250;
+  var PILL={clean:['p-clean','CLEAN'],gaps:['p-gaps','GAPS'],fail:['p-fail','FAIL'],skip:['p-skip','SKIP']};
+  function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+  function afilter(){
+    if(!audit)return[];
+    return audit.filter(function(r){
+      return (averdict==='all'||r.v===averdict)&&(q===''||(r.t+' '+r.s).toLowerCase().indexOf(q)!==-1);
+    });
+  }
+  function arender(reset){
+    var rows=afilter();
+    if(reset){document.getElementById('alist').innerHTML='';ashown=0;}
+    var frag=document.createDocumentFragment();
+    rows.slice(ashown,ashown+PAGE).forEach(function(r){
+      var d=document.createElement('div');d.className='arow';
+      var p=PILL[r.v]||PILL.skip;
+      d.innerHTML='<span class="apill '+p[0]+'">'+p[1]+'</span>'
+        +'<span class="nm"><a href="https://modrinth.com/mod/'+encodeURIComponent(r.s)+'">'+esc(r.t)+'</a></span>'
+        +'<span class="mt">'+esc(r.m||'?')+' · '+esc(r.l||'')+'</span>'
+        +(r.g?'<span class="gp" title="'+esc(r.g)+'">'+esc(r.g)+'</span>':'<span class="gp"></span>');
+      frag.appendChild(d);
+    });
+    document.getElementById('alist').appendChild(frag);
+    ashown=Math.min(ashown+PAGE,rows.length);
+    document.getElementById('acount').textContent=ashown+' of '+rows.length+' audited mods (sorted by downloads)';
+    document.getElementById('more').style.display=ashown<rows.length?'':'none';
+  }
+  document.getElementById('more').addEventListener('click',function(){arender(false);});
+  var vbox=document.getElementById('f-verdict');
+  vbox.addEventListener('click',function(ev){
+    var b=ev.target.closest('.chip');if(!b)return;
+    vbox.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});
+    b.classList.add('active');averdict=b.dataset.verdict;arender(true);
+  });
+  function setMode(m){
+    mode=m;
+    document.querySelectorAll('.mode').forEach(function(x){x.classList.toggle('active',x.dataset.mode===m);});
+    var community=(m==='community');
+    document.getElementById('list').style.display=community?'':'none';
+    document.getElementById('count').style.display=community?'':'none';
+    document.getElementById('empty').style.display='none';
+    document.getElementById('f-badge').style.display=community?'':'none';
+    document.getElementById('f-loader').style.display=community?'':'none';
+    document.getElementById('audit').style.display=community?'none':'';
+    if(community){apply();}
+    else if(audit){arender(true);}
+    else{
+      document.getElementById('acount').textContent='Loading 5,751 audit results…';
+      fetch('{{ "/assets/compatdb-audit.json" | relative_url }}')
+        .then(function(r){return r.json();})
+        .then(function(d){audit=d;arender(true);})
+        .catch(function(){document.getElementById('acount').textContent='Could not load audit data.';});
+    }
+  }
+  document.querySelectorAll('.mode').forEach(function(b){
+    b.addEventListener('click',function(){setMode(b.dataset.mode);});
+  });
+  document.getElementById('q').addEventListener('input',function(e){
+    q=e.target.value.trim().toLowerCase();
+    if(mode==='community'){apply();}else{arender(true);}
+  });
 
   // submit panel → pre-filled GitHub issue-form URL (the bot converts it to a PR)
   var typeSel=document.getElementById('s-type');
