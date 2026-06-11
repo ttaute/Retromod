@@ -155,6 +155,10 @@ public class ForgeModTransformer {
             // Step 2.6: Handle access wideners/classtweakers (cross-loader mods)
             stripAccessWideners(tempDir);
 
+            // Step 2.7: On a NeoForge (1.20.2+) host, strip the Mixin
+            // synthetic-args dummy package some 1.20.1-era Forge mods ship (#87).
+            stripMixinSyntheticPackage(tempDir);
+
             // Step 3: Update mods.toml / neoforge.mods.toml
             updateModsToml(tempDir, "META-INF/mods.toml");
             updateModsToml(tempDir, "META-INF/neoforge.mods.toml");
@@ -517,6 +521,65 @@ public class ForgeModTransformer {
         Files.delete(forgeToml); // NeoForge keys off the filename; drop the legacy one
         LOGGER.info("Promoted META-INF/mods.toml -> neoforge.mods.toml for NeoForge {} "
                 + "(was rejected as a Forge/old-NeoForge mod) (#42)", targetMcVersion);
+    }
+
+    /**
+     * Strip the Mixin synthetic-args dummy package from the extracted mod (#87).
+     *
+     * <p>Some 1.20.1-era Forge mods (Blueprint 7.x and mods built from its
+     * template) ship a placeholder class at
+     * {@code org/spongepowered/asm/synthetic/args/Dummy.class} so their own
+     * module exports Mixin's runtime-generated args package — a hack old Forge
+     * needed for {@code @ModifyArgs} handlers to resolve generated Args classes.
+     * NeoForge 1.20.2+ creates its own {@code mixin_synthetic} module that owns
+     * that package, so a mod jar still shipping the dummy makes module
+     * resolution fail for the WHOLE layer the moment any module reads both
+     * exporters ("Modules blueprint and mixin_synthetic export package
+     * org.spongepowered.asm.synthetic.args ..."), killing the game at boot.
+     *
+     * <p>Nothing references the dummy class itself, so removing it is safe.
+     * Gated to NeoForge 1.20.2+ hosts: on old Forge hosts the hack is still
+     * load-bearing and must survive the transform.
+     */
+    private void stripMixinSyntheticPackage(Path tempDir) throws IOException {
+        if (!com.retromod.util.McReflect.isNeoForge()) return;
+        if (RetromodVersion.mcVersionExceeds("1.20.2", targetMcVersion)) return;
+
+        if (stripMixinSyntheticEntries(tempDir)) {
+            LOGGER.info("Stripped org/spongepowered/asm/synthetic/ from mod jar — NeoForge's "
+                    + "mixin_synthetic module owns that package (#87)");
+        }
+    }
+
+    /**
+     * The host-agnostic mechanism behind {@link #stripMixinSyntheticPackage}:
+     * delete {@code org/spongepowered/asm/synthetic/} from the extracted tree,
+     * then prune ancestor directories that became empty (so the repackaged jar
+     * doesn't even declare the parent packages). A mod that shades full Mixin
+     * keeps its other {@code org/spongepowered/asm/} content — only the
+     * runtime-generated synthetic package is never legitimate to ship.
+     * Package-private for tests.
+     */
+    static boolean stripMixinSyntheticEntries(Path tempDir) throws IOException {
+        Path synthetic = tempDir.resolve("org/spongepowered/asm/synthetic");
+        if (!Files.exists(synthetic)) return false;
+
+        try (var walk = Files.walk(synthetic)) {
+            walk.sorted(Comparator.reverseOrder()).forEach(p -> {
+                try { Files.delete(p); } catch (IOException ignored) {}
+            });
+        }
+
+        // Prune now-empty ancestors (org/spongepowered/asm, org/spongepowered, org)
+        Path parent = synthetic.getParent();
+        while (parent != null && !parent.equals(tempDir)) {
+            try (var children = Files.list(parent)) {
+                if (children.findAny().isPresent()) break;
+            }
+            Files.delete(parent);
+            parent = parent.getParent();
+        }
+        return true;
     }
 
     /**

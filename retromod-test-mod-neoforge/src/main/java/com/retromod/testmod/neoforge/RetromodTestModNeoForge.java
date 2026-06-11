@@ -167,6 +167,21 @@ public class RetromodTestModNeoForge {
         // since alpha and is a safe field to probe for.
         n++; passed += check(n, "SoundEvents.AMBIENT_CAVE", () -> SoundEvents.AMBIENT_CAVE != null);
 
+        // ─── #87: Mixin synthetic-args dummy must be stripped ───────────
+        // This mod's SOURCE jar deliberately ships
+        // org/spongepowered/asm/synthetic/args/Dummy.class (the old-Forge
+        // export hack Blueprint-era mods use). On a NeoForge 1.20.2+ host
+        // the transform must strip that package — the host's own
+        // mixin_synthetic module owns it, and a jar still shipping it fails
+        // JPMS resolution for the whole module layer at boot. Booting far
+        // enough to run this check is most of the assertion; the resource
+        // lookup confirms the entries are really gone from the jar.
+        // (Only meaningful on the TRANSFORMED jar — on a same-version host
+        // the mod is passed through untransformed and this check fails.)
+        n++; passed += check(n, "#87 mixin synthetic-args dummy stripped from jar", () ->
+            getClass().getClassLoader()
+                .getResource("org/spongepowered/asm/synthetic/args/Dummy.class") == null);
+
         LOG.info("{} SUMMARY: {}/{} passed", PREFIX, passed, n);
     }
 
