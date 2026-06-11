@@ -138,10 +138,16 @@ public class ObfuscationRemapper extends ClassVisitor {
                 }
                 case 'L' -> {
                     int end = descriptor.indexOf(';', i);
-                    String className = descriptor.substring(i + 1, end);
-                    String newClassName = database.mapClass(sourceVersion, targetVersion, className);
-                    result.append('L').append(newClassName).append(';');
-                    i = end + 1;
+                    if (end < 0) {
+                        // malformed (no ';'): substring(i+1, -1) would throw — pass the tail through unchanged
+                        result.append(descriptor, i, descriptor.length());
+                        i = descriptor.length();
+                    } else {
+                        String className = descriptor.substring(i + 1, end);
+                        String newClassName = database.mapClass(sourceVersion, targetVersion, className);
+                        result.append('L').append(newClassName).append(';');
+                        i = end + 1;
+                    }
                 }
                 case '(' -> {
                     result.append('(');

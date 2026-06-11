@@ -214,7 +214,8 @@ public class RetromodGui {
                 try {
                     // Step 1: Check Modrinth for native version
                     var modrinthResult = com.retromod.core.ModrinthVersionChecker
-                        .checkForNativeVersion(modFile.toPath(), "1.21.1");
+                        .checkForNativeVersion(modFile.toPath(),
+                            com.retromod.core.Retromod.TARGET_MC_VERSION);
                     
                     if (modrinthResult.found()) {
                         // Found native version! Ask user what to do

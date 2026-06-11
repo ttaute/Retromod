@@ -1647,17 +1647,21 @@ public class RetromodTransformer implements ClassFileTransformer {
                     case 'L' -> {
                         // Object type → push null
                         super.visitInsn(Opcodes.ACONST_NULL);
-                        i = paramFragment.indexOf(';', i) + 1;
+                        int end = paramFragment.indexOf(';', i);
+                        if (end < 0) return; // malformed (no ';'): indexOf+1 would reset i to 0 and spin forever emitting ACONST_NULL
+                        i = end + 1;
                     }
                     case '[' -> {
                         // Array type → push empty array
                         i++; // skip '['
                         if (i < paramFragment.length() && paramFragment.charAt(i) == 'L') {
                             // Object array: push ICONST_0 + ANEWARRAY
-                            String elementType = paramFragment.substring(i + 1, paramFragment.indexOf(';', i));
+                            int end = paramFragment.indexOf(';', i);
+                            if (end < 0) return; // malformed
+                            String elementType = paramFragment.substring(i + 1, end);
                             super.visitInsn(Opcodes.ICONST_0);
                             super.visitTypeInsn(Opcodes.ANEWARRAY, elementType);
-                            i = paramFragment.indexOf(';', i) + 1;
+                            i = end + 1;
                         } else {
                             // Primitive array: push ICONST_0 + NEWARRAY
                             super.visitInsn(Opcodes.ICONST_0);

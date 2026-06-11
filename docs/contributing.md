@@ -22,7 +22,7 @@ cd Retromod
 mvn package -q -DskipTests -Dexec.skip=true
 ```
 
-If that produces `target/retromod-1.1.0-snapshot.3.jar`, you're good. Java 25 is required. See [Troubleshooting]({{ '/troubleshooting' | relative_url }}) if the build complains about class file versions.
+If that produces `target/retromod-1.1.0-snapshot.4.jar`, you're good. Java 25 is required. See [Troubleshooting]({{ '/troubleshooting' | relative_url }}) if the build complains about class file versions.
 
 ## The skills
 
@@ -77,8 +77,8 @@ Tests use JUnit 5. When adding a new shim or polyfill, add a test for it. Even a
 After building:
 
 ```bash
-cp target/retromod-1.1.0-snapshot.3.jar \
-  ~/Library/Application\ Support/minecraft/mods/retromod-1.1.0-snapshot.3+26.1.jar
+cp target/retromod-1.1.0-snapshot.4.jar \
+  ~/Library/Application\ Support/minecraft/mods/retromod-1.1.0-snapshot.4+26.1.jar
 ```
 
 Adjust the path for your OS (see [Installation]({{ '/installation' | relative_url }})). Drop a test mod in `retromod-input/`, launch, see what happens. For repeated test cycles, the `build-and-deploy` skill automates this.

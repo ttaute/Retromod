@@ -167,7 +167,7 @@ public class FullAotCompiler {
                 }
                 
                 long elapsed = System.currentTimeMillis() - startTime;
-                
+
                 LOGGER.info("═══════════════════════════════════════════════════════════");
                 LOGGER.info("  FULL AOT COMPILATION COMPLETE!");
                 LOGGER.info("═══════════════════════════════════════════════════════════");
@@ -175,19 +175,26 @@ public class FullAotCompiler {
                 LOGGER.info("  Time: {} seconds", elapsed / 1000);
                 LOGGER.info("  Future launches will use cached bytecode!");
                 LOGGER.info("═══════════════════════════════════════════════════════════");
-                
-                // Notify listeners
-                for (ProgressListener listener : listeners) {
-                    listener.onComplete(compiledClasses, elapsed);
-                }
-                
+
                 return compiledClasses;
-                
+
             } catch (Exception e) {
                 LOGGER.error("Full AOT compilation failed", e);
                 return compiledClasses;
             } finally {
                 isRunning = false;
+                // Notify in finally — on ANY exit (success, Exception, even an
+                // Error from bytecode work) listeners must hear onComplete, or
+                // the modal progress dialog is never disposed and sits at N%
+                // forever looking like it's still compiling.
+                long elapsed = System.currentTimeMillis() - startTime;
+                for (ProgressListener listener : listeners) {
+                    try {
+                        listener.onComplete(compiledClasses, elapsed);
+                    } catch (Exception e) {
+                        LOGGER.debug("Progress listener failed: {}", e.getMessage());
+                    }
+                }
             }
         });
     }
@@ -516,7 +523,9 @@ public class FullAotCompiler {
             addProgressListener(listener);
             
             // Start compilation in background
-            runFullCompilation(modsToCompile).thenRun(() -> {
+            // whenComplete, not thenRun: an exceptionally-completed future must
+            // still remove the listener or it leaks into the next compilation.
+            runFullCompilation(modsToCompile).whenComplete((r, t) -> {
                 removeProgressListener(listener);
             });
             

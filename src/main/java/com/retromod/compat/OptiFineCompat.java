@@ -54,7 +54,7 @@ public class OptiFineCompat {
             
             // Check filename
             String name = jarPath.getFileName().toString().toLowerCase();
-            if (name.contains("optifine") || name.contains("optifine")) {
+            if (name.contains("optifine")) {
                 return true;
             }
             
@@ -130,38 +130,48 @@ public class OptiFineCompat {
     
     /**
      * Show GUI warning about OptiFine.
+     *
+     * Blocks the calling (mod-transform) thread until the user picks an option,
+     * via invokeAndWait — the choice must come back to THIS thread so the
+     * "Cancel" RuntimeException reaches FabricModTransformer's cancelled-handler
+     * (thrown on the EDT it would vanish into AWT's exception handler).
      */
     private static void showOptiFineWarningDialog() {
-        SwingUtilities.invokeLater(() -> {
+        if (GraphicsEnvironment.isHeadless()) {
+            return; // log warning already printed; nothing to show
+        }
+
+        final int[] choiceHolder = {JOptionPane.CLOSED_OPTION};
+        Runnable showDialog = () -> {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception ignored) {}
-            
+
             String message = """
                 ⚠️ OptiFine Detected!
-                
+
                 Retromod has LIMITED support for OptiFine.
-                
+
                 KNOWN ISSUES:
                 • May crash with other rendering mods
                 • Shader support may not work correctly
                 • Performance may actually be worse
                 • Some features may be completely broken
-                
+
                 ═══════════════════════════════════════
-                
+
                 RECOMMENDED ALTERNATIVES:
-                
+
                 • Sodium - Much better FPS optimization
                 • Iris - Full shader support
                 • Both work perfectly with Retromod!
-                
+
                 ═══════════════════════════════════════
-                
+
                 What would you like to do?
                 """;
-            
-            int choice = JOptionPane.showOptionDialog(
+
+            choiceHolder[0] = JOptionPane.showOptionDialog(
                 null,
                 message,
                 "Retromod - OptiFine Warning",
@@ -171,41 +181,38 @@ public class OptiFineCompat {
                 new String[]{"Open Sodium Page", "Continue Anyway", "Cancel"},
                 "Open Sodium Page"
             );
-            
-            if (choice == 0) {
-                // Open Sodium page
-                try {
-                    Desktop.getDesktop().browse(URI.create("https://modrinth.com/mod/sodium"));
-                } catch (Exception e) {
-                    JOptionPane.showMessageDialog(null, 
-                        "Please visit: https://modrinth.com/mod/sodium",
-                        "Open Browser",
-                        JOptionPane.INFORMATION_MESSAGE);
-                }
-            } else if (choice == 2) {
-                // Cancel - don't transform
-                throw new RuntimeException("User cancelled OptiFine installation");
-            }
-            // choice == 1: Continue anyway
-        });
-        
-        // Wait for dialog
+        };
+
         try {
-            Thread.sleep(100);
-            while (true) {
-                // Check if dialog is still showing
-                Window[] windows = Window.getWindows();
-                boolean dialogOpen = false;
-                for (Window w : windows) {
-                    if (w.isVisible() && w instanceof JDialog) {
-                        dialogOpen = true;
-                        break;
-                    }
-                }
-                if (!dialogOpen) break;
-                Thread.sleep(100);
+            if (SwingUtilities.isEventDispatchThread()) {
+                showDialog.run();
+            } else {
+                SwingUtilities.invokeAndWait(showDialog);
             }
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return; // treat as "continue anyway"
+        } catch (Exception e) {
+            LOGGER.debug("Could not show OptiFine warning dialog: {}", e.getMessage());
+            return;
+        }
+
+        int choice = choiceHolder[0];
+        if (choice == 0) {
+            // Open Sodium page
+            try {
+                Desktop.getDesktop().browse(URI.create("https://modrinth.com/mod/sodium"));
+            } catch (Exception e) {
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null,
+                    "Please visit: https://modrinth.com/mod/sodium",
+                    "Open Browser",
+                    JOptionPane.INFORMATION_MESSAGE));
+            }
+        } else if (choice == 2) {
+            // Cancel - don't transform
+            throw new RuntimeException("User cancelled OptiFine installation");
+        }
+        // choice == 1 (or dialog closed): Continue anyway
     }
     
     /**

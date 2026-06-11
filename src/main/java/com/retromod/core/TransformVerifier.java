@@ -389,7 +389,9 @@ public final class TransformVerifier {
         while (i < desc.length() && desc.charAt(i) != ')') {
             char c = desc.charAt(i);
             if (c == 'L') {
-                i = desc.indexOf(';', i) + 1;
+                int end = desc.indexOf(';', i);
+                if (end < 0) break; // malformed (no ';'): indexOf+1 would reset i and spin forever
+                i = end + 1;
                 count++;
             } else if (c == '[') {
                 i++;

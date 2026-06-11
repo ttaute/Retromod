@@ -495,13 +495,17 @@ public class MixinCompatibilityTransformer {
                 i++;
             } else if (c == 'L') {
                 slots++;
-                i = desc.indexOf(';', i) + 1;
+                int end = desc.indexOf(';', i);
+                if (end < 0) break; // malformed (no ';'): indexOf+1 would reset i and spin forever
+                i = end + 1;
             } else if (c == '[') {
                 i++;
                 // Skip array dimensions
                 while (i < desc.length() && desc.charAt(i) == '[') i++;
                 if (i < desc.length() && desc.charAt(i) == 'L') {
-                    i = desc.indexOf(';', i) + 1;
+                    int end = desc.indexOf(';', i);
+                    if (end < 0) break; // malformed
+                    i = end + 1;
                 } else {
                     i++; // primitive array
                 }

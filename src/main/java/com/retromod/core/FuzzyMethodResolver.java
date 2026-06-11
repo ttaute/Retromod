@@ -1079,7 +1079,7 @@ public class FuzzyMethodResolver {
                 case 'L' -> {
                     // Object type: read until ';'
                     int end = descriptor.indexOf(';', i);
-                    if (end < 0) break; // malformed
+                    if (end < 0) return params; // malformed — 'break' here only exits the SWITCH, leaving i stuck and the while spinning
                     params.add(descriptor.substring(start, end + 1));
                     i = end + 1;
                 }
@@ -1088,7 +1088,7 @@ public class FuzzyMethodResolver {
                     while (i < descriptor.length() && descriptor.charAt(i) == '[') i++;
                     if (i < descriptor.length() && descriptor.charAt(i) == 'L') {
                         int end = descriptor.indexOf(';', i);
-                        if (end < 0) break;
+                        if (end < 0) return params; // malformed — same switch-break trap
                         params.add(descriptor.substring(start, end + 1));
                         i = end + 1;
                     } else if (i < descriptor.length()) {

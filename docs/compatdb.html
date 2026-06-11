@@ -134,7 +134,7 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
     <button class="chip" data-loader="neoforge">NeoForge</button>
     <button class="chip" data-loader="forge">Forge</button>
   </div>
-  <div class="legend">
+  <div class="legend" id="legend">
     <span><span class="dot" style="background:var(--diamond)"></span>indistinguishable from native</span>
     <span><span class="dot" style="background:var(--gold)"></span>minor quirks</span>
     <span><span class="dot" style="background:var(--iron)"></span>something broken</span>
@@ -213,7 +213,7 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
       <div><label>Mod version + built-for MC</label><input id="s-ver" placeholder="2.5.2, built for 1.20.1"></div>
       <div><label>Host MC you ran it on</label><input id="s-host" placeholder="26.1.2"></div>
       <div><label>Loader</label><select id="s-loader"><option>Fabric</option><option>NeoForge</option><option>Forge</option></select></div>
-      <div><label>Retromod version</label><input id="s-rm" placeholder="1.1.0-snapshot.3"></div>
+      <div><label>Retromod version</label><input id="s-rm" placeholder="1.1.0-snapshot.4"></div>
       <div><label>Badge</label><select id="s-badge">
         <option>Diamond — indistinguishable from native; everything works</option>
         <option>Gold — fully playable; minor or cosmetic quirks only</option>
@@ -242,7 +242,7 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
       c.style.display=ok?'':'none'; if(ok)n++;
     });
     document.getElementById('count').textContent=n+' / '+cards.length+' reports';
-    document.getElementById('empty').style.display=n?'none':'';
+    document.getElementById('empty').style.display=n?'none':'block';
   }
   function wire(id,attr,set){
     var box=document.getElementById(id);
@@ -300,7 +300,9 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
     document.getElementById('empty').style.display='none';
     document.getElementById('f-badge').style.display=community?'':'none';
     document.getElementById('f-loader').style.display=community?'':'none';
-    document.getElementById('audit').style.display=community?'none':'';
+    document.getElementById('legend').style.display=community?'':'none';
+    /* explicit 'block': '' would fall back to the stylesheet's display:none */
+    document.getElementById('audit').style.display=community?'none':'block';
     if(community){apply();}
     else if(audit){arender(true);}
     else{
@@ -322,7 +324,7 @@ details.more p { color:var(--fg2); font-size:.92em; margin:.4em 0 0; }
   // submit panel → pre-filled GitHub issue-form URL (the bot converts it to a PR)
   var typeSel=document.getElementById('s-type');
   typeSel.addEventListener('change',function(){
-    document.getElementById('bundlebox').style.display = typeSel.value.indexOf('Bundle')===0 ? '' : 'none';
+    document.getElementById('bundlebox').style.display = typeSel.value.indexOf('Bundle')===0 ? 'block' : 'none';
   });
   document.getElementById('go').addEventListener('click',function(){
     var v=function(id){return document.getElementById(id).value.trim();};
