@@ -40,6 +40,7 @@ com.retromod.shim.fabric.Fabric_1_21_10_to_1_21_11
 
 # Fabric shim (1.21.11 → 26.1 — the big unobfuscation jump)
 com.retromod.shim.fabric.Fabric_1_21_11_to_26_1
+com.retromod.shim.fabric.Fabric_26_1_to_26_2
 
 # ============================================================
 # NEOFORGE SHIMS - Legacy versions (1.20.1 → 1.21)
@@ -67,6 +68,7 @@ com.retromod.shim.neoforge.NeoForge_1_21_10_to_1_21_11
 
 # NeoForge shim (1.21.11 → 26.1 — the big unobfuscation jump)
 com.retromod.shim.neoforge.NeoForge_1_21_11_to_26_1
+com.retromod.shim.neoforge.NeoForge_26_1_to_26_2
 
 # ============================================================
 # FORGE SHIMS - Legacy versions (1.12.2 → 1.20)
@@ -107,6 +109,7 @@ com.retromod.shim.forge.Forge_1_21_10_to_1_21_11
 
 # Forge shim (1.21.11 → 26.1 — the big unobfuscation jump)
 com.retromod.shim.forge.Forge_1_21_11_to_26_1
+com.retromod.shim.forge.Forge_26_1_to_26_2
 
 # ============================================================
 # POPULAR API SHIMS
@@ -124,6 +127,7 @@ com.retromod.shim.api.fabric.FabricItemGroupEventsShim
 com.retromod.shim.api.fabric.FabricServerWorldEventsShim
 com.retromod.shim.api.fabric.FabricEntityModelLayerShim
 com.retromod.shim.api.fabric.FabricHudRenderCallbackShim
+com.retromod.shim.api.fabric.FabricRenamedSamBridgesShim
 com.retromod.shim.api.fabric.FabricConventionTagsShim
 com.retromod.shim.api.fabric.FabricBlockSettingsShim
 com.retromod.shim.api.fabric.FabricBlockRenderLayerBridge

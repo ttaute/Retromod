@@ -1,0 +1,487 @@
+/*
+ * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Copyright (c) 2026 Bownlux. Licensed under MIT License.
+ */
+package com.retromod.shim.common;
+
+import com.retromod.core.RetromodTransformer;
+
+/**
+ * Minecraft 26.1 → 26.2 core class moves and renames, shared by the Fabric,
+ * NeoForge, and Forge 26.1→26.2 shims (Mojang-named on every loader, so the
+ * list is loader-independent; ShimRegistry's BFS is strictly per-loader,
+ * which is why each loader gets its own thin shim wrapping this).
+ *
+ * <p>Harvested by {@code scripts/harvest-mc-diff.py} from the real
+ * {@code 26.1.2} and {@code 26.2-rc-1} client jars (member-fingerprint
+ * matching), then hand-verified. The bulk: 26.2 split
+ * {@code advancements/criterion/*} into {@code advancements/triggers/*} and
+ * {@code advancements/predicates/*}. Notables:
+ * <ul>
+ *   <li>Slime/MagmaCube moved to {@code monster/cubemob/} with an extracted
+ *       {@code AbstractCubeMob} base — Slime's AI inner classes became
+ *       {@code AbstractCubeMob$CubeMob*} (and {@code SlimePredicate} became
+ *       {@code CubeMobPredicate}).</li>
+ *   <li>{@code contextualbar} renderers dropped their {@code Renderer}
+ *       suffix ({@code ExperienceBarRenderer} → {@code ExperienceBar}).</li>
+ *   <li>{@code SubmitNodeStorage}'s per-feature {@code *Submit} records
+ *       moved into {@code renderer/feature/*FeatureRenderer$Submit}.</li>
+ * </ul>
+ *
+ * <p>Deliberately NOT here: {@code client/gui/Gui} — 26.2 SPLIT it (HUD
+ * parts went to the new {@code Hud} class) but {@code Gui} itself survives,
+ * so a class redirect would hijack a live class (the #snapshot.3 Gui-hijack
+ * lesson). Known 26.2 REMOVALS with no successor (need bridges, tracked):
+ * {@code MultiBufferSource}(!), {@code Tesselator}, {@code VertexFormat$Mode},
+ * {@code util/Tuple}, {@code ShareToLanScreen}.
+ */
+public final class Mc26_1To26_2CoreMoves {
+
+    private Mc26_1To26_2CoreMoves() {}
+
+    public static void register(RetromodTransformer t) {
+        t.registerClassRedirect("com/mojang/blaze3d/pipeline/RenderPipeline$UniformDescription",
+                "com/mojang/blaze3d/pipeline/BindGroupLayout$UniformDescription");
+
+        t.registerClassRedirect("net/minecraft/advancements/CriteriaTriggers",
+                "net/minecraft/advancements/triggers/CriteriaTriggers");
+        t.registerClassRedirect("net/minecraft/advancements/Criterion",
+                "net/minecraft/advancements/triggers/Criterion");
+        t.registerClassRedirect("net/minecraft/advancements/CriterionTrigger",
+                "net/minecraft/advancements/triggers/CriterionTrigger");
+
+        t.registerClassRedirect("net/minecraft/advancements/criterion/AnyBlockInteractionTrigger",
+                "net/minecraft/advancements/triggers/AnyBlockInteractionTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/AnyBlockInteractionTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/AnyBlockInteractionTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/BeeNestDestroyedTrigger",
+                "net/minecraft/advancements/triggers/BeeNestDestroyedTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/BeeNestDestroyedTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/BeeNestDestroyedTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/BlockPredicate",
+                "net/minecraft/advancements/predicates/BlockPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/BlockPredicate$Builder",
+                "net/minecraft/advancements/predicates/BlockPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/BredAnimalsTrigger",
+                "net/minecraft/advancements/triggers/BredAnimalsTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/BredAnimalsTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/BredAnimalsTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/BrewedPotionTrigger",
+                "net/minecraft/advancements/triggers/BrewedPotionTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/BrewedPotionTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/BrewedPotionTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ChangeDimensionTrigger",
+                "net/minecraft/advancements/triggers/ChangeDimensionTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ChangeDimensionTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/ChangeDimensionTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ChanneledLightningTrigger",
+                "net/minecraft/advancements/triggers/ChanneledLightningTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ChanneledLightningTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/ChanneledLightningTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionContentsPredicate",
+                "net/minecraft/advancements/predicates/CollectionContentsPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionContentsPredicate$Multiple",
+                "net/minecraft/advancements/predicates/CollectionContentsPredicate$Multiple");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionContentsPredicate$Single",
+                "net/minecraft/advancements/predicates/CollectionContentsPredicate$Single");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionContentsPredicate$Zero",
+                "net/minecraft/advancements/predicates/CollectionContentsPredicate$Zero");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionCountsPredicate",
+                "net/minecraft/advancements/predicates/CollectionCountsPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionCountsPredicate$Entry",
+                "net/minecraft/advancements/predicates/CollectionCountsPredicate$Entry");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionCountsPredicate$Multiple",
+                "net/minecraft/advancements/predicates/CollectionCountsPredicate$Multiple");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionCountsPredicate$Single",
+                "net/minecraft/advancements/predicates/CollectionCountsPredicate$Single");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionCountsPredicate$Zero",
+                "net/minecraft/advancements/predicates/CollectionCountsPredicate$Zero");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CollectionPredicate",
+                "net/minecraft/advancements/predicates/CollectionPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ConstructBeaconTrigger",
+                "net/minecraft/advancements/triggers/ConstructBeaconTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ConstructBeaconTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/ConstructBeaconTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ConsumeItemTrigger",
+                "net/minecraft/advancements/triggers/ConsumeItemTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ConsumeItemTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/ConsumeItemTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ContextAwarePredicate",
+                "net/minecraft/advancements/predicates/ContextAwarePredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CuredZombieVillagerTrigger",
+                "net/minecraft/advancements/triggers/CuredZombieVillagerTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/CuredZombieVillagerTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/CuredZombieVillagerTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DamagePredicate",
+                "net/minecraft/advancements/predicates/DamagePredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DamagePredicate$Builder",
+                "net/minecraft/advancements/predicates/DamagePredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DamageSourcePredicate",
+                "net/minecraft/advancements/predicates/DamageSourcePredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DamageSourcePredicate$Builder",
+                "net/minecraft/advancements/predicates/DamageSourcePredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DataComponentMatchers",
+                "net/minecraft/advancements/predicates/DataComponentMatchers");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DataComponentMatchers$Builder",
+                "net/minecraft/advancements/predicates/DataComponentMatchers$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DefaultBlockInteractionTrigger",
+                "net/minecraft/advancements/triggers/DefaultBlockInteractionTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DefaultBlockInteractionTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/DefaultBlockInteractionTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DistancePredicate",
+                "net/minecraft/advancements/predicates/DistancePredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DistanceTrigger",
+                "net/minecraft/advancements/triggers/DistanceTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/DistanceTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/DistanceTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EffectsChangedTrigger",
+                "net/minecraft/advancements/triggers/EffectsChangedTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EffectsChangedTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/EffectsChangedTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EnchantedItemTrigger",
+                "net/minecraft/advancements/triggers/EnchantedItemTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EnchantedItemTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/EnchantedItemTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EnchantmentPredicate",
+                "net/minecraft/advancements/predicates/EnchantmentPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EnterBlockTrigger",
+                "net/minecraft/advancements/triggers/EnterBlockTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EnterBlockTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/EnterBlockTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityEquipmentPredicate",
+                "net/minecraft/advancements/predicates/entity/EntityEquipmentPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityEquipmentPredicate$Builder",
+                "net/minecraft/advancements/predicates/entity/EntityEquipmentPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityFlagsPredicate",
+                "net/minecraft/advancements/predicates/entity/EntityFlagsPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityFlagsPredicate$Builder",
+                "net/minecraft/advancements/predicates/entity/EntityFlagsPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityHurtPlayerTrigger",
+                "net/minecraft/advancements/triggers/EntityHurtPlayerTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityHurtPlayerTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/EntityHurtPlayerTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityPredicate",
+                "net/minecraft/advancements/predicates/entity/EntityPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityPredicate$Builder",
+                "net/minecraft/advancements/predicates/entity/EntityPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntitySubPredicate",
+                "net/minecraft/advancements/predicates/entity/EntitySubPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntitySubPredicates",
+                "net/minecraft/advancements/predicates/entity/EntitySubPredicates");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/EntityTypePredicate",
+                "net/minecraft/advancements/predicates/entity/EntityTypePredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FallAfterExplosionTrigger",
+                "net/minecraft/advancements/triggers/FallAfterExplosionTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FallAfterExplosionTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/FallAfterExplosionTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FilledBucketTrigger",
+                "net/minecraft/advancements/triggers/FilledBucketTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FilledBucketTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/FilledBucketTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FishingHookPredicate",
+                "net/minecraft/advancements/predicates/entity/FishingHookPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FishingRodHookedTrigger",
+                "net/minecraft/advancements/triggers/FishingRodHookedTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FishingRodHookedTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/FishingRodHookedTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FluidPredicate",
+                "net/minecraft/advancements/predicates/FluidPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FluidPredicate$Builder",
+                "net/minecraft/advancements/predicates/FluidPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FoodPredicate",
+                "net/minecraft/advancements/predicates/FoodPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/FoodPredicate$Builder",
+                "net/minecraft/advancements/predicates/FoodPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/GameTypePredicate",
+                "net/minecraft/advancements/predicates/GameTypePredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ImpossibleTrigger",
+                "net/minecraft/advancements/triggers/ImpossibleTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ImpossibleTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/ImpossibleTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/InputPredicate",
+                "net/minecraft/advancements/predicates/InputPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/InventoryChangeTrigger",
+                "net/minecraft/advancements/triggers/InventoryChangeTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/InventoryChangeTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/InventoryChangeTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/InventoryChangeTrigger$TriggerInstance$Slots",
+                "net/minecraft/advancements/triggers/InventoryChangeTrigger$TriggerInstance$Slots");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ItemDurabilityTrigger",
+                "net/minecraft/advancements/triggers/ItemDurabilityTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ItemDurabilityTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/ItemDurabilityTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ItemPredicate",
+                "net/minecraft/advancements/predicates/ItemPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ItemPredicate$Builder",
+                "net/minecraft/advancements/predicates/ItemPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ItemUsedOnLocationTrigger",
+                "net/minecraft/advancements/triggers/ItemUsedOnLocationTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ItemUsedOnLocationTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/ItemUsedOnLocationTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/KilledByArrowTrigger",
+                "net/minecraft/advancements/triggers/KilledByArrowTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/KilledByArrowTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/KilledByArrowTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/KilledTrigger",
+                "net/minecraft/advancements/triggers/KilledTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/KilledTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/KilledTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LevitationTrigger",
+                "net/minecraft/advancements/triggers/LevitationTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LevitationTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/LevitationTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LightPredicate",
+                "net/minecraft/advancements/predicates/LightPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LightPredicate$Builder",
+                "net/minecraft/advancements/predicates/LightPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LightningBoltPredicate",
+                "net/minecraft/advancements/predicates/entity/LightningBoltPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LightningStrikeTrigger",
+                "net/minecraft/advancements/triggers/LightningStrikeTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LightningStrikeTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/LightningStrikeTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LocationPredicate",
+                "net/minecraft/advancements/predicates/LocationPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LocationPredicate$Builder",
+                "net/minecraft/advancements/predicates/LocationPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LocationPredicate$PositionPredicate",
+                "net/minecraft/advancements/predicates/LocationPredicate$PositionPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LootTableTrigger",
+                "net/minecraft/advancements/triggers/LootTableTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/LootTableTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/LootTableTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MinMaxBounds",
+                "net/minecraft/advancements/predicates/MinMaxBounds");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MinMaxBounds$Bounds",
+                "net/minecraft/advancements/predicates/MinMaxBounds$Bounds");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MinMaxBounds$Doubles",
+                "net/minecraft/advancements/predicates/MinMaxBounds$Doubles");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MinMaxBounds$FloatDegrees",
+                "net/minecraft/advancements/predicates/MinMaxBounds$FloatDegrees");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MinMaxBounds$Ints",
+                "net/minecraft/advancements/predicates/MinMaxBounds$Ints");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MobEffectsPredicate",
+                "net/minecraft/advancements/predicates/MobEffectsPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MobEffectsPredicate$Builder",
+                "net/minecraft/advancements/predicates/MobEffectsPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MobEffectsPredicate$MobEffectInstancePredicate",
+                "net/minecraft/advancements/predicates/MobEffectsPredicate$MobEffectInstancePredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/MovementPredicate",
+                "net/minecraft/advancements/predicates/entity/MovementPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/NbtPredicate",
+                "net/minecraft/advancements/predicates/NbtPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PickedUpItemTrigger",
+                "net/minecraft/advancements/triggers/PickedUpItemTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PickedUpItemTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/PickedUpItemTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerHurtEntityTrigger",
+                "net/minecraft/advancements/triggers/PlayerHurtEntityTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerHurtEntityTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/PlayerHurtEntityTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerInteractTrigger",
+                "net/minecraft/advancements/triggers/PlayerInteractTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerInteractTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/PlayerInteractTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerPredicate",
+                "net/minecraft/advancements/predicates/entity/PlayerPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerPredicate$AdvancementCriterionsPredicate",
+                "net/minecraft/advancements/predicates/entity/PlayerPredicate$AdvancementCriterionsPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerPredicate$AdvancementDonePredicate",
+                "net/minecraft/advancements/predicates/entity/PlayerPredicate$AdvancementDonePredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerPredicate$AdvancementPredicate",
+                "net/minecraft/advancements/predicates/entity/PlayerPredicate$AdvancementPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerPredicate$Builder",
+                "net/minecraft/advancements/predicates/entity/PlayerPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerPredicate$StatMatcher",
+                "net/minecraft/advancements/predicates/entity/PlayerPredicate$StatMatcher");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerTrigger",
+                "net/minecraft/advancements/triggers/PlayerTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/PlayerTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/PlayerTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/RaiderPredicate",
+                "net/minecraft/advancements/predicates/entity/RaiderPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/RecipeCraftedTrigger",
+                "net/minecraft/advancements/triggers/RecipeCraftedTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/RecipeCraftedTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/RecipeCraftedTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/RecipeUnlockedTrigger",
+                "net/minecraft/advancements/triggers/RecipeUnlockedTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/RecipeUnlockedTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/RecipeUnlockedTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SheepPredicate",
+                "net/minecraft/advancements/predicates/entity/SheepPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ShotCrossbowTrigger",
+                "net/minecraft/advancements/triggers/ShotCrossbowTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/ShotCrossbowTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/ShotCrossbowTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SimpleCriterionTrigger",
+                "net/minecraft/advancements/triggers/SimpleCriterionTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SimpleCriterionTrigger$SimpleInstance",
+                "net/minecraft/advancements/triggers/SimpleCriterionTrigger$SimpleInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SingleComponentItemPredicate",
+                "net/minecraft/advancements/predicates/SingleComponentItemPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SlideDownBlockTrigger",
+                "net/minecraft/advancements/triggers/SlideDownBlockTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SlideDownBlockTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/SlideDownBlockTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SlimePredicate",
+                "net/minecraft/advancements/predicates/entity/CubeMobPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SlotsPredicate",
+                "net/minecraft/advancements/predicates/SlotsPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SpearMobsTrigger",
+                "net/minecraft/advancements/triggers/SpearMobsTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SpearMobsTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/SpearMobsTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/StartRidingTrigger",
+                "net/minecraft/advancements/triggers/StartRidingTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/StartRidingTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/StartRidingTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/StatePropertiesPredicate",
+                "net/minecraft/advancements/predicates/StatePropertiesPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/StatePropertiesPredicate$Builder",
+                "net/minecraft/advancements/predicates/StatePropertiesPredicate$Builder");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/StatePropertiesPredicate$ExactMatcher",
+                "net/minecraft/advancements/predicates/StatePropertiesPredicate$ExactMatcher");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/StatePropertiesPredicate$PropertyMatcher",
+                "net/minecraft/advancements/predicates/StatePropertiesPredicate$PropertyMatcher");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/StatePropertiesPredicate$RangedMatcher",
+                "net/minecraft/advancements/predicates/StatePropertiesPredicate$RangedMatcher");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/StatePropertiesPredicate$ValueMatcher",
+                "net/minecraft/advancements/predicates/StatePropertiesPredicate$ValueMatcher");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SummonedEntityTrigger",
+                "net/minecraft/advancements/triggers/SummonedEntityTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/SummonedEntityTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/SummonedEntityTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/TagPredicate",
+                "net/minecraft/advancements/predicates/TagPredicate");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/TameAnimalTrigger",
+                "net/minecraft/advancements/triggers/TameAnimalTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/TameAnimalTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/TameAnimalTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/TargetBlockTrigger",
+                "net/minecraft/advancements/triggers/TargetBlockTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/TargetBlockTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/TargetBlockTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/TradeTrigger",
+                "net/minecraft/advancements/triggers/TradeTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/TradeTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/TradeTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/UsedEnderEyeTrigger",
+                "net/minecraft/advancements/triggers/UsedEnderEyeTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/UsedEnderEyeTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/UsedEnderEyeTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/UsedTotemTrigger",
+                "net/minecraft/advancements/triggers/UsedTotemTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/UsedTotemTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/UsedTotemTrigger$TriggerInstance");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/UsingItemTrigger",
+                "net/minecraft/advancements/triggers/UsingItemTrigger");
+        t.registerClassRedirect("net/minecraft/advancements/criterion/UsingItemTrigger$TriggerInstance",
+                "net/minecraft/advancements/triggers/UsingItemTrigger$TriggerInstance");
+
+        t.registerClassRedirect("net/minecraft/client/Minecraft$GameLoadCookie",
+                "net/minecraft/client/GameLoadCookie");
+
+        t.registerClassRedirect("net/minecraft/client/gui/contextualbar/ContextualBarRenderer",
+                "net/minecraft/client/gui/contextualbar/ContextualBar");
+        t.registerClassRedirect("net/minecraft/client/gui/contextualbar/ExperienceBarRenderer",
+                "net/minecraft/client/gui/contextualbar/ExperienceBar");
+        t.registerClassRedirect("net/minecraft/client/gui/contextualbar/JumpableVehicleBarRenderer",
+                "net/minecraft/client/gui/contextualbar/JumpableVehicleBar");
+        t.registerClassRedirect("net/minecraft/client/gui/contextualbar/LocatorBarRenderer",
+                "net/minecraft/client/gui/contextualbar/LocatorBar");
+
+        t.registerClassRedirect("net/minecraft/client/renderer/LevelRenderer$BrightnessGetter",
+                "net/minecraft/util/LightCoordsUtil$BrightnessGetter");
+        t.registerClassRedirect("net/minecraft/client/renderer/SubmitNodeStorage$FlameSubmit",
+                "net/minecraft/client/renderer/feature/FlameFeatureRenderer$Submit");
+        t.registerClassRedirect("net/minecraft/client/renderer/SubmitNodeStorage$ItemSubmit",
+                "net/minecraft/client/renderer/feature/ItemFeatureRenderer$Submit");
+        t.registerClassRedirect("net/minecraft/client/renderer/SubmitNodeStorage$LeashSubmit",
+                "net/minecraft/client/renderer/feature/LeashFeatureRenderer$Submit");
+        t.registerClassRedirect("net/minecraft/client/renderer/SubmitNodeStorage$ShadowSubmit",
+                "net/minecraft/client/renderer/feature/ShadowFeatureRenderer$Submit");
+        t.registerClassRedirect("net/minecraft/client/renderer/SubmitNodeStorage$TextSubmit",
+                "net/minecraft/client/renderer/feature/TextFeatureRenderer$Submit");
+
+        t.registerClassRedirect("net/minecraft/client/renderer/feature/BlockFeatureRenderer",
+                "net/minecraft/client/renderer/feature/MovingBlockFeatureRenderer");
+
+        t.registerClassRedirect("net/minecraft/world/entity/animal/Bucketable",
+                "net/minecraft/world/entity/Bucketable");
+        t.registerClassRedirect("net/minecraft/world/entity/monster/MagmaCube",
+                "net/minecraft/world/entity/monster/cubemob/MagmaCube");
+        t.registerClassRedirect("net/minecraft/world/entity/monster/Slime",
+                "net/minecraft/world/entity/monster/cubemob/Slime");
+        t.registerClassRedirect("net/minecraft/world/entity/monster/Slime$SlimeAttackGoal",
+                "net/minecraft/world/entity/monster/cubemob/AbstractCubeMob$CubeMobAttackGoal");
+        t.registerClassRedirect("net/minecraft/world/entity/monster/Slime$SlimeFloatGoal",
+                "net/minecraft/world/entity/monster/cubemob/AbstractCubeMob$CubeMobFloatGoal");
+        t.registerClassRedirect("net/minecraft/world/entity/monster/Slime$SlimeKeepOnJumpingGoal",
+                "net/minecraft/world/entity/monster/cubemob/AbstractCubeMob$CubeMobKeepOnJumpingGoal");
+        t.registerClassRedirect("net/minecraft/world/entity/monster/Slime$SlimeMoveControl",
+                "net/minecraft/world/entity/monster/cubemob/AbstractCubeMob$CubeMobMoveControl");
+        t.registerClassRedirect("net/minecraft/world/entity/monster/Slime$SlimeRandomDirectionGoal",
+                "net/minecraft/world/entity/monster/cubemob/AbstractCubeMob$CubeMobRandomDirectionGoal");
+
+        // 26.2 extracted the registry constants out of EntityType /
+        // BlockEntityType into new EntityTypes / BlockEntityTypes holder
+        // classes (the Blocks/Items pattern). Same field names and
+        // descriptors, new owner — caught live by the test mod on 26.2-rc-1
+        // (every EntityType.X access threw NoSuchFieldError).
+        for (String f : ENTITY_TYPE_CONSTANTS) {
+            t.registerFieldRedirect("net/minecraft/world/entity/EntityType", f,
+                    "net/minecraft/world/entity/EntityTypes", f);
+        }
+        for (String f : BLOCK_ENTITY_TYPE_CONSTANTS) {
+            t.registerFieldRedirect("net/minecraft/world/level/block/entity/BlockEntityType", f,
+                    "net/minecraft/world/level/block/entity/BlockEntityTypes", f);
+        }
+    }
+
+    private static final String[] ENTITY_TYPE_CONSTANTS = {
+        "ACACIA_BOAT", "ACACIA_CHEST_BOAT", "ALLAY", "AREA_EFFECT_CLOUD", "ARMADILLO",
+        "ARMOR_STAND", "ARROW", "AXOLOTL", "BAMBOO_CHEST_RAFT", "BAMBOO_RAFT", "BAT", "BEE",
+        "BIRCH_BOAT", "BIRCH_CHEST_BOAT", "BLAZE", "BLOCK_DISPLAY", "BOGGED", "BREEZE",
+        "BREEZE_WIND_CHARGE", "CAMEL", "CAMEL_HUSK", "CAT", "CAVE_SPIDER", "CHERRY_BOAT",
+        "CHERRY_CHEST_BOAT", "CHEST_MINECART", "CHICKEN", "COD", "COMMAND_BLOCK_MINECART",
+        "COPPER_GOLEM", "COW", "CREAKING", "CREEPER", "DARK_OAK_BOAT",
+        "DARK_OAK_CHEST_BOAT", "DISPLAY_TRACKING_RANGE", "DOLPHIN", "DONKEY",
+        "DRAGON_FIREBALL", "DROWNED", "EGG", "ELDER_GUARDIAN", "ENDERMAN", "ENDERMITE",
+        "ENDER_DRAGON", "ENDER_PEARL", "END_CRYSTAL", "EVOKER", "EVOKER_FANGS",
+        "EXPERIENCE_BOTTLE", "EXPERIENCE_ORB", "EYE_OF_ENDER", "FALLING_BLOCK", "FIREBALL",
+        "FIREWORK_ROCKET", "FISHING_BOBBER", "FOX", "FROG", "FURNACE_MINECART", "GHAST",
+        "GIANT", "GLOW_ITEM_FRAME", "GLOW_SQUID", "GOAT", "GUARDIAN", "HAPPY_GHAST",
+        "HOGLIN", "HOPPER_MINECART", "HORSE", "HUSK", "ILLUSIONER", "INTERACTION",
+        "IRON_GOLEM", "ITEM", "ITEM_DISPLAY", "ITEM_FRAME", "JUNGLE_BOAT",
+        "JUNGLE_CHEST_BOAT", "LEASH_KNOT", "LIGHTNING_BOLT", "LINGERING_POTION", "LLAMA",
+        "LLAMA_SPIT", "MAGIC_HORSE_WIDTH", "MAGMA_CUBE", "MANGROVE_BOAT",
+        "MANGROVE_CHEST_BOAT", "MANNEQUIN", "MARKER", "MINECART", "MOOSHROOM", "MULE",
+        "NAUTILUS", "OAK_BOAT", "OAK_CHEST_BOAT", "OCELOT", "OMINOUS_ITEM_SPAWNER",
+        "OP_ONLY_CUSTOM_DATA", "PAINTING", "PALE_OAK_BOAT", "PALE_OAK_CHEST_BOAT", "PANDA",
+        "PARCHED", "PARROT", "PHANTOM", "PIG", "PIGLIN", "PIGLIN_BRUTE", "PILLAGER",
+        "PLAYER", "POLAR_BEAR", "PUFFERFISH", "RABBIT", "RAVAGER", "SALMON", "SHEEP",
+        "SHULKER", "SHULKER_BULLET", "SILVERFISH", "SKELETON", "SKELETON_HORSE", "SLIME",
+        "SMALL_FIREBALL", "SNIFFER", "SNOWBALL", "SNOW_GOLEM", "SPAWNER_MINECART",
+        "SPECTRAL_ARROW", "SPIDER", "SPLASH_POTION", "SPRUCE_BOAT", "SPRUCE_CHEST_BOAT",
+        "SQUID", "STRAY", "STRIDER", "TADPOLE", "TEXT_DISPLAY", "TNT", "TNT_MINECART",
+        "TRADER_LLAMA", "TRIDENT", "TROPICAL_FISH", "TURTLE", "VEX", "VILLAGER",
+        "VINDICATOR", "WANDERING_TRADER", "WARDEN", "WIND_CHARGE", "WITCH", "WITHER",
+        "WITHER_SKELETON", "WITHER_SKULL", "WOLF", "ZOGLIN", "ZOMBIE", "ZOMBIE_HORSE",
+        "ZOMBIE_NAUTILUS", "ZOMBIE_VILLAGER", "ZOMBIFIED_PIGLIN"
+    };
+
+    private static final String[] BLOCK_ENTITY_TYPE_CONSTANTS = {
+        "BANNER", "BARREL", "BEACON", "BEEHIVE", "BELL", "BLAST_FURNACE", "BREWING_STAND",
+        "BRUSHABLE_BLOCK", "CALIBRATED_SCULK_SENSOR", "CAMPFIRE", "CHEST",
+        "CHISELED_BOOKSHELF", "COMMAND_BLOCK", "COMPARATOR", "CONDUIT",
+        "COPPER_GOLEM_STATUE", "CRAFTER", "CREAKING_HEART", "DAYLIGHT_DETECTOR",
+        "DECORATED_POT", "DISPENSER", "DROPPER", "ENCHANTING_TABLE", "ENDER_CHEST",
+        "END_GATEWAY", "END_PORTAL", "FURNACE", "HANGING_SIGN", "HOPPER", "JIGSAW",
+        "JUKEBOX", "LECTERN", "MOB_SPAWNER", "OP_ONLY_CUSTOM_DATA", "PISTON",
+        "SCULK_CATALYST", "SCULK_SENSOR", "SCULK_SHRIEKER", "SHELF", "SHULKER_BOX", "SIGN",
+        "SKULL", "SMOKER", "STRUCTURE_BLOCK", "TEST_BLOCK", "TEST_INSTANCE_BLOCK",
+        "TRAPPED_CHEST", "TRIAL_SPAWNER", "VAULT"
+    };
+
+}

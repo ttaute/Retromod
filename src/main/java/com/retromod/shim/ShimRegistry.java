@@ -81,6 +81,24 @@ public class ShimRegistry {
         aliases.put("26.1.1", "26.1");
         aliases.put("26.1.2", "26.1");
 
+        // 26.2 pre-releases / release candidates / snapshots → 26.2
+        // (same dot/dash dual forms: Fabric Loader reports "26.2-rc.1",
+        // Prism and the version manifest use "26.2-rc-1")
+        for (int i = 1; i <= 6; i++) {
+            aliases.put("26.2-pre." + i, "26.2");
+            aliases.put("26.2-pre-" + i, "26.2");
+            aliases.put("26.2 Pre-Release " + i, "26.2");
+            aliases.put("26.2-rc." + i, "26.2");
+            aliases.put("26.2-rc-" + i, "26.2");
+            aliases.put("26.2 Release Candidate " + i, "26.2");
+            aliases.put("26.2-snapshot." + i, "26.2");
+        }
+        // Sub-versions
+        aliases.put("26.2.0", "26.2");
+        aliases.put("26.2.1", "26.2");
+        aliases.put("26.2.2", "26.2");
+        aliases.put("26.2.3", "26.2");
+
         VERSION_ALIASES = Collections.unmodifiableMap(aliases);
     }
 

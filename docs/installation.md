@@ -9,7 +9,7 @@ Retromod installs like any other Minecraft mod: drop the JAR in your `mods/` fol
 
 ## Requirements
 
-- **Minecraft:** 26.1.2 (the current target; older targets are in the works)
+- **Minecraft:** 26.1.2 (the current target) — 26.2 is supported as of 1.1.0-snapshot.4; that jar ships when Minecraft 26.2 releases. Hosts back to 1.20 are also supported.
 - **Mod loader:** Fabric, NeoForge, or Forge
 - **Java:** 25 or newer (Minecraft 26.1 ships its own Java runtime, so this is usually taken care of automatically)
 

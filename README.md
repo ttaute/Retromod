@@ -3,7 +3,7 @@
 > Run older Minecraft mods on newer versions through bytecode transformation and API shimming.
 
 [![Java 25+](https://img.shields.io/badge/Java-25+-blue.svg)](https://adoptium.net/)
-[![Minecraft 26.1](https://img.shields.io/badge/Minecraft-26.1-green.svg)](https://minecraft.net/)
+[![Minecraft 26.1 / 26.2-ready](https://img.shields.io/badge/Minecraft-26.1%20%7C%2026.2--ready-green.svg)](https://minecraft.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blueviolet.svg)]()
 
@@ -13,7 +13,7 @@
 
 > **1.0.0 is the current stable release; 1.1.0 is in progress on the snapshot track** (`1.1.0-snapshot.N`), which is where the newest 26.1 compatibility work lands first. The core pipeline is tested across Fabric, NeoForge, and Forge. The known gaps are deep-integration mods built on Minecraft APIs that were redesigned rather than just renamed (rendering/model layers, removed loader helpers); those are slated for polyfills in 1.2.0. The common case works well. Keep backups of your mod JARs, since anything that touches mod files warrants a backup even though Retromod writes transformed copies alongside the originals. Report issues on [GitHub Issues](https://github.com/Bownlux/Retromod/issues).
 
-Retromod is a drop-in Minecraft mod that transforms older mod bytecode at load time, rewriting renamed methods, redirecting removed APIs, and patching Mixin targets so old mods just work. Supports **Fabric**, **NeoForge**, and **Forge** with version shims covering Minecraft 1.12.2 through 26.1.
+Retromod is a drop-in Minecraft mod that transforms older mod bytecode at load time, rewriting renamed methods, redirecting removed APIs, and patching Mixin targets so old mods just work. Supports **Fabric**, **NeoForge**, and **Forge** with version shims covering Minecraft 1.12.2 through 26.2 (26.2 verified against the release candidate; its jar ships when Mojang does).
 
 > **26.1 Update:** Mojang removed all code obfuscation in Minecraft 26.1. Retromod automatically maps old intermediary names (`class_XXXX`, `method_XXXX`, `field_XXXX`) to Mojang's official human-readable names, so mods built for 1.21.x and earlier work seamlessly on 26.1+.
 
@@ -81,7 +81,7 @@ A mod that won't convert, or a question that isn't answered? [Open an issue](htt
 
 ### Transformation pipeline
 - **534+ bytecode redirects:** class, method, field, constructor, and field-to-accessor
-- **145+ version shims** covering every MC release from 1.12.2 (Java 8 era) through 26.1
+- **170+ version shims** covering every MC release from 1.12.2 (Java 8 era) through 26.2
 - **72+ polyfills** reimplement removed APIs using modern equivalents
 - An iterative transform loop catches chained redirects (A → B → C) that single-pass visitors miss, running up to 5 passes until the bytecode stabilizes
 - **Intermediary → Mojang name mapping:** 26.1 removed all code obfuscation, so Retromod composes 8,800+ intermediary class names with 600+ 26.1 package moves in a single hop
@@ -145,7 +145,7 @@ Two version axes to keep in mind:
 - **Host MC** is the Minecraft you have Retromod installed in. This must be **MC 1.20+**.
 - **Source MC** is the Minecraft version the old mod was built for, i.e. what the shim chain translates *from*. Shims are **chainable**, so a 1.12.2 Forge mod is walked through every intermediate shim (1.12 → 1.13 → 1.14 → … → your host MC) in one automatic pass.
 
-Intermediate versions like 1.16.2 or 1.14.3 work via fuzzy version matching: a mod targeting any version within a range is resolved to the nearest milestone shim. Every MC version from 1.12.2 to 26.1 is reachable.
+Intermediate versions like 1.16.2 or 1.14.3 work via fuzzy version matching: a mod targeting any version within a range is resolved to the nearest milestone shim. Every MC version from 1.12.2 to 26.2 is reachable.
 
 | Loader | Host MC (where Retromod runs) | Translates mods from | Per-chain maturity |
 |---|---|---|---|

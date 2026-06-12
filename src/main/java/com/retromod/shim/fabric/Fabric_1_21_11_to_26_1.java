@@ -106,13 +106,14 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         );
 
         // --- World → Level renames ---
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientWorldEvents",
-            "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientLevelEvents"
-        );
-        // ServerWorldEvents → ServerLevelEvents is handled by FabricServerWorldEventsShim,
-        // NOT a plain redirect: the $Load/$Unload SAM methods renamed
-        // onWorldLoad/onWorldUnload → onLevelLoad/onLevelUnload (a lambda trap).
+        // ClientWorldEvents and ServerEntityWorldChangeEvents are handled by
+        // FabricRenamedSamBridgesShim, NOT plain redirects: their SAM methods
+        // AND holder fields renamed (lambda trap + NoSuchFieldError). The old
+        // plain ServerEntityWorldChangeEvents redirect here also used an
+        // event/lifecycle/v1 source path that never existed (real path is
+        // entity/event/v1) — the bridge covers both.
+        // ServerWorldEvents → ServerLevelEvents is handled by FabricServerWorldEventsShim
+        // for the same reason (onWorldLoad/onWorldUnload → onLevelLoad/onLevelUnload).
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderEvents",
             "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderEvents"
@@ -120,10 +121,6 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderContext",
             "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderContext"
-        );
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/event/lifecycle/v1/ServerEntityWorldChangeEvents",
-            "net/fabricmc/fabric/api/entity/event/v1/ServerEntityLevelChangeEvents"
         );
         // Tick-event inner interfaces: $Start/EndWorldTick → $Start/EndLevelTick.
         // The 26.1 Fabric API finished the World→Level rename on these nested SAMs
@@ -194,14 +191,10 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         // FabricEntityModelLayerShim, NOT a plain redirect: the provider SAM renamed
         // createModelData → createLayerDefinition (a lambda trap; same LayerDefinition
         // return type, so only the SAM name needs bridging).
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/client/rendering/v1/LivingEntityFeatureRendererRegistrationCallback",
-            "net/fabricmc/fabric/api/client/rendering/v1/LivingEntityRenderLayerRegistrationCallback"
-        );
-        transformer.registerClassRedirect(
-            "net/fabricmc/fabric/api/client/rendering/v1/DrawItemStackOverlayCallback",
-            "net/fabricmc/fabric/api/client/rendering/v1/ExtractItemDecorationsCallback"
-        );
+        // LivingEntityFeatureRendererRegistrationCallback, DrawItemStackOverlayCallback,
+        // TooltipComponentCallback, ServerChunkEvents$LevelTypeChange and
+        // LandPathNodeTypesRegistry are handled by FabricRenamedSamBridgesShim,
+        // NOT plain redirects: their SAM methods renamed (lambda traps).
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/model/BakedModelManager",
             "net/fabricmc/fabric/api/client/model/loading/v1/FabricModelManager"

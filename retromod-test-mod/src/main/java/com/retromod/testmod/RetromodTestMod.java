@@ -30,9 +30,25 @@ public class RetromodTestMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Phase 1: init — most tests
+        // Phase 1: init — most tests (vanilla MC surface only, no Fabric API)
         TestRunner.runImmediate();
 
+        // Phases 2+3 hook Fabric API events — but Fabric API can legitimately
+        // be ABSENT (a brand-new MC snapshot before any fabric-api build is
+        // tagged for it; 26.2-rc-1 was the first to bite). The harness must
+        // degrade to phase-1-only there, not crash the whole game with a
+        // NoClassDefFoundError out of the client entrypoint. The references
+        // live in a separate method so this method never resolves them.
+        try {
+            registerDeferredPhases();
+        } catch (NoClassDefFoundError e) {
+            System.err.println("[Retromod-Test] Fabric API not installed — "
+                    + "client-started and world-join test phases skipped ("
+                    + e.getMessage() + ")");
+        }
+    }
+
+    private void registerDeferredPhases() {
         // Phase 2: client-started — fires once, right before the title screen.
         // Static + data-component registries are fully bootstrapped by then.
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> TestRunner.runOnClientStarted());

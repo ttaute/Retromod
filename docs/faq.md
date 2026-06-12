@@ -87,7 +87,7 @@ You have to preserve the copyright notice and MIT license text somewhere in the 
 
 ## What Minecraft versions are supported?
 
-- **Target:** Minecraft 26.1.2. This is the version your transformed mods run *on*.
+- **Target:** Minecraft 26.1.2 — and **26.2 as of 1.1.0-snapshot.4** (verified in-game against the 26.2 release candidate; the Fabric 26.2 jar ships the moment Mojang releases 26.2, NeoForge/Forge builds follow when those loaders do). This is the version your transformed mods run *on*.
 - **Source:** mods built for 1.12.2 and newer. That's the version the mod was originally released for.
 
 So you can take a Fabric mod built for 1.20.1 and run it on 26.1.2, or a mod built for 1.16.5 and run it on 26.1.2. 1.12.2 is the oldest source we currently support.

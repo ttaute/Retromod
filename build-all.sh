@@ -4,7 +4,7 @@
 # Copyright (c) 2026 RevivalSMP. MIT License.
 #
 # Builds Retromod for ALL loaders and supported MC versions (1.20+):
-#   - Fabric (1.20 through 26.1)
+#   - Fabric (1.20 through 26.2)
 #   - Forge (1.20 through 26.1)
 #   - NeoForge (1.20.1 through 26.1)
 #   - CLI tool (standalone)
@@ -17,7 +17,7 @@
 VERSION="1.1.0-snapshot.4"
 # Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
 # Security-only updates for versions before 26.1.
-MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2")
+MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2" "26.2")
 LOADERS=("fabric" "forge" "neoforge")
 
 echo "============================================"
@@ -27,7 +27,7 @@ echo "  MIT License - RevivalSMP"
 echo "============================================"
 echo ""
 echo "Building for:"
-echo "  - ${#MC_VERSIONS[@]} Minecraft versions (1.20 - 26.1.2)"
+echo "  - ${#MC_VERSIONS[@]} Minecraft versions (1.20 - 26.2)"
 echo "  - ${#LOADERS[@]} mod loaders (Fabric, Forge, NeoForge)"
 echo ""
 
@@ -177,9 +177,11 @@ loader_supports_version() {
             case $ver in
                 # Before NeoForge existed
                 1.12*|1.13*|1.14*|1.15*|1.16*|1.17*|1.18*|1.19*|1.20) return 1 ;;
-                # 26.x: only 26.1.2 has NeoForge releases; 26.1 and 26.1.1 were skipped
-                26.1|26.1.1) return 1 ;;
-                # Everything else (1.20.1+, 1.21.x, 26.1.2, future 26.2+) is supported
+                # 26.x: only 26.1.2 has NeoForge releases; 26.1 and 26.1.1 were skipped.
+                # 26.2: no NeoForge release yet (NeoForge doesn't do MC snapshots/rcs);
+                # remove from this line the moment a NeoForge 26.2 build ships.
+                26.1|26.1.1|26.2) return 1 ;;
+                # Everything else (1.20.1+, 1.21.x, 26.1.2) is supported
                 *) return 0 ;;
             esac
             ;;
@@ -192,7 +194,15 @@ loader_supports_version() {
                 *) return 0 ;;
             esac
             ;;
-        *) return 0 ;;  # Forge supports all versions we build for
+        forge)
+            # Forge has no 26.2 release yet (no MC snapshot/rc builds);
+            # remove the exception the moment a Forge 26.2 build ships.
+            case $ver in
+                26.2) return 1 ;;
+                *) return 0 ;;
+            esac
+            ;;
+        *) return 0 ;;
     esac
 }
 
@@ -556,7 +566,7 @@ echo "============================================"
 echo ""
 echo "Output structure:"
 echo "  dist/"
-echo "  ├── Fabric/        (host: 1.20 - 26.1.2, translates mods from 1.14.4+)"
+echo "  ├── Fabric/        (host: 1.20 - 26.2, translates mods from 1.14.4+)"
 echo "  ├── Forge/         (host: 1.20 - 26.1.2, translates mods from 1.12.2+)"
 echo "  ├── NeoForge/      (host: 1.20.1 - 26.1.2, translates mods from 1.20.1+)"
 echo "  └── CLI/"
