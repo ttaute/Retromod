@@ -16,7 +16,8 @@ If you discover a security vulnerability in Retromod, please report it responsib
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, please email: **security@revivalsmp.net**
+Instead, Use Github's Build in security reporting feature
+Or email: **security@revivalsmp.net**
 
 ### What to include
 
