@@ -122,9 +122,10 @@ final class SamBridgeSynthetics {
     }
 
     private static void visitEventField(ClassWriter cw, String name) {
-        // Not ACC_FINAL: assigned inside a try/catch, which the verifier only
-        // allows for non-final statics.
-        cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, name,
+        // ACC_FINAL is MANDATORY on interface fields (JVMS: ClassFormatError
+        // 0x9 without it — caught live by the bridge verification run), and a
+        // final static may be assigned from <clinit> even inside a try/catch.
+        cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, name,
                 "Lnet/fabricmc/fabric/api/event/Event;", null, null).visitEnd();
     }
 
@@ -156,6 +157,11 @@ final class SamBridgeSynthetics {
         mv.visitJumpInsn(Opcodes.GOTO, after);
 
         mv.visitLabel(handler);
+        // Class file v61+ requires explicit stack map frames at branch targets
+        // (VerifyError "Expecting a stackmap frame" without them — caught live).
+        // Hand-emitted rather than COMPUTE_FRAMES so generation never needs to
+        // load fabric classes for common-superclass computation.
+        mv.visitFrame(Opcodes.F_SAME1, 0, null, 1, new Object[]{"java/lang/Throwable"});
         mv.visitFieldInsn(Opcodes.GETSTATIC, "java/lang/System", "err", "Ljava/io/PrintStream;");
         mv.visitInsn(Opcodes.SWAP);
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/Throwable", "toString",
@@ -168,5 +174,6 @@ final class SamBridgeSynthetics {
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/io/PrintStream", "println",
                 "(Ljava/lang/String;)V", false);
         mv.visitLabel(after);
+        mv.visitFrame(Opcodes.F_SAME, 0, null, 0, null);
     }
 }

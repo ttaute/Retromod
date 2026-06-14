@@ -21,6 +21,21 @@ public class NeoForge_1_21_1_to_1_21_2 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
+
+        // ============================================================
+        // PATHFINDING ENUM RENAMES (PathType, the 1.21.2 mob-pathfinding
+        // refactor). 1.20.x's standing/adjacent pair DAMAGE_X / DANGER_X
+        // became X / X_IN_NEIGHBOR; the "OTHER" family became DAMAGING.
+        // Verified against the 26.1.2 jar (constants present there); caught
+        // live by the bridge-verification run (NoSuchFieldError DAMAGE_OTHER
+        // from a real 1.20.1 mod's LandPathNodeTypesRegistry.register call).
+        // Post-remap Mojang names (ClassRemapper runs first).
+        // ============================================================
+        String pathType = "net/minecraft/world/level/pathfinder/PathType";
+        transformer.registerFieldRedirect(pathType, "DAMAGE_FIRE", pathType, "FIRE");
+        transformer.registerFieldRedirect(pathType, "DANGER_FIRE", pathType, "FIRE_IN_NEIGHBOR");
+        transformer.registerFieldRedirect(pathType, "DAMAGE_OTHER", pathType, "DAMAGING");
+        transformer.registerFieldRedirect(pathType, "DANGER_OTHER", pathType, "DAMAGING_IN_NEIGHBOR");
         // ShaderInstance renamed to CompiledShaderProgram in 1.21.2
         transformer.registerClassRedirect(
             "net/minecraft/client/renderer/ShaderInstance",

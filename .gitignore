@@ -113,3 +113,7 @@ assets/capes/
 *.tmp
 *.swp
 description.md
+
+# Python bytecode cache from scripts/ (harvest tooling)
+__pycache__/
+*.pyc

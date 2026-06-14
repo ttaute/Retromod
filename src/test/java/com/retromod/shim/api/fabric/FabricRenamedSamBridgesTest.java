@@ -83,6 +83,52 @@ class FabricRenamedSamBridgesTest {
         assertTrue(cn.methods.stream().anyMatch(m -> m.name.equals("<clinit>")));
     }
 
+    /**
+     * Loads AND initializes the generated synthetics in a real classloader —
+     * the JVM's verifier is the assertion. Catches the whole class of bug the
+     * first in-game run found: missing ACC_FINAL on interface fields
+     * (ClassFormatError 0x9) and missing stack-map frames in the try/catch
+     * {@code <clinit>} (VerifyError). {@code initialize=true} runs the
+     * reflective EVENT copy, whose owner is deliberately absent here, so the
+     * soft-fail catch path (the branchy bytecode) is executed too.
+     */
+    @Test
+    void generatedSyntheticsLoadAndInitializeInARealClassLoader() throws Exception {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,
+                "gen/NewIface", null, "java/lang/Object", null);
+        cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "newSam",
+                "(Ljava/lang/String;I)Ljava/lang/Object;", null, null).visitEnd();
+        cw.visitEnd();
+        byte[] newIface = cw.toByteArray();
+
+        byte[] sam = SamBridgeSynthetics.samInterface(
+                "gen/OldIface", "gen/NewIface", "oldSam", "newSam",
+                "(Ljava/lang/String;I)Ljava/lang/Object;", "gen.AbsentOwner", "EVENT");
+        byte[] holder = SamBridgeSynthetics.eventHolder("gen/OldHolder", new String[][]{
+                {"AFTER_A", "gen.AbsentOwner", "X"},
+                {"AFTER_B", "gen.AbsentOwner", "Y"},
+        });
+
+        var defs = java.util.Map.of("gen.NewIface", newIface, "gen.OldIface", sam, "gen.OldHolder", holder);
+        ClassLoader cl = new ClassLoader(getClass().getClassLoader()) {
+            @Override protected Class<?> findClass(String name) throws ClassNotFoundException {
+                byte[] b = defs.get(name);
+                if (b == null) throw new ClassNotFoundException(name);
+                return defineClass(name, b, 0, b.length);
+            }
+        };
+
+        Class<?> iface = Class.forName("gen.OldIface", true, cl);  // true → <clinit> runs
+        assertTrue(iface.isInterface());
+        assertEquals("gen.NewIface", iface.getInterfaces()[0].getName());
+        assertNull(iface.getField("EVENT").get(null), "absent owner → soft-fail leaves EVENT null");
+
+        Class<?> holderC = Class.forName("gen.OldHolder", true, cl);
+        assertNull(holderC.getField("AFTER_A").get(null));
+        assertNull(holderC.getField("AFTER_B").get(null));
+    }
+
     @Test
     void registersEverythingAt26_1AndNothingBelow() {
         RetromodTransformer t = RetromodTransformer.getInstance();

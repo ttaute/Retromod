@@ -32,6 +32,7 @@ com.retromod.polyfill.minecraft.mixin.MixinTargetPolyfill
 
 # Vanilla MC API polyfills (Material, LiteralText, etc.)
 com.retromod.polyfill.minecraft.vanilla.MinecraftVanillaPolyfill
+com.retromod.polyfill.minecraft.vanilla.Minecraft26_2RemovedPolyfill
 
 # Entity class renames (The Flattening 1.13 through 1.21)
 com.retromod.polyfill.minecraft.entity.EntityPolyfill

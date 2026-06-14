@@ -45,10 +45,16 @@ public class CardinalComponentsApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
+        // Full dev.onyxstudios.cca → org.ladysnake.cca package move (CCA 5→6),
+        // harvested from the real jars. The hand-curated entries below cover the
+        // famous classes with their API-change method/field redirects; this
+        // covers the rest of the public api/ surface as plain class moves.
+        registerOnyxToLadysnakePackageMoves(transformer);
+
         // ============================================================
         // PACKAGE CHANGES
         // ============================================================
-        
+
         // Old: nerdhub.cardinal.components
         // New: dev.onyxstudios.cca (then org.ladysnake.cca)
         transformer.registerClassRedirect(
@@ -219,6 +225,126 @@ public class CardinalComponentsApiShim implements VersionShim {
         );
     }
     
+
+    /**
+     * The bulk dev.onyxstudios.cca → org.ladysnake.cca package move (CCA 5.x→6.x),
+     * harvested by sub-path match from the real jars (5.2.3 vs 6.1.3) — every
+     * public {@code api/} class that kept its sub-path across the rename
+     * (verified present in both; inner classes get explicit entries since the
+     * ASM remapper matches exact names). These are plain class moves; the
+     * curated method/field redirects in {@link #registerRedirects} handle the
+     * classes whose API <i>also</i> changed.
+     *
+     * <p>Deliberately NOT redirected — removed outright in CCA 6 (no successor;
+     * a mod using these needs the 6.x API, beyond a redirect): the item-component
+     * family ({@code api/v3/item/ItemComponent}, {@code ItemComponentFactoryRegistry},
+     * {@code CcaNbtType}, {@code ItemTagInvalidationListener} — CCA 6 dropped item
+     * components in favour of vanilla data components), {@code api/v3/entity/PlayerComponent}
+     * and {@code PlayerCopyCallback}, and the {@code api/v3/block/util/Sided*Compound}
+     * helpers. CCA-internal ({@code internal/}, {@code mixin/}) classes are skipped:
+     * mods don't reference them and they churn between versions.
+     */
+    private void registerOnyxToLadysnakePackageMoves(RetromodTransformer t) {
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/block/BlockComponentFactoryRegistry",
+                "org/ladysnake/cca/api/v3/block/BlockComponentFactoryRegistry");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/block/BlockComponentFactoryRegistry$Registration",
+                "org/ladysnake/cca/api/v3/block/BlockComponentFactoryRegistry$Registration");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/block/BlockComponentInitializer",
+                "org/ladysnake/cca/api/v3/block/BlockComponentInitializer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/block/BlockComponents",
+                "org/ladysnake/cca/api/v3/block/BlockComponents");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/block/BlockEntitySyncAroundCallback",
+                "org/ladysnake/cca/api/v3/block/BlockEntitySyncAroundCallback");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/block/BlockEntitySyncCallback",
+                "org/ladysnake/cca/api/v3/block/BlockEntitySyncCallback");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/chunk/ChunkComponentInitializer",
+                "org/ladysnake/cca/api/v3/chunk/ChunkComponentInitializer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/chunk/ChunkSyncCallback",
+                "org/ladysnake/cca/api/v3/chunk/ChunkSyncCallback");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/ComponentAccess",
+                "org/ladysnake/cca/api/v3/component/ComponentAccess");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/ComponentContainer",
+                "org/ladysnake/cca/api/v3/component/ComponentContainer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/ComponentContainer$Factory",
+                "org/ladysnake/cca/api/v3/component/ComponentContainer$Factory");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/ComponentContainer$Factory$Builder",
+                "org/ladysnake/cca/api/v3/component/ComponentContainer$Factory$Builder");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/ComponentFactory",
+                "org/ladysnake/cca/api/v3/component/ComponentFactory");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/ComponentProvider",
+                "org/ladysnake/cca/api/v3/component/ComponentProvider");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/ComponentRegistryV3",
+                "org/ladysnake/cca/api/v3/component/ComponentRegistryV3");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/ComponentV3",
+                "org/ladysnake/cca/api/v3/component/ComponentV3");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/CopyableComponent",
+                "org/ladysnake/cca/api/v3/component/CopyableComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/StaticComponentInitializer",
+                "org/ladysnake/cca/api/v3/component/StaticComponentInitializer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/TransientComponent",
+                "org/ladysnake/cca/api/v3/component/TransientComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/TransientComponent$SimpleImpl",
+                "org/ladysnake/cca/api/v3/component/TransientComponent$SimpleImpl");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/load/ClientLoadAwareComponent",
+                "org/ladysnake/cca/api/v3/component/load/ClientLoadAwareComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/load/ClientUnloadAwareComponent",
+                "org/ladysnake/cca/api/v3/component/load/ClientUnloadAwareComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/load/ServerLoadAwareComponent",
+                "org/ladysnake/cca/api/v3/component/load/ServerLoadAwareComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/load/ServerUnloadAwareComponent",
+                "org/ladysnake/cca/api/v3/component/load/ServerUnloadAwareComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/sync/ComponentPacketWriter",
+                "org/ladysnake/cca/api/v3/component/sync/ComponentPacketWriter");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/sync/PlayerSyncPredicate",
+                "org/ladysnake/cca/api/v3/component/sync/PlayerSyncPredicate");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/tick/ClientTickingComponent",
+                "org/ladysnake/cca/api/v3/component/tick/ClientTickingComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/tick/CommonTickingComponent",
+                "org/ladysnake/cca/api/v3/component/tick/CommonTickingComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/component/tick/ServerTickingComponent",
+                "org/ladysnake/cca/api/v3/component/tick/ServerTickingComponent");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/entity/EntityComponentFactoryRegistry$Registration",
+                "org/ladysnake/cca/api/v3/entity/EntityComponentFactoryRegistry$Registration");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/entity/EntityComponentInitializer",
+                "org/ladysnake/cca/api/v3/entity/EntityComponentInitializer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/entity/PlayerSyncCallback",
+                "org/ladysnake/cca/api/v3/entity/PlayerSyncCallback");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/entity/RespawnCopyStrategy",
+                "org/ladysnake/cca/api/v3/entity/RespawnCopyStrategy");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/entity/TrackingStartCallback",
+                "org/ladysnake/cca/api/v3/entity/TrackingStartCallback");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/item/ItemComponentInitializer",
+                "org/ladysnake/cca/api/v3/item/ItemComponentInitializer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/level/LevelComponentFactoryRegistry",
+                "org/ladysnake/cca/api/v3/level/LevelComponentFactoryRegistry");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/level/LevelComponentInitializer",
+                "org/ladysnake/cca/api/v3/level/LevelComponentInitializer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/level/LevelComponents",
+                "org/ladysnake/cca/api/v3/level/LevelComponents");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/scoreboard/ScoreboardComponentFactoryRegistry",
+                "org/ladysnake/cca/api/v3/scoreboard/ScoreboardComponentFactoryRegistry");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/scoreboard/ScoreboardComponentFactoryV2",
+                "org/ladysnake/cca/api/v3/scoreboard/ScoreboardComponentFactoryV2");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/scoreboard/ScoreboardComponentInitializer",
+                "org/ladysnake/cca/api/v3/scoreboard/ScoreboardComponentInitializer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/scoreboard/ScoreboardSyncCallback",
+                "org/ladysnake/cca/api/v3/scoreboard/ScoreboardSyncCallback");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/scoreboard/TeamAddCallback",
+                "org/ladysnake/cca/api/v3/scoreboard/TeamAddCallback");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/scoreboard/TeamComponentFactory",
+                "org/ladysnake/cca/api/v3/scoreboard/TeamComponentFactory");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/scoreboard/TeamComponentFactoryV2",
+                "org/ladysnake/cca/api/v3/scoreboard/TeamComponentFactoryV2");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/util/MethodsReturnNonnullByDefault",
+                "org/ladysnake/cca/api/v3/util/MethodsReturnNonnullByDefault");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/util/NbtSerializable",
+                "org/ladysnake/cca/api/v3/util/NbtSerializable");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/world/WorldComponentInitializer",
+                "org/ladysnake/cca/api/v3/world/WorldComponentInitializer");
+        t.registerClassRedirect("dev/onyxstudios/cca/api/v3/world/WorldSyncCallback",
+                "org/ladysnake/cca/api/v3/world/WorldSyncCallback");
+    }
+
     @Override
     public String[] getShimClasses() {
         return new String[] {

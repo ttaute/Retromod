@@ -21,6 +21,26 @@ public class NeoForge_1_20_6_to_1_21 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
+        // ============================================================
+        // RESOURCE LOCATION CONSTRUCTOR CHANGE (#92)
+        // new ResourceLocation(namespace, path) was made PRIVATE in 1.21 in
+        // favour of the static factory ResourceLocation.fromNamespaceAndPath.
+        // A NeoForge mod built for ≤1.20.6 still compiles the 2-arg ctor as
+        // NEW + DUP + INVOKESPECIAL <init>(String,String) — which throws
+        // IllegalAccessError on a 1.21+ host (Rings of Ascension, #92:
+        // GlintRenderType.buildGlintRenderType). The Fabric 1.20.6→1.21 shim
+        // already did this; the NeoForge chain was missing it, so any NeoForge
+        // mod constructing a ResourceLocation by ctor crashed at <clinit>.
+        // NeoForge is Mojang-named, so only the Mojang-name variant is needed
+        // (no intermediary class_2960). Sits in the chain of every host ≥1.21
+        // (1.21.x and 26.1).
+        transformer.registerConstructorRedirect(
+            "net/minecraft/resources/ResourceLocation",
+            "(Ljava/lang/String;Ljava/lang/String;)V",
+            "net/minecraft/resources/ResourceLocation", "fromNamespaceAndPath",
+            "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;"
+        );
+
         // Enchantments became data-driven
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/enchantment/Enchantment", "getRarity",

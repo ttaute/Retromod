@@ -46,6 +46,16 @@ public class RetromodTestMod implements ClientModInitializer {
                     + "client-started and world-join test phases skipped ("
                     + e.getMessage() + ")");
         }
+
+        // Bridge verification: registers listeners through the OLD (1.20.1)
+        // Fabric APIs this mod is compiled against, exercising Retromod's
+        // bridges end-to-end on 26.1+ hosts. Same fabric-api-absent guard.
+        try {
+            BridgeVerification.registerAll();
+        } catch (NoClassDefFoundError e) {
+            System.err.println("[Retromod-Test] Fabric API not installed — "
+                    + "bridge verification skipped (" + e.getMessage() + ")");
+        }
     }
 
     private void registerDeferredPhases() {
