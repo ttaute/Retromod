@@ -167,6 +167,17 @@ public class RetromodForge {
         // Initialize hybrid AOT/JIT engine
         initializeHybridEngine();
 
+        // Vulkan compat (Tier 0): prefer the still-present OpenGL backend on a
+        // 26.2+ client so translated old mods' OpenGL rendering keeps working.
+        // No-op below 26.2 (today's Forge has no 26.2 build, so this is dormant
+        // until one ships) / on a server / if the user chose a backend.
+        try {
+            GraphicsBackendCompat.ensureOpenGlForOldMods(
+                Paths.get(".").toAbsolutePath().normalize(), RetromodVersion.TARGET_MC_VERSION);
+        } catch (Exception e) {
+            LOGGER.debug("Graphics backend preference skipped: {}", e.getMessage());
+        }
+
         // Transform mods from retromod-input/ folder
         int transformed = transformModsFromInput();
 

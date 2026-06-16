@@ -6,7 +6,7 @@
 # Builds Retromod for ALL loaders and supported MC versions (1.20+):
 #   - Fabric (1.20 through 26.2)
 #   - Forge (1.20 through 26.1)
-#   - NeoForge (1.20.1 through 26.1)
+#   - NeoForge (1.20.1 through 26.2)
 #   - CLI tool (standalone)
 # Older versions (1.12-1.19) are translated BY Retromod, not hosted separately.
 # ============================================================================
@@ -14,7 +14,7 @@
 # Don't exit on error - we'll handle errors ourselves
 # set -e
 
-VERSION="1.1.0-snapshot.4"
+VERSION="1.1.0-rc.1"
 # Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
 # Security-only updates for versions before 26.1.
 MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2" "26.2")
@@ -177,10 +177,9 @@ loader_supports_version() {
             case $ver in
                 # Before NeoForge existed
                 1.12*|1.13*|1.14*|1.15*|1.16*|1.17*|1.18*|1.19*|1.20) return 1 ;;
-                # 26.x: only 26.1.2 has NeoForge releases; 26.1 and 26.1.1 were skipped.
-                # 26.2: no NeoForge release yet (NeoForge doesn't do MC snapshots/rcs);
-                # remove from this line the moment a NeoForge 26.2 build ships.
-                26.1|26.1.1|26.2) return 1 ;;
+                # 26.x: NeoForge skipped the 26.1 and 26.1.1 patches (only 26.1.2
+                # got a build); 26.2 shipped a NeoForge build, so it's allowed.
+                26.1|26.1.1) return 1 ;;
                 # Everything else (1.20.1+, 1.21.x, 26.1.2) is supported
                 *) return 0 ;;
             esac
@@ -369,6 +368,15 @@ create_mod_jar() {
         1.21.10)                NEOFORGE_LV="21.10" ;;
         1.21.11)                NEOFORGE_LV="21.11" ;;
         26.1*)                  NEOFORGE_LV="26.1" ;;
+        # 26.2: NeoForge has only shipped a PRE-RELEASE so far (26.2.0.0-beta).
+        # Maven version ordering sorts a "-beta" qualifier BELOW the bare release,
+        # so a range of "[26.2,)" does NOT match 26.2.0.0-beta — the mod is rejected
+        # with "requires neoforge 26.2 or above" against an actual 26.2.0.0-beta
+        # (caught in-game on the 26.2 NeoForge instance). Use the pre-release as the
+        # inclusive floor: "[26.2.0.0-beta,)" matches the beta AND every later 26.2
+        # build (the eventual stable 26.2.0.0 sorts above its own beta), while still
+        # excluding 26.1.x. The minecraft "[26.2]" constraint remains the real gate.
+        26.2*)                  NEOFORGE_LV="26.2.0.0-beta" ;;
         *)                      NEOFORGE_LV="20" ;;  # Permissive fallback
     esac
 
@@ -568,7 +576,7 @@ echo "Output structure:"
 echo "  dist/"
 echo "  ├── Fabric/        (host: 1.20 - 26.2, translates mods from 1.14.4+)"
 echo "  ├── Forge/         (host: 1.20 - 26.1.2, translates mods from 1.12.2+)"
-echo "  ├── NeoForge/      (host: 1.20.1 - 26.1.2, translates mods from 1.20.1+)"
+echo "  ├── NeoForge/      (host: 1.20.1 - 26.2, translates mods from 1.20.1+)"
 echo "  └── CLI/"
 echo "      └── retromod-${VERSION}-cli.jar"
 echo ""

@@ -105,6 +105,38 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/networking/v1/FabricServerConfigurationPacketListenerImpl"
         );
 
+        // PayloadTypeRegistry static accessors were renamed TWICE in fabric-api
+        // and 26.1 has only the newest spelling, so an old mod (or a JiJ'd lib
+        // like forge-config-api-port, which calls these to register its config
+        // sync payloads — #94, CoroUtil/Watut) hits NoSuchMethodError on 26.1.
+        //   gen-1 (≤ fabric-api 0.111): configurationClientbound() / …Serverbound() / playClientbound() / playServerbound()
+        //   gen-2 (~0.115–0.119, 1.21.4): configurationS2C() / configurationC2S() / playS2C() / playC2S()
+        //   gen-3 (26.1, the host):       clientboundConfiguration() / serverboundConfiguration() / clientboundPlay() / serverboundPlay()
+        // Map BOTH old generations → gen-3 (S2C = server→client = clientbound;
+        // C2S = serverbound). All are static, no-arg, return PayloadTypeRegistry,
+        // so the descriptor is identical and only the name changes. A redirect
+        // whose source name a given mod never calls is simply inert. Verified
+        // against fabric-api 0.119.4 (gen-2) and 0.145.4 (gen-3); gen-1 confirmed
+        // by the #94 crash (configurationClientbound). Gated to 26.1 hosts by
+        // virtue of living in the 26.1 shim (gen-3 only exists there).
+        String PTR = "net/fabricmc/fabric/api/networking/v1/PayloadTypeRegistry";
+        String PTR_DESC = "()Lnet/fabricmc/fabric/api/networking/v1/PayloadTypeRegistry;";
+        String[][] ptrRenames = {
+            // gen-1 → gen-3
+            {"configurationClientbound", "clientboundConfiguration"},
+            {"configurationServerbound", "serverboundConfiguration"},
+            {"playClientbound",          "clientboundPlay"},
+            {"playServerbound",          "serverboundPlay"},
+            // gen-2 → gen-3
+            {"configurationS2C", "clientboundConfiguration"},
+            {"configurationC2S", "serverboundConfiguration"},
+            {"playS2C",          "clientboundPlay"},
+            {"playC2S",          "serverboundPlay"},
+        };
+        for (String[] r : ptrRenames) {
+            transformer.registerMethodRedirect(PTR, r[0], PTR_DESC, PTR, r[1], PTR_DESC);
+        }
+
         // --- World → Level renames ---
         // ClientWorldEvents and ServerEntityWorldChangeEvents are handled by
         // FabricRenamedSamBridgesShim, NOT plain redirects: their SAM methods

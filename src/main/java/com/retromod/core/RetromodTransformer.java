@@ -73,6 +73,21 @@ public class RetromodTransformer implements ClassFileTransformer {
     // because matching requires owner+name+descriptor (not just name).
     private final Map<MethodKey, MethodTarget> methodRedirects = new ConcurrentHashMap<>(256);
 
+    // Removed-method NEUTRALIZATION (Tier 2 render-state soft-fail). A call to a
+    // method that no longer exists on the host is rewritten in place to "discard
+    // the args (and receiver), push a default return" instead of being left to
+    // crash with NoSuchMethodError. The canonical case: the imperative
+    // RenderSystem state setters (enableBlend/blendFunc/depthMask/…) deleted in
+    // the 26.x GpuDevice/RenderPipeline refactor — there is no surviving method
+    // to redirect *to* (state is declared on immutable pipeline objects now), so
+    // the only non-crashing option is to make the dead call inert. The mod LOADS
+    // and runs; the neutralized state-call has no effect (soft-fail, same
+    // boundary VulkanMod hits). Keyed on exact owner+name+desc so only the dead
+    // overload is touched — a live method that happens to share an owner is never
+    // neutralized. Owners tracked separately for an O(1) fast-path skip.
+    private final Set<MethodKey> neutralizedMethods = ConcurrentHashMap.newKeySet();
+    private final Set<String> neutralizedMethodOwners = ConcurrentHashMap.newKeySet();
+
     // Class redirects: oldClassName -> newClassName (JVM internal names with /).
     // Fed into ASM's ClassRemapper for bulk renaming — this handles class references
     // everywhere in bytecode (type descriptors, signatures, annotations, etc.)
@@ -376,6 +391,31 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     /**
+     * Register a removed method to be <b>neutralized</b> at every call site:
+     * the call is dropped and replaced with stack-balanced pops (args + receiver)
+     * plus a default value for the return type — so a mod that calls a method
+     * deleted on the host LOADS instead of dying with {@code NoSuchMethodError}.
+     *
+     * <p>Use this only when there is genuinely <b>no equivalent to redirect to</b>.
+     * The motivating case is the imperative {@code RenderSystem} render-state
+     * setters ({@code enableBlend()}, {@code blendFunc(II)}, {@code depthMask(Z)},
+     * …) removed in the 26.x GpuDevice/RenderPipeline refactor: state moved onto
+     * immutable pipeline objects, so the call has no modern method form. The
+     * neutralized call is <b>inert</b> — the mod runs, but that bit of manual GL
+     * state is lost (soft-fail). Prefer {@link #registerMethodRedirect} whenever a
+     * real target exists.
+     *
+     * <p>Match is exact on {@code owner+name+desc}; a still-present overload that
+     * shares the owner is never affected. Gate registration by host version in the
+     * caller (only register where the method is actually gone).
+     */
+    public void registerRemovedMethodNeutralize(String owner, String name, String desc) {
+        neutralizedMethods.add(new MethodKey(owner, name, desc));
+        neutralizedMethodOwners.add(owner);
+        LOGGER.debug("Registered removed-method neutralize: {}.{}{}", owner, name, desc);
+    }
+
+    /**
      * Register a class redirect (for relocated/renamed classes).
      *
      * <p>Identity redirects ({@code A → A}) are explicitly ignored — they were
@@ -635,6 +675,8 @@ public class RetromodTransformer implements ClassFileTransformer {
         syntheticClasses.clear();
         embeddedShimClasses.clear();
         methodRedirectOwners.clear();
+        neutralizedMethods.clear();
+        neutralizedMethodOwners.clear();
         classRedirectsVersion.incrementAndGet();
         cachedRemapper = null;
     }
@@ -725,7 +767,8 @@ public class RetromodTransformer implements ClassFileTransformer {
         // OPTIMIZATION: Skip if no redirects registered. No pass will do anything,
         // so skip the outer loop entirely and return the input unchanged.
         if (methodRedirects.isEmpty() && classRedirects.isEmpty() &&
-                fieldRedirects.isEmpty() && superclassRedirects.isEmpty()) {
+                fieldRedirects.isEmpty() && superclassRedirects.isEmpty() &&
+                neutralizedMethods.isEmpty()) {
             return originalBytes;
         }
 
@@ -1505,7 +1548,8 @@ public class RetromodTransformer implements ClassFileTransformer {
             // because a class→class rebase rewrites super(...) <init> owners in the method
             // body (#70), and the non-<init> invokespecial fixup also lives in the wrapper.
             if (methodRedirects.isEmpty() && fieldRedirects.isEmpty() && constructorRedirects.isEmpty()
-                    && fieldAccessorRedirects.isEmpty() && superclassRedirects.isEmpty()) {
+                    && fieldAccessorRedirects.isEmpty() && superclassRedirects.isEmpty()
+                    && neutralizedMethods.isEmpty()) {
                 return mv;
             }
             return new RetromodMethodVisitor(api, mv, currentClassName, currentSuperName,
@@ -1677,6 +1721,43 @@ public class RetromodTransformer implements ClassFileTransformer {
                     case 'B', 'C', 'S' -> { super.visitInsn(Opcodes.ICONST_0); i++; }
                     default -> i++; // skip unknown
                 }
+            }
+        }
+
+        /**
+         * Neutralize a call to a removed method: emit NO call, instead discard
+         * the arguments (and the receiver for instance calls) and push a default
+         * value for the return type. Turns a would-be {@code NoSuchMethodError}
+         * into a silent no-op so the mod loads (soft-fail — the call's side
+         * effect is lost). Only ever applied to methods that genuinely don't
+         * exist on the host, registered via {@link #registerRemovedMethodNeutralize}.
+         *
+         * <p>These are plain pops/pushes inside a single basic block — no new
+         * branches — so no stack-map frames are introduced; {@code COMPUTE_MAXS}
+         * absorbs the (net non-increasing) stack delta.
+         */
+        private void neutralizeCall(int opcode, String descriptor) {
+            Type methodType = Type.getMethodType(descriptor);
+            Type[] argTypes = methodType.getArgumentTypes();
+            // Pop arguments off the stack, last-pushed first.
+            for (int i = argTypes.length - 1; i >= 0; i--) {
+                super.visitInsn(argTypes[i].getSize() == 2 ? Opcodes.POP2 : Opcodes.POP);
+            }
+            // Instance calls (virtual/special/interface) also have the receiver
+            // below the args; static calls don't. The objectref is always 1 slot.
+            if (opcode != Opcodes.INVOKESTATIC) {
+                super.visitInsn(Opcodes.POP);
+            }
+            // Push a default for the return type so consumers of the result (and
+            // the verifier) stay balanced.
+            Type ret = methodType.getReturnType();
+            switch (ret.getSort()) {
+                case Type.VOID -> { /* nothing to push */ }
+                case Type.OBJECT, Type.ARRAY -> super.visitInsn(Opcodes.ACONST_NULL);
+                case Type.LONG -> super.visitInsn(Opcodes.LCONST_0);
+                case Type.FLOAT -> super.visitInsn(Opcodes.FCONST_0);
+                case Type.DOUBLE -> super.visitInsn(Opcodes.DCONST_0);
+                default -> super.visitInsn(Opcodes.ICONST_0); // int/boolean/byte/char/short
             }
         }
 
@@ -1926,6 +2007,20 @@ public class RetromodTransformer implements ClassFileTransformer {
                             name, descriptor, false);
                     return;
                 }
+            }
+
+            // Removed-method NEUTRALIZATION (soft-fail): if this exact call
+            // targets a method deleted on the host (e.g. a removed RenderSystem
+            // state setter), drop it — pop the args (and receiver, for instance
+            // calls) and push a default return — so the mod loads instead of
+            // hitting NoSuchMethodError. Checked before the redirect fast-path
+            // because neutralized owners are tracked in their own set.
+            if (!neutralizedMethods.isEmpty()
+                    && neutralizedMethodOwners.contains(owner)
+                    && neutralizedMethods.contains(new MethodKey(owner, name, descriptor))) {
+                LOGGER.trace("Neutralizing removed-method call {}.{}{}", owner, name, descriptor);
+                neutralizeCall(opcode, descriptor);
+                return;
             }
 
             // OPTIMIZATION: Fast path - skip if owner not in our redirect set.

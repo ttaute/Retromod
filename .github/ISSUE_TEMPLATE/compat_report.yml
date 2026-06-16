@@ -81,7 +81,7 @@ body:
     id: retromod_version
     attributes:
       label: Retromod version used
-      placeholder: e.g. 1.1.0-snapshot.4
+      placeholder: e.g. 1.1.0-rc.1
     validations:
       required: true
 

@@ -184,6 +184,19 @@ public class RetromodNeoForge {
         // Initialize hybrid AOT/JIT engine
         initializeHybridEngine();
 
+        // Vulkan compat (Tier 0): on a 26.2+ client, prefer the still-present
+        // OpenGL backend so translated old mods' OpenGL rendering keeps working.
+        // No-op below 26.2 / on a server / if the user chose a backend. On
+        // NeoForge the constructor may run after the GpuDevice is created, in
+        // which case this takes effect on the next launch (same restart model as
+        // the mod transform below). See GraphicsBackendCompat.
+        try {
+            GraphicsBackendCompat.ensureOpenGlForOldMods(
+                Paths.get(".").toAbsolutePath().normalize(), RetromodVersion.TARGET_MC_VERSION);
+        } catch (Exception e) {
+            LOGGER.debug("Graphics backend preference skipped: {}", e.getMessage());
+        }
+
         // Transform mods from retromod-input/ folder (same workflow as Fabric)
         int transformed = transformModsFromInput();
 

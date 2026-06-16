@@ -87,7 +87,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
-        LOGGER.info("║  Retromod v1.1.0-snapshot.4                                ║");
+        LOGGER.info("║  Retromod v1.1.0-rc.1                                      ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
         
         try {
@@ -130,7 +130,17 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
 
             // Step 1: Create all folders and guide files
             createFoldersAndGuides(gameDir);
-            
+
+            // Step 1.5: Vulkan compat (Tier 0). On a 26.2+ client, prefer the
+            // still-present OpenGL backend so translated old mods' OpenGL
+            // rendering keeps working (26.2 made Vulkan the default). No-op below
+            // 26.2, on a server, or if the user explicitly chose a backend.
+            try {
+                GraphicsBackendCompat.ensureOpenGlForOldMods(gameDir, targetVersion);
+            } catch (Exception e) {
+                LOGGER.debug("Graphics backend preference skipped: {}", e.getMessage());
+            }
+
             // Step 2: Transform mods from BOTH input locations
             int fromPrimary = transformModsFromFolder(
                 gameDir.resolve(PRIMARY_INPUT),

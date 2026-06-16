@@ -56,5 +56,12 @@ public final class Common_1_21_11_to_26_1_ClassMoves {
         transformer.registerClassRedirect(
             "net/minecraft/world/level/BlockAndTintGetter",
             "net/minecraft/client/renderer/block/BlockAndTintGetter");
+
+        // Tier-2 render-state soft-fail: neutralize the imperative RenderSystem
+        // state setters deleted in the blaze3d GpuDevice/RenderPipeline refactor
+        // (gone by 1.21.11, stay gone through 26.x). Loader-agnostic blaze3d, so
+        // it rides this shared path for Fabric + NeoForge; Forge wires it
+        // directly. See RemovedRenderStateNeutralize for the full rationale.
+        RemovedRenderStateNeutralize.register(transformer);
     }
 }

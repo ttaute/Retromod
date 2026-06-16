@@ -62,6 +62,12 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
 
+        // Tier-2 render-state soft-fail: neutralize the imperative RenderSystem
+        // state setters deleted in the blaze3d refactor (gone by 1.21.11). Forge
+        // doesn't share the Common_1_21_11_to_26_1_ClassMoves path, so it's wired
+        // here directly. See RemovedRenderStateNeutralize for the rationale.
+        com.retromod.shim.common.RemovedRenderStateNeutralize.register(transformer);
+
         // ============================================================
         // RESOURCELOCATION CLASS RENAME
         // Forge 64.x for MC 26.1 uses the hybrid name

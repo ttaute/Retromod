@@ -87,7 +87,7 @@ You have to preserve the copyright notice and MIT license text somewhere in the 
 
 ## What Minecraft versions are supported?
 
-- **Target:** Minecraft 26.1.2 — and **26.2 as of 1.1.0-snapshot.4** (verified in-game against the 26.2 release candidate; the Fabric 26.2 jar ships the moment Mojang releases 26.2, NeoForge/Forge builds follow when those loaders do). This is the version your transformed mods run *on*.
+- **Target:** Minecraft 26.1.2 and **26.2** (26.2 support landed in 1.1.0-snapshot.4; as of 1.1.0-rc.1 the **Fabric and NeoForge** 26.2 jars ship now that those loaders have released for 26.2 — **Forge has no 26.2 build yet**, so a Forge 26.2 jar follows when it does). This is the version your transformed mods run *on*. On 26.2, use the **OpenGL** renderer — see below.
 - **Source:** mods built for 1.12.2 and newer. That's the version the mod was originally released for.
 
 So you can take a Fabric mod built for 1.20.1 and run it on 26.1.2, or a mod built for 1.16.5 and run it on 26.1.2. 1.12.2 is the oldest source we currently support.
@@ -95,6 +95,10 @@ So you can take a Fabric mod built for 1.20.1 and run it on 26.1.2, or a mod bui
 Older source versions (pre-1.12.2) aren't supported because the mod ecosystem shifts fundamentally around that point: Forge API differences, mixin maturity, and so on. That's future work.
 
 Newer target versions will be added as Minecraft releases them. Retromod is built around 26.1 specifically because it's the first fully unobfuscated MC release, which makes the mapping work straightforward.
+
+## On MC 26.2, should I use OpenGL or Vulkan?
+
+**Use OpenGL.** MC 26.2 added a Vulkan renderer and made it the default, but translated old mods often render incorrectly (or crash) on Vulkan because they do OpenGL-era rendering. 26.2 still ships the OpenGL backend, and that's what old mods need. Retromod sets `graphicsApi:opengl` automatically the first time it runs on a 26.2+ client (it won't override a backend you chose yourself), so most people are already on OpenGL. To set or confirm it manually: Options → Video Settings → **Graphics API → OpenGL**. On macOS it's moot (Minecraft runs OpenGL-over-Metal regardless). OpenGL is expected to be removed in 26.3 — see [Troubleshooting]({{ '/troubleshooting' | relative_url }}) and the roadmap.
 
 ## What does it mean if the build isn't VERIFIED?
 
