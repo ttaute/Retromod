@@ -3,7 +3,7 @@
 > Run older Minecraft mods on newer versions through bytecode transformation and API shimming.
 
 [![Java 25+](https://img.shields.io/badge/Java-25+-blue.svg)](https://adoptium.net/)
-[![Minecraft 26.1 | 26.2](https://img.shields.io/badge/Minecraft-26.1%20%7C%2026.2-green.svg)](https://minecraft.net/)
+[![Minecraft 1.20 - 26.2](https://img.shields.io/badge/Minecraft-1.20%20--%2026.2-green.svg)](https://minecraft.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.1.0--rc.1-blueviolet.svg)]()
 
