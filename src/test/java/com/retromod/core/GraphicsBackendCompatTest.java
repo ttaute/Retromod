@@ -16,14 +16,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tier-0 OpenGL-preference logic ({@link GraphicsBackendCompat#apply}): set
- * {@code graphicsApi:opengl} for old mods on 26.2+, but only when the user hasn't
- * made an explicit choice, and always preserving the rest of options.txt.
+ * {@code preferredGraphicsBackend:"opengl"} for old mods on 26.2+, but only when
+ * the user hasn't made an explicit choice, and always preserving the rest of
+ * options.txt.
+ *
+ * <p>The format here matches what MC 26.2 actually persists, verified against a
+ * real 26.2 options.txt: the key is {@code preferredGraphicsBackend} (NOT the
+ * label key {@code graphicsApi}) and the value is JSON-quoted ({@code "opengl"} /
+ * {@code "vulkan"} / {@code "default"}).
  */
 class GraphicsBackendCompatTest {
 
-    private static String graphicsApiLine(Path p) throws IOException {
+    private static String backendLine(Path p) throws IOException {
         return Files.readAllLines(p).stream()
-                .filter(l -> l.startsWith("graphicsApi:"))
+                .filter(l -> l.startsWith("preferredGraphicsBackend:"))
                 .findFirst().orElse(null);
     }
 
@@ -32,16 +38,16 @@ class GraphicsBackendCompatTest {
         Path opts = dir.resolve("options.txt");
         assertEquals(GraphicsBackendCompat.Result.SET_OPENGL, GraphicsBackendCompat.apply(opts));
         assertTrue(Files.exists(opts));
-        assertEquals("graphicsApi:opengl", graphicsApiLine(opts));
+        assertEquals("preferredGraphicsBackend:\"opengl\"", backendLine(opts));
     }
 
     @Test
     void switchesDefaultToOpenGlPreservingOtherLines(@TempDir Path dir) throws IOException {
         Path opts = dir.resolve("options.txt");
-        Files.write(opts, List.of("fov:0.5", "graphicsApi:default", "renderDistance:12"));
+        Files.write(opts, List.of("fov:0.5", "preferredGraphicsBackend:\"default\"", "renderDistance:12"));
         assertEquals(GraphicsBackendCompat.Result.SET_OPENGL, GraphicsBackendCompat.apply(opts));
         List<String> after = Files.readAllLines(opts);
-        assertEquals("graphicsApi:opengl", graphicsApiLine(opts));
+        assertEquals("preferredGraphicsBackend:\"opengl\"", backendLine(opts));
         assertTrue(after.contains("fov:0.5"), "unrelated options must be preserved");
         assertTrue(after.contains("renderDistance:12"), "unrelated options must be preserved");
         assertEquals(3, after.size(), "no lines added or dropped, only the value changed");
@@ -52,23 +58,24 @@ class GraphicsBackendCompatTest {
         Path opts = dir.resolve("options.txt");
         Files.write(opts, List.of("fov:0.5", "renderDistance:12"));
         assertEquals(GraphicsBackendCompat.Result.SET_OPENGL, GraphicsBackendCompat.apply(opts));
-        assertEquals("graphicsApi:opengl", graphicsApiLine(opts));
+        assertEquals("preferredGraphicsBackend:\"opengl\"", backendLine(opts));
         assertTrue(Files.readAllLines(opts).contains("fov:0.5"));
     }
 
     @Test
     void leavesExplicitOpenGlAlone(@TempDir Path dir) throws IOException {
         Path opts = dir.resolve("options.txt");
-        Files.write(opts, List.of("graphicsApi:opengl"));
+        Files.write(opts, List.of("preferredGraphicsBackend:\"opengl\""));
         assertEquals(GraphicsBackendCompat.Result.ALREADY_OPENGL, GraphicsBackendCompat.apply(opts));
-        assertEquals("graphicsApi:opengl", graphicsApiLine(opts));
+        assertEquals("preferredGraphicsBackend:\"opengl\"", backendLine(opts));
     }
 
     @Test
     void respectsExplicitVulkanChoice(@TempDir Path dir) throws IOException {
         Path opts = dir.resolve("options.txt");
-        Files.write(opts, List.of("fov:0.5", "graphicsApi:vulkan"));
+        Files.write(opts, List.of("fov:0.5", "preferredGraphicsBackend:\"vulkan\""));
         assertEquals(GraphicsBackendCompat.Result.RESPECTED_VULKAN, GraphicsBackendCompat.apply(opts));
-        assertEquals("graphicsApi:vulkan", graphicsApiLine(opts), "an explicit Vulkan choice must be left intact");
+        assertEquals("preferredGraphicsBackend:\"vulkan\"", backendLine(opts),
+                "an explicit Vulkan choice must be left intact");
     }
 }

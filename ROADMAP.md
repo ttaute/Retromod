@@ -5,13 +5,13 @@
 > Forward-looking plans only. Anything already shipped lives in the [changelog](CHANGELOG.md), not here.
 > No fixed dates — Retromod ships a release when it's ready, not on a calendar.
 >
-> Last updated: 2026-06-16 · at **v1.1.0-rc.1**
+> Last updated: 2026-06-17 · at **v1.1.0** (stable)
 
 ---
 
 ## Where we are
 
-**Retromod 1.0.0 is stable; 1.1.0 is on the snapshot track (currently snapshot.4).** It translates old Fabric, NeoForge, and Forge mod bytecode onto **MC 26.1.x** — the maintained target and the first unobfuscated Minecraft line — and is **26.2-ready** (shims, version aliases, and the Fabric 26.2 build target shipped in snapshot.4, verified against the 26.2 release candidate). The shim chain spans **MC 1.12.2 → 26.2**, third parties can extend Retromod through the [Addon API](docs/addons.md), and real-world results live in the community [Compatibility DB](https://bownlux.github.io/Retromod/compatdb/).
+**Retromod 1.1.0 is the current stable release.** It translates old Fabric, NeoForge, and Forge mod bytecode onto **MC 26.1.x and 26.2** — the maintained targets and the first unobfuscated Minecraft line. MC 26.2 ships for Fabric and NeoForge (Forge follows when its 26.2 loader does), with first-round Vulkan compatibility (prefer the OpenGL backend for old mods). The shim chain spans **MC 1.12.2 → 26.2**, third parties can extend Retromod through the [Addon API](docs/addons.md), and real-world results live in the community [Compatibility DB](https://bownlux.github.io/Retromod/compatdb/).
 
 For everything that already landed, see the [changelog](CHANGELOG.md). This file is only what's *ahead*.
 
@@ -34,19 +34,11 @@ Official builds embed a SHA-256 of Retromod's own classes; at startup the verifi
 
 ---
 
-## 1.1.0 — 26.x coverage & API bridges *(in stabilization)*
+## 1.1.0 — 26.x coverage & API bridges *(shipped)*
 
-**Theme (re-scoped at snapshot.4):** make the maintained 26.x path genuinely broad — measured against the top 5,000 Modrinth mods, driven by real issue reports. This is what the snapshot line actually became, and the results are already shipped: the full-catalog static audit and the fixes it forced, ~20 Fabric API bridges for renamed/removed events (including the renamed-SAM "lambda trap" class), NeoForge redirect corrections verified against real jars, the engine-level fixes the in-game passes caught (auto-devirtualize, superclass rebase, JPMS strips), the Compatibility DB, and first-day **MC 26.2** support.
+**Shipped as stable 1.1.0** (snapshot.N → rc.1 → stable). Theme: make the maintained 26.x path genuinely broad — measured against the top 5,000 Modrinth mods, driven by real issue reports. It delivered the full-catalog static audit and the fixes it forced, ~20 Fabric API bridges for renamed/removed events (incl. the renamed-SAM "lambda trap" class), NeoForge redirect corrections verified against real jars, the engine-level fixes the in-game passes caught (auto-devirtualize, superclass rebase, JPMS strips), the Compatibility DB, the `Tuple` polyfill + Cardinal Components package move, first-day **MC 26.2** support (Fabric + NeoForge), and the first round of Vulkan compatibility (Tier 0/Tier 2). Full details in the [changelog](CHANGELOG.md).
 
-> The original 1.1.0 theme — old Fabric mods on **pre-26.1** hosts — moved to **1.2.0**, where it gets a full release's attention instead of sharing one. (Decision logged at snapshot.4.)
-
-**Remaining before `rc.1` (= `snapshot.5`, stabilization only — no new feature surface):**
-
-1. **In-game feature verification of the bridge set.** Every reflective event bridge still stamped *“needs in-game verification”* (item-group events, command v1, ServerWorldEvents, EntityModelLayerRegistry, HudRenderCallback, client-networking v1, and the seven renamed-SAM bridges from snapshot.4) gets a test-mod case that actually **registers and fires** the event, not just resolves the classes — then a verified pass on 26.1.2. The soft-fail design means these can't crash, but `rc` should mean *known-working*, not *known-not-crashing*.
-2. **Small coverage items already scoped:** the `util/Tuple` polyfill (removed in 26.2, widely used), the **Cardinal Components package bridge** (`dev.onyxstudios.cca` → `org.ladysnake.cca` — unblocks the CCA-dependent ecosystem), and `WorldRenderEvents`' era-layered paths (the class lived at three different package paths across 1.x/1.21.x/26.1; today only the oldest is redirected).
-3. **Issue burn-down** — whatever real reports land against snapshot.4.
-
-Then **`rc.1` → `1.1.0` stable.**
+> The original 1.1.0 theme — old Fabric mods on **pre-26.1** hosts — moved to **1.2.0** (below), where it gets a full release's attention instead of sharing one.
 
 ---
 
@@ -55,9 +47,10 @@ Then **`rc.1` → `1.1.0` stable.**
 **Theme:** the broad catch-all after 1.1.0's 26.x-coverage line — the deep work that redirects can't do, plus the transform-engine fixes and library bridges the 1.1.0 issue stream surfaced. Not one tight theme: the unifying thread is "things a simple name-redirect can't fix." The big pillars (A, B) are the two halves of the redesigned/deleted-API problem; the rest (C) is the accumulated deeper bugs and ecosystem-library work found during 1.1.0.
 
 ### C. Transform-engine + library fixes surfaced during 1.1.0
-- **forge-config-api-port `ConfigTracker` `VerifyError`.** With the bad `ForgeConfigSpec` redirect removed in 1.1.0-rc.1, forgeconfigapiport's config-*loading* path next fails verification: `net/neoforged/fml/config/ConfigTracker.loadConfig` builds an exception whose `Throwable` arg is typed `Object` after transform — a `VerifyError`. Pre-existing (1.1.0 just got far enough to reveal it), no obvious redirect-to-Object culprit, so it needs a decompile-and-diff of the transformed vs original bytecode. Potentially broad — `ConfigTracker` is core to the port, which a large number of ported mods bundle (CoroUtil/Watut, #94 follow-up).
+- **forge-config-api-port `ConfigTracker` `VerifyError`.** With the bad `ForgeConfigSpec` redirect removed in 1.1.0, forgeconfigapiport's config-*loading* path next fails verification: `net/neoforged/fml/config/ConfigTracker.loadConfig` builds an exception whose `Throwable` arg is typed `Object` after transform — a `VerifyError`. Pre-existing (1.1.0 just got far enough to reveal it), no obvious redirect-to-Object culprit, so it needs a decompile-and-diff of the transformed vs original bytecode. Potentially broad — `ConfigTracker` is core to the port, which a large number of ported mods bundle (CoroUtil/Watut, #94 follow-up).
 - **Recurse transform + metadata-patching into jar-in-jar dependencies (NeoForge/Forge)** (#95) — see below.
 - **Process-first (AOT) transform for NeoForge** (#95) — see below.
+- **Load transformed mods from a non-`mods/` folder — CurseForge-export compat (#78).** CurseForge rejects pack exports that contain jars not on CF, and Retromod's `*-retromod.jar` outputs live in `mods/`. Move them to a Retromod-owned folder (e.g. `retromod/loaded/`) and load them via a **custom mod-locator** — the Sinytra Connector model. **NeoForge/Forge:** ship an `IModFileCandidateLocator` (FancyModLoader/FML SPI, registered in `META-INF/services/`) that scans the folder during discovery (early enough that the jars load normally); clean. **Fabric:** no third-party extra-mods-folder service exists and PreLaunch runs *after* Knot's mod scan, so it needs `-Dfabric.addMods=<dir>` (a launcher JVM arg) or Retromod's premain **Java-agent** (set before Knot scans). End state: `mods/` holds only CF-approved mods + Retromod itself. (Caveat: Retromod's own jar still sits in `mods/` to provide the locator, so it must also be on CF — or it alone still trips the export.)
 
 ### A. Pre-26.1 Fabric bridge (#55)
 
@@ -91,7 +84,7 @@ The mods that **construct and load far** but die on an API a later version *rede
 
 ## Rendering & the OpenGL → Vulkan transition (26.2 → 26.3)
 
-MC **26.2** added a Vulkan rendering backend (`com.mojang.blaze3d.vulkan`) alongside the existing OpenGL one (`com.mojang.blaze3d.opengl`) and made **Vulkan the default**, chosen via `net.minecraft.client.PreferredGraphicsApi` from `options.txt`'s `graphicsApi` key. MC **26.3 is expected to remove OpenGL entirely** (Apple has deprecated desktop GL; the wider ecosystem is moving to Vulkan/Metal). This section is the standing strategy for that transition.
+MC **26.2** added a Vulkan rendering backend (`com.mojang.blaze3d.vulkan`) alongside the existing OpenGL one (`com.mojang.blaze3d.opengl`) and made **Vulkan the default**, chosen via `net.minecraft.client.PreferredGraphicsApi` from `options.txt`'s `preferredGraphicsBackend` key. MC **26.3 is expected to remove OpenGL entirely** (Apple has deprecated desktop GL; the wider ecosystem is moving to Vulkan/Metal). This section is the standing strategy for that transition.
 
 **The non-goal, stated plainly:** Retromod will **not** attempt to translate arbitrary OpenGL bytecode into Vulkan. That is writing a GL driver in a transformer (GL is a huge stateful machine; Vulkan is explicit pipelines/descriptor-sets/SPIR-V) — infeasible and not how the problem is solved anywhere. The industry answer is a GL-on-Vulkan driver (**Zink**) and, on Apple, Vulkan-on-Metal (**MoltenVK**) — driver-level, not per-mod. Importantly, **Zink does *not* help on 26.3**: once Mojang removes MC's GL backend, MC is no longer a GL app, so a single mod's GL calls have no MC pipeline to ride and can't share MC's Vulkan swapchain. So there is no general rescue for raw-GL mods on a GL-less runtime.
 
@@ -101,8 +94,8 @@ MC **26.2** added a Vulkan rendering backend (`com.mojang.blaze3d.vulkan`) along
 
 **Sodium 0.9.0 as a reference (not a polyfill source).** Sodium's 26.2 release added **early Vulkan support**, so it drives Minecraft's new `GpuDevice`/`RenderPipeline` abstraction across *both* GL and Vulkan backends — making it a useful **clean-room study of that SPI**, which is exactly what Piece 1 below (re-adding the GL backend) hinges on. Its Vulkan-incompatible-mods list is a second **forecast** of the 26.3 breakage surface (alongside VulkanMod's). Two caveats: (1) it's **reference only** — Sodium is under the **PolyForm Shield License 1.0.0**, a source-available *noncompete* license (not OSI-open), so we read and learn, we don't lift code; (2) **it is *not* a polyfill source** — Sodium uses modern render APIs, not the removed ones old mods break on, so diffing Sodium-GL vs Sodium-Vulkan won't surface old-mod gaps. The authoritative "what changed" comes from diffing the **MC jars themselves** (`scripts/harvest-mc-diff.py`), not a third-party renderer.
 
-### Shipped in 1.1.0-rc.1
-- **Tier 0 — prefer the OpenGL backend for old mods (the 26.2-window fix).** On a 26.2+ client, `GraphicsBackendCompat` writes `graphicsApi:opengl` to `options.txt` so translated old mods' GL rendering keeps working — **non-destructive** (only when the user hasn't chosen a backend; an explicit `vulkan` choice is respected with a warning) and opt-out via `-Dretromod.graphics.noPreference=true`. This buys time: it makes 26.3, not 26.2, the cliff.
+### Shipped in 1.1.0
+- **Tier 0 — prefer the OpenGL backend for old mods (the 26.2-window fix).** On a 26.2+ client, `GraphicsBackendCompat` writes `preferredGraphicsBackend:"opengl"` to `options.txt` so translated old mods' GL rendering keeps working — **non-destructive** (only when the user hasn't chosen a backend; an explicit `vulkan` choice is respected with a warning) and opt-out via `-Dretromod.graphics.noPreference=true`. This buys time: it makes 26.3, not 26.2, the cliff.
 - **Tier 2 — neutralize removed imperative render-state calls (soft-fail).** The `RenderSystem` state setters (`enableBlend`/`blendFunc`/`depthMask`/…) were deleted in the blaze3d GpuDevice/RenderPipeline refactor (gone by 1.21.11) with no method to redirect to. `RemovedRenderStateNeutralize` + the transformer's `registerRemovedMethodNeutralize` drop those calls (pop args, push default return) so old mods **load and run** instead of `NoSuchMethodError`-ing — the state is inert (soft-fail), not translated.
 
 ### The 26.3 plan (when OpenGL is removed)

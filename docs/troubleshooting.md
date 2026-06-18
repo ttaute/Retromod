@@ -32,9 +32,9 @@ So a brand-new mod takes **two launches**: one to convert, one to run. After tha
 How to select it:
 
 - **In game:** Options → Video Settings → **Graphics API → OpenGL**, then restart if prompted.
-- **Or by file:** set `graphicsApi:opengl` in `options.txt` (in your game/instance folder).
+- **Or by file:** set `preferredGraphicsBackend:"opengl"` in `options.txt` (in your game/instance folder).
 
-**Retromod already does this for you** on a 26.2+ client: the first time it runs it writes `graphicsApi:opengl` to `options.txt` — but only if you haven't picked a backend yourself, and it leaves an explicit Vulkan choice alone (with a warning in the log). So most people are on OpenGL automatically; the steps above are for when you switched to Vulkan, want to confirm, or are on NeoForge (where the preference takes effect on the **next** launch, like mod conversion).
+**Retromod already does this for you** on a 26.2+ client: the first time it runs it writes `preferredGraphicsBackend:"opengl"` to `options.txt` — but only if you haven't picked a backend yourself, and it leaves an explicit Vulkan choice alone (with a warning in the log). So most people are on OpenGL automatically; the steps above are for when you switched to Vulkan, want to confirm, or are on NeoForge (where the preference takes effect on the **next** launch, like mod conversion).
 
 - To stop Retromod touching the setting, add `-Dretromod.graphics.noPreference=true` to your JVM args.
 - On macOS this is moot — Minecraft already runs OpenGL-over-Metal there (no native Vulkan).

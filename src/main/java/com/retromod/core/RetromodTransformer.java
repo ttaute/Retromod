@@ -408,8 +408,25 @@ public class RetromodTransformer implements ClassFileTransformer {
      * <p>Match is exact on {@code owner+name+desc}; a still-present overload that
      * shares the owner is never affected. Gate registration by host version in the
      * caller (only register where the method is actually gone).
+     *
+     * <p><b>Void-return only, for now.</b> All current callers register
+     * {@code ()V}-shaped state setters. For a <i>non-void</i> method,
+     * {@link RetromodMethodVisitor#neutralizeCall} pushes a synthetic default
+     * whose type differs from the original return; that is fine on the primary
+     * {@code COMPUTE_FRAMES} path (frames are recomputed) but would mismatch the
+     * <i>preserved</i> stack-map frames on the {@code COMPUTE_MAXS} fallback path
+     * (used when frame computation fails for an off-classpath modded class) →
+     * {@code VerifyError}. So a non-void registration is rejected with a warning
+     * until that path is hardened.
      */
     public void registerRemovedMethodNeutralize(String owner, String name, String desc) {
+        if (!desc.endsWith(")V")) {
+            LOGGER.warn("Ignoring non-void removed-method neutralize for {}.{}{} — only void "
+                    + "returns are supported (a non-void neutralize can VerifyError on the "
+                    + "COMPUTE_MAXS fallback path). Use a redirect/polyfill instead.",
+                    owner, name, desc);
+            return;
+        }
         neutralizedMethods.add(new MethodKey(owner, name, desc));
         neutralizedMethodOwners.add(owner);
         LOGGER.debug("Registered removed-method neutralize: {}.{}{}", owner, name, desc);

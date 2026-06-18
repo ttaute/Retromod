@@ -5,7 +5,7 @@
 [![Java 25+](https://img.shields.io/badge/Java-25+-blue.svg)](https://adoptium.net/)
 [![Minecraft 1.20 - 26.2](https://img.shields.io/badge/Minecraft-1.20%20--%2026.2-green.svg)](https://minecraft.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.1.0--rc.1-blueviolet.svg)]()
+[![Version](https://img.shields.io/badge/Version-1.1.0-blueviolet.svg)]()
 
 **Made by the developers of [RevivalSMP.net](https://revivalsmp.net)**
 
@@ -17,7 +17,7 @@
 - **Versions** — translates mods built for **1.12.2 and up** onto a host running **MC 1.20 → 26.2** (Fabric/NeoForge reach 26.2; Forge tops out at 26.1 until its 26.2 loader ships).
 - **Install (Fabric)** — put the jar in `mods/`, launch once, drop old mods in `retromod-input/`, launch, restart. **Forge/NeoForge:** jar + old mods both in `mods/`, launch, restart.
 - **MC 26.2 → use OpenGL.** Vulkan is 26.2's new default and breaks old mods' OpenGL rendering; Retromod auto-selects OpenGL for you (Video Settings → Graphics API → OpenGL to confirm).
-- **Status** — 1.0.0 is stable; **1.1.0-rc.1** is the current release candidate (26.x coverage). Keep backups of your mod JARs.
+- **Status** — **1.1.0** is the current stable release (26.x coverage). Keep backups of your mod JARs.
 - **Won't work for** deep-integration / rendering mods (Create, OptiFine, …) — [why](docs/incompatible-mods.md).
 - **Help** — [Troubleshooting](docs/troubleshooting.md) · [FAQ](docs/faq.md) · [Compatibility](COMPATIBILITY.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/Bownlux/Retromod/issues)
 
@@ -29,7 +29,7 @@
 
 ### Fabric
 
-1. Put `retromod-1.1.0-rc.1+<your-mc>.jar` in `mods/`.
+1. Put `retromod-1.1.0+<your-mc>.jar` in `mods/`.
 2. Launch once and close it — this creates the `retromod-input/` folder.
 3. Drop your old mods into `retromod-input/` (directly, **not** its `processed/` subfolder).
 4. Launch again — Retromod converts them and shows a restart prompt.
@@ -63,7 +63,7 @@ There's no `.exe`/`.app`/installer — Retromod is a Minecraft mod, loaded by yo
 
 > Forge has no MC 26.2 build yet, so its host tops out at 26.1 until one ships (the Fabric/NeoForge 26.2 jars are already built).
 
-> **On MC 26.2, use the OpenGL renderer.** 26.2 makes the new **Vulkan** backend the default, but translated old mods that do their own OpenGL rendering can glitch, render nothing, or crash on Vulkan — they need the still-present OpenGL backend. Retromod sets `graphicsApi:opengl` automatically the first time it runs on a 26.2+ client (it won't override a backend you picked yourself); to set or confirm it manually, use **Video Settings → Graphics API → OpenGL**. Opt out with `-Dretromod.graphics.noPreference=true`. (No-op on macOS, which runs OpenGL-over-Metal anyway. OpenGL is expected to be removed in 26.3 — see the [roadmap](ROADMAP.md).)
+> **On MC 26.2, use the OpenGL renderer.** 26.2 makes the new **Vulkan** backend the default, but translated old mods that do their own OpenGL rendering can glitch, render nothing, or crash on Vulkan — they need the still-present OpenGL backend. Retromod sets `preferredGraphicsBackend:"opengl"` automatically the first time it runs on a 26.2+ client (it won't override a backend you picked yourself); to set or confirm it manually, use **Video Settings → Graphics API → OpenGL**. Opt out with `-Dretromod.graphics.noPreference=true`. (No-op on macOS, which runs OpenGL-over-Metal anyway. OpenGL is expected to be removed in 26.3 — see the [roadmap](ROADMAP.md).)
 
 Experimental chains (1.12.2–1.15.2) cross enormous API breaks like The Flattening — many mods work, but expect rough edges. Stable chains (1.16.5+) translate cleanly for the vast majority of mods.
 

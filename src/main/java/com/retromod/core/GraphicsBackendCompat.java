@@ -23,7 +23,7 @@ import java.util.List;
  * MC 26.2 added a Vulkan rendering backend ({@code com.mojang.blaze3d.vulkan})
  * alongside the existing OpenGL one ({@code com.mojang.blaze3d.opengl}) and made
  * Vulkan the default, selected via {@code net.minecraft.client.PreferredGraphicsApi}
- * from {@code options.txt}'s {@code graphicsApi} key. Old mods that issue raw
+ * from {@code options.txt}'s {@code preferredGraphicsBackend} key. Old mods that issue raw
  * OpenGL ({@code org.lwjgl.opengl.GL11.*}) or other GL-context-dependent calls
  * work fine on the OpenGL backend but not on Vulkan — and translating arbitrary
  * GL to Vulkan in bytecode is infeasible (you'd be writing a GL driver). Since
@@ -34,7 +34,7 @@ import java.util.List;
  * <h2>Non-destructive by design</h2>
  * <ul>
  *   <li>Only acts on a <b>client</b>, on a host <b>≥ 26.2</b> (where Vulkan exists).</li>
- *   <li>Sets {@code graphicsApi:opengl} only when the user hasn't made an explicit
+ *   <li>Sets {@code preferredGraphicsBackend:"opengl"} only when the user hasn't made an explicit
  *       choice (key absent or {@code default}). If the user explicitly chose
  *       {@code opengl} we leave it; if they chose {@code vulkan} we <b>respect it</b>
  *       and only log a warning that old mods may render incorrectly.</li>
@@ -43,7 +43,7 @@ import java.util.List;
  * </ul>
  *
  * <p>The user can always switch to Vulkan afterwards in Video Settings; that
- * writes {@code graphicsApi:vulkan}, which we then never override.
+ * writes {@code preferredGraphicsBackend:"vulkan"}, which we then never override.
  *
  * <h2>Looking ahead to 26.3</h2>
  * When OpenGL is removed entirely (no backend to fall back to), this lever stops
@@ -58,17 +58,26 @@ public final class GraphicsBackendCompat {
     public static final String OPT_OUT_PROPERTY = "retromod.graphics.noPreference";
 
     private static final String OPTIONS_FILE = "options.txt";
-    private static final String KEY = "graphicsApi";
+
+    // The options.txt key MC 26.2 actually persists. Verified against real 26.2
+    // options.txt (version 4903): `preferredGraphicsBackend:"default"`. IMPORTANT:
+    // `graphicsApi` is only the in-game label's translation key (`options.graphicsApi`,
+    // shown as "Graphics API"), NOT the stored key — writing `graphicsApi:…` does
+    // nothing. The stored value is a JSON-quoted enum serialized name:
+    // "opengl" / "vulkan" / "default".
+    private static final String KEY = "preferredGraphicsBackend";
     private static final String OPENGL = "opengl";
     private static final String VULKAN = "vulkan";
+    /** The exact options.txt line that selects the OpenGL backend (value is JSON-quoted). */
+    private static final String OPENGL_LINE = KEY + ":\"" + OPENGL + "\"";
 
     private GraphicsBackendCompat() {}
 
     /** Outcome of an {@link #ensureOpenGlForOldMods} call — surfaced for logging and tests. */
     public enum Result {
-        /** Wrote {@code graphicsApi:opengl} (key was absent or {@code default}). */
+        /** Wrote {@code preferredGraphicsBackend:"opengl"} (key was absent or {@code "default"}). */
         SET_OPENGL,
-        /** Already {@code graphicsApi:opengl}; nothing to do. */
+        /** Already {@code preferredGraphicsBackend:"opengl"}; nothing to do. */
         ALREADY_OPENGL,
         /** User explicitly chose Vulkan — left as-is, warned. */
         RESPECTED_VULKAN,
@@ -121,7 +130,7 @@ public final class GraphicsBackendCompat {
         // with just our key; MC fills in every other option with its defaults on
         // first save. This is what makes the very first launch come up on OpenGL.
         if (!Files.exists(optionsTxt)) {
-            Files.writeString(optionsTxt, KEY + ":" + OPENGL + System.lineSeparator(),
+            Files.writeString(optionsTxt, OPENGL_LINE + System.lineSeparator(),
                     StandardCharsets.UTF_8);
             logSet(true);
             return Result.SET_OPENGL;
@@ -135,7 +144,8 @@ public final class GraphicsBackendCompat {
             int colon = line.indexOf(':');
             if (colon > 0 && line.substring(0, colon).trim().equals(KEY)) {
                 idx = i;
-                currentValue = line.substring(colon + 1).trim();
+                // Value is JSON-quoted in options.txt (e.g. "vulkan") — unquote it.
+                currentValue = unquote(line.substring(colon + 1).trim());
                 break;
             }
         }
@@ -147,26 +157,34 @@ public final class GraphicsBackendCompat {
             }
             if (v.equals(VULKAN)) {
                 // Explicit user choice — respect it, but make the trade-off visible.
-                LOGGER.warn("[Retromod] options.txt has graphicsApi:vulkan. Translated old mods "
-                        + "may render incorrectly or crash on the Vulkan backend — set Graphics API "
-                        + "to OpenGL in Video Settings if you hit rendering issues.");
+                LOGGER.warn("[Retromod] options.txt has preferredGraphicsBackend:\"vulkan\". "
+                        + "Translated old mods may render incorrectly or crash on the Vulkan "
+                        + "backend — set Graphics API to OpenGL in Video Settings if you hit "
+                        + "rendering issues.");
                 return Result.RESPECTED_VULKAN;
             }
             // "default" or anything else → switch to opengl, preserving the file.
-            lines.set(idx, KEY + ":" + OPENGL);
+            lines.set(idx, OPENGL_LINE);
         } else {
-            lines.add(KEY + ":" + OPENGL);
+            lines.add(OPENGL_LINE);
         }
         Files.write(optionsTxt, lines, StandardCharsets.UTF_8);
         logSet(false);
         return Result.SET_OPENGL;
     }
 
+    /** Strip one pair of surrounding double-quotes if present (options.txt enum values are JSON-quoted). */
+    private static String unquote(String s) {
+        if (s.length() >= 2 && s.charAt(0) == '"' && s.charAt(s.length() - 1) == '"') {
+            return s.substring(1, s.length() - 1);
+        }
+        return s;
+    }
+
     private static void logSet(boolean created) {
-        LOGGER.info("[Retromod] Set graphicsApi:opengl in options.txt{} so translated mods' "
-                + "OpenGL rendering works on MC 26.2+ (Vulkan is the new default). "
-                + "To use Vulkan, change Graphics API in Video Settings "
-                + "(disable with -D" + OPT_OUT_PROPERTY + "=true).",
-                created ? " (created)" : "");
+        LOGGER.info("[Retromod] Set {} in options.txt{} so translated mods' OpenGL rendering "
+                + "works on MC 26.2+ (Vulkan is the new default). To use Vulkan, change "
+                + "Graphics API in Video Settings (disable with -D{}=true).",
+                OPENGL_LINE, created ? " (created)" : "", OPT_OUT_PROPERTY);
     }
 }
