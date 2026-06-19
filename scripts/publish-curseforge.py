@@ -41,20 +41,60 @@ API = "https://minecraft.curseforge.com"
 LOADER_DIRS = [("Fabric", "fabric"), ("Forge", "forge"), ("NeoForge", "neoforge")]
 
 
-def load_game_versions(token):
-    """Map CF's game-version + modloader NAMES to their numeric IDs."""
-    r = requests.get(API + "/api/game/versions", headers={"X-Api-Token": token}, timeout=30)
+def _get_json(token, path):
+    """GET a CF author-API endpoint, erroring clearly on HTTP / non-JSON failures."""
+    r = requests.get(API + path, headers={"X-Api-Token": token}, timeout=30)
     if r.status_code != 200:
-        sys.exit(f"ERROR: could not fetch CF game versions (HTTP {r.status_code}). "
-                 f"Check CF_API_TOKEN. Body: {r.text[:200]}")
+        sys.exit(f"ERROR: GET {path} failed (HTTP {r.status_code}). Check CF_API_TOKEN. "
+                 f"Body: {r.text[:200]}")
+    try:
+        return r.json()
+    except ValueError:
+        sys.exit(f"ERROR: GET {path} returned non-JSON (HTTP {r.status_code}). "
+                 f"Body: {r.text[:200]}")
+
+
+def load_game_versions(token):
+    """Map CF's Minecraft-version + modloader NAMES to their numeric IDs.
+
+    CF's /api/game/versions lists versions across MANY types (Minecraft, Bukkit,
+    addon/plugin versions, Java, environment, …) and the SAME name (e.g. "1.20.1")
+    appears under several. Matching by name alone picks a wrong-type id, which the
+    upload API rejects with errorCode 1009 "belongs to an invalid dependency" (and
+    inflates the count to thousands). So we resolve the *type* ids first via
+    /api/game/version-types and only accept versions of the Minecraft + Modloader
+    types.
+    """
+    types = _get_json(token, "/api/game/version-types")
+    mc_type_ids = {
+        t.get("id") for t in types
+        if str(t.get("slug", "")).startswith("minecraft-")
+        or str(t.get("name", "")).startswith("Minecraft ")
+    }
+    loader_type_ids = {
+        t.get("id") for t in types
+        if str(t.get("slug", "")) == "modloader" or str(t.get("name", "")) == "Modloader"
+    }
+    if not mc_type_ids:
+        sys.exit("ERROR: could not identify CurseForge's Minecraft version types from "
+                 "/api/game/version-types — aborting rather than uploading with wrong "
+                 "game-version ids. (CF may have changed its type naming.)")
+
     mc, loaders = {}, {}
-    for v in r.json():
+    for v in _get_json(token, "/api/game/versions"):
         name = (v.get("name") or "").strip()
         vid = v.get("id")
-        if name.lower() in ("fabric", "forge", "neoforge", "quilt"):
+        tid = v.get("gameVersionTypeID")
+        if name.lower() in ("fabric", "forge", "neoforge", "quilt") \
+                and (not loader_type_ids or tid in loader_type_ids):
             loaders[name.lower()] = vid
-        elif re.fullmatch(r"\d+\.\d+(\.\d+)?", name):  # "1.20.1", "26.2"
+        elif tid in mc_type_ids and re.fullmatch(r"\d+\.\d+(\.\d+)?", name):  # "1.20.1", "26.2"
             mc[name] = vid
+
+    if not mc:
+        sys.exit("ERROR: resolved 0 Minecraft versions after type-filtering — the CF API "
+                 "response shape may have changed (expected 'gameVersionTypeID' per version). "
+                 "Aborting.")
     return mc, loaders
 
 
