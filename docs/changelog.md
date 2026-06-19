@@ -8,6 +8,16 @@ description: "Release notes for every Retromod version."
 
 All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/). The 1.0.0 line ran `1.0.0-beta.N` → `1.0.0-rc.N` → stable `1.0.0`; from 1.1.0 on, minor/major releases use `snapshot.N` → `rc.N` → stable (patch releases ship directly).
 
+## [1.2.0-snapshot.1] — 2026-06-18
+
+The "general update" — the deep work redirects can't do, plus the transform-engine and library fixes the 1.1.0 issue stream surfaced. See the [roadmap](ROADMAP.md#120--the-general-update) for the full plan (pre-26.1 Fabric bridge, deep-API polyfills, the forge-config-api-port `ConfigTracker` VerifyError, JiJ-recursion, AOT-first NeoForge, the CurseForge-export locator, …).
+
+### Added
+- **`mods/Retromod/` loading for CurseForge-export compatibility (#78).** Retromod can now load jars from a dedicated `mods/Retromod/` subfolder, so Retromod (hosted on Modrinth) and its transformed `*-retromod.jar` outputs can ship as CurseForge pack **overrides** instead of top-level `mods/` jars, which CurseForge pack export rejects.
+  - **NeoForge:** a custom `IModFileCandidateLocator` (registered as an FML early service) discovers the subfolder's jars and feeds them to mod discovery — loaded in-place, no restart. Verified against NeoForge loader 10.x/11.x (MC 1.21.0 → 26.2).
+  - **Fabric:** since Fabric has no locator SPI (pre-launch runs after mod discovery), `RetromodPreLaunch` **drains** `mods/Retromod/` — it moves the loader-ready jars into `mods/` and shows the usual one-time restart prompt. Alternatively, launch with `-Dfabric.addMods=<gamedir>/mods/Retromod` to load them in-place with no restart (Retromod detects this and skips the drain).
+  - Follow-ups: Forge (a different `forgespi` SPI) and the thin CurseForge "Retromod Loader" distribution stub.
+
 ## [1.1.0] — 2026-06-17
 
 The stable 1.1.0 release — the 26.x-coverage line. It carries everything from the snapshot/rc track: the full-catalog audit and the fixes it forced, ~20 renamed/removed-event API bridges (verified firing in a live world), the Cardinal Components package move, the `Tuple` polyfill, NeoForge redirect corrections, **first-day MC 26.2 support (Fabric + NeoForge)**, the two #94 fixes (both confirmed in-game), and the first round of **Vulkan compatibility** for 26.2's new renderer. (One deeper issue — a `VerifyError` in forge-config-api-port's `ConfigTracker`, pre-existing and unrelated to these fixes — is tracked for 1.2.0.)

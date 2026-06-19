@@ -4,9 +4,9 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.1.0-snapshot.x (pre-release) | Yes |
-| 1.0.x (stable) | Yes |
-| Pre-1.0 (beta / rc) | No |
+| 1.2.0-snapshot.x (active pre-release) | Yes |
+| 1.1.x (latest stable) | Yes |
+| 1.0.x and earlier | No |
 
 Security fixes land on the newest line first; only the latest stable patch and the active pre-release receive backports.
 
@@ -62,6 +62,7 @@ Or email: **security@revivalsmp.net**
 
 - Retromod writes transformed mods to `mods/` and backs up originals to `retromod-backups/`
 - AOT cache is stored in `config/retromod/aot-cache/` with hash-based filenames
+- `mods/Retromod/` is an optional input folder for CurseForge-export packs (#78): on NeoForge an `IModFileCandidateLocator` feeds its jars to the loader in-place; on Fabric the pre-launch pass moves them into `mods/`. Jars there are user-supplied (pack contents) and carry the **same trust level as `mods/`** — Retromod loads them, it does not sandbox or audit them, exactly as the loader treats any mod. The folder is scanned non-recursively and the drain validates it is not a symlink (zip-slip / symlink-redirect guard)
 - All file operations are confined to the Minecraft game directory
 
 ### No remote code execution

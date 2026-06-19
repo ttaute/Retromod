@@ -6,7 +6,7 @@
 
     <groupId>com.retromod</groupId>
     <artifactId>retromod</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0-snapshot.1</version>
     <packaging>jar</packaging>
 
     <name>Retromod</name>
@@ -296,6 +296,21 @@
                              keeps that safe. -->
                         <exclude>net/minecraft/class_2960.class</exclude>
                         <exclude>net/minecraft/class_1761.class</exclude>
+                        <!-- Compile-only stubs of NeoForge's mod-locator SPI
+                             (net.neoforged.neoforgespi.*), used by
+                             com.retromod.locator.RetromodModLocator (#78). Same
+                             compile-only-stub story as the @Mod stubs above: the
+                             REAL SPI is provided by NeoForge at runtime, so the
+                             stub .class files must NOT ship in the jar or
+                             NeoForge's classloader would see two definitions.
+                             RetromodModLocator.class itself stays — it implements
+                             the real SPI at runtime. -->
+                        <exclude>net/neoforged/neoforgespi/ILaunchContext.class</exclude>
+                        <exclude>net/neoforged/neoforgespi/locating/IOrderedProvider.class</exclude>
+                        <exclude>net/neoforged/neoforgespi/locating/IModFileCandidateLocator.class</exclude>
+                        <exclude>net/neoforged/neoforgespi/locating/IDiscoveryPipeline.class</exclude>
+                        <exclude>net/neoforged/neoforgespi/locating/ModFileDiscoveryAttributes.class</exclude>
+                        <exclude>net/neoforged/neoforgespi/locating/IncompatibleFileReporting.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>

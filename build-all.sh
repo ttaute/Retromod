@@ -14,7 +14,7 @@
 # Don't exit on error - we'll handle errors ourselves
 # set -e
 
-VERSION="1.1.0"
+VERSION="1.2.0-snapshot.1"
 # Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
 # Security-only updates for versions before 26.1.
 MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2" "26.2")
@@ -300,6 +300,16 @@ create_mod_jar() {
     if [ "$LOADER" = "forge" ] || [ "$LOADER" = "neoforge" ]; then
         rm -rf "$TEMP_DIR/javax/annotation" 2>/dev/null
     fi
+
+    # NOTE (#78): the NeoForge mod-file locator (com/retromod/locator/
+    # RetromodModLocator + its META-INF/services entry) is deliberately KEPT in
+    # every loader's jar, even though it's only functional on NeoForge. It's inert
+    # on Fabric/Forge (verified: Fabric loads fine — that SPI isn't read there) and
+    # is a Retromod-OWN class, so stripping it per-loader would change the jar's
+    # com/retromod/** set and break the self-hash invariant — the whole point of
+    # which is that ONE embedded hash matches every per-loader dist jar (build-all
+    # strips bundled deps, NOT own classes). Leave it in; the dead weight is one
+    # tiny class + a service file.
 
     # Clean up any now-empty package directories left behind by the strips
     # above (e.g. org/objectweb/ after asm/ is removed, javax/ after

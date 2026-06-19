@@ -63,6 +63,14 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     private static final String PRIMARY_INPUT = "retromod-input";
     private static final String SECONDARY_INPUT = "mods/retromod-input";
     private static final String PROCESSED_SUFFIX = "/processed";
+
+    // CurseForge-export folder (#78). NeoForge loads this in-place via
+    // RetromodModLocator; on Fabric (no locator SPI) RetromodPreLaunch drains it
+    // into mods/. Holds LOADER-READY jars (Retromod itself + already-transformed
+    // mods shipped as CF pack overrides) — not raw old mods (those go in
+    // retromod-input/). Same folder name on every loader so pack authors have one
+    // place to put things.
+    private static final String CF_EXPORT_FOLDER = "mods/Retromod";
     
     // Track transformation results (accessible for in-game notification)
     private static int totalTransformed = 0;
@@ -87,7 +95,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
-        LOGGER.info("║  Retromod v1.1.0                                           ║");
+        LOGGER.info("║  Retromod v1.2.0-snapshot.1                                ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
         
         try {
@@ -155,8 +163,26 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                 gameDir.resolve("mods"),
                 targetVersion
             );
-            
-            totalTransformed = fromPrimary + fromSecondary;
+
+            // Step 2.6: CurseForge-export folder (mods/Retromod/) — #78.
+            // The Fabric counterpart to NeoForge's RetromodModLocator: NeoForge
+            // loads this folder in-place via an SPI, but Fabric has no locator SPI
+            // and PreLaunch runs AFTER mod discovery, so we drain the (already
+            // loader-ready) jars into mods/ and let the next launch pick them up.
+            // SKIP when -Dfabric.addMods already points here (option #2): Fabric's
+            // ArgumentModCandidateFinder loaded those jars in-place THIS launch, so
+            // moving them would double-handle loaded files.
+            int fromCfFolder;
+            Path cfFolder = gameDir.resolve(CF_EXPORT_FOLDER);
+            if (fabricAddModsCovers(gameDir, cfFolder)) {
+                LOGGER.info("mods/Retromod/ is on -Dfabric.addMods — Fabric loaded it in-place "
+                    + "this launch; skipping drain (#78 option 2, no restart needed)");
+                fromCfFolder = 0;
+            } else {
+                fromCfFolder = drainReadyModsFolder(cfFolder, gameDir.resolve("mods"));
+            }
+
+            totalTransformed = fromPrimary + fromSecondary + fromCfFolder;
 
             // Step 3: Show restart message if we transformed anything
             if (totalTransformed > 0) {
@@ -438,7 +464,14 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             
             // Create README in secondary folder
             createSecondaryReadme(secondaryInput);
-            
+
+            // Create the CurseForge-export folder (mods/Retromod/) + its README so
+            // pack authors and users know it exists (#78). On Fabric it's drained
+            // in onPreLaunch; on NeoForge RetromodModLocator loads it in-place.
+            Path cfFolder = gameDir.resolve(CF_EXPORT_FOLDER);
+            Files.createDirectories(cfFolder);
+            createCfExportReadme(cfFolder);
+
             // Create GUIDE in mods folder (most important!)
             createModsFolderGuide(gameDir.resolve("mods"));
             
@@ -726,10 +759,152 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
         } catch (Exception e) {
             LOGGER.error("Error scanning {}: {}", inputFolder, e.getMessage());
         }
-        
+
         return count;
     }
-    
+
+    /**
+     * Drain the CurseForge-export folder (mods/Retromod/) into mods/ — #78, Fabric.
+     *
+     * <p>This is the Fabric counterpart to NeoForge's {@code RetromodModLocator}.
+     * NeoForge loads mods/Retromod/ in-place through a loader SPI, but Fabric has
+     * no such SPI and {@code PreLaunch} runs after mod discovery, so the only way
+     * to get these jars loaded is to MOVE them into mods/ and let the next launch
+     * scan them (hence the one-time restart).
+     *
+     * <p>Unlike {@link #transformModsFromFolder} (which transforms RAW old mods),
+     * jars here are expected to be loader-ready already — Retromod itself, or mods
+     * pre-built for this MC via {@code retromod batch} and shipped as CF pack
+     * overrides — so they're moved verbatim, never re-transformed. (That also
+     * avoids Retromod trying to transform its own jar.)
+     *
+     * @return number of jars moved (a non-zero count arms the restart prompt)
+     */
+    static int drainReadyModsFolder(Path folder, Path modsFolder) {
+        if (!Files.isDirectory(folder)) {
+            return 0;
+        }
+        // Reject symlinked dirs (symlink-attack guard), same as the input folders.
+        try {
+            ZipSecurity.validateNotSymlink(folder);
+            ZipSecurity.validateNotSymlink(modsFolder);
+        } catch (java.io.IOException e) {
+            LOGGER.error("Security check failed for {}: {}", folder, e.getMessage());
+            return 0;
+        }
+
+        List<Path> jars;
+        try (var stream = Files.list(folder)) {
+            jars = stream
+                .filter(p -> p.toString().toLowerCase().endsWith(".jar"))
+                .filter(Files::isRegularFile)
+                .sorted()
+                .toList();
+        } catch (Exception e) {
+            LOGGER.error("Could not list {}: {}", folder, e.getMessage());
+            return 0;
+        }
+        if (jars.isEmpty()) {
+            return 0;
+        }
+
+        LOGGER.info("Found {} ready jar(s) in mods/Retromod/ — moving into mods/ (CF-export folder, #78)",
+            jars.size());
+        LOGGER.info("  (tip: launch with -Dfabric.addMods=<gamedir>/mods/Retromod to load them "
+            + "in-place and skip this restart)");
+
+        int moved = 0;
+        for (Path jar : jars) {
+            String name = jar.getFileName().toString();
+            try {
+                Files.move(jar, modsFolder.resolve(name), StandardCopyOption.REPLACE_EXISTING);
+                transformedMods.add(name);
+                moved++;
+                LOGGER.info("  moved {} → mods/", name);
+            } catch (Exception e) {
+                LOGGER.error("  could not move {}: {}", name, e.getMessage());
+            }
+        }
+        return moved;
+    }
+
+    /**
+     * True if the JVM was launched with {@code -Dfabric.addMods} (option #2)
+     * pointing at {@code folder}. In that case Fabric's
+     * {@code ArgumentModCandidateFinder} already discovered those jars in-place
+     * this launch, so {@link #drainReadyModsFolder} must NOT also move them.
+     *
+     * <p>{@code fabric.addMods} is a {@link java.io.File#pathSeparator}-separated
+     * list of paths; entries may be relative (resolved against the game dir).
+     */
+    static boolean fabricAddModsCovers(Path gameDir, Path folder) {
+        String prop = System.getProperty("fabric.addMods");
+        if (prop == null || prop.isBlank()) {
+            return false;
+        }
+        Path target;
+        try {
+            target = folder.toAbsolutePath().normalize();
+        } catch (Exception e) {
+            return false;
+        }
+        for (String entry : prop.split(java.io.File.pathSeparator)) {
+            if (entry.isBlank()) {
+                continue;
+            }
+            try {
+                Path p = Path.of(entry.trim());
+                if (!p.isAbsolute()) {
+                    p = gameDir.resolve(p);
+                }
+                if (p.toAbsolutePath().normalize().equals(target)) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+                // malformed entry — ignore
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Create the README in the CurseForge-export folder (mods/Retromod/) — #78.
+     */
+    private void createCfExportReadme(Path folder) {
+        try {
+            Path readme = folder.resolve("README.txt");
+            if (!Files.exists(readme)) {
+                Files.writeString(readme, """
+                    RETROMOD - mods/Retromod/  (CurseForge-export folder, issue #78)
+                    ===============================================================
+
+                    Put LOADER-READY jars here: Retromod itself, and mods already
+                    transformed for THIS Minecraft version (the *-retromod.jar files
+                    produced by `retromod batch`).
+
+                    WHY THIS FOLDER EXISTS:
+                      CurseForge rejects modpack EXPORTS that contain jars not hosted
+                      on CurseForge. Jars in this subfolder ship as pack "overrides"
+                      (which CurseForge allows), and Retromod loads them anyway.
+
+                    HOW THEY LOAD:
+                      - NeoForge: loaded in-place at startup, no restart.
+                      - Fabric:   Retromod MOVES these into mods/ on the next launch,
+                                  then asks you to RESTART once (Fabric scans mods/
+                                  before Retromod can run). To load in-place and skip
+                                  the restart, add this JVM argument instead:
+                                    -Dfabric.addMods=<.minecraft>/mods/Retromod
+
+                    NOTE: RAW old mods that still need transforming do NOT go here -
+                    put those in retromod-input/. This folder is for jars that are
+                    already built for the current Minecraft version.
+                    """);
+            }
+        } catch (Exception e) {
+            // ignore — README is a convenience, not required
+        }
+    }
+
     /**
      * Check if mod version EXACTLY matches target (very strict).
      */

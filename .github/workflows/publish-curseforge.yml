@@ -1,0 +1,76 @@
+name: Publish to CurseForge
+
+# Manual milestone publisher. Builds the full dist/ (all loaders × MC 1.20+) and
+# uploads every JAR to CurseForge — each tagged with its exact MC version + loader
+# — replacing the ~40-minute manual upload on CF's site.
+#
+# This does NOT run automatically (no push/release trigger) — you start it from the
+# Actions tab. The rolling GitHub pre-release (release.yml) is separate and untouched.
+#
+# ── One-time setup ──────────────────────────────────────────────────────────
+#   Settings → Secrets and variables → Actions:
+#     • Secret   CF_API_TOKEN   = your CurseForge author upload-API token
+#                                 (curseforge.com → Account → API Tokens)
+#     • Variable CF_PROJECT_ID  = the numeric project id (shown on the project page)
+#
+# ── How to run ──────────────────────────────────────────────────────────────
+#   1. Actions → "Publish to CurseForge" → Run workflow.
+#   2. FIRST run with "Dry run" = true (the default): it validates the token +
+#      version mapping and prints the upload plan WITHOUT uploading anything.
+#   3. If the plan looks right, run again with "Dry run" = false to upload.
+#
+# JARs whose MC version CurseForge doesn't list yet (e.g. a brand-new 26.2) are
+# skipped with a warning, not failed — re-run once CF adds the version tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version string (e.g. 1.1.0)"
+        required: true
+      release_type:
+        description: "CurseForge release type"
+        type: choice
+        options: [release, beta, alpha]
+        default: release
+      dry_run:
+        description: "Dry run (validate + print plan, upload nothing)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read   # CF publish is external (via token); no repo writes needed.
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+          check-latest: true
+
+      - name: Install Python deps
+        run: pip install requests
+
+      - name: Build base JAR
+        run: mvn package -q -DskipTests -Dexec.skip=true
+
+      - name: Build all per-loader / per-MC JARs
+        run: bash build-all.sh --skip-build
+
+      - name: Publish to CurseForge
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_PROJECT_ID: ${{ vars.CF_PROJECT_ID }}
+        run: |
+          python3 scripts/publish-curseforge.py \
+            --version "${{ inputs.version }}" \
+            --release-type "${{ inputs.release_type }}" \
+            --changelog-file CHANGELOG.md \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
