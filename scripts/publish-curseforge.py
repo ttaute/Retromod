@@ -83,10 +83,20 @@ def upload(project_id, token, jar, game_version_ids, display_name, changelog, re
             files={"file": (os.path.basename(jar), fh, "application/java-archive")},
             timeout=180,
         )
+    base = os.path.basename(jar)
     if r.status_code == 200:
-        print(f"  OK   {os.path.basename(jar)} -> file {r.json().get('id')}")
-        return True
-    print(f"  FAIL {os.path.basename(jar)}  HTTP {r.status_code}: {r.text[:300]}")
+        try:
+            print(f"  OK   {base} -> file {r.json().get('id')}")
+            return True
+        except ValueError:
+            # 200 but not the expected {"id": ...} JSON. Almost always means the
+            # request never reached the upload handler — e.g. a wrong/non-numeric
+            # CF_PROJECT_ID routed to an HTML error or redirect page. Surface the
+            # body instead of crashing on r.json().
+            print(f"  FAIL {base}  HTTP 200 but unexpected (non-JSON) body — "
+                  f"is CF_PROJECT_ID the numeric id? Body: {r.text[:200]!r}")
+            return False
+    print(f"  FAIL {base}  HTTP {r.status_code}: {r.text[:300]}")
     return False
 
 
@@ -103,6 +113,16 @@ def main():
     project = os.environ.get("CF_PROJECT_ID")
     if not token or not project:
         sys.exit("ERROR: set CF_API_TOKEN and CF_PROJECT_ID in the environment.")
+    project = project.strip()
+    if not project.isdigit():
+        sys.exit(
+            f"ERROR: CF_PROJECT_ID must be the NUMERIC project id (e.g. 1234567), not the "
+            f"slug/name '{project}'. CurseForge's upload API only accepts the number.\n"
+            f"       Find it on your project page: CurseForge -> your project -> the "
+            f"'About Project' box in the right sidebar shows 'Project ID: <number>'.\n"
+            f"       Then set the repo variable CF_PROJECT_ID to that number "
+            f"(Settings -> Secrets and variables -> Actions -> Variables)."
+        )
 
     mc_map, loader_map = load_game_versions(token)
     changelog = extract_changelog(args.changelog_file)
