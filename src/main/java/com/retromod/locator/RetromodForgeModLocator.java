@@ -22,7 +22,7 @@ import net.minecraftforge.forgespi.locating.IModLocator;
 
 /**
  * Forge counterpart of {@link RetromodModLocator} (#78): discovers jars in
- * {@code mods/Retromod/} so Retromod (hosted on Modrinth) and its transformed
+ * {@code mods/Retromod/} so Retromod (on Modrinth and CurseForge) and its transformed
  * {@code *-retromod.jar} outputs can ship as CurseForge pack overrides instead of
  * top-level {@code mods/} jars.
  *

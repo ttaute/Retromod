@@ -25,7 +25,7 @@ import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
  * jar (#78).
  *
  * <p><b>What the stub is.</b> CurseForge rejects modpack <em>exports</em> that contain
- * jars not hosted on CurseForge - and Retromod (hosted on Modrinth) and the mods it
+ * jars not hosted on CurseForge - and Retromod (on Modrinth and CurseForge) and the mods it
  * transforms are exactly that. The stub is a tiny CF-hosted jar that is the <em>only</em>
  * CF-project jar a pack places in {@code mods/}; the real Retromod and the transformed
  * {@code *-retromod.jar} outputs ride in {@code mods/Retromod/}, shipped as pack

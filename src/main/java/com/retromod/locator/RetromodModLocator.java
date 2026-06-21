@@ -27,7 +27,7 @@ import net.neoforged.neoforgespi.locating.ModFileDiscoveryAttributes;
  * outputs can live <em>outside</em> the top-level {@code mods/} folder.
  *
  * <p><b>Why this exists (#78).</b> CurseForge rejects modpack <em>exports</em> that
- * contain jars not hosted on CurseForge, and both Retromod (hosted on Modrinth) and
+ * contain jars not hosted on CurseForge, and both Retromod (on Modrinth and CurseForge) and
  * the mods it transforms are arbitrary jars. CurseForge <em>does</em> allow bundling
  * arbitrary files as pack "overrides". So a pack author puts those jars in
  * {@code mods/Retromod/} (an override directory, which CF export accepts) and this
