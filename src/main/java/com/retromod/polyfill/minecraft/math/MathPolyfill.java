@@ -44,7 +44,7 @@ public class MathPolyfill implements PolyfillProvider {
     @Override
     public String[] getRemovedClasses() {
         return new String[]{
-            // JOML migration (1.19.3) — custom MC math classes removed
+            // JOML migration (1.19.3) - custom MC math classes removed
             "net/minecraft/util/math/Vec3f",
             "net/minecraft/util/math/Matrix4f",
             "net/minecraft/util/math/Matrix3f",
@@ -62,7 +62,7 @@ public class MathPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed — pure class redirects to JOML and Mojang names
+        // No embedded stubs needed - pure class redirects to JOML and Mojang names
         return new String[]{};
     }
 

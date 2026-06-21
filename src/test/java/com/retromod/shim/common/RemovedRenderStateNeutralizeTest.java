@@ -22,7 +22,7 @@ import static org.objectweb.asm.Opcodes.*;
  * Tier-2 render-state soft-fail (Vulkan/26.x): the imperative {@code RenderSystem}
  * state setters were deleted in the blaze3d GpuDevice/RenderPipeline refactor, so
  * an old mod that calls {@code RenderSystem.enableBlend()} etc. dies with
- * {@code NoSuchMethodError} on a modern host — and there's no surviving method to
+ * {@code NoSuchMethodError} on a modern host - and there's no surviving method to
  * redirect to. {@link RemovedRenderStateNeutralize} registers them for
  * neutralization: the call is dropped (args + receiver popped, default return
  * pushed) so the mod LOADS and runs.
@@ -30,7 +30,7 @@ import static org.objectweb.asm.Opcodes.*;
  * <p>The strong assertion here is that a class which <i>only</i> calls neutralized
  * methods both (a) loses every {@code RenderSystem} reference and (b) still
  * <b>verifies and runs</b> with {@code RenderSystem} entirely absent from the
- * classpath — proving the pop/push sequence is stack-balanced, not just that the
+ * classpath - proving the pop/push sequence is stack-balanced, not just that the
  * call name is gone.
  */
 class RemovedRenderStateNeutralizeTest {
@@ -94,7 +94,7 @@ class RemovedRenderStateNeutralizeTest {
 
             // (b) the class verifies and the popped/pushed sequence is balanced:
             // define it in a loader that has NO RenderSystem on its classpath and
-            // actually invoke render() — a NoSuchMethodError or a VerifyError here
+            // actually invoke render() - a NoSuchMethodError or a VerifyError here
             // would mean a call survived or the stack was left unbalanced.
             DefiningLoader dl = new DefiningLoader(getClass().getClassLoader());
             Class<?> defined = dl.define(out);
@@ -112,8 +112,8 @@ class RemovedRenderStateNeutralizeTest {
         t.clearRedirectsForTesting();
         try {
             RemovedRenderStateNeutralize.register(t);
-            // A class calling getBackendDescription() — a method that DOES survive
-            // and is not in the neutralize set — must keep its call intact.
+            // A class calling getBackendDescription() - a method that DOES survive
+            // and is not in the neutralize set - must keep its call intact.
             ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
             cw.visit(V17, ACC_PUBLIC, "test/render/Live", null, "java/lang/Object", null);
             MethodVisitor m = cw.visitMethod(ACC_PUBLIC | ACC_STATIC, "f", "()V", null, null);

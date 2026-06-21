@@ -8,7 +8,7 @@ package com.retromod.core;
  * Loader-agnostic holder for the runtime-detected target MC version.
  *
  * <p>Used to live as a {@code public static String} on {@link Retromod},
- * but {@code Retromod implements net.fabricmc.api.ModInitializer} — a Fabric-only
+ * but {@code Retromod implements net.fabricmc.api.ModInitializer} - a Fabric-only
  * supertype. Reading {@code Retromod.TARGET_MC_VERSION} from {@code RetromodForge}
  * (or {@code RetromodNeoForge}) on a Forge runtime triggered class linkage of
  * {@code Retromod}, which then needed {@code ModInitializer} on the classpath,
@@ -38,10 +38,34 @@ public final class RetromodVersion {
 
     private RetromodVersion() {}
 
+    /** Guards {@link #logPresenceBanner}: every loader entry point calls it, but it prints once. */
+    private static volatile boolean bannerLogged = false;
+
+    /**
+     * Log a prominent "Retromod is present" banner near the top of the log on every loader, so
+     * anyone reading a log or crash report knows Retromod is transforming mods on this instance
+     * and should reproduce WITHOUT Retromod before blaming a transformed mod's author. Called
+     * from each entry point ({@link Retromod#onInitialize} on Fabric, the NeoForge/Forge
+     * constructors, and {@code RetromodPreLaunch}); the guard makes it print exactly once.
+     */
+    public static void logPresenceBanner(org.slf4j.Logger logger) {
+        if (bannerLogged) {
+            return;
+        }
+        bannerLogged = true;
+        logger.warn("************************************************************************");
+        logger.warn("* RETROMOD IS PRESENT - it is transforming older mods to run on this");
+        logger.warn("* newer Minecraft version (bytecode transformation + API shims).");
+        logger.warn("* If ANY mod misbehaves, reproduce WITHOUT Retromod before reporting");
+        logger.warn("* to that mod's author: the cause may be Retromod's transform, not the");
+        logger.warn("* mod itself.  Retromod issues -> https://github.com/Bownlux/Retromod/issues");
+        logger.warn("************************************************************************");
+    }
+
     // ── MC version math ─────────────────────────────────────────────────────
     // Loader-agnostic and free of any Fabric/Forge/NeoForge supertype, so any
     // entry point can call these. They used to live on RetromodPreLaunch, but
-    // that class `implements PreLaunchEntrypoint` (Fabric-only) — so
+    // that class `implements PreLaunchEntrypoint` (Fabric-only) - so
     // RetromodNeoForge/RetromodForge calling them dragged in PreLaunchEntrypoint
     // and crashed with NoClassDefFoundError on NeoForge/Forge even with no mods
     // (issue #40). Same lesson as TARGET_MC_VERSION above.
@@ -96,7 +120,7 @@ public final class RetromodVersion {
      * and {@code 1.21.1}, or {@code 26.1} and {@code 26.1.2}). Used by the automatic
      * in-place mod scan to skip mods that only differ from the host by a <i>patch</i>:
      * those are generally drop-in compatible, so transforming them is unnecessary churn
-     * and — worse — can break a working mod by firing API shims it never needed (#60). A
+     * and - worse - can break a working mod by firing API shims it never needed (#60). A
      * mod that genuinely needs a within-minor transform can still be placed in
      * {@code retromod-input/} explicitly. Unparseable (fewer than 2 components) → {@code false}
      * (don't skip), so we never silently miss a real cross-version transform.
@@ -124,7 +148,7 @@ public final class RetromodVersion {
     // doesn't drag any FML class into RetromodVersion's linkage (the #40 lesson).
     // The accessor changed shape across FML generations; the old code only tried
     // the static {@code versionInfo()} form, which NoSuchMethodException'd on FML
-    // 10.x (NeoForge 21.11) and silently fell back to the hardcoded default —
+    // 10.x (NeoForge 21.11) and silently fell back to the hardcoded default -
     // gating out every newer-MC shim and silently mistranslating mods
     // (#47/#51/#52, the ResourceLocation→Identifier rename never applied).
 
@@ -145,7 +169,7 @@ public final class RetromodVersion {
         } catch (Throwable t) {
             return null;
         }
-        // FML 10.x — instance API reached via the static getCurrent()
+        // FML 10.x - instance API reached via the static getCurrent()
         try {
             Object current = fmlLoader.getMethod("getCurrent").invoke(null);
             if (current != null) {
@@ -153,12 +177,12 @@ public final class RetromodVersion {
                 if (mc != null) return mc;
             }
         } catch (Throwable ignored) {}
-        // Older FML — static versionInfo()
+        // Older FML - static versionInfo()
         try {
             String mc = mcVersionOf(fmlLoader.getMethod("versionInfo").invoke(null));
             if (mc != null) return mc;
         } catch (Throwable ignored) {}
-        // Variant — static getVersionInfo()
+        // Variant - static getVersionInfo()
         try {
             String mc = mcVersionOf(fmlLoader.getMethod("getVersionInfo").invoke(null));
             if (mc != null) return mc;

@@ -16,7 +16,7 @@ import net.minecraft.item.Items;
 import java.util.List;
 
 /**
- * Block / Item / BlockState / ItemStack — the most-common gameplay-related
+ * Block / Item / BlockState / ItemStack - the most-common gameplay-related
  * APIs. All static field accesses, all method calls, no constructors that
  * need a {@code World}.
  */
@@ -62,7 +62,7 @@ public final class BlockItemTests {
                     : TestResult.fail("air not reported as air");
             }),
             // (`new ItemStack(item, count)` moved to DeferredItemStackTests
-            // — it requires the data-component registry to be bootstrapped,
+            // - it requires the data-component registry to be bootstrapped,
             // which doesn't happen until ClientLifecycleEvents.CLIENT_STARTED.)
             new SimpleTest("ItemStack.EMPTY.isEmpty()", () ->
                 ItemStack.EMPTY.isEmpty()

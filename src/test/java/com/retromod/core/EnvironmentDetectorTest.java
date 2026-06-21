@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression tests for {@link EnvironmentDetector#classExists(String)} — the
+ * Regression tests for {@link EnvironmentDetector#classExists(String)} - the
  * environment probe must report a class's presence <em>without initializing it</em>.
  *
  * <p>Issue #46: {@code detectDedicatedServer()} used the single-arg
@@ -68,13 +68,13 @@ class EnvironmentDetectorTest {
     }
 
     @Test
-    @DisplayName("control: plain Class.forName(String) DOES initialize — the probe target's <clinit> is observable")
+    @DisplayName("control: plain Class.forName(String) DOES initialize - the probe target's <clinit> is observable")
     void plainForNameInitializesControl() throws Exception {
         // Confirms the test harness can actually observe initialization, so the
         // assertion above is meaningful rather than vacuously passing.
         assertFalse(ControlFlag.SIDE_EFFECT_RAN);
         Class.forName("com.retromod.core.EnvironmentDetectorTest$ControlTarget");
         assertTrue(ControlFlag.SIDE_EFFECT_RAN,
-                "single-arg Class.forName initializes — this is exactly the #46 footgun");
+                "single-arg Class.forName initializes - this is exactly the #46 footgun");
     }
 }

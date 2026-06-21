@@ -58,7 +58,7 @@ public class FabricRegistryPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed — class redirects handle these migrations
+        // No embedded stubs needed - class redirects handle these migrations
         return new String[]{};
     }
 
@@ -110,7 +110,7 @@ public class FabricRegistryPolyfill implements PolyfillProvider {
             "net/minecraft/core/RegistrySetBuilder");
 
         // =====================================================================
-        // RegistryEntryRemovedCallback — removed in 1.20.5
+        // RegistryEntryRemovedCallback - removed in 1.20.5
         // No direct replacement; registry entries are no longer removable.
         // Redirect to RegistryEntryAddedCallback to prevent CNFE; runtime
         // behavior will differ but the mod won't crash at load time.

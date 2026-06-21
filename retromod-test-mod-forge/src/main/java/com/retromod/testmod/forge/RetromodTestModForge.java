@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
  * Grep for {@code [Retromod-Test-Forge]} in the log to see results.
  *
  * <p>Immediate phase only. Forge has equivalent lifecycle events through
- * {@code MinecraftForge.EVENT_BUS} for deferred phases — those would be a
+ * {@code MinecraftForge.EVENT_BUS} for deferred phases - those would be a
  * follow-up.
  */
 @Mod("retromod_test_mod_forge")

@@ -96,7 +96,7 @@ class ReferenceVerifierTest {
         verifier.verify(modClass, modOwnClasses, report);
 
         assertTrue(report.isClean(),
-                "Mod-internal references must not be reported as missing — they're the mod's own code");
+                "Mod-internal references must not be reported as missing - they're the mod's own code");
     }
 
     @Test
@@ -166,7 +166,7 @@ class ReferenceVerifierTest {
 
     /**
      * Generate a class that has one method invoking
-     * {@code invokevirtual owner.name descriptor}. Simplest possible shape —
+     * {@code invokevirtual owner.name descriptor}. Simplest possible shape -
      * gives the verifier a single INVOKEVIRTUAL to check.
      */
     private static byte[] classThatReferences(String owner, String name, String desc) {

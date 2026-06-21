@@ -36,12 +36,12 @@ import java.util.function.Function;
  * </ol>
  *
  * <p>Everything is reflection + {@link Proxy} so this class carries no compile-time
- * dependency on Fabric API, brigadier, or Minecraft — it is embedded raw into each
+ * dependency on Fabric API, brigadier, or Minecraft - it is embedded raw into each
  * transformed mod jar and resolves the real types from the mod's own classloader at
  * runtime. It fails soft: a reflective miss leaves command callbacks inert (logged)
  * rather than crashing the mod.</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code fabric-api-0.145.4+26.1.2} ({@code EventFactory.createArrayBacked(Class,
  * Function)}, {@code Event.invoker()}, {@code Event.register(Object)},
  * {@code command/v2/CommandRegistrationCallback}). A real 26.1 launch that registers
@@ -63,7 +63,7 @@ public final class CommandRegistrationV1Bridge {
      * @param v1Type the synthetic v1 {@code CommandRegistrationCallback} interface
      * @return a Fabric {@code Event} bound to {@code v1Type}, or {@code null} if the
      *         core event machinery couldn't be reached (mod's {@code EVENT} is then
-     *         null — unavoidable, but rare; EventFactory is core Fabric API)
+     *         null - unavoidable, but rare; EventFactory is core Fabric API)
      */
     public static Object installEvent(Class<?> v1Type) {
         try {
@@ -111,10 +111,10 @@ public final class CommandRegistrationV1Bridge {
         Class<?> v2Type = Class.forName(V2_CALLBACK, true, cl);
         Object v2Event = v2Type.getField("EVENT").get(null);
 
-        // v1 SAM: register(CommandDispatcher, boolean) — the only 2-arg method.
+        // v1 SAM: register(CommandDispatcher, boolean) - the only 2-arg method.
         Method v1Register = findByNameArity(v1Type, "register", 2);
         // Resolve Event methods against the PUBLIC Event interface, never the
-        // runtime class — the impl (fabric.impl.base.event.ArrayBackedEvent) is
+        // runtime class - the impl (fabric.impl.base.event.ArrayBackedEvent) is
         // not public, so Methods looked up on it throw IllegalAccessException
         // even though the members are public (caught in the snapshot.3 in-game
         // pass: "could not wire the v2 forwarder").
@@ -134,14 +134,14 @@ public final class CommandRegistrationV1Bridge {
             return objectMethod(proxy, method, args);
         });
 
-        // Event.register(T) erases to register(Object) — on the public interface.
+        // Event.register(T) erases to register(Object) - on the public interface.
         eventIface.getMethod("register", Object.class).invoke(v2Event, v2Forwarder);
     }
 
     /**
      * v1 {@code dedicated} ⇐ the v2 {@code CommandSelection} is {@code DEDICATED}.
      * Keyed on {@code Enum.name()} (final, never overridden) via a plain
-     * {@code instanceof java.lang.Enum} — no reflection per invocation, and we never
+     * {@code instanceof java.lang.Enum} - no reflection per invocation, and we never
      * touch the package-private {@code includeDedicated} field (module-locked under
      * {@code net.minecraft}).
      */

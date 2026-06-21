@@ -16,7 +16,7 @@ import java.lang.reflect.Proxy;
  *
  * <p>26.1's {@code ModelLayerRegistry} renamed the provider SAM
  * ({@code TexturedModelDataProvider.createModelData} →
- * {@code TexturedLayerDefinitionProvider.createLayerDefinition}) — a lambda trap —
+ * {@code TexturedLayerDefinitionProvider.createLayerDefinition}) - a lambda trap -
  * but the <i>return type is the same class</i>: Yarn {@code TexturedModelData} is
  * Mojang {@code LayerDefinition} (intermediary {@code class_5607}), which the harvest
  * already remaps in the lambda. So this is a pure SAM-name rename on a provider; the
@@ -29,7 +29,7 @@ import java.lang.reflect.Proxy;
  * <p>All reflection + {@link Proxy}, embedded raw into the mod jar; fails soft on a
  * reflective miss (the model layer simply isn't registered, logged).</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code fabric-api-0.141.1} / {@code 0.145.4+26.1.2}. A 26.1 client launch with such
  * a mod (a custom entity model) is still required.</p>
  */

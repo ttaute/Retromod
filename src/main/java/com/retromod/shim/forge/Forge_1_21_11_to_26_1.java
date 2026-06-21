@@ -4,7 +4,7 @@
  *
  * Forge 1.21.11 → 26.1 shim
  *
- * MC 26.1 removed ALL code obfuscation — Mojang official names used directly.
+ * MC 26.1 removed ALL code obfuscation - Mojang official names used directly.
  * Forge mods built for 1.21.11 already use Mojang names (via MCP/official mappings),
  * so this shim handles vanilla MC API changes, not remapping.
  *
@@ -118,7 +118,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
         );
         // 1-arg colon-separated form too: new ResourceLocation("ns:path") /
-        // new Identifier("ns:path") — same private-constructor issue.
+        // new Identifier("ns:path") - same private-constructor issue.
         // The 1-arg factory is `parse(String)` on Mojang-mapped MC 26.1.
         transformer.registerConstructorRedirect(
             "net/minecraft/resources/Identifier",
@@ -173,7 +173,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
         // ============================================================
         // LISTENER.setGain(float) REMOVED
         // Volume control moved to per-source in 26.1.
-        // Mods like Dynamic FPS call this to mute/unmute — no-op redirect.
+        // Mods like Dynamic FPS call this to mute/unmute - no-op redirect.
         // ============================================================
 
         // CommandSourceStack.hasPermission(int) → bridge to new PermissionSet system
@@ -246,7 +246,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
         // ============================================================
         // DFU (DataFixerUpper) API CHANGES
         // DataResult changed from class to interface in DFU 9.x
-        // DataResult.get() removed — redirect to polyfill
+        // DataResult.get() removed - redirect to polyfill
         // ============================================================
 
         transformer.registerMethodRedirect(
@@ -306,7 +306,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
     public String[] getShimClasses() {
         return new String[] {
             // Reuses Fabric's ItemSafetyShim for safe Item.getDefaultInstance()
-            // and Listener.setGain() no-op — these are loader-agnostic utilities
+            // and Listener.setGain() no-op - these are loader-agnostic utilities
             "com.retromod.shim.fabric.embedded.ItemSafetyShim"
         };
     }

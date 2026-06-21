@@ -33,7 +33,7 @@ class ModVersionInfoTest {
     @DisplayName("#84: a 1.20 mod (range lower bound) on a 1.20.1 host is NOT transformed")
     void sameMinorRangeLowerBoundNotTransformed() {
         assertFalse(forMc("1.20").needsTransformation("1.20.1"),
-                "a mod whose MC range floor is 1.20 runs natively on 1.20.1 — leave it alone");
+                "a mod whose MC range floor is 1.20 runs natively on 1.20.1 - leave it alone");
     }
 
     @Test
@@ -69,7 +69,7 @@ class ModVersionInfoTest {
     @DisplayName("Whole-minor floor vs specific patch: 1.21 floor skipped on 1.21.11, 1.21.1 not")
     void minorFloorVsSpecificPatch() {
         assertFalse(forMc("1.21").needsTransformation("1.21.11"),
-                "a [1.21,) range floor reads as whole-minor 1.21 — native on any 1.21.x host");
+                "a [1.21,) range floor reads as whole-minor 1.21 - native on any 1.21.x host");
         assertTrue(forMc("1.21.1").needsTransformation("1.21.11"),
                 "but a specific 1.21.1 target is an older patch that needs translation");
     }

@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>This class can't be JVM-loaded here ({@code getCategory(Lclass_1959;)…}
  * references the host's intermediary Biome class which isn't on the test
  * classpath), so structural validation is done with ASM: {@link CheckClassAdapter}
- * parses + verifies the class, and we then assert the shape that matters — every
+ * parses + verifies the class, and we then assert the shape that matters - every
  * intermediary field constant is present as a public-static-final, the {@code values()}
  * / {@code valueOf(String)} helpers exist with the expected descriptors, and the
  * {@code getCategory(Biome)} static returns our stand-in enum type. Anything wrong
@@ -58,7 +58,7 @@ class Pre1_18_2BiomeCategoryBridgeTest {
         assertEquals(SELF, cr.getClassName(), "wrong class name");
         assertEquals("java/lang/Enum", cr.getSuperName(), "must extend Enum");
 
-        // Structural validity (CheckClassAdapter, dataFlow=false — full data-flow check
+        // Structural validity (CheckClassAdapter, dataFlow=false - full data-flow check
         // needs the class hierarchy resolvable, and class_1959 isn't on the test classpath).
         ClassWriter sink = new ClassWriter(0);
         assertDoesNotThrow(
@@ -87,7 +87,7 @@ class Pre1_18_2BiomeCategoryBridgeTest {
         for (String f : EXPECTED_CONSTANTS) {
             assertTrue(got.contains(f),
                     "missing category constant " + f
-                            + " — pre-1.18.2 mods compiled against this slot will NoSuchFieldError");
+                            + " - pre-1.18.2 mods compiled against this slot will NoSuchFieldError");
         }
     }
 
@@ -110,7 +110,7 @@ class Pre1_18_2BiomeCategoryBridgeTest {
         assertTrue(sigs.contains("values()[" + L_SELF), "missing values()");
         assertTrue(sigs.contains("valueOf(Ljava/lang/String;)" + L_SELF), "missing valueOf(String)");
         assertTrue(sigs.contains("getCategory(" + L_BIOME + ")" + L_SELF),
-                "missing getCategory(Biome) — Biome.method_8688() rewrites land here");
+                "missing getCategory(Biome) - Biome.method_8688() rewrites land here");
     }
 
     @Test

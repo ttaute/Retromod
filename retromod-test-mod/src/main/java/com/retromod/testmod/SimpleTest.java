@@ -8,7 +8,7 @@ import java.util.function.Supplier;
 
 /**
  * Concrete {@link Test} for cases where the body is short enough to inline as
- * a lambda. Most tests in the suite use this — only tests that need their own
+ * a lambda. Most tests in the suite use this - only tests that need their own
  * supporting classes (e.g. a {@code Screen} subclass) are written as
  * standalone files.
  *

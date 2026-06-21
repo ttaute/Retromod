@@ -63,7 +63,7 @@ public class ModrinthVersionChecker {
      * {@code false}. Without the flag set, the method returns
      * {@link ModrinthResult#notFound()} immediately without any HTTP
      * activity. Retromod doesn't make outbound network calls just because
-     * a user opened a settings menu — the user has to flip the flag in
+     * a user opened a settings menu - the user has to flip the flag in
      * {@code config/retromod/config.json} (or via the in-game settings
      * screen) to opt in.
      *
@@ -109,7 +109,7 @@ public class ModrinthVersionChecker {
      * server via flags rather than configs).
      *
      * <p>Returns {@code false} (and produces no network traffic) by
-     * default — Retromod's standing rule is that any outbound network
+     * default - Retromod's standing rule is that any outbound network
      * call has to be explicitly enabled by the user.
      */
     private static boolean isUserOptedIn() {
@@ -117,7 +117,7 @@ public class ModrinthVersionChecker {
         if (Boolean.getBoolean("retromod.checkForNativeVersions")) {
             return true;
         }
-        // Read the config file directly — keep this cheap so we don't
+        // Read the config file directly - keep this cheap so we don't
         // hold any singleton state, and avoid a circular dependency with
         // Retromod.java (which we don't want this class to drag in).
         try {
@@ -366,7 +366,7 @@ public class ModrinthVersionChecker {
     /**
      * Open URL in default browser. If the JVM's Desktop API isn't
      * available, fall through to a copy-the-URL dialog rather than
-     * shelling out to {@code xdg-open} — the dialog is just as useful
+     * shelling out to {@code xdg-open} - the dialog is just as useful
      * to the user and keeps the mod free of {@code Runtime.exec} calls,
      * which makes its behavior easier to audit.
      */

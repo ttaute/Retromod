@@ -92,7 +92,7 @@ Short version: **you keep your license. If it's permissive, we can adopt your fi
 - If you'd rather it stay separate, use a **copyleft license** (GPL/LGPL): we won't fold copyleft code into the MIT core, so it stays yours.
 - Direct contributions (PRs to the Retromod repo) are under Retromod's **MIT** license.
 
-No CLA, no signing. *(This is the project's policy, not legal advice — for anything binding, ask a lawyer.)*
+No CLA, no signing. *(This is the project's policy, not legal advice - for anything binding, ask a lawyer.)*
 
 ## See also
 

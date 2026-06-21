@@ -40,7 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * For each channel {@code id} the mod touches, we lazily register a
  * {@code CustomPacketPayload.Type(id)} + a {@link java.lang.reflect.Proxy}-backed
  * {@code StreamCodec} that just copies the raw bytes (read-all-readable on decode,
- * write-all on encode — the exact contract the old raw API had). Inbound packets
+ * write-all on encode - the exact contract the old raw API had). Inbound packets
  * are decoded into a {@code Proxy}-backed {@code CustomPacketPayload} carrying the
  * raw bytes; a {@code Proxy}-backed {@code PlayPayloadHandler} unwraps the bytes,
  * rebuilds a {@code FriendlyByteBuf}, and invokes the mod's old handler with
@@ -48,14 +48,14 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <h2>Why pure reflection + Proxy (no ASM, no MC compile deps)</h2>
  * MC 26.1 is <b>unobfuscated</b>, so every MC/Fabric member resolves by its Mojang
- * name at runtime — this class hardcodes those names and resolves them reflectively.
+ * name at runtime - this class hardcodes those names and resolves them reflectively.
  * Two payoffs: (1) it compiles against only {@code java.*}, so it embeds cleanly into
  * a mod jar with no unresolved references; (2) every reflective step is wrapped so a
  * wrong name <b>degrades to a logged no-op</b> (the mod still loads, networking goes
  * inert) instead of a hard {@code VerifyError}/{@code NoSuchMethodError} crash.
  *
  * <p><b>STATUS:</b> authored against verified 26.1.2 contracts but <b>not yet
- * runtime-verified</b> — must be exercised on a real 26.1 client launch (a custom
+ * runtime-verified</b> - must be exercised on a real 26.1 client launch (a custom
  * packet round-trip) before being relied on. See {@code docs/dev/cpn-v1-bridge-design.md}.
  */
 public final class ClientPlayNetworkingV1Bridge {
@@ -63,7 +63,7 @@ public final class ClientPlayNetworkingV1Bridge {
     private ClientPlayNetworkingV1Bridge() {}
 
     private static final String TAG = "[Retromod/CPNv1] ";
-    // Embedded into mod jars — must not depend on Retromod's (shaded) SLF4J. Use stdio.
+    // Embedded into mod jars - must not depend on Retromod's (shaded) SLF4J. Use stdio.
     private static void info(String m) { System.out.println(TAG + m); }
     private static void warn(String m, Throwable t) {
         System.err.println(TAG + m + (t != null ? ": " + t : ""));
@@ -134,12 +134,12 @@ public final class ClientPlayNetworkingV1Bridge {
             info("client-networking v1 bridge initialised");
         } catch (Throwable t) {
             initFailed = true;
-            warn("init failed — client networking v1 bridge inert (mods load, custom packets dropped)", t);
+            warn("init failed - client networking v1 bridge inert (mods load, custom packets dropped)", t);
         }
     }
 
     // ═══════════════════════ Public bridge entrypoints (method-redirect targets) ═══════════════════════
-    // All take Object so the compiled descriptor is (Ljava/lang/Object;...) — the redirect rewrites the
+    // All take Object so the compiled descriptor is (Ljava/lang/Object;...) - the redirect rewrites the
     // call site's INVOKE; the verifier accepts the call site's concrete types as Object subtypes.
 
     /** old {@code registerGlobalReceiver(Identifier, PlayChannelHandler) : boolean}. */
@@ -147,7 +147,7 @@ public final class ClientPlayNetworkingV1Bridge {
         return doRegister(id, oldHandler);
     }
 
-    /** old {@code registerReceiver(Identifier, PlayChannelHandler) : boolean} — best-effort global. */
+    /** old {@code registerReceiver(Identifier, PlayChannelHandler) : boolean} - best-effort global. */
     public static boolean registerReceiver(Object id, Object oldHandler) {
         return doRegister(id, oldHandler);
     }
@@ -216,7 +216,7 @@ public final class ClientPlayNetworkingV1Bridge {
         try {
             Object type = typeFor(id);
             // The codec is bound to THIS channel's Type so decoded payloads report the
-            // correct type() — Fabric/vanilla routes inbound packets by payload.type(),
+            // correct type() - Fabric/vanilla routes inbound packets by payload.type(),
             // so a null/wrong type would break inbound dispatch. Each registry gets its
             // own codec instance (cheap) carrying the same type.
             tryRegister(mClientboundPlay, type, newRawCodec(type));
@@ -231,7 +231,7 @@ public final class ClientPlayNetworkingV1Bridge {
             Object registry = registryStatic.invoke(null);
             mRegistryRegister.invoke(registry, type, codec);
         } catch (Throwable t) {
-            // Already registered or frozen — fine; the other direction may still take.
+            // Already registered or frozen - fine; the other direction may still take.
         }
     }
 
@@ -243,7 +243,7 @@ public final class ClientPlayNetworkingV1Bridge {
                 new RawPayloadHandler(type, data));
     }
 
-    /** {@code StreamCodec<RegistryFriendlyByteBuf, RawPayload>} bound to {@code type} —
+    /** {@code StreamCodec<RegistryFriendlyByteBuf, RawPayload>} bound to {@code type} -
      *  copies raw bytes both ways; decoded payloads report {@code type} so they route. */
     private static Object newRawCodec(Object type) {
         return Proxy.newProxyInstance(loader(), new Class<?>[]{cStreamCodec}, new RawCodecHandler(type));
@@ -439,7 +439,7 @@ public final class ClientPlayNetworkingV1Bridge {
         return null;
     }
 
-    /** old {@code getSendable() : Set} — channels we've registered for sending. */
+    /** old {@code getSendable() : Set} - channels we've registered for sending. */
     public static Set<Object> getSendable() {
         return Collections.emptySet();
     }

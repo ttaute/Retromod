@@ -12,30 +12,30 @@ import com.retromod.core.RetromodTransformer;
  *
  * <h2>Why this can't be a redirect</h2>
  * Minecraft's GPU layer was rebuilt around an explicit {@code GpuDevice} +
- * immutable {@code RenderPipeline} model. The old imperative state calls —
+ * immutable {@code RenderPipeline} model. The old imperative state calls -
  * {@code RenderSystem.enableBlend()}, {@code blendFunc(int,int)},
- * {@code depthMask(boolean)}, {@code colorMask(...)}, … — were <b>removed</b>:
+ * {@code depthMask(boolean)}, {@code colorMask(...)}, … - were <b>removed</b>:
  * render state is now declared on the pipeline object you build, not toggled by
  * a static call. Verified against the real client jars, these are already gone
  * by <b>1.21.11</b> and stay gone through 26.1/26.2. So there is <b>no surviving
- * method to redirect to</b> — pointing at one would just reintroduce the
+ * method to redirect to</b> - pointing at one would just reintroduce the
  * {@code NoSuchMethodError}.
  *
  * <h2>What we do instead</h2>
- * An old mod (≈1.16–1.21.4) that calls these still has the call in its bytecode.
+ * An old mod (≈1.16-1.21.4) that calls these still has the call in its bytecode.
  * On a modern host that call dies with {@code NoSuchMethodError} at link time.
  * We {@linkplain RetromodTransformer#registerRemovedMethodNeutralize neutralize}
  * the call: pop its args, push a default return, emit no call. The mod
  * <b>loads and runs</b>; that one bit of manual GL state is simply lost
- * (<b>soft-fail</b>). In practice this is usually visually fine — modern MC's
+ * (<b>soft-fail</b>). In practice this is usually visually fine - modern MC's
  * render layers/pipelines already set correct blend/depth/cull state for the
- * draw calls a content mod makes — but a mod doing fully manual immediate-mode
+ * draw calls a content mod makes - but a mod doing fully manual immediate-mode
  * state management may render with wrong blending. That residue is the same
  * boundary a native Vulkan renderer (e.g. VulkanMod) hits, and the truly
  * custom-renderer cases need hand-porting (tracked on the roadmap), not a stub.
  *
  * <h2>Relation to the Vulkan/26.2 work</h2>
- * This is <i>not</i> the OpenGL→Vulkan story — these methods were gone before
+ * This is <i>not</i> the OpenGL→Vulkan story - these methods were gone before
  * the Vulkan backend existed, so it's a general "old mod on modern MC" fix that
  * also happens to matter more once OpenGL is the non-default (26.2) / removed
  * (26.3) backend. Raw {@code org.lwjgl.opengl.GL11.*} calls are handled
@@ -45,7 +45,7 @@ import com.retromod.core.RetromodTransformer;
  *
  * <h2>Safety</h2>
  * Match is exact on owner+name+descriptor, and every entry below was verified
- * <b>absent</b> on 1.21.11+ — so no live overload is ever neutralized. If a
+ * <b>absent</b> on 1.21.11+ - so no live overload is ever neutralized. If a
  * descriptor here is slightly off, the match simply fails (the call is left
  * as-is); it can never neutralize the wrong method. Loader-agnostic:
  * {@code RenderSystem} is a {@code com.mojang.blaze3d} type with the same name on

@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  *       {@code canSend}) are redirected to {@link
  *       com.retromod.shim.api.fabric.embedded.ClientPlayNetworkingV1Bridge}, which
  *       does the raw↔typed translation reflectively at runtime.</li>
- *   <li><b>{@code getSender()} left ALONE.</b> Unchanged in 26.1 — redirecting it
+ *   <li><b>{@code getSender()} left ALONE.</b> Unchanged in 26.1 - redirecting it
  *       would break a working call.</li>
  * </ol>
  *
@@ -52,11 +52,11 @@ import org.slf4j.LoggerFactory;
  * Redirect keys are matched against the call-site descriptor <i>after</i> the
  * outer ClassRemapper runs, so the {@code Identifier}/{@code FriendlyByteBuf}
  * params appear as intermediary ({@code class_2960}/{@code class_2540}) on the CLI
- * path and Mojang on the runtime path — both variants are registered. The
+ * path and Mojang on the runtime path - both variants are registered. The
  * {@code PlayChannelHandler} param is a class redirect (same name on both paths),
  * so only the one synthetic name is needed there.
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code minecraft-26.1.2-client} + {@code fabric-api-0.145.4+26.1.2}; the bridge
  * fails soft (logged no-op) on any reflective miss. A real 26.1 client launch with
  * a custom-packet round-trip is still required. See {@code docs/dev/cpn-v1-bridge-design.md}.</p>
@@ -66,7 +66,7 @@ public class FabricClientNetworkingV1Shim implements VersionShim {
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
     // Old API surface (the form removed by 26.1). ClientPlayNetworking itself still
-    // exists in 26.1 — we do NOT class-redirect it, only redirect its removed methods.
+    // exists in 26.1 - we do NOT class-redirect it, only redirect its removed methods.
     private static final String OLD_CPN = "net/fabricmc/fabric/api/client/networking/v1/ClientPlayNetworking";
     private static final String OLD_SAM = OLD_CPN + "$PlayChannelHandler";
 
@@ -75,19 +75,19 @@ public class FabricClientNetworkingV1Shim implements VersionShim {
     private static final String BRIDGE  = "com/retromod/shim/api/fabric/embedded/ClientPlayNetworkingV1Bridge";
     private static final String L_NEW_SAM = "L" + NEW_SAM + ";";
 
-    // Redirect-key MC param types — intermediary (CLI/audit) + Mojang (runtime).
+    // Redirect-key MC param types - intermediary (CLI/audit) + Mojang (runtime).
     private static final String ID_INT  = "Lnet/minecraft/class_2960;";
     private static final String ID_MOJ  = "Lnet/minecraft/resources/Identifier;";
     private static final String BUF_INT = "Lnet/minecraft/class_2540;";
     private static final String BUF_MOJ = "Lnet/minecraft/network/FriendlyByteBuf;";
 
-    // Synthetic SAM receive() param types — MOJANG ONLY (raw-injected; must resolve
+    // Synthetic SAM receive() param types - MOJANG ONLY (raw-injected; must resolve
     // at the 26.1 runtime where the remapped lambda links against it).
     private static final String MC_MOJ       = "Lnet/minecraft/client/Minecraft;";
     private static final String LISTENER_MOJ = "Lnet/minecraft/client/multiplayer/ClientPacketListener;";
     private static final String SENDER       = "Lnet/fabricmc/fabric/api/networking/v1/PacketSender;";
 
-    // Bridge method descriptors — all params Object (verifier-safe reference widening),
+    // Bridge method descriptors - all params Object (verifier-safe reference widening),
     // so one bridge descriptor serves every intermediary/Mojang call-site variant.
     private static final String D_REGISTER = "(Ljava/lang/Object;Ljava/lang/Object;)Z";
     private static final String D_SEND     = "(Ljava/lang/Object;Ljava/lang/Object;)V";
@@ -101,7 +101,7 @@ public class FabricClientNetworkingV1Shim implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
         // 26.1+ hosts ONLY (pitfall #9). The synthetic SAM deliberately declares
-        // MOJANG param types (see class javadoc) — on a pre-26.1 intermediary runtime
+        // MOJANG param types (see class javadoc) - on a pre-26.1 intermediary runtime
         // those don't resolve, so the redirect would turn a clean
         // ClassNotFoundException into a LambdaConversionException at link time. The
         // bridge's reflective contracts are also only verified against 26.1.
@@ -112,7 +112,7 @@ public class FabricClientNetworkingV1Shim implements VersionShim {
             return;
         }
 
-        // (0) The reflective bridge is a real compiled class (java.* only) — embed it
+        // (0) The reflective bridge is a real compiled class (java.* only) - embed it
         //     into every transformed mod jar so the redirected static calls resolve.
         transformer.registerEmbeddedShim(BRIDGE.replace('/', '.'));
 
@@ -135,7 +135,7 @@ public class FabricClientNetworkingV1Shim implements VersionShim {
             }
         }
 
-        LOGGER.info("[Retromod] Fabric client-networking v1 bridge — kept PlayChannelHandler SAM "
+        LOGGER.info("[Retromod] Fabric client-networking v1 bridge - kept PlayChannelHandler SAM "
                 + "+ redirected register/send/canSend to reflective raw-bytes bridge "
                 + "(getSender unchanged; STATUS: needs in-game verification)");
     }
@@ -148,7 +148,7 @@ public class FabricClientNetworkingV1Shim implements VersionShim {
     }
 
     /**
-     * Synthetic {@code PlayChannelHandler} replacement — a functional interface with
+     * Synthetic {@code PlayChannelHandler} replacement - a functional interface with
      * the 4-arg {@code receive} SAM declared in <b>Mojang</b> types (see class javadoc).
      * {@code FriendlyByteBuf} and {@code PacketSender} round out the old signature.
      */

@@ -18,7 +18,7 @@ other classes' signatures doesn't break matching.
 
 Outputs (in <outdir>):
   moves.txt      old/internal/Name -> new/internal/Name   (incl. inner classes)
-  renames.txt    candidate renames with similarity scores — VERIFY before use
+  renames.txt    candidate renames with similarity scores - VERIFY before use
   removed.txt    public classes gone with no successor
   added.txt      public classes that are genuinely new
 """
@@ -29,7 +29,7 @@ PKG = ("net/minecraft/", "com/mojang/")
 
 
 def parse_class(data):
-    """Return (this_name, super_name, access, methods, fields) — members as (name, desc)."""
+    """Return (this_name, super_name, access, methods, fields) - members as (name, desc)."""
     if data[:4] != b"\xca\xfe\xba\xbe":
         return None
     n_cp = struct.unpack(">H", data[8:10])[0]
@@ -53,7 +53,7 @@ def parse_class(data):
         elif tag == 15:
             i += 4
         else:
-            return None  # unknown tag — bail
+            return None  # unknown tag - bail
         idx += 1
     access, this_i, super_i, n_ifc = struct.unpack(">HHHH", data[i:i + 8])
     i += 8 + 2 * n_ifc
@@ -147,7 +147,7 @@ def main():
 
     moved_old = {m[0] for m in moves}
 
-    # Pass 2: renamed classes — fingerprint-only match, strict threshold
+    # Pass 2: renamed classes - fingerprint-only match, strict threshold
     for k, v in sorted(removed.items()):
         if k in moved_old or len(v["fp"]) < 5:
             continue

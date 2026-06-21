@@ -44,9 +44,9 @@ class CardinalComponentsPackageMoveTest {
                 }
             });
 
-            // CCA 6 REMOVED these — must NOT be redirected to a phantom target
+            // CCA 6 REMOVED these - must NOT be redirected to a phantom target
             assertFalse(r.containsKey("dev/onyxstudios/cca/api/v3/item/ItemComponent"),
-                    "ItemComponent was removed in CCA 6 — no same-path target exists");
+                    "ItemComponent was removed in CCA 6 - no same-path target exists");
             assertFalse(r.containsKey("dev/onyxstudios/cca/api/v3/entity/PlayerComponent"),
                     "PlayerComponent was removed in CCA 6");
         } finally {

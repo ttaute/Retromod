@@ -23,21 +23,21 @@ public class Fabric_1_16_5_to_1_17 implements VersionShim {
         // ────────────────────────────────────────────────────────────────────────
         // 1.16 → 1.17 PACKAGE REORGANIZATION CLASS REDIRECTS
         //
-        // MC 1.17 was a sweeping package rename — most core types moved from the
+        // MC 1.17 was a sweeping package rename - most core types moved from the
         // flat `net.minecraft.{block,entity,util,world}` layout into the modern
         // categorized `net.minecraft.world.{entity,level,phys}.…` tree. Mods
         // compiled against ≤1.16 reference the OLD paths in their constant
         // pools; on a 1.17+ host those classes don't exist and you get
         // NoClassDefFoundError the first time the mod touches one (which is
-        // usually during static-init or onInitialize — i.e. immediate crash).
+        // usually during static-init or onInitialize - i.e. immediate crash).
         //
         // The audit (`audit-workspace/results.csv`) confirmed every 1.16.x mod
-        // in the top-50-by-downloads hits this — Lithium 1.16.4 alone has 80+
+        // in the top-50-by-downloads hits this - Lithium 1.16.4 alone has 80+
         // references to `net/minecraft/world/World`, `net/minecraft/entity/Entity`,
         // etc. Mapping each old path to its current location turns those
         // unresolvable references into clean calls against the modern types.
         //
-        // The redirects are at CLASS granularity — Retromod's ClassRemapper
+        // The redirects are at CLASS granularity - Retromod's ClassRemapper
         // rewrites every owner-name + descriptor reference in the mod bytecode,
         // including in method signatures, field types, and CONSTANT_Class pool
         // entries. The METHOD redirects further down then rewrite the renamed

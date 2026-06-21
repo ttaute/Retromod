@@ -10,7 +10,7 @@ import com.retromod.polyfill.PolyfillProvider;
 /**
  * Polyfill for removed block-state property classes.
  *
- * <p><b>DirectionProperty</b> — In MC 26.1 the dedicated
+ * <p><b>DirectionProperty</b> - In MC 26.1 the dedicated
  * {@code net.minecraft.world.level.block.state.properties.DirectionProperty}
  * class was removed. It used to be a thin subclass of
  * {@code EnumProperty<Direction>}; now {@code EnumProperty} is {@code final}
@@ -19,7 +19,7 @@ import com.retromod.polyfill.PolyfillProvider;
  *
  * <p>Mods built for older MC reference {@code DirectionProperty} both as a type
  * (fields, method signatures) and via its {@code create(...)} factories. A bare
- * type reference crashes the game with {@code NoClassDefFoundError} — issue #24,
+ * type reference crashes the game with {@code NoClassDefFoundError} - issue #24,
  * where a mod's mixin pulled the type into {@code Blocks.<clinit>} and killed
  * bootstrap on NeoForge.
  *
@@ -97,7 +97,7 @@ public class BlockPropertyPolyfill implements PolyfillProvider {
                 LOOKUP, "create",
                 "(Ljava/lang/String;Ljava/util/function/Predicate;)Ljava/lang/Object;");
 
-        // create(String, Direction...) — varargs erases to a Direction[] param
+        // create(String, Direction...) - varargs erases to a Direction[] param
         transformer.registerMethodRedirect(
                 ENUM_PROPERTY, "create",
                 "(Ljava/lang/String;[Lnet/minecraft/core/Direction;)" + ENUM_PROPERTY_DESC,

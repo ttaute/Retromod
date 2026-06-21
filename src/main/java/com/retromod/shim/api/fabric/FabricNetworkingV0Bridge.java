@@ -17,9 +17,9 @@ import org.slf4j.LoggerFactory;
  * channel-keyed packet-consumer API) soft-fail bridge.
  *
  * <h2>What changed</h2>
- * The V0 API at {@code net/fabricmc/fabric/api/network/*} —
+ * The V0 API at {@code net/fabricmc/fabric/api/network/*} -
  * {@code ClientSidePacketRegistry.INSTANCE}, {@code ServerSidePacketRegistry.INSTANCE},
- * {@code PacketContext}, {@code PacketConsumer} — was a Fabric-API-0.x-era design
+ * {@code PacketContext}, {@code PacketConsumer} - was a Fabric-API-0.x-era design
  * (Identifier-keyed channels with a single accept(ctx, buf) callback). It was
  * deprecated when V1 ({@code networking/v1/*ServerPlayNetworking}) shipped with
  * proper payload types in 1.20.5 and removed outright by late 2024. Compat-audit
@@ -33,19 +33,19 @@ import org.slf4j.LoggerFactory;
  * The stubs:
  *
  * <ul>
- *   <li>{@code PacketConsumer} — interface with {@code accept(PacketContext, PacketByteBuf)}.</li>
- *   <li>{@code PacketContext} — interface with {@code getPlayer()},
+ *   <li>{@code PacketConsumer} - interface with {@code accept(PacketContext, PacketByteBuf)}.</li>
+ *   <li>{@code PacketContext} - interface with {@code getPlayer()},
  *       {@code getPacketSender()}, {@code getTaskQueue()}.</li>
- *   <li>{@code ServerSidePacketRegistry} — interface with {@code INSTANCE}, {@code sendToPlayer},
+ *   <li>{@code ServerSidePacketRegistry} - interface with {@code INSTANCE}, {@code sendToPlayer},
  *       {@code canPlayerReceive}, {@code register}, {@code unregister}.</li>
- *   <li>{@code ClientSidePacketRegistry} — interface with {@code INSTANCE},
+ *   <li>{@code ClientSidePacketRegistry} - interface with {@code INSTANCE},
  *       {@code sendToServer}, {@code canServerReceive}, {@code register}, {@code unregister}.</li>
  * </ul>
  *
  * <h2>Functional trade-off</h2>
  * Methods that "send" silently no-op; methods that "register" record nothing;
  * {@code getPlayer()} / {@code getPacketSender()} return null. Mod multiplayer
- * features wired through V0 stay dark — but the mod loads, and the singleplayer
+ * features wired through V0 stay dark - but the mod loads, and the singleplayer
  * surface still works. Strictly better than the current "any GETSTATIC on
  * {@code ServerSidePacketRegistry.INSTANCE} kills the entrypoint."
  */
@@ -72,7 +72,7 @@ public class FabricNetworkingV0Bridge implements VersionShim {
     private static final String L_SERVER_REGISTRY  = "L" + NEW_SERVER_REGISTRY + ";";
     private static final String L_CLIENT_REGISTRY  = "L" + NEW_CLIENT_REGISTRY + ";";
 
-    // MC types we reference in descriptors but don't need to compile against —
+    // MC types we reference in descriptors but don't need to compile against -
     // they exist on every Fabric runtime under these intermediary aliases.
     private static final String L_IDENTIFIER   = "Lnet/minecraft/class_2960;";
     private static final String L_BYTE_BUF     = "Lnet/minecraft/class_2540;";
@@ -99,11 +99,11 @@ public class FabricNetworkingV0Bridge implements VersionShim {
         transformer.registerClassRedirect(OLD_SERVER_REGISTRY, NEW_SERVER_REGISTRY);
         transformer.registerClassRedirect(OLD_CLIENT_REGISTRY, NEW_CLIENT_REGISTRY);
 
-        LOGGER.info("[Retromod] Fabric networking V0 bridge — injected 6 synthetic types "
+        LOGGER.info("[Retromod] Fabric networking V0 bridge - injected 6 synthetic types "
                 + "+ 4 class redirects (soft-fail: mods load, custom packets silently dropped)");
     }
 
-    // ─── PacketConsumer — single-method callback interface ───────────────────
+    // ─── PacketConsumer - single-method callback interface ───────────────────
     private static byte[] generatePacketConsumerInterface() {
         ClassWriter cw = newClassWriter();
         cw.visit(Opcodes.V17,
@@ -268,7 +268,7 @@ public class FabricNetworkingV0Bridge implements VersionShim {
         m.visitEnd();
     }
 
-    /** {@code return CompletableFuture.completedFuture(null);} — sane default for the
+    /** {@code return CompletableFuture.completedFuture(null);} - sane default for the
      *  V0 {@code register} return value (callers typically discard or chain). */
     private static void completedFuture(ClassWriter cw, String name, String desc) {
         MethodVisitor m = cw.visitMethod(Opcodes.ACC_PUBLIC, name, desc, null, null);

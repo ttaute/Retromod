@@ -10,10 +10,10 @@ import java.lang.reflect.Method;
 /**
  * Factory shim for TranslatableContents/TranslatableText constructor changes.
  *
- * In old MC (pre-1.19.1), TranslatableText WAS a Component — you could do:
+ * In old MC (pre-1.19.1), TranslatableText WAS a Component - you could do:
  *   Component text = new TranslatableText("key");
  *
- * In 26.1, TranslatableContents is NOT a Component — it's the inner contents.
+ * In 26.1, TranslatableContents is NOT a Component - it's the inner contents.
  * You need: Component text = MutableComponent.create(new TranslatableContents(key, null, args));
  *
  * This shim returns a MutableComponent (which IS a Component) wrapping the

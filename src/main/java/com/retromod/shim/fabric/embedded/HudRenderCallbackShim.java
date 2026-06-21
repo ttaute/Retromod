@@ -37,7 +37,7 @@ public interface HudRenderCallbackShim {
 
     /**
      * The EVENT field that legacy mod code accesses.
-     * Type is Event<HudRenderCallbackShim> — matches the bytecode descriptor
+     * Type is Event<HudRenderCallbackShim> - matches the bytecode descriptor
      * GETSTATIC .EVENT : Lnet/fabricmc/fabric/api/event/Event;
      */
     Event<HudRenderCallbackShim> EVENT = EventFactory.createArrayBacked(
@@ -103,7 +103,7 @@ public interface HudRenderCallbackShim {
             addLastMethod.invoke(null, id, hudElement);
 
         } catch (ClassNotFoundException e) {
-            // HudElementRegistry not available — old Fabric API, nothing to bridge
+            // HudElementRegistry not available - old Fabric API, nothing to bridge
         } catch (Exception e) {
             System.err.println("Retromod: Failed to bridge HUD callbacks: " + e.getMessage());
         }

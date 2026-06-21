@@ -41,7 +41,7 @@ public class FabricRenderingPolyfill implements PolyfillProvider {
     @Override
     public String[] getRemovedClasses() {
         return new String[]{
-            // Removed in 1.19.3 — atlas system was reworked
+            // Removed in 1.19.3 - atlas system was reworked
             "net/fabricmc/fabric/api/event/client/ClientSpriteRegistryCallback",
             "net/fabricmc/fabric/api/event/client/ClientSpriteRegistryCallback$Registry",
 
@@ -55,14 +55,14 @@ public class FabricRenderingPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed — class and method redirects handle these changes
+        // No embedded stubs needed - class and method redirects handle these changes
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
         // =====================================================================
-        // ClientSpriteRegistryCallback — removed in 1.19.3
+        // ClientSpriteRegistryCallback - removed in 1.19.3
         // The sprite atlas registration system was reworked. Old mods using
         // ClientSpriteRegistryCallback.event(BLOCK_ATLAS_TEXTURE).register(...)
         // need to use SpriteAtlasTexture events or data-driven approaches.

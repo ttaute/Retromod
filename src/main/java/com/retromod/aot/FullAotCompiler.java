@@ -183,7 +183,7 @@ public class FullAotCompiler {
                 return compiledClasses;
             } finally {
                 isRunning = false;
-                // Notify in finally — on ANY exit (success, Exception, even an
+                // Notify in finally - on ANY exit (success, Exception, even an
                 // Error from bytecode work) listeners must hear onComplete, or
                 // the modal progress dialog is never disposed and sits at N%
                 // forever looking like it's still compiling.

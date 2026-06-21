@@ -220,7 +220,7 @@ public class ApiEmbedder {
                      new FileOutputStream(outputPath.toFile()))) {
             
             // Copy all original entries.
-            // Validate every entry name against zip-slip — input is an arbitrary
+            // Validate every entry name against zip-slip - input is an arbitrary
             // user-supplied JAR, and writing entry.getName() verbatim into the
             // output would propagate any traversal payload to downstream
             // consumers (mod scanners, archive viewers).

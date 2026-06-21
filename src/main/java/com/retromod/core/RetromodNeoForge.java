@@ -68,6 +68,7 @@ public class RetromodNeoForge {
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
     
     public RetromodNeoForge() {
+        RetromodVersion.logPresenceBanner(LOGGER);
         // Detect MC version from NeoForge's loader. Same reasoning as Forge:
         // Retromod.<clinit> can't run on NeoForge (Fabric ModInitializer
         // missing), so we populate RetromodVersion ourselves.
@@ -77,13 +78,13 @@ public class RetromodNeoForge {
         } else {
             // CRITICAL: if we can't read the host MC version we fall back to the
             // hardcoded default, and the shim gate (target <= host) then SKIPS
-            // every shim newer than that default — silently dropping core renames
+            // every shim newer than that default - silently dropping core renames
             // like ResourceLocation->Identifier, so transformed mods crash with
             // NoClassDefFoundError on classes that simply got renamed (#47/#51/#52).
             // This previously happened on NeoForge FML 10.x, which renamed the
             // version accessor (versionInfo() -> getCurrent().getVersionInfo()).
             // Make the failure LOUD instead of silently mistranslating.
-            LOGGER.error("Retromod could NOT detect the NeoForge host MC version — "
+            LOGGER.error("Retromod could NOT detect the NeoForge host MC version - "
                     + "falling back to {}. Version shims for any newer MC will be "
                     + "SKIPPED, so mods may fail to translate. Please report your "
                     + "NeoForge/FML version so the detection can be updated.",
@@ -128,12 +129,12 @@ public class RetromodNeoForge {
 
         // Vanilla net/minecraft/* class moves & renames. NeoForge mods are
         // already Mojang-named, so they skip the Fabric intermediary→Mojang
-        // remap — but they still need vanilla renames applied (ResourceLocation
+        // remap - but they still need vanilla renames applied (ResourceLocation
         // ->Identifier, LootContextParamSet->ContextKeySet, repackaged entities,
         // …) or they crash with NoClassDefFoundError. applyClassMovesOnly is
         // host-version-aware: it consults the indexed host MC JAR and applies
         // each rename only where the host actually has the NEW class and not the
-        // OLD one — so it works on a 1.21.11 host (#50/#51/#52) AND a 26.1 host,
+        // OLD one - so it works on a 1.21.11 host (#50/#51/#52) AND a 26.1 host,
         // without the #9 hazard. No coarse 26.1 gate here anymore.
         try {
             int moves = com.retromod.mapping.IntermediaryToMojangMapper
@@ -145,13 +146,22 @@ public class RetromodNeoForge {
             LOGGER.warn("Could not register vanilla class moves", e);
         }
 
+        // Register synthetic bridges for classes NeoForge deleted (FMLJavaModLoadingContext
+        // #85, DeferredSpawnEggItem #52), gated on the original being absent on this host;
+        // SyntheticEmbedder then embeds each per-mod into the mods that reference it.
+        try {
+            com.retromod.shim.forge.ForgeNeoForgeSynthetics.register(transformer);
+        } catch (Exception e) {
+            LOGGER.warn("Could not register Forge/NeoForge synthetics", e);
+        }
+
         // AutoFix is OPT-IN on every loader. Mirror the security model from
         // Retromod.onInitialize (the Fabric entry point): logs/latest.log is
         // writable by any other mod via SLF4J, so a crafted log line that
         // matches AutoFixEngine's error-pattern regex could trick Retromod
         // into registering attacker-chosen method/field redirects on the
         // shared transformer. The opt-in flag must gate BOTH the persisted
-        // fix loader AND the live log analyzer (further down) — turning
+        // fix loader AND the live log analyzer (further down) - turning
         // AutoFix off needs to actually turn it all the way off.
         // See the long-form security comment in Retromod.java for details.
         boolean autoFixEnabled = Boolean.parseBoolean(
@@ -173,7 +183,7 @@ public class RetromodNeoForge {
             }
         }
 
-        // Initialize fuzzy resolver — last-resort fallback for unresolved references.
+        // Initialize fuzzy resolver - last-resort fallback for unresolved references.
         // Auto-detects the MC JAR from the classpath.
         try {
             transformer.initFuzzyResolver(null);
@@ -201,7 +211,18 @@ public class RetromodNeoForge {
         int transformed = transformModsFromInput();
 
         // Also scan mods/ for incompatible mods and transform in place
-        transformed += transformModsInPlace();
+        int inPlace = transformModsInPlace();
+        transformed += inPlace;
+
+        // AOT-first recommendation (#95). In-place transform runs HERE, at mod-
+        // constructor time - after NeoForge has already built the module layer. That's
+        // too late to fix module-layer failures (split packages, skipped Forge-named
+        // JiJ jars), which crash before this code can run. So when we did transform
+        // mods in place, recommend the offline/AOT path for next time: it processes
+        // the jars BEFORE the loader scans, removing that whole "too late" class.
+        if (inPlace > 0) {
+            recommendAotFlow(inPlace);
+        }
 
         // Arm the in-game restart prompt (#33), shown on the title screen.
         com.retromod.gui.RestartPrompt.markPending(transformed);
@@ -242,7 +263,7 @@ public class RetromodNeoForge {
                         autoFixEngine.analyzeAndFix(logFile, transformer);
                     if (!fixes.isEmpty()) {
                         LOGGER.warn("AutoFix: registered {} redirect(s) from previous log (opt-in feature). "
-                                + "Review each one — log lines are an attacker-writable surface:",
+                                + "Review each one - log lines are an attacker-writable surface:",
                                 fixes.size());
                         for (AutoFixEngine.AppliedFix fix : fixes) {
                             LOGGER.warn("  AutoFix [{}] {} => {}",
@@ -335,7 +356,7 @@ public class RetromodNeoForge {
                 try {
                     shim = it.next();
                 } catch (java.util.ServiceConfigurationError e) {
-                    // Class not found — expected in lite builds
+                    // Class not found - expected in lite builds
                     continue;
                 }
                 String loaderType = shim.getModLoaderType();
@@ -506,6 +527,29 @@ public class RetromodNeoForge {
         }, "Retromod-RestartPopup");
         popupThread.setDaemon(true);
         popupThread.start();
+    }
+
+    /**
+     * Recommend the offline/AOT transform path after an in-place transform (#95).
+     *
+     * <p>On NeoForge, {@link #transformModsInPlace()} runs at mod-constructor time -
+     * after the module layer is built - so it can't fix module-layer failures (split
+     * packages, skipped Forge-named JiJ jars), which crash earlier. Running the
+     * transform offline (before the loader scans) sidesteps that whole class of
+     * failure. This is only a log nudge; the offline tooling already exists (the CLI
+     * {@code prepare} / {@code batch} commands and the Full AOT cache).
+     */
+    private void recommendAotFlow(int inPlaceCount) {
+        LOGGER.info("════════════════════════════════════════════════════════════");
+        LOGGER.info("[Retromod] Transformed {} mod(s) in place at startup.", inPlaceCount);
+        LOGGER.info("[Retromod] On NeoForge this runs AFTER the module layer is built, so");
+        LOGGER.info("[Retromod] module-layer issues (split packages, Forge-named JiJ libs)");
+        LOGGER.info("[Retromod] can crash before Retromod gets to act. For best reliability,");
+        LOGGER.info("[Retromod] run the offline (AOT) transform ONCE - it processes the jars");
+        LOGGER.info("[Retromod] BEFORE the loader scans:");
+        LOGGER.info("[Retromod]     java -jar retromod-cli.jar prepare <minecraft-dir>");
+        LOGGER.info("[Retromod] (or: retromod batch mods/), then restart.");
+        LOGGER.info("════════════════════════════════════════════════════════════");
     }
 
     private void scanForRuntimeTransformableMods() {

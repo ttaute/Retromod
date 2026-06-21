@@ -23,7 +23,7 @@ import java.util.function.Consumer;
  * <p>Why: Retromod has no compile-time Minecraft classpath, so we can't write
  * {@code class MyScreen extends Screen} directly. Using an existing screen
  * like {@code ConfirmScreen} as a base overlays our widgets on top of the
- * base screen's own text and YES/NO buttons — messy layout. This generator
+ * base screen's own text and YES/NO buttons - messy layout. This generator
  * produces a fresh Screen subclass with only the overrides we need.
  *
  * <p>The generated class:
@@ -136,7 +136,7 @@ public final class ScreenClassGenerator {
                 "net.minecraft.network.chat.Component"
             );
             if (screenBase == null || textClass == null) {
-                LOGGER.warn("Cannot generate screen class — MC Screen/Component not found");
+                LOGGER.warn("Cannot generate screen class - MC Screen/Component not found");
                 return null;
             }
 
@@ -243,7 +243,7 @@ public final class ScreenClassGenerator {
      * input. The class generation exists because Minecraft's {@code Screen}
      * hierarchy requires a subclass to register a GUI screen and we want
      * to keep Retromod's GUI loosely coupled from any specific MC version's
-     * concrete {@code Screen} class — generating the subclass at runtime
+     * concrete {@code Screen} class - generating the subclass at runtime
      * means the same code works across MC versions whose {@code Screen}
      * base class moved between packages.
      *
@@ -251,7 +251,7 @@ public final class ScreenClassGenerator {
      * loading: trace every caller of {@link #define}. They all originate
      * from {@code ScreenClassGenerator.generateScreenSubclass(...)} which
      * builds the bytes locally with ASM {@code ClassWriter} from a fixed
-     * template — there is no path that loads bytes from an untrusted
+     * template - there is no path that loads bytes from an untrusted
      * source.
      */
     private static final class BytecodeClassLoader extends ClassLoader {

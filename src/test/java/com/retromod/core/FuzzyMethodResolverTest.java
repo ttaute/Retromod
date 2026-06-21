@@ -42,7 +42,7 @@ class FuzzyMethodResolverTest {
         assertFalse(r.isTypeAssignable(
                 "Lnet/minecraft/world/entity/Mob;",
                 "Lnet/minecraft/world/entity/HumanoidArm;"),
-                "Mob is not a HumanoidArm — redirect would VerifyError");
+                "Mob is not a HumanoidArm - redirect would VerifyError");
     }
 
     @Test

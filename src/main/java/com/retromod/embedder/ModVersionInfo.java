@@ -52,7 +52,7 @@ public record ModVersionInfo(
         int[] target = parseVersion(targetMcVersion);
         int[] current = parseVersion(currentMcVersion);
         if (target.length < 2 || current.length < 2) {
-            return false; // unparseable version on either side — don't guess
+            return false; // unparseable version on either side - don't guess
         }
 
         // Compare at the precision the MOD declared. A bare major.minor target

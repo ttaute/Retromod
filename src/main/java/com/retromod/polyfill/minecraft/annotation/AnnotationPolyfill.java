@@ -55,7 +55,7 @@ public class AnnotationPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed — pure annotation class redirects.
+        // No embedded stubs needed - pure annotation class redirects.
         // The replacement annotation libraries (jspecify, jetbrains-annotations)
         // are bundled with Minecraft 26.1.
         return new String[]{};
@@ -78,14 +78,14 @@ public class AnnotationPolyfill implements PolyfillProvider {
             "javax/annotation/Nonnull",
             "org/jspecify/annotations/NonNull");
 
-        // javax.annotation.concurrent.Immutable is NOT redirected — it still
+        // javax.annotation.concurrent.Immutable is NOT redirected - it still
         // exists in the javax.annotation package and is unaffected by the
         // jspecify migration.
 
         // =====================================================================
         // Guava VisibleForTesting -> JetBrains VisibleForTesting
         // Minecraft 26.1 uses the JetBrains annotation instead of Guava's.
-        // Both have identical semantics — marks methods that are more visible
+        // Both have identical semantics - marks methods that are more visible
         // than necessary solely for testing purposes.
         // =====================================================================
 
@@ -97,7 +97,7 @@ public class AnnotationPolyfill implements PolyfillProvider {
         // Forge @OnlyIn / Dist -> NeoForge equivalents
         //
         // @OnlyIn was Forge's side-stripping annotation (similar to @Environment
-        // in Fabric). NeoForge removed @OnlyIn entirely — the annotation is
+        // in Fabric). NeoForge removed @OnlyIn entirely - the annotation is
         // simply stripped from bytecode. We redirect to java.lang.annotation.
         // Retention as a harmless no-op annotation that won't cause CNFE.
         //

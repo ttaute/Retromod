@@ -14,7 +14,7 @@ package com.retromod.core;
  *
  * <p><b>Public Addon API.</b> This is a stable extension point for third-party
  * addons (see {@code docs/addons.md}). Across the 1.x line new methods will be
- * added only as {@code default}s — existing signatures won't break.
+ * added only as {@code default}s - existing signatures won't break.
  */
 public interface VersionShim {
     

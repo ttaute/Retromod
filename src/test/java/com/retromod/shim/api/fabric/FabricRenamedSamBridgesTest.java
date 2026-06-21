@@ -60,7 +60,7 @@ class FabricRenamedSamBridgesTest {
         assertEquals(0, newSam.access & Opcodes.ACC_ABSTRACT, "new SAM is a default forwarder");
         assertEquals(oldSam.desc, newSam.desc, "same descriptor, only the name differs");
 
-        // exactly one abstract method — otherwise it's not a functional interface
+        // exactly one abstract method - otherwise it's not a functional interface
         long abstracts = cn.methods.stream().filter(m -> (m.access & Opcodes.ACC_ABSTRACT) != 0).count();
         assertEquals(1, abstracts);
 
@@ -84,7 +84,7 @@ class FabricRenamedSamBridgesTest {
     }
 
     /**
-     * Loads AND initializes the generated synthetics in a real classloader —
+     * Loads AND initializes the generated synthetics in a real classloader -
      * the JVM's verifier is the assertion. Catches the whole class of bug the
      * first in-game run found: missing ACC_FINAL on interface fields
      * (ClassFormatError 0x9) and missing stack-map frames in the try/catch
@@ -134,7 +134,7 @@ class FabricRenamedSamBridgesTest {
         RetromodTransformer t = RetromodTransformer.getInstance();
         String saved = RetromodVersion.TARGET_MC_VERSION;
         try {
-            // Pre-26.1 host: the old APIs are alive — nothing may be hijacked.
+            // Pre-26.1 host: the old APIs are alive - nothing may be hijacked.
             t.clearRedirectsForTesting();
             RetromodVersion.TARGET_MC_VERSION = "1.21.11";
             new FabricRenamedSamBridgesShim().registerRedirects(t);

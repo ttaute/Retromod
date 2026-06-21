@@ -15,7 +15,7 @@ import net.minecraft.util.math.Vec3d;
 import java.util.List;
 
 /**
- * Math types — {@code BlockPos}, {@code Vec3d}, {@code Box}/{@code AABB},
+ * Math types - {@code BlockPos}, {@code Vec3d}, {@code Box}/{@code AABB},
  * {@code Direction}. These constructors and methods have stayed mostly
  * stable across MC versions but the package paths and yarn/Mojang names
  * differ, so they're a good cheap sanity check.

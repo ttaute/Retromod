@@ -113,7 +113,7 @@ class RetromodExecutorsTest {
         var pool1 = RetromodExecutors.sharedPool();
         var pool2 = RetromodExecutors.sharedPool();
         assertSame(pool1, pool2,
-                "sharedPool() must return the same pool every time — allocating twice would double thread count");
+                "sharedPool() must return the same pool every time - allocating twice would double thread count");
     }
 
     @Test

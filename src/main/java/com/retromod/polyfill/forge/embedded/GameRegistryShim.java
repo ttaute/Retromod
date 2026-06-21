@@ -13,31 +13,31 @@ public class GameRegistryShim {
 
     public static void register(Object obj) {
         // In modern MC, registration is done via DeferredRegister events.
-        // We log a warning but don't crash — the object may already be registered
+        // We log a warning but don't crash - the object may already be registered
         // through the version shim's class redirects.
-        System.out.println("[Retromod] GameRegistry.register() called for legacy mod — " +
+        System.out.println("[Retromod] GameRegistry.register() called for legacy mod - " +
             "object: " + obj + ". This call is intercepted by Retromod's compatibility layer.");
     }
 
     public static void register(Object obj, Object name) {
-        System.out.println("[Retromod] GameRegistry.register() called for legacy mod — " +
+        System.out.println("[Retromod] GameRegistry.register() called for legacy mod - " +
             "object: " + obj + ", name: " + name);
     }
 
     public static void registerTileEntity(Class<?> clazz, Object name) {
-        System.out.println("[Retromod] GameRegistry.registerTileEntity() called — " +
+        System.out.println("[Retromod] GameRegistry.registerTileEntity() called - " +
             "class: " + clazz.getName() + ", name: " + name);
     }
 
     public static void addSmelting(Object input, Object output, float xp) {
-        // Smelting recipes are data-driven in modern MC — this is a no-op
+        // Smelting recipes are data-driven in modern MC - this is a no-op
     }
 
     public static void addShapedRecipe(Object output, Object... params) {
-        // Recipes are data-driven in modern MC — this is a no-op
+        // Recipes are data-driven in modern MC - this is a no-op
     }
 
     public static void addShapelessRecipe(Object output, Object... params) {
-        // Recipes are data-driven in modern MC — this is a no-op
+        // Recipes are data-driven in modern MC - this is a no-op
     }
 }

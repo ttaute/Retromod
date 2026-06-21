@@ -21,7 +21,7 @@ public class NeoForge_1_21_4_to_1_21_5 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Tool item subclasses removed in 1.21.5 — merged into base Item class
+        // Tool item subclasses removed in 1.21.5 - merged into base Item class
         transformer.registerClassRedirect(
             "net/minecraft/world/item/SwordItem",
             "net/minecraft/world/item/Item"

@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * {@code IllegalAccessError} ("tried to access private method
  * ResourceLocation.&lt;init&gt;(String,String)"). The NeoForge 1.20.6→1.21
  * shim must rewrite it to the static factory
- * {@code ResourceLocation.fromNamespaceAndPath} — the Fabric shim already did,
+ * {@code ResourceLocation.fromNamespaceAndPath} - the Fabric shim already did,
  * the NeoForge chain was missing it.
  */
 class NeoForgeResourceLocationCtorTest {

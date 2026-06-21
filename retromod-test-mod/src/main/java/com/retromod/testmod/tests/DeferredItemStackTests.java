@@ -20,7 +20,7 @@ import java.util.List;
  * {@code NullPointerException: Components not bound yet}.
  *
  * <p>The registry isn't frozen at {@code ClientLifecycleEvents.CLIENT_STARTED}
- * (still mid-bootstrap then) — the freeze happens when the client actually
+ * (still mid-bootstrap then) - the freeze happens when the client actually
  * loads or joins a world. So these tests run on the {@code WORLD_JOIN}
  * phase via {@code ClientPlayConnectionEvents.JOIN}, not on
  * {@code CLIENT_STARTED}.

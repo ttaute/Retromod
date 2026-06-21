@@ -37,10 +37,10 @@ import org.slf4j.LoggerFactory;
  * the event's combined invoker as one {@code HudElement} layer.
  *
  * <p><b>Gated 26.1+</b> (pitfall #9): {@code HudRenderCallback} still exists and
- * works on pre-26.1 hosts — and the synthetic's Mojang/26.1 descriptors
+ * works on pre-26.1 hosts - and the synthetic's Mojang/26.1 descriptors
  * ({@code GuiGraphicsExtractor}) wouldn't resolve there anyway.</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified</b> (needs an in-game 26.1 HUD
+ * <p><b>STATUS - authored, not yet runtime-verified</b> (needs an in-game 26.1 HUD
  * overlay check alongside the other bridges).</p>
  */
 public class FabricHudRenderCallbackShim implements VersionShim {
@@ -69,7 +69,7 @@ public class FabricHudRenderCallbackShim implements VersionShim {
         // synthetic's GuiGraphicsExtractor descriptor only resolves on 26.1.
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
-            LOGGER.debug("[Retromod] HudRenderCallback bridge skipped (host {} < 26.1 — old API still present)",
+            LOGGER.debug("[Retromod] HudRenderCallback bridge skipped (host {} < 26.1 - old API still present)",
                     com.retromod.core.RetromodVersion.TARGET_MC_VERSION);
             return;
         }
@@ -78,7 +78,7 @@ public class FabricHudRenderCallbackShim implements VersionShim {
         transformer.registerSyntheticClass(SYNTH, generateInterface());
         transformer.registerClassRedirect(OLD, SYNTH);
 
-        LOGGER.info("[Retromod] Fabric HudRenderCallback bridge — kept onHudRender SAM "
+        LOGGER.info("[Retromod] Fabric HudRenderCallback bridge - kept onHudRender SAM "
                 + "(extends HudElement, default extractRenderState forwards) + EVENT attached to "
                 + "HudElementRegistry (STATUS: needs in-game verification)");
     }
@@ -97,7 +97,7 @@ public class FabricHudRenderCallbackShim implements VersionShim {
         cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
                 "EVENT", L_EVENT, null, null).visitEnd();
 
-        // The old SAM — stays the single abstract method so lambdas keep linking.
+        // The old SAM - stays the single abstract method so lambdas keep linking.
         cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "onHudRender", SAM_DESC, null, null)
                 .visitEnd();
 

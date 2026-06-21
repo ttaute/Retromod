@@ -17,7 +17,7 @@ import java.util.jar.JarFile;
  * <h3>What this is</h3>
  * <p>Retromod transforms mod bytecode at load time. The end user has every
  * right to do that with their own copy of a mod, and there's no statutory
- * obligation that requires us to ask first — Retromod sits in the same legal
+ * obligation that requires us to ask first - Retromod sits in the same legal
  * frame as Forge, Fabric, Mixin, and OptiFine, none of which ask either.</p>
  *
  * <p>That said, some mod authors have legitimate reasons to prefer their mod
@@ -33,13 +33,13 @@ import java.util.jar.JarFile;
  *
  * <p>For those authors, Retromod honors a single, simple opt-out signal: a
  * marker file at <code>META-INF/retromod-opt-out</code> inside the mod's JAR.
- * If present, Retromod skips transformation entirely for that JAR — the JAR
+ * If present, Retromod skips transformation entirely for that JAR - the JAR
  * passes through untouched to {@code mods/}.</p>
  *
  * <h3>How a mod author opts out</h3>
  * <p>Add an empty file at {@code src/main/resources/META-INF/retromod-opt-out}
  * to the mod's source tree. The build will package it. That's the whole
- * mechanism — no version coordination, no API to track, no API surface to
+ * mechanism - no version coordination, no API to track, no API surface to
  * maintain.</p>
  *
  * <h3>How a user can override</h3>
@@ -51,7 +51,7 @@ import java.util.jar.JarFile;
  * <h3>Implementation choices</h3>
  * <p>The marker file lives at {@code META-INF/}, parallel to {@code mods.toml}
  * and {@code fabric.mod.json}, so it's discoverable next to other
- * mod-loader metadata. The file is empty — only its presence matters. We
+ * mod-loader metadata. The file is empty - only its presence matters. We
  * deliberately do NOT read its contents because content gives us a way to
  * mis-parse and accidentally NOT honor the opt-out.</p>
  *
@@ -88,7 +88,7 @@ public final class OptOutCheck {
         try (JarFile jar = new JarFile(modJar.toFile())) {
             return jar.getEntry(OPT_OUT_MARKER) != null;
         } catch (IOException e) {
-            // Can't open the JAR — let the regular transform path try (and
+            // Can't open the JAR - let the regular transform path try (and
             // probably fail with a clearer error than we'd produce here).
             LOGGER.debug("Could not read {} to check opt-out: {}", modJar, e.getMessage());
             return false;
@@ -101,7 +101,7 @@ public final class OptOutCheck {
      * line regardless of which transformer noticed.
      */
     public static void logSkipped(Path modJar) {
-        LOGGER.info("Skipping {} — mod author opted out via {} marker. " +
+        LOGGER.info("Skipping {} - mod author opted out via {} marker. " +
                 "Override with -Dretromod.honorOptOut=false if you want to force transform.",
                 modJar.getFileName(), OPT_OUT_MARKER);
     }

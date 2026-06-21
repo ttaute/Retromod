@@ -42,7 +42,7 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
     @Override
     public String[] getRemovedClasses() {
         return new String[]{
-            // Removed in 1.20.5 — replaced by CustomPayload system
+            // Removed in 1.20.5 - replaced by CustomPayload system
             "net/fabricmc/fabric/api/networking/v1/PacketType",
             "net/fabricmc/fabric/api/networking/v1/FabricPacket",
 

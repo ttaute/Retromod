@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * #70 (Arcanus): {@code registerSuperclassRebase} must rewrite only the inheritance
- * edge — the {@code extends} clause and the {@code super(...)} constructor call — and
+ * edge - the {@code extends} clause and the {@code super(...)} constructor call - and
  * NOT other references to the base type. The old pre-1.17 model bridge used a plain
  * class redirect ({@code class_583 -> LegacyModelBase_583}), which also rewrote a
  * modern mod's mixin {@code @Inject} handler that captured the base as a parameter,
@@ -89,7 +89,7 @@ class SuperclassRebaseTest {
         // super.render(...)-style calls compile to INVOKESPECIAL OLD.render. After the
         // rebase the direct super is NEW, so the JVM verifier would reject the stale
         // owner. The existing emitMethodInsn fixup must retarget it to the EFFECTIVE
-        // (rebased) super — this locks in that currentSuperName carries the new base.
+        // (rebased) super - this locks in that currentSuperName carries the new base.
         RetromodTransformer.getInstance().registerSuperclassRebase(OLD, NEW);
 
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
@@ -122,7 +122,7 @@ class SuperclassRebaseTest {
 
         MethodNode handler = cn.methods.stream().filter(m -> m.name.equals("onInit")).findFirst().orElseThrow();
         assertEquals("(L" + OLD + ";F)V", handler.desc,
-                "a method capturing the base as a param must keep the ORIGINAL type — "
+                "a method capturing the base as a param must keep the ORIGINAL type - "
                 + "rebasing must not leak onto non-inheritance references (#70)");
     }
 }

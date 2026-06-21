@@ -17,8 +17,8 @@ import java.util.List;
  * Text / Component API. Source compiles against Yarn's
  * {@code net.minecraft.text.Text}; after Retromod translates forward, that
  * resolves to Mojang's {@code net.minecraft.network.chat.Component}. Lots of
- * common patterns here — {@code literal}, {@code translatable}, copy + append,
- * formatting — each one is a different method redirect.
+ * common patterns here - {@code literal}, {@code translatable}, copy + append,
+ * formatting - each one is a different method redirect.
  */
 public final class TextTests {
 

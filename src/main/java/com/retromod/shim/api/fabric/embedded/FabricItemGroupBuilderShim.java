@@ -59,14 +59,14 @@ public class FabricItemGroupBuilderShim {
     
     /**
      * Legacy static {@code FabricItemGroupBuilder.build(Identifier, Supplier<ItemStack>) → ItemGroup}
-     * (the form #57's callers hit — Earth2Java's {@code Earth2JavaMod.<clinit>} among others).
+     * (the form #57's callers hit - Earth2Java's {@code Earth2JavaMod.<clinit>} among others).
      * Previously absent, so the class-redirect-rewritten call resolved to nothing and the mod
      * hard-crashed with {@code NoSuchMethodError}. Delegates to the modern-API path used by
      * {@link #build()} after wiring the id + icon supplier.
      *
      * <p>The MC types in this signature are compile-time stubs (see
      * {@code src/main/java/net/minecraft/class_2960.java} and {@code class_1761.java}); they're
-     * stripped from the production jar so MC's real classes resolve at runtime — this is the
+     * stripped from the production jar so MC's real classes resolve at runtime - this is the
      * same compile-only-stub trick the {@code @Mod} stubs use.
      */
     public static net.minecraft.class_1761 build(net.minecraft.class_2960 id, Supplier<?> stack) {

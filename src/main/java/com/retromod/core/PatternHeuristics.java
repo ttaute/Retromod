@@ -5,14 +5,14 @@
  * Pattern-based heuristics for resolving unknown API changes between MC versions.
  *
  * These rules encode deterministic naming conventions discovered by analyzing
- * Minecraft version transitions. They are NOT guesses — each rule represents a
+ * Minecraft version transitions. They are NOT guesses - each rule represents a
  * documented, repeatable API change pattern (e.g., "all render* methods in the
  * GUI package became extract* methods in 26.1").
  *
  * This sits between the hardcoded shim redirect tables and the fuzzy resolver:
- *   1. Shim redirect tables (exact match — highest confidence)
- *   2. PatternHeuristics (pattern-based — medium-high confidence)
- *   3. FuzzyMethodResolver (similarity search — lower confidence)
+ *   1. Shim redirect tables (exact match - highest confidence)
+ *   2. PatternHeuristics (pattern-based - medium-high confidence)
+ *   3. FuzzyMethodResolver (similarity search - lower confidence)
  *
  * Pattern rules are checked BEFORE fuzzy resolution because they are faster
  * (simple string comparisons vs. JAR scanning) and more reliable (deterministic
@@ -57,7 +57,7 @@ public class PatternHeuristics {
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Patterns");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PATTERN RESULT — immutable record returned when a rule matches
+    // PATTERN RESULT - immutable record returned when a rule matches
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -80,7 +80,7 @@ public class PatternHeuristics {
     ) {}
 
     // ═══════════════════════════════════════════════════════════════════════
-    // RULE STORAGE — immutable arrays populated at construction time
+    // RULE STORAGE - immutable arrays populated at construction time
     // ═══════════════════════════════════════════════════════════════════════
 
     // Using arrays instead of Lists because the rule set is fixed after construction.
@@ -90,7 +90,7 @@ public class PatternHeuristics {
     private final PatternRule[] fieldRules;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STATISTICS — atomic counters for thread-safe concurrent access
+    // STATISTICS - atomic counters for thread-safe concurrent access
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -101,7 +101,7 @@ public class PatternHeuristics {
      */
     private static String renameGuiGraphics(String s) {
         if (s == null || !s.contains("GuiGraphics")) return s;
-        // Already renamed — don't touch
+        // Already renamed - don't touch
         if (s.contains("GuiGraphicsExtractor")) return s;
         return s.replace("GuiGraphics", "GuiGraphicsExtractor");
     }
@@ -141,7 +141,7 @@ public class PatternHeuristics {
      * Try to resolve an unknown method reference using pattern heuristics.
      *
      * <p>Rules are checked in registration order. The first matching rule wins.
-     * If no rule matches, returns null — the caller should fall through to
+     * If no rule matches, returns null - the caller should fall through to
      * {@link FuzzyMethodResolver} as a last resort.</p>
      *
      * @param owner      the class containing the method (JVM internal name)
@@ -261,7 +261,7 @@ public class PatternHeuristics {
 
         // Generic render*() -> extract*() pattern for GUI classes.
         // This catches inventory rendering, entity rendering, tooltip rendering, etc.
-        // Lower confidence (0.7) because not ALL render* methods follow this pattern —
+        // Lower confidence (0.7) because not ALL render* methods follow this pattern -
         // only those in the gui/ package hierarchy.
         rules.add((owner, name, desc) -> {
             if (name.startsWith("render") && name.length() > 6
@@ -508,7 +508,7 @@ public class PatternHeuristics {
 
         // Generic World -> Level pattern in Fabric API class names.
         // Lower confidence (0.7) because not all World-containing class names
-        // were renamed — some are kept for backwards compatibility.
+        // were renamed - some are kept for backwards compatibility.
         rules.add(className -> {
             if (className.contains("fabricmc/fabric/") && className.contains("World")
                 && !className.contains("Level")) {

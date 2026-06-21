@@ -1,11 +1,11 @@
 /*
- * Retromod — compile-time stub of net.neoforged.neoforgespi.locating.IOrderedProvider.
+ * Retromod - compile-time stub of net.neoforged.neoforgespi.locating.IOrderedProvider.
  * Copyright (c) 2026 Bownlux. MIT License.
  *
  * This is NOT a copy of NeoForge's SPI. It exists only so that
  * com.retromod.locator.RetromodModLocator compiles without NeoForge on the
  * build classpath (Retromod ships as a single multi-loader artifact and uses
- * reflection for all other loader interaction — see RetromodNeoForge).
+ * reflection for all other loader interaction - see RetromodNeoForge).
  *
  * AT RUNTIME under NeoForge, the loader's classloader provides the REAL
  * interface; this stub's .class is STRIPPED from the production jar by the

@@ -10,7 +10,7 @@ import net.minecraftforge.fml.common.Mod;
 /**
  * Forge entry point for the test mod.
  *
- * <p>Just kicks off {@link TestRunner#runImmediate()} from its constructor —
+ * <p>Just kicks off {@link TestRunner#runImmediate()} from its constructor -
  * Forge calls the {@code @Mod}-annotated class's no-arg constructor at mod
  * loading time, the same place a Fabric {@code ClientModInitializer} runs.
  *
@@ -18,7 +18,7 @@ import net.minecraftforge.fml.common.Mod;
  * {@link net.minecraftforge.fml.common.Mod} stub in this same project; at
  * runtime Forge's real annotation class shadows the stub. This is the same
  * compile-time-stub pattern Retromod itself uses for its own Forge entry
- * point — see {@code RetromodForge.java} in the parent project.
+ * point - see {@code RetromodForge.java} in the parent project.
  *
  * <p>Note: deferred {@code CLIENT_STARTED} and {@code WORLD_JOIN} phases
  * aren't wired here yet. Forge has equivalent events

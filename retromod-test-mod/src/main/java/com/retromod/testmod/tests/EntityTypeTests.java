@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * {@code EntityType} static fields. Mods that spawn or filter entities all
- * read these — broken redirects here mean broken AI, drops, and spawning logic.
+ * read these - broken redirects here mean broken AI, drops, and spawning logic.
  */
 public final class EntityTypeTests {
 

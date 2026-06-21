@@ -93,7 +93,7 @@ public class HybridCompiler {
         }
         
         // Write the modified class.
-        // SafeClassWriter (not raw ClassWriter) — see AotCompiler.transformClassSimple
+        // SafeClassWriter (not raw ClassWriter) - see AotCompiler.transformClassSimple
         // for the rationale. Off-thread AOT can't resolve MC classes via
         // Class.forName, so getCommonSuperClass needs a non-throwing fallback.
         ClassWriter writer = new com.retromod.util.SafeClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);

@@ -27,7 +27,7 @@ public class NeoForge_1_21_5_to_1_21_6 implements VersionShim {
             "net/neoforged/neoforge/common/util/ValueIOSerializable"
         );
 
-        // LayeredDraw removed in 1.21.6 — redirect to base GuiComponent
+        // LayeredDraw removed in 1.21.6 - redirect to base GuiComponent
         // (mods using LayeredDraw need polyfill for full compat, but class refs can be redirected)
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/LayeredDraw",

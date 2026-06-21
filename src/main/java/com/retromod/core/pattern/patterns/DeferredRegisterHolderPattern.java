@@ -15,22 +15,22 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Detects classes that act as <b>registration holders</b> — the {@code public
+ * Detects classes that act as <b>registration holders</b> - the {@code public
  * static final DeferredRegister<X>} + {@code public static final DeferredHolder<Y>}
  * pattern that's idiomatic for Forge/NeoForge mod registries.
  *
  * <h3>Match confidence</h3>
  * <p>High (0.95) when at least one {@code DeferredRegister} field is present.
  * The type signature is distinctive enough that false positives are essentially
- * impossible — no non-registry class uses {@code DeferredRegister<T>} as a
+ * impossible - no non-registry class uses {@code DeferredRegister<T>} as a
  * public static final field type.</p>
  *
  * <h3>What it reports</h3>
  * <ul>
- *   <li>{@code deferredRegisterCount} — how many {@code DeferredRegister} fields</li>
- *   <li>{@code holderCount} — how many {@code DeferredHolder}/{@code RegistryObject}
+ *   <li>{@code deferredRegisterCount} - how many {@code DeferredRegister} fields</li>
+ *   <li>{@code holderCount} - how many {@code DeferredHolder}/{@code RegistryObject}
  *       fields (each is one registered item)</li>
- *   <li>{@code registryType} — the generic parameter of the first
+ *   <li>{@code registryType} - the generic parameter of the first
  *       {@code DeferredRegister} if extractable from its signature (e.g.,
  *       {@code net/minecraft/world/item/Item})</li>
  * </ul>
@@ -44,7 +44,7 @@ import java.util.Map;
  */
 public final class DeferredRegisterHolderPattern implements ClassPattern {
 
-    /** Old Forge and new NeoForge names — we accept either. */
+    /** Old Forge and new NeoForge names - we accept either. */
     private static final String OLD_DEFERRED_REGISTER =
             "Lnet/minecraftforge/registries/DeferredRegister;";
     private static final String NEW_DEFERRED_REGISTER =
@@ -63,7 +63,7 @@ public final class DeferredRegisterHolderPattern implements ClassPattern {
 
     @Override
     public String description() {
-        return "Classes holding DeferredRegister<T> fields — mod registry holders";
+        return "Classes holding DeferredRegister<T> fields - mod registry holders";
     }
 
     @Override
@@ -79,7 +79,7 @@ public final class DeferredRegisterHolderPattern implements ClassPattern {
         String firstRegistryType = null;
 
         for (FieldNode f : cls.fields) {
-            // Only PSF fields are interesting — the idiomatic pattern uses them.
+            // Only PSF fields are interesting - the idiomatic pattern uses them.
             // Skip private / non-static / non-final fields.
             if ((f.access & PSF_MASK) != PSF_MASK) continue;
             if (f.desc == null) continue;
@@ -96,7 +96,7 @@ public final class DeferredRegisterHolderPattern implements ClassPattern {
 
         if (deferredRegisterCount == 0 && holderCount == 0) return null;
 
-        // A class with ONLY DeferredHolder fields (no DeferredRegister) is suspicious —
+        // A class with ONLY DeferredHolder fields (no DeferredRegister) is suspicious -
         // typically the DeferredRegister is in a different class and we're looking at
         // a type-only holder. Still worth reporting at a lower confidence.
         double confidence = deferredRegisterCount > 0 ? 0.95 : 0.7;

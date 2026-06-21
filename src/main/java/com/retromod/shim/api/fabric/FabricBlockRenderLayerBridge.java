@@ -13,7 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Fabric {@code BlockRenderLayerMap} soft-fail bridge — the single most-referenced
+ * Fabric {@code BlockRenderLayerMap} soft-fail bridge - the single most-referenced
  * removed Fabric API class in the snapshot.2 audit (~628 refs).
  *
  * <h2>What it was</h2>
@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * {@code putBlock/putBlocks/putItem/putItems/putFluid/putFluids} methods, all
  * inert, plus a concrete impl. The class redirect itself lives in
  * {@code mojang-class-moves-26.1.tsv} so it's applied through the same
- * {@code isUnobfuscatedTarget}-gated path as the rest of the 26.1 moves — i.e.
+ * {@code isUnobfuscatedTarget}-gated path as the rest of the 26.1 moves - i.e.
  * only on a 26.1+ host where the real class is actually gone. A pre-26.1 host
  * (where {@code BlockRenderLayerMap} still ships in the Fabric API) is left
  * untouched.
@@ -38,7 +38,7 @@ import org.slf4j.LoggerFactory;
  * <h2>Type discipline</h2>
  * Synthetics are injected into the mod jar <b>raw</b> (not re-remapped), so the
  * stub's method descriptors use the <b>26.1 Mojang</b> types the mod's call sites
- * resolve to after Retromod's intermediary→Mojang + class-move passes — most
+ * resolve to after Retromod's intermediary→Mojang + class-move passes - most
  * notably {@code RenderType} at its moved 26.1 path
  * {@code client/renderer/rendertype/RenderType}. Using intermediary names here
  * would make the call descriptors mismatch the stub at runtime
@@ -47,7 +47,7 @@ import org.slf4j.LoggerFactory;
  * <h2>Functional trade-off</h2>
  * The {@code put*} calls become no-ops, so a block that needed CUTOUT/TRANSLUCENT
  * renders SOLID (transparent parts look opaque). The mod LOADS and everything
- * else works — strictly better than the current crash.
+ * else works - strictly better than the current crash.
  */
 public class FabricBlockRenderLayerBridge implements VersionShim {
 
@@ -75,7 +75,7 @@ public class FabricBlockRenderLayerBridge implements VersionShim {
         // NB: the class redirect BlockRenderLayerMap → SELF lives in
         // mojang-class-moves-26.1.tsv (26.1-gated), not here, so pre-26.1 hosts
         // that still have the real class aren't redirected.
-        LOGGER.debug("[Retromod] BlockRenderLayerMap bridge — injected no-op stand-in");
+        LOGGER.debug("[Retromod] BlockRenderLayerMap bridge - injected no-op stand-in");
     }
 
     // ─── interface with INSTANCE + put* methods ───────────────────────────────

@@ -68,7 +68,7 @@ public class Fabric_1_20_6_to_1_21 implements VersionShim {
 
         // Intermediary-keyed variant for Fabric mods on a pre-26.1 host. There the
         // intermediary→Mojang remap is OFF (it only runs for 26.1+), so the bytecode
-        // still says `new class_2960(String, String)` rather than the Mojang name —
+        // still says `new class_2960(String, String)` rather than the Mojang name -
         // and that 2-arg constructor is private as of 1.21, so the call fails at
         // runtime with IllegalAccessError (bugs #36/#37, Haema/Rubinated Nether on
         // 1.21.1). class_2960 = ResourceLocation; method_60655 = fromNamespaceAndPath

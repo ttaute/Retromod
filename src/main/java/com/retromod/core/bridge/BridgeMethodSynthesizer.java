@@ -29,7 +29,7 @@ import java.util.function.Function;
  *
  * <h3>The bug this fixes</h3>
  * <p>Suppose a mod class {@code class MyEntity extends net/minecraft/entity/Entity}
- * declares {@code public World getWorld()} — an override of
+ * declares {@code public World getWorld()} - an override of
  * {@code Entity.getWorld()} on the old MC. Between that MC version and the target,
  * Minecraft renamed {@code Entity.getWorld()} to {@code Entity.getLevel()}. The
  * method-redirect pipeline rewrites every <b>invocation</b> of {@code getWorld}
@@ -40,8 +40,8 @@ import java.util.function.Function;
  * <ol>
  *   <li>Code calls {@code someEntity.getLevel()} (the new name).</li>
  *   <li>JVM virtual dispatch looks for {@code getLevel} on {@code MyEntity}. Not
- *       found — the mod still has {@code getWorld}.</li>
- *   <li>Dispatch walks up to {@code Entity.getLevel()} — the MC parent
+ *       found - the mod still has {@code getWorld}.</li>
+ *   <li>Dispatch walks up to {@code Entity.getLevel()} - the MC parent
  *       implementation. The mod's override is bypassed entirely.</li>
  * </ol>
  *
@@ -50,7 +50,7 @@ import java.util.function.Function;
  * <h3>The fix: synthesize {@code getLevel()} in {@code MyEntity}</h3>
  * <p>We add a bridge method named {@code getLevel} with the same descriptor
  * that delegates to {@code getWorld}. Virtual dispatch now finds
- * {@code MyEntity.getLevel()}, which calls {@code MyEntity.getWorld()} — the
+ * {@code MyEntity.getLevel()}, which calls {@code MyEntity.getWorld()} - the
  * mod's original override runs as intended.</p>
  *
  * <pre>
@@ -73,10 +73,10 @@ import java.util.function.Function;
  * <h3>v1 scope</h3>
  * <ul>
  *   <li>Only descriptor-preserving renames. Cases where the descriptor itself
- *       changes require argument conversion — risk of VerifyError is higher, and
+ *       changes require argument conversion - risk of VerifyError is higher, and
  *       {@link com.retromod.core.BridgeAdapterGenerator} already handles the
  *       best-known case (MC 26.1 input-event overhaul).</li>
- *   <li>Only public and protected methods — private methods can't be overridden
+ *   <li>Only public and protected methods - private methods can't be overridden
  *       so the orphan scenario doesn't apply.</li>
  *   <li>Only methods declared on classes in {@code modOwnClasses}. We never
  *       modify MC or loader code.</li>
@@ -99,7 +99,7 @@ public final class BridgeMethodSynthesizer {
      *
      * <p>We accept a Function rather than a concrete map so the synthesizer
      * doesn't need to depend on {@code RetromodTransformer}'s internal data
-     * structures — the transformer can wrap its {@code methodRedirects} map
+     * structures - the transformer can wrap its {@code methodRedirects} map
      * with a lambda.</p>
      */
     private final Function<String, String> methodRenameLookup;
@@ -145,7 +145,7 @@ public final class BridgeMethodSynthesizer {
      * @param classBytes     the transformed class bytecode (typically post-iterative-loop)
      * @param modOwnClasses  classes defined by the mod itself. If the class
      *                       being processed isn't in this set, we return the
-     *                       input unchanged — we never modify MC or loader
+     *                       input unchanged - we never modify MC or loader
      *                       classes.
      * @return possibly-rewritten bytecode
      */
@@ -175,7 +175,7 @@ public final class BridgeMethodSynthesizer {
             String collisionKey = candidate.bridgeName() + "#" + candidate.methodDescriptor();
             if (scan.declaredMethods.contains(collisionKey)) {
                 bridgesSkippedCollision.incrementAndGet();
-                LOGGER.debug("Bridge {} skipped on {} — target name+descriptor already exists",
+                LOGGER.debug("Bridge {} skipped on {} - target name+descriptor already exists",
                         candidate.bridgeName(), scan.className);
                 continue;
             }
@@ -190,7 +190,7 @@ public final class BridgeMethodSynthesizer {
         try {
             out = emit(classBytes, scan.className, toEmit);
         } catch (Exception e) {
-            // Emission failed — log and return the INPUT unchanged. A partially-
+            // Emission failed - log and return the INPUT unchanged. A partially-
             // emitted class could be worse than no bridge at all.
             LOGGER.warn("Bridge emission failed for {}: {}", scan.className, e.getMessage());
             return classBytes;
@@ -203,7 +203,7 @@ public final class BridgeMethodSynthesizer {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SCANNING — figure out what bridges we need
+    // SCANNING - figure out what bridges we need
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -254,7 +254,7 @@ public final class BridgeMethodSynthesizer {
                 // scope is rare enough to skip in v1).
                 int visibility = access & (Opcodes.ACC_PUBLIC | Opcodes.ACC_PROTECTED);
                 if (visibility == 0) return null;
-                // Static methods are resolved statically, not via virtual dispatch —
+                // Static methods are resolved statically, not via virtual dispatch -
                 // no orphan-override scenario.
                 if ((access & Opcodes.ACC_STATIC) != 0) return null;
                 // Abstract methods have no body to delegate to.
@@ -291,12 +291,12 @@ public final class BridgeMethodSynthesizer {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // EMISSION — write the bridges into the class bytecode
+    // EMISSION - write the bridges into the class bytecode
     // ═══════════════════════════════════════════════════════════════════════
 
     private byte[] emit(byte[] classBytes, String ownerClass, List<BridgeCandidate> candidates) {
         ClassReader reader = new ClassReader(classBytes);
-        // COMPUTE_FRAMES regenerates stack map frames — required because we
+        // COMPUTE_FRAMES regenerates stack map frames - required because we
         // append new methods whose bodies need frame computation.
         ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
@@ -342,7 +342,7 @@ public final class BridgeMethodSynthesizer {
         }
 
         // Invoke the original method (same owner, same descriptor, original name).
-        // INVOKEVIRTUAL even for interface methods — the bridge lives on a class,
+        // INVOKEVIRTUAL even for interface methods - the bridge lives on a class,
         // not an interface, so virtual dispatch is correct.
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, ownerClass,
                 candidate.methodName(), candidate.methodDescriptor(), false);
@@ -377,7 +377,7 @@ public final class BridgeMethodSynthesizer {
      * Build a rename-lookup function from a method-redirect table using the
      * format the transformer already uses. The function signature accepts any
      * map keyed on an opaque type (the transformer's {@code MethodKey}) with
-     * a value having a {@code .name()} accessor — we don't depend on those
+     * a value having a {@code .name()} accessor - we don't depend on those
      * types directly to keep this module free of transformer-specific imports.
      *
      * @param keyToString  function that turns the map's key type into a
@@ -393,7 +393,7 @@ public final class BridgeMethodSynthesizer {
         // Precompute a String-keyed view of the redirect map. The transformer's
         // redirect maps are populated once at startup and immutable thereafter,
         // so a snapshot is safe. We also filter for identity-preserving
-        // renames (same owner + descriptor, different name) — the only case
+        // renames (same owner + descriptor, different name) - the only case
         // we can safely bridge for v1.
         Map<String, String> snapshot = new HashMap<>(redirectMap.size());
         for (Map.Entry<K, V> entry : redirectMap.entrySet()) {

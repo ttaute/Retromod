@@ -58,7 +58,7 @@ public class DataResultPolyfill {
                 return eitherRightMethod.invoke(null, error.get());
             }
 
-            // Shouldn't happen — return left(null)
+            // Shouldn't happen - return left(null)
             return eitherLeftMethod.invoke(null, (Object) null);
         } catch (Exception e) {
             throw new RuntimeException("DataResult.get() polyfill failed", e);

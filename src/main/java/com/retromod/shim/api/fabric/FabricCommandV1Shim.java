@@ -15,8 +15,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Bridges the removed Fabric <b>command v1</b> API
- * ({@code net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback}) — server
- * command registration — onto the surviving {@code command/v2} callback.
+ * ({@code net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback}) - server
+ * command registration - onto the surviving {@code command/v2} callback.
  *
  * <p>Compat-audit gap: ~38 mods are sole-blocked on {@code command/v1/
  * CommandRegistrationCallback}. The v1 SAM is the 2-arg
@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
  * <h2>Why this one is clean</h2>
  * Unlike the item-group bridge, the v1 lambda body operates only on the
  * <b>brigadier</b> {@code CommandDispatcher} (a {@code com.mojang.brigadier} type
- * that is never remapped) plus a primitive boolean — there is no Fabric parameter
+ * that is never remapped) plus a primitive boolean - there is no Fabric parameter
  * object whose methods changed. So nothing inside the handler needs adapting; we
  * only need the SAM to keep linking and the {@code EVENT} to actually fire.
  *
@@ -56,7 +56,7 @@ import org.slf4j.LoggerFactory;
  * {@code CommandDispatcher}. That type is identical on the intermediary (CLI/audit)
  * and Mojang (runtime) paths, so a single descriptor serves both.
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code fabric-api-0.145.4+26.1.2}. A 26.1 launch that registers a command through
  * a v1 mod is still required.</p>
  */
@@ -85,10 +85,10 @@ public class FabricCommandV1Shim implements VersionShim {
     public void registerRedirects(RetromodTransformer transformer) {
         // Deliberately NOT host-gated (unlike the other 26.1 API bridges): command/v1
         // was removed from the Fabric API back in the 1.19 era, so on EVERY modern host
-        // the old class is genuinely gone (no live API to hijack — pitfall #9 doesn't
+        // the old class is genuinely gone (no live API to hijack - pitfall #9 doesn't
         // apply), and the replacement command/v2 exists on 1.19.1+. The synthetic SAM
         // uses only brigadier + fabric Event types (identical in intermediary and
-        // Mojang namespaces), and the bridge resolves v2 purely by Fabric API names —
+        // Mojang namespaces), and the bridge resolves v2 purely by Fabric API names -
         // so the bridge is namespace-agnostic and extends coverage to pre-26.1 hosts.
         // (0) Embed the reflective bridge (java.* only) so the synthetic <clinit> resolves it.
         transformer.registerEmbeddedShim(BRIDGE.replace('/', '.'));
@@ -97,7 +97,7 @@ public class FabricCommandV1Shim implements VersionShim {
         transformer.registerSyntheticClass(NEW_SAM, generateSamInterface());
         transformer.registerClassRedirect(OLD_V1, NEW_SAM);
 
-        LOGGER.info("[Retromod] Fabric command v1 bridge — kept CommandRegistrationCallback "
+        LOGGER.info("[Retromod] Fabric command v1 bridge - kept CommandRegistrationCallback "
                 + "register(dispatcher, dedicated) SAM + EVENT wired to command/v2 "
                 + "(STATUS: needs in-game verification)");
     }
@@ -124,7 +124,7 @@ public class FabricCommandV1Shim implements VersionShim {
         // static { EVENT = (Event) CommandRegistrationV1Bridge.installEvent(NEW_SAM.class); }
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
         mv.visitCode();
-        mv.visitLdcInsn(Type.getObjectType(NEW_SAM)); // the interface being initialized — legal in its own <clinit>
+        mv.visitLdcInsn(Type.getObjectType(NEW_SAM)); // the interface being initialized - legal in its own <clinit>
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, BRIDGE, "installEvent",
                 "(Ljava/lang/Class;)Ljava/lang/Object;", false);
         mv.visitTypeInsn(Opcodes.CHECKCAST, EVENT);

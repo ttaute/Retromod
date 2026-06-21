@@ -20,7 +20,7 @@ import org.objectweb.asm.Type;
  *       method (so old lambdas keep linking), and adds a default NEW-SAM
  *       method forwarding to the old one. Optionally wires a static
  *       {@code EVENT} field by reflectively reading the NEW interface's own
- *       {@code EVENT} in {@code <clinit>} — every instance of the synthetic
+ *       {@code EVENT} in {@code <clinit>} - every instance of the synthetic
  *       IS-A new interface, so the new event accepts old handlers directly
  *       (no Proxy forwarder needed).</li>
  *   <li>{@link #eventHolder}: a synthetic final holder class at the OLD name
@@ -29,7 +29,7 @@ import org.objectweb.asm.Type;
  * </ul>
  *
  * <p>Reflection failures (absent / incompatible fabric-api) soft-fail: the
- * field stays {@code null} and a line goes to stderr — the mod only breaks if
+ * field stays {@code null} and a line goes to stderr - the mod only breaks if
  * it actually uses that event, instead of taking the whole game down.</p>
  */
 final class SamBridgeSynthetics {
@@ -43,7 +43,7 @@ final class SamBridgeSynthetics {
      * @param newIface     internal name of the surviving 26.1 interface
      * @param oldSam       old SAM method name (stays the only abstract method)
      * @param newSam       new SAM method name (generated as a default forwarder)
-     * @param desc         the SAM descriptor in post-remap (Mojang/26.1) form —
+     * @param desc         the SAM descriptor in post-remap (Mojang/26.1) form -
      *                     identical for old and new, only the NAME changed
      * @param eventOwner   dot-name of the class carrying the new {@code EVENT}
      *                     field to mirror, or {@code null} for no EVENT field
@@ -56,7 +56,7 @@ final class SamBridgeSynthetics {
                 Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,
                 synth, null, "java/lang/Object", new String[]{newIface});
 
-        // Old SAM — the single abstract method, so LambdaMetafactory keeps working.
+        // Old SAM - the single abstract method, so LambdaMetafactory keeps working.
         cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, oldSam, desc, null, null).visitEnd();
 
         // default <newSam>(args...) { [return] <oldSam>(args...); }
@@ -123,7 +123,7 @@ final class SamBridgeSynthetics {
 
     private static void visitEventField(ClassWriter cw, String name) {
         // ACC_FINAL is MANDATORY on interface fields (JVMS: ClassFormatError
-        // 0x9 without it — caught live by the bridge verification run), and a
+        // 0x9 without it - caught live by the bridge verification run), and a
         // final static may be assigned from <clinit> even inside a try/catch.
         cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL, name,
                 "Lnet/fabricmc/fabric/api/event/Event;", null, null).visitEnd();
@@ -158,7 +158,7 @@ final class SamBridgeSynthetics {
 
         mv.visitLabel(handler);
         // Class file v61+ requires explicit stack map frames at branch targets
-        // (VerifyError "Expecting a stackmap frame" without them — caught live).
+        // (VerifyError "Expecting a stackmap frame" without them - caught live).
         // Hand-emitted rather than COMPUTE_FRAMES so generation never needs to
         // load fabric classes for common-superclass computation.
         mv.visitFrame(Opcodes.F_SAME1, 0, null, 1, new Object[]{"java/lang/Throwable"});

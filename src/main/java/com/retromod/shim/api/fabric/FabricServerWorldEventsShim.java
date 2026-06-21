@@ -24,13 +24,13 @@ import org.slf4j.LoggerFactory;
  * a synthetic holder, wired to the live {@code ServerLevelEvents} fields by
  * reflection ({@link com.retromod.shim.api.fabric.embedded.ServerWorldEventsBridge}).
  * The only parameter change is {@code ServerWorld → ServerLevel}, which the harvest
- * already remaps in the lambda — so unlike the item-group bridge there are no
+ * already remaps in the lambda - so unlike the item-group bridge there are no
  * parameter-object method renames.</p>
  *
  * <p>Replaces the previous {@code ServerWorldEvents → ServerLevelEvents} class
  * redirect (a latent lambda trap) that lived in {@code Fabric_1_21_11_to_26_1}.</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code fabric-api-0.141.1} / {@code 0.145.4+26.1.2}. A 26.1 launch is still required.</p>
  */
 public class FabricServerWorldEventsShim implements VersionShim {
@@ -47,7 +47,7 @@ public class FabricServerWorldEventsShim implements VersionShim {
 
     private static final String EVENT   = "net/fabricmc/fabric/api/event/Event";
     private static final String L_EVENT = "L" + EVENT + ";";
-    // SAM: (MinecraftServer, ServerLevel) — MinecraftServer is stable, ServerLevel is the harvested param.
+    // SAM: (MinecraftServer, ServerLevel) - MinecraftServer is stable, ServerLevel is the harvested param.
     private static final String SAM_DESC =
             "(Lnet/minecraft/server/MinecraftServer;Lnet/minecraft/server/level/ServerLevel;)V";
 
@@ -59,12 +59,12 @@ public class FabricServerWorldEventsShim implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
         // 26.1+ hosts ONLY (pitfall #9). Pre-26.1, ServerWorldEvents is still ALIVE in
-        // the Fabric API — redirecting it would hijack a working API and wire it to
+        // the Fabric API - redirecting it would hijack a working API and wire it to
         // ServerLevelEvents, which doesn't exist there. The synthetic SAM also declares
         // the Mojang-named ServerLevel, unresolvable on an intermediary runtime.
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
-            LOGGER.debug("[Retromod] ServerWorldEvents bridge skipped (host {} < 26.1 — old API still present)",
+            LOGGER.debug("[Retromod] ServerWorldEvents bridge skipped (host {} < 26.1 - old API still present)",
                     com.retromod.core.RetromodVersion.TARGET_MC_VERSION);
             return;
         }
@@ -79,7 +79,7 @@ public class FabricServerWorldEventsShim implements VersionShim {
         transformer.registerClassRedirect(OLD + "$Load", LOAD);
         transformer.registerClassRedirect(OLD + "$Unload", UNLOAD);
 
-        LOGGER.info("[Retromod] Fabric ServerWorldEvents bridge — kept LOAD/UNLOAD + "
+        LOGGER.info("[Retromod] Fabric ServerWorldEvents bridge - kept LOAD/UNLOAD + "
                 + "onWorldLoad/onWorldUnload SAMs wired to ServerLevelEvents "
                 + "(STATUS: needs in-game verification)");
     }

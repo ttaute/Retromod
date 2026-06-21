@@ -74,14 +74,14 @@ class BridgeMethodSynthesizerTest {
 
         BridgeMethodSynthesizer synthesizer = new BridgeMethodSynthesizer(lookup);
 
-        // Mod class has BOTH methods already — shouldn't synthesize (would duplicate)
+        // Mod class has BOTH methods already - shouldn't synthesize (would duplicate)
         byte[] modClass = modClassWithTwoMethods(
                 "com/example/mod/MyEntity", "net/minecraft/Entity",
                 "getWorld", "()Ljava/lang/Object;",
                 "getLevel", "()Ljava/lang/Object;");
 
         byte[] result = synthesizer.synthesize(modClass, Set.of("com/example/mod/MyEntity"));
-        // Either same reference (no modification) or equal bytes — both fine.
+        // Either same reference (no modification) or equal bytes - both fine.
         // But no bridge should have been recorded.
         assertEquals(0, synthesizer.getBridgesSynthesized(),
                 "No bridge should fire when the target name already exists");
@@ -103,7 +103,7 @@ class BridgeMethodSynthesizerTest {
                 "com/example/mod/MyEntity", "net/minecraft/Entity",
                 "getWorld", "()Ljava/lang/Object;");
 
-        // modOwnClasses does NOT contain the class — it's treated as not-mod-owned
+        // modOwnClasses does NOT contain the class - it's treated as not-mod-owned
         byte[] result = synthesizer.synthesize(modClass, Set.of("com/example/other/Different"));
         assertSame(modClass, result,
                 "Non-mod class must not be modified");
@@ -119,7 +119,7 @@ class BridgeMethodSynthesizerTest {
                 v -> v);
         BridgeMethodSynthesizer synthesizer = new BridgeMethodSynthesizer(lookup);
 
-        // Private methods — never participate in virtual dispatch
+        // Private methods - never participate in virtual dispatch
         byte[] modClassPrivate = modClassWithVisibility(
                 "com/example/mod/MyEntity", "net/minecraft/Entity",
                 "getWorld", "()Ljava/lang/Object;",
@@ -128,7 +128,7 @@ class BridgeMethodSynthesizerTest {
         assertEquals(0, synthesizer.getBridgesSynthesized(),
                 "Private methods shouldn't trigger bridging");
 
-        // Static methods — resolved statically, no override scenario
+        // Static methods - resolved statically, no override scenario
         synthesizer.resetMetrics();
         byte[] modClassStatic = modClassWithVisibility(
                 "com/example/mod/MyEntity", "net/minecraft/Entity",
@@ -142,7 +142,7 @@ class BridgeMethodSynthesizerTest {
     @Test
     @DisplayName("Methods without matching rename are left alone")
     void nonMatchingMethodLeftAlone() {
-        // Rename table is empty — no method should be bridged.
+        // Rename table is empty - no method should be bridged.
         // The explicit type witness `<String,String>` is needed because Map.of()
         // with no args would otherwise infer as Map<Object,Object>.
         Function<String, String> lookup = BridgeMethodSynthesizer.<String, String>buildLookupFrom(
@@ -216,7 +216,7 @@ class BridgeMethodSynthesizerTest {
         return cw.toByteArray();
     }
 
-    /** A class with BOTH method names already declared — collision case. */
+    /** A class with BOTH method names already declared - collision case. */
     private static byte[] modClassWithTwoMethods(String className, String superName,
                                                   String nameA, String descA,
                                                   String nameB, String descB) {

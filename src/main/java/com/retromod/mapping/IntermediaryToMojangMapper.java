@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
  * TSV resource file (generated from Fabric intermediary + Mojang ProGuard
  * mappings for 1.21.4).
  *
- * The mapping is version-agnostic for intermediary names — intermediary names
+ * The mapping is version-agnostic for intermediary names - intermediary names
  * are stable across MC versions (that's their whole purpose), so a single
  * mapping from any recent version covers all old mods.
  */
@@ -169,7 +169,7 @@ public class IntermediaryToMojangMapper {
     /**
      * Remap all intermediary references in a string.
      * Uses regex to find class_XXXX/field_XXXX/method_XXXX tokens and looks them up
-     * in the mapping tables directly — O(n) in string length instead of O(86K) per call.
+     * in the mapping tables directly - O(n) in string length instead of O(86K) per call.
      */
     public String remapString(String input) {
         if (input == null) return null;
@@ -244,14 +244,14 @@ public class IntermediaryToMojangMapper {
     /**
      * Register every loaded intermediary→Mojang mapping (classes, methods,
      * fields) plus the 26.1 class moves into the given transformer's redirect
-     * tables. Idempotent — safe to call multiple times (subsequent calls
+     * tables. Idempotent - safe to call multiple times (subsequent calls
      * overwrite any matching entries with the same value).
      *
      * <p>This is the single entry point that <b>any</b> startup path should
      * invoke to prepare a {@code RetromodTransformer} for Fabric intermediary
      * remapping. Previously this wiring was duplicated inline in
      * {@code RetromodPreLaunch}, which meant the CLI's {@code gaps} and
-     * {@code batch} commands couldn't benefit from it — AppleSkin and other
+     * {@code batch} commands couldn't benefit from it - AppleSkin and other
      * Fabric mods had all their intermediary class names show up as
      * "missing" in the gap report. Centralizing here fixes that for every
      * caller.</p>
@@ -260,7 +260,7 @@ public class IntermediaryToMojangMapper {
      * Mojang name that was subsequently <i>moved</i> in 26.1
      * ({@code OldMojangName → NewMojangName}), we compose both hops so the
      * transformer registers {@code class_X → NewMojangName} directly. This
-     * matters because ASM's {@code ClassRemapper} is single-pass — if we
+     * matters because ASM's {@code ClassRemapper} is single-pass - if we
      * registered the intermediate stop, it would never fire the second hop.</p>
      *
      * @param transformer the transformer to populate; must not be null
@@ -294,7 +294,7 @@ public class IntermediaryToMojangMapper {
                 mapper.getMethodMap(), mapper.getFieldMap());
 
         // Also register class-moves on their own (for mods that already use
-        // Mojang names — e.g. mods targeting 1.20+ with GuiGraphics — the
+        // Mojang names - e.g. mods targeting 1.20+ with GuiGraphics - the
         // intermediary step is skipped but the 26.1 move still applies).
         int classMoves = 0;
         for (Map.Entry<String, String> entry : classMoveMap.entrySet()) {
@@ -310,7 +310,7 @@ public class IntermediaryToMojangMapper {
 
     /**
      * Register ONLY the 26.1 vanilla class moves plus the
-     * {@code ResourceLocation}→{@code Identifier} constructor redirects — the
+     * {@code ResourceLocation}→{@code Identifier} constructor redirects - the
      * subset of {@link #applyTo} that applies to mods which <b>already use
      * Mojang names</b> (NeoForge and Forge mods). Those mods must NOT receive
      * the Fabric intermediary→Mojang remap (they have no {@code class_XXXX}
@@ -322,7 +322,7 @@ public class IntermediaryToMojangMapper {
      * <p><b>Gating is the caller's responsibility:</b> only invoke on a 26.1+
      * host ({@link com.retromod.core.RetromodVersion#isUnobfuscatedTarget}).
      * On a pre-26.1 host these moves would rewrite a mod's <i>working</i>
-     * references into 26.1 names that don't exist yet — the same hazard the
+     * references into 26.1 names that don't exist yet - the same hazard the
      * Fabric path guards against (#21/#29).
      *
      * <p>The {@code Identifier} constructor redirects are keyed on the post-move
@@ -349,13 +349,13 @@ public class IntermediaryToMojangMapper {
         // renames already happened by an intermediate version (e.g.
         // ResourceLocation→Identifier and LootContextParamSet→ContextKeySet
         // landed by 1.21.11). A rename should be applied on a given host iff the
-        // host actually has the NEW class but NOT the OLD one — i.e. the rename
+        // host actually has the NEW class but NOT the OLD one - i.e. the rename
         // has happened by that host version. Gating the whole table on "26.1+"
         // (isUnobfuscatedTarget) was too coarse: it left mods on a 1.21.11 host
         // crashing with NoClassDefFoundError on names that were already renamed
         // there (#50/#51/#52). Conversely, applying a 26.1-only rename on an
         // older host would rewrite a working reference to a name that doesn't
-        // exist yet (the #9 hazard) — the NEW-on-host check prevents that.
+        // exist yet (the #9 hazard) - the NEW-on-host check prevents that.
         //
         // We ask the classloader that loaded MC whether a class exists, rather
         // than locating + indexing the MC JAR on disk: on NeoForge the MC JAR
@@ -367,7 +367,7 @@ public class IntermediaryToMojangMapper {
                 com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                         com.retromod.core.RetromodVersion.TARGET_MC_VERSION);
         if (!haveHost) {
-            LOGGER.warn("applyClassMovesOnly: could not query host classes — falling back to the "
+            LOGGER.warn("applyClassMovesOnly: could not query host classes - falling back to the "
                     + "coarse 26.1 gate (apply-all={})", unobfFallback);
         }
 
@@ -391,7 +391,7 @@ public class IntermediaryToMojangMapper {
                 } else {
                     // Redirect to a non-vanilla replacement (Retromod polyfill,
                     // JOML, blaze3d). The MC JAR won't contain it, so the
-                    // NEW-on-host check doesn't apply — the OLD class being gone
+                    // NEW-on-host check doesn't apply - the OLD class being gone
                     // is the signal that the replacement is needed.
                     apply = true;
                 }
@@ -432,18 +432,18 @@ public class IntermediaryToMojangMapper {
     /**
      * Build a predicate that answers "does internal class name {@code x} exist
      * on the running Minecraft host?" without locating the MC JAR on disk
-     * (unreliable on NeoForge — MC is a JPMS module, not a java.class.path
+     * (unreliable on NeoForge - MC is a JPMS module, not a java.class.path
      * entry). Returns {@code null} if MC can't be reached from here (e.g. a unit
      * test), so callers fall back to a coarse gate.
      *
      * <p>Strategy, in order of preference:
      * <ol>
-     *   <li>{@code classLoader.getResource("a/b/C.class") != null} — checks the
+     *   <li>{@code classLoader.getResource("a/b/C.class") != null} - checks the
      *       class file exists WITHOUT loading/linking it (no class-init, no
      *       early mixin/coremod transformation). Preferred.</li>
      *   <li>If that classloader doesn't expose class-file resources (some module
      *       loaders don't), fall back to {@code Class.forName(name, false,
-     *       loader)} — initialize=false, the same probe {@code EnvironmentDetector}
+     *       loader)} - initialize=false, the same probe {@code EnvironmentDetector}
      *       uses safely on NeoForge (#46). Loads/links but never runs {@code
      *       <clinit>}.</li>
      * </ol>
@@ -456,7 +456,7 @@ public class IntermediaryToMojangMapper {
             ClassLoader mc = sentinel.getClassLoader();
             final ClassLoader loader = (mc != null) ? mc : ctx;
             if (loader.getResource("net/minecraft/SharedConstants.class") != null) {
-                // getResource sees MC class files — cheap, no class loading.
+                // getResource sees MC class files - cheap, no class loading.
                 return name -> loader.getResource(name + ".class") != null;
             }
             // Loader hides class-file resources; probe by name (no init).

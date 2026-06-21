@@ -43,7 +43,7 @@ public class FabricNetworkingBridge {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-NetworkBridge");
 
-    // Cached reflection lookups — initialized once on first use.
+    // Cached reflection lookups - initialized once on first use.
     // We use reflection because the Fabric API classes aren't on Retromod's
     // compile classpath (Retromod is loader-agnostic at compile time).
     private static volatile boolean initialized = false;
@@ -124,7 +124,7 @@ public class FabricNetworkingBridge {
 
             bridgeAvailable = serverRegisterMethod != null;
             if (bridgeAvailable) {
-                LOGGER.info("Fabric networking bridge initialized — old-style handlers will be adapted");
+                LOGGER.info("Fabric networking bridge initialized - old-style handlers will be adapted");
             } else {
                 LOGGER.warn("Fabric networking bridge: could not find new registerGlobalReceiver method");
             }
@@ -149,7 +149,7 @@ public class FabricNetworkingBridge {
         LOGGER.info("Bridging old-style server receiver for channel: {}", channelStr);
 
         if (!bridgeAvailable || serverRegisterMethod == null || serverContextClass == null) {
-            LOGGER.warn("Cannot bridge server receiver for '{}' — new API not available. " +
+            LOGGER.warn("Cannot bridge server receiver for '{}' - new API not available. " +
                 "Server-client syncing for this channel will not work.", channelStr);
             return false;
         }
@@ -196,7 +196,7 @@ public class FabricNetworkingBridge {
         LOGGER.info("Bridging old-style client receiver for channel: {}", channelStr);
 
         if (!bridgeAvailable || clientRegisterMethod == null || clientContextClass == null) {
-            LOGGER.warn("Cannot bridge client receiver for '{}' — new API not available. " +
+            LOGGER.warn("Cannot bridge client receiver for '{}' - new API not available. " +
                 "Client networking for this channel will not work.", channelStr);
             return false;
         }
@@ -407,7 +407,7 @@ public class FabricNetworkingBridge {
                     return m.invoke(payload);
                 } catch (NoSuchMethodException ignored) {}
             }
-            // Try fields — only access ByteBuf-typed fields to limit reflection scope
+            // Try fields - only access ByteBuf-typed fields to limit reflection scope
             for (var field : payload.getClass().getDeclaredFields()) {
                 if (field.getType().getSimpleName().contains("ByteBuf")
                         || field.getType().getSimpleName().contains("FriendlyByte")) {
@@ -434,7 +434,7 @@ public class FabricNetworkingBridge {
      */
     public static void clientSend(Object channelId, Object buf) {
         initialize();
-        LOGGER.warn("Bridged clientSend({}) — old channel-based send is not supported in 26.1. " +
+        LOGGER.warn("Bridged clientSend({}) - old channel-based send is not supported in 26.1. " +
             "Packet will be dropped.", channelId);
         // Release the ByteBuf if it's a Netty buffer to prevent leaks
         releaseBuf(buf);
@@ -445,7 +445,7 @@ public class FabricNetworkingBridge {
      */
     public static void serverSend(Object player, Object channelId, Object buf) {
         initialize();
-        LOGGER.warn("Bridged serverSend({}) — old channel-based send is not supported in 26.1. " +
+        LOGGER.warn("Bridged serverSend({}) - old channel-based send is not supported in 26.1. " +
             "Packet will be dropped.", channelId);
         releaseBuf(buf);
     }

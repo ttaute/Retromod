@@ -273,7 +273,7 @@ public class EnvironmentDetector {
         }
 
         // Default: OpenGL. Minecraft still uses OpenGL as its only backend
-        // through 26.1.x — Mojang has not shipped Vulkan, Metal, or DirectX
+        // through 26.1.x - Mojang has not shipped Vulkan, Metal, or DirectX
         // as of this writing. We check several signal classes that identify
         // "a modern MC render pipeline is running" in order of specificity:
         //
@@ -287,7 +287,7 @@ public class EnvironmentDetector {
         // an environment without a known MC rendering surface (dedicated server
         // minus the SOFTWARE branch above, or an unsupported future version).
         for (String glSignal : new String[]{
-                "com.mojang.blaze3d.platform.GlStateManager",   // 1.8 – 1.21.x
+                "com.mojang.blaze3d.platform.GlStateManager",   // 1.8 - 1.21.x
                 "com.mojang.blaze3d.systems.RenderSystem",       // 1.15+ incl 26.1
                 "com.mojang.blaze3d.opengl.GlStateManager"       // possible 26.1 relocation
         }) {
@@ -305,11 +305,11 @@ public class EnvironmentDetector {
     // =========================================================================
 
     private static boolean detectClient() {
-        // Existence-only probes (initialize=false) — see classExists(): detection
+        // Existence-only probes (initialize=false) - see classExists(): detection
         // must never trigger a Minecraft bootstrap class's <clinit>.
         if (classExists("net.minecraft.client.MinecraftClient")   // Yarn (dev)
                 || classExists("net.minecraft.client.Minecraft")  // Mojang (26.1+, NeoForge)
-                || classExists("net.minecraft.class_310")) {      // intermediary — pre-26.1 Fabric runtime
+                || classExists("net.minecraft.class_310")) {      // intermediary - pre-26.1 Fabric runtime
             return true;
         }
         // Fallback: if we have a display, we're almost certainly a client.
@@ -317,16 +317,16 @@ public class EnvironmentDetector {
     }
 
     private static boolean detectDedicatedServer() {
-        // The Minecraft runtime ships a MERGED jar, so server classes — even
-        // net.minecraft.server.dedicated.DedicatedServer and MinecraftServer — are
+        // The Minecraft runtime ships a MERGED jar, so server classes - even
+        // net.minecraft.server.dedicated.DedicatedServer and MinecraftServer - are
         // present on a CLIENT too. Their presence is therefore NOT a reliable
         // "this is a dedicated server" signal. The reliable signal is the ABSENCE
         // of a client class.
         boolean clientPresent = classExists("net.minecraft.client.MinecraftClient")
                 || classExists("net.minecraft.client.Minecraft")
-                || classExists("net.minecraft.class_310"); // intermediary — pre-26.1 Fabric client
+                || classExists("net.minecraft.class_310"); // intermediary - pre-26.1 Fabric client
         if (clientPresent) {
-            return false; // integrated server on a client — not dedicated
+            return false; // integrated server on a client - not dedicated
         }
         // No client class present → if a server class is present, it's dedicated.
         if (classExists("net.minecraft.server.MinecraftServer")
@@ -349,7 +349,7 @@ public class EnvironmentDetector {
      * which reads {@code Minecraft.getInstance().gameDirectory} before the client
      * singleton exists → {@link NullPointerException}. Retromod's mere presence
      * then crashed an otherwise-working mod. Detection must observe, never trigger
-     * static initialization — hence the three-arg form with {@code initialize = false}.
+     * static initialization - hence the three-arg form with {@code initialize = false}.
      */
     static boolean classExists(String name) {
         try {
@@ -360,14 +360,14 @@ public class EnvironmentDetector {
             Class.forName(name, false, cl);
             return true;
         } catch (Throwable ignored) {
-            // ClassNotFoundException (absent) or any LinkageError — treat as absent.
+            // ClassNotFoundException (absent) or any LinkageError - treat as absent.
             return false;
         }
     }
 
     /**
      * Public, non-initializing host-class existence probe ({@code initialize=false},
-     * same contract as {@link #classExists(String)} — see its javadoc on why we must
+     * same contract as {@link #classExists(String)} - see its javadoc on why we must
      * never trigger {@code <clinit>}). Used by the mixin compatibility layer to detect
      * a {@code @Mixin} target that was removed on the host MC and can't be remapped
      * (#79), so the mixin can be neutralized before it crashes the game.

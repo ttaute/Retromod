@@ -126,12 +126,12 @@ class ReflectionStringRemapperTest {
         assertSame(classBytes, remapped);
         assertEquals(0, remapper.getStringsRemapped());
         // java.util.ArrayList doesn't match the MC FQN pattern so it's not even
-        // "suspicious" — it's simply outside our scope of interest.
+        // "suspicious" - it's simply outside our scope of interest.
         assertEquals(0, remapper.getSuspiciousUnmapped());
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // HELPERS — construct test classes with specific LDC + invoke patterns
+    // HELPERS - construct test classes with specific LDC + invoke patterns
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -170,7 +170,7 @@ class ReflectionStringRemapperTest {
 
     /**
      * Generate a class whose only method LOADS a string but does NOT feed it
-     * to a reflection sink — used to verify we don't rewrite data strings.
+     * to a reflection sink - used to verify we don't rewrite data strings.
      */
     private static byte[] classWithStringDataOnly(String value) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);

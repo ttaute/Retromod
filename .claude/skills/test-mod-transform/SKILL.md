@@ -10,7 +10,7 @@ Systematically test that Retromod transforms and loads mods correctly.
 
 ## Quick Test Flow
 
-1. **Get test mods** — Download from Modrinth API or use existing mods:
+1. **Get test mods** - Download from Modrinth API or use existing mods:
    ```bash
    # Search Modrinth
    curl -s 'https://api.modrinth.com/v2/search?query=<name>&facets=%5B%5B"categories:<loader>"%5D%5D'
@@ -35,7 +35,7 @@ Systematically test that Retromod transforms and loads mods correctly.
      -Dexec.args="batch '/path/to/mods-folder' --aot" -q
    ```
 
-4. **Verify metadata patching** — Extract and check the patched metadata:
+4. **Verify metadata patching** - Extract and check the patched metadata:
    ```bash
    # For NeoForge/Forge
    jar xf transformed.jar META-INF/neoforge.mods.toml
@@ -46,7 +46,7 @@ Systematically test that Retromod transforms and loads mods correctly.
    cat fabric.mod.json | python3 -m json.tool
    ```
 
-5. **Runtime test** — Deploy and launch:
+5. **Runtime test** - Deploy and launch:
    - Copy mod to `retromod-input/` in game directory
    - Launch with the target MC version + loader
    - Check `logs/latest.log` for Retromod transform messages
@@ -115,8 +115,8 @@ Systematically test that Retromod transforms and loads mods correctly.
 - Iris 1.20.6 (tests 1.20→...→26.1 chain)
 
 ## Important Notes
-- Always keep the original mod JAR — transforms are one-way
+- Always keep the original mod JAR - transforms are one-way
 - Use `force_translate_complex: true` in config for complex mods
 - The CLI `aot --force` flag overrides complexity warnings
-- NeoForge mods already use Mojang names — mainly need metadata patching, not bytecode transforms
+- NeoForge mods already use Mojang names - mainly need metadata patching, not bytecode transforms
 - Fabric mods need intermediary→Mojang name remapping for 26.1+

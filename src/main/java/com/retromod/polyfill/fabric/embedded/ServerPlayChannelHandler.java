@@ -11,7 +11,7 @@ package com.retromod.polyfill.fabric.embedded;
  *   void receive(MinecraftServer, ServerPlayer, ServerGamePacketListenerImpl, FriendlyByteBuf, PacketSender)
  *
  * We use Object parameters because Minecraft classes aren't on our compile classpath.
- * LambdaMetafactory handles the type adaptation at runtime — the specific types from
+ * LambdaMetafactory handles the type adaptation at runtime - the specific types from
  * the mod's invokedynamic BSM args are subtypes of Object, so the factory generates
  * appropriate bridge code automatically.
  */

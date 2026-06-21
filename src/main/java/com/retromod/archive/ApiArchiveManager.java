@@ -120,7 +120,7 @@ public class ApiArchiveManager {
      *
      * <p>This is Retromod's network policy: a tool that rewrites mod
      * JARs shouldn't be quietly making outbound HTTP calls in the
-     * background. Auto-downloading on cache miss would do exactly that —
+     * background. Auto-downloading on cache miss would do exactly that -
      * the user runs {@code retromod transform} and the tool silently
      * reaches out to Maven without asking. The explicit-consent path
      * makes the user's permission the trigger, not a side effect.
@@ -137,7 +137,7 @@ public class ApiArchiveManager {
         if (!Files.exists(archivePath)) {
             throw new IOException("API archive not present locally for "
                 + loaderType + " " + mcVersion + " at " + archivePath + ". "
-                + "Retromod does not auto-download archives — see "
+                + "Retromod does not auto-download archives - see "
                 + "ApiArchiveManager.downloadArchiveWithUserConsent for the "
                 + "explicit-consent download path, or manually place a JAR "
                 + "at the path above.");
@@ -178,7 +178,7 @@ public class ApiArchiveManager {
             throws IOException {
         Path archivePath = getArchivePath(loaderType, mcVersion);
         if (Files.exists(archivePath)) {
-            return false; // Already present — nothing to download
+            return false; // Already present - nothing to download
         }
 
         String url = getDownloadUrl(loaderType, mcVersion);
@@ -195,7 +195,7 @@ public class ApiArchiveManager {
     }
 
     /**
-     * Low-level HTTP download. Must not be called directly — callers go
+     * Low-level HTTP download. Must not be called directly - callers go
      * through {@link #downloadArchiveWithUserConsent(String, String,
      * java.util.function.BooleanSupplier)} which enforces the consent
      * contract. The method body itself is unchanged; the consent gate
@@ -320,7 +320,7 @@ public class ApiArchiveManager {
      * user consent.
      *
      * <p>The {@code consentSupplier} is consulted once before any
-     * downloads kick off — it's expected to surface the full list of
+     * downloads kick off - it's expected to surface the full list of
      * archives and their source URLs to the user and return {@code true}
      * only if the user agrees. If consent is denied (or the supplier
      * returns {@code false}), no network activity occurs and the future

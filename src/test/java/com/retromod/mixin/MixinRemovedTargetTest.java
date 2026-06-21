@@ -20,7 +20,7 @@ import java.util.function.Predicate;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression test for #79 — a mixin whose {@code @Mixin} target is a Minecraft class
+ * Regression test for #79 - a mixin whose {@code @Mixin} target is a Minecraft class
  * that was <b>removed</b> on the host (not renamed) must be auto-detected so it can be
  * neutralized, instead of crashing the game with {@code ClassMetadataNotFoundException}
  * mid-transform.
@@ -91,7 +91,7 @@ class MixinRemovedTargetTest {
     @DisplayName("Non-vanilla targets are never judged (mod/library classes resolve elsewhere)")
     void modTargetNotJudged() {
         var mt = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
-        // A mod-class target that the probe also reports absent — must still be ignored,
+        // A mod-class target that the probe also reports absent - must still be ignored,
         // because it may be provided by a companion mod / jar-in-jar at runtime.
         ClassNode mixin = mixinTargeting("com/example/mod/MixinThirdParty",
                 "dev/someone/somelib/SomeClass");
@@ -109,7 +109,7 @@ class MixinRemovedTargetTest {
         var mt = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
         ClassNode mixin = mixinTargeting("com/example/spelunkery/MixinLootDataManager", LOOT_DATA_MANAGER);
 
-        // Probe reports EVERYTHING absent — including Blocks. The sanity gate must
+        // Probe reports EVERYTHING absent - including Blocks. The sanity gate must
         // short-circuit so we don't mass-neutralize on a broken/empty classpath.
         assertNull(mt.mixinTargetsRemovedClass(mixin, name -> false),
                 "when even the sanity-gate class is absent, the probe is untrustworthy → never strip");

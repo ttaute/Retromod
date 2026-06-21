@@ -2,7 +2,7 @@
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
- * Bridge Adapter Generator — handles method SIGNATURE changes (not just renames).
+ * Bridge Adapter Generator - handles method SIGNATURE changes (not just renames).
  *
  * When Minecraft changes a method's parameter types between versions, old mods have
  * method bodies that use the old parameter types. Simply renaming doesn't help because
@@ -68,15 +68,15 @@ public class BridgeAdapterGenerator {
     // the 26.1 input event API overhaul.
     // ═══════════════════════════════════════════════════════════════════════
 
-    /** Mouse button event — wraps x/y coordinates + button id. */
+    /** Mouse button event - wraps x/y coordinates + button id. */
     private static final String MOUSE_EVENT = "net/minecraft/client/input/MouseButtonEvent";
-    /** Keyboard event — wraps key code + scan code + modifiers. */
+    /** Keyboard event - wraps key code + scan code + modifiers. */
     private static final String KEY_EVENT = "net/minecraft/client/input/KeyEvent";
-    /** Character typed event — wraps Unicode codepoint. */
+    /** Character typed event - wraps Unicode codepoint. */
     private static final String CHAR_EVENT = "net/minecraft/client/input/CharacterEvent";
 
     // ═══════════════════════════════════════════════════════════════════════
-    // BRIDGE DEFINITIONS — all known signature changes for 26.1
+    // BRIDGE DEFINITIONS - all known signature changes for 26.1
     // This list is immutable and safe for concurrent access.
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -98,7 +98,7 @@ public class BridgeAdapterGenerator {
 
     /**
      * All known signature bridges for MC 26.1's input event API overhaul.
-     * Immutable list — safe for concurrent reads from multiple transformer threads.
+     * Immutable list - safe for concurrent reads from multiple transformer threads.
      */
     private static final List<BridgeDef> BRIDGES = List.of(
         // mouseClicked(double x, double y, int button) -> mouseClicked(MouseButtonEvent, boolean)
@@ -153,7 +153,7 @@ public class BridgeAdapterGenerator {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // INSTANCE STATE — per-class transformation state (NOT thread-safe)
+    // INSTANCE STATE - per-class transformation state (NOT thread-safe)
     // pendingBridges is bounded by BRIDGES.size() (currently 6)
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -166,7 +166,7 @@ public class BridgeAdapterGenerator {
     public BridgeAdapterGenerator() {}
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PUBLIC API — called from RetromodTransformer's visitor pipeline
+    // PUBLIC API - called from RetromodTransformer's visitor pipeline
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -253,7 +253,7 @@ public class BridgeAdapterGenerator {
 
     /**
      * Get the set of method names that have pending bridges for the current class.
-     * Used for super call redirection — when the mod calls super.mouseClicked(old params),
+     * Used for super call redirection - when the mod calls super.mouseClicked(old params),
      * the transformer needs to know that mouseClicked has a bridge so it can redirect
      * the super call to use the new signature.
      *
@@ -268,7 +268,7 @@ public class BridgeAdapterGenerator {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STATIC LOOKUP API — safe for concurrent access
+    // STATIC LOOKUP API - safe for concurrent access
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -315,7 +315,7 @@ public class BridgeAdapterGenerator {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PRIVATE — descriptor matching and bridge method generation
+    // PRIVATE - descriptor matching and bridge method generation
     // ═══════════════════════════════════════════════════════════════════════
 
     /**

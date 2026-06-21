@@ -5,7 +5,7 @@
 package com.retromod.testmod;
 
 /**
- * Result of a single {@link Test}. Use the static helpers — they read better
+ * Result of a single {@link Test}. Use the static helpers - they read better
  * at the call site than {@code new TestResult(true, null)}.
  */
 public final class TestResult {

@@ -110,7 +110,7 @@ public class QuiltModTransformer {
                         quiltTotalSize += writtenBytes;
                         if (quiltTotalSize > ZipSecurity.DEFAULT_MAX_TOTAL_SIZE) {
                             throw new IOException("Quilt mod total extracted size exceeds limit ("
-                                + ZipSecurity.DEFAULT_MAX_TOTAL_SIZE + " bytes) — possible zip bomb "
+                                + ZipSecurity.DEFAULT_MAX_TOTAL_SIZE + " bytes) - possible zip bomb "
                                 + "(decompressed " + quiltTotalSize + " bytes so far)");
                         }
                     }

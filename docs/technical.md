@@ -62,7 +62,7 @@ Bytecode transformation uses [ASM](https://asm.ow2.io/). For each `.class` file:
 
 ```
 ClassReader  →  ClassRemapper  →  RetromodClassVisitor  →  ClassWriter
-              (outer — renames)    (inner — redirects)
+              (outer - renames)    (inner - redirects)
 ```
 
 `ClassRemapper` runs first and handles name translation (intermediary → Mojang). `RetromodClassVisitor` then sees the already-renamed names and applies shim redirects: method signature changes, constructor deferrals, polyfill injections. The final `ClassWriter` produces the new bytecode.
@@ -104,7 +104,7 @@ Official builds embed a SHA-256 of Retromod's own classes. At startup, `Signatur
 
 | Status | Meaning |
 |--------|---------|
-| `VERIFIED` | Bytecode matches the embedded release hash: unchanged from the published build. (A hash match isn't proof of provenance — there's no secret key — so the status says "verified," not "official.") |
+| `VERIFIED` | Bytecode matches the embedded release hash: unchanged from the published build. (A hash match isn't proof of provenance - there's no secret key - so the status says "verified," not "official.") |
 | `MODIFIED` | Bytecode differs from the release hash: a fork, a repack, or a corrupted download. |
 | `IMPOSTOR` | The manifest doesn't even claim to be Retromod. |
 | `UNKNOWN` | Can't tell: a dev/source build (no hash embedded), or not running from a JAR. |
@@ -113,7 +113,7 @@ This is an integrity check, **not** cryptographic anti-tamper. There's no secret
 
 The published build emits a normal startup line like:
 
-> `[Retromod] ✓ Authenticity: VERIFIED — Bytecode matches the published release hash`
+> `[Retromod] ✓ Authenticity: VERIFIED - Bytecode matches the published release hash`
 
 For any other status (`MODIFIED`, `IMPOSTOR`) the verifier **automatically** emits:
 
@@ -159,8 +159,8 @@ This catches the trivial case of "someone renamed retromod.jar to something mali
 The in-jar check is informational and can't defend against a determined attacker (there's no secret key). For real verification, compare the file's SHA-256 against the value published on the [GitHub releases page](https://github.com/Bownlux/Retromod/releases). Modrinth shows one per file too:
 
 ```bash
-sha256sum retromod-1.0.1+26.1.jar       # Linux
-shasum -a 256 retromod-1.0.1+26.1.jar   # macOS
+sha256sum retromod-1.1.0+26.1.jar       # Linux
+shasum -a 256 retromod-1.1.0+26.1.jar   # macOS
 ```
 
 If it matches the published hash, you have the exact official file. That reference lives out-of-band on the trusted page, where a tamperer can't change it. That's the guarantee an embedded self-hash can't make on its own.

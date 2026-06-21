@@ -59,7 +59,7 @@ public final class InGameScreenFactory {
             "net.minecraft.network.chat.Component"
         );
 
-        // The plain Yes/No ConfirmScreen — NOT ConfirmLinkScreen (that's the
+        // The plain Yes/No ConfirmScreen - NOT ConfirmLinkScreen (that's the
         // link-warning dialog with a different constructor). Its ctor is
         // ConfirmScreen(BooleanConsumer, Component title, Component message).
         confirmScreenClass = McReflect.findClass(
@@ -231,7 +231,7 @@ public final class InGameScreenFactory {
     /**
      * Show a Yes/No confirmation over a known parent screen. Unlike
      * {@link #showConfirmScreen}, declining returns to {@code parentScreen}
-     * (e.g. the title screen) instead of clearing to a null screen — so this is
+     * (e.g. the title screen) instead of clearing to a null screen - so this is
      * safe to invoke from a title-screen init hook. Used by the restart prompt (#33).
      *
      * @param parentScreen the screen to return to if the user clicks No
@@ -339,14 +339,14 @@ public final class InGameScreenFactory {
             LOGGER.debug("NoticeScreen not available: {}", e.getMessage());
         }
 
-        // Last resort — log the message
+        // Last resort - log the message
         LOGGER.info("[Retromod Notification] {}", message);
     }
 
     /**
      * Show transformation results in-game.
      *
-     * @param results list of result strings (e.g., "✓ modname.jar — transformed", "✗ other.jar — failed")
+     * @param results list of result strings (e.g., "✓ modname.jar - transformed", "✗ other.jar - failed")
      * @param needsRestart whether to show a "Restart Required" message
      */
     public static void showTransformResults(List<String> results, boolean needsRestart) {
@@ -360,7 +360,7 @@ public final class InGameScreenFactory {
             msg.append("\nPlease RESTART Minecraft for changes to take effect.");
         }
 
-        showResultScreen("Retromod — Transformation Results", msg.toString(), () -> {
+        showResultScreen("Retromod - Transformation Results", msg.toString(), () -> {
             if (needsRestart) {
                 // Optionally: trigger a restart by calling mc.scheduleStop()
                 try {
@@ -387,7 +387,7 @@ public final class InGameScreenFactory {
      * @param onSaveQuit callback for "Save & Quit" action
      */
     public static void showCrashScreen(String modName, String errorMsg, Runnable onSaveQuit) {
-        String title = "Retromod — Mod Error Detected";
+        String title = "Retromod - Mod Error Detected";
         String message = "A transformed mod caused an error:\n\n"
             + "Mod: " + modName + "\n"
             + "Error: " + errorMsg + "\n\n"

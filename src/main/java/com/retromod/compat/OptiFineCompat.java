@@ -132,7 +132,7 @@ public class OptiFineCompat {
      * Show GUI warning about OptiFine.
      *
      * Blocks the calling (mod-transform) thread until the user picks an option,
-     * via invokeAndWait — the choice must come back to THIS thread so the
+     * via invokeAndWait - the choice must come back to THIS thread so the
      * "Cancel" RuntimeException reaches FabricModTransformer's cancelled-handler
      * (thrown on the EDT it would vanish into AWT's exception handler).
      */

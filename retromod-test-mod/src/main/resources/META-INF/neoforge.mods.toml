@@ -1,4 +1,4 @@
-# Retromod Test Mod — NeoForge mod metadata
+# Retromod Test Mod - NeoForge mod metadata
 #
 # Newer NeoForge (1.20.5+) reads this file in preference to mods.toml.
 # Same fields as Forge's mods.toml but with NeoForge-specific dependency IDs.

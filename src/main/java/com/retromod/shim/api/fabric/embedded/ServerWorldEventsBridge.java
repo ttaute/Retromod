@@ -21,16 +21,16 @@ import java.util.function.Function;
  * a mod's {@code (server, world) -> …} handler hard-codes {@code onWorldLoad}, which a
  * class redirect onto {@code ServerLevelEvents$Load} can't satisfy. The parameter
  * types only went {@code ServerWorld → ServerLevel} (the harvest remaps that in the
- * lambda), so the SAM bodies need no adaptation — the forwarder just replays the v2
+ * lambda), so the SAM bodies need no adaptation - the forwarder just replays the v2
  * call onto the v1 invoker 1:1.</p>
  *
  * <p>All reflection + {@link Proxy}, embedded raw into each mod jar; fails soft
- * (logged, inert) on a reflective miss. Self-contained on purpose — the generic
+ * (logged, inert) on a reflective miss. Self-contained on purpose - the generic
  * event-wiring here mirrors {@link ItemGroupEventsBridge} but is duplicated so each
  * bridge embeds independently (no cross-class embed dependency) and a fault stays
  * isolated to one bridge until the in-game pass verifies them.</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code fabric-api-0.141.1} (old) and {@code 0.145.4+26.1.2} (new). A 26.1 launch
  * that loads/unloads a level with such a mod is still required.</p>
  */
@@ -76,7 +76,7 @@ public final class ServerWorldEventsBridge {
     /**
      * Build a v1 {@code Event} bound to {@code v1ClassName} and register a forwarder on
      * {@code v2Event} (SAM type {@code v2SamClassName}) that replays each call onto the
-     * v1 invoker's SAM with the same arguments (1:1 — only the method name differs).
+     * v1 invoker's SAM with the same arguments (1:1 - only the method name differs).
      */
     private static Object wire(String v1ClassName, String v2SamClassName, Object v2Event) throws Exception {
         ClassLoader cl = cl();
@@ -84,7 +84,7 @@ public final class ServerWorldEventsBridge {
         Class<?> v2SamType = Class.forName(v2SamClassName, false, cl);
 
         Object v1Event = createArrayBacked(v1Type);
-        // Resolve Event methods on the PUBLIC interface — the runtime class
+        // Resolve Event methods on the PUBLIC interface - the runtime class
         // (fabric.impl ArrayBackedEvent) is not public and throws
         // IllegalAccessException for lookups against it.
         Class<?> eventIface = Class.forName("net.fabricmc.fabric.api.event.Event", false, cl);

@@ -126,7 +126,7 @@ fi
 # Create CLI wrapper scripts
 cat > "dist/retromod" << 'WRAPPER'
 #!/bin/bash
-# Retromod CLI wrapper — use "retromod" instead of "java -jar retromod-cli.jar"
+# Retromod CLI wrapper - use "retromod" instead of "java -jar retromod-cli.jar"
 set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 find_jar() {

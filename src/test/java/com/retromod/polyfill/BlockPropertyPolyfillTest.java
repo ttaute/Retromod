@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * Verifies the polyfill registers the type redirect to the surviving
  * {@code EnumProperty} and bridges all four removed {@code create(...)}
- * factories — keyed on the post-class-remap call shape (no {@code Class} arg),
+ * factories - keyed on the post-class-remap call shape (no {@code Class} arg),
  * which must not collide with the real {@code EnumProperty.create} overloads.
  */
 class BlockPropertyPolyfillTest {
@@ -78,7 +78,7 @@ class BlockPropertyPolyfillTest {
     void doesNotShadowRealOverloads() {
         RetromodTransformer t = RetromodTransformer.getInstance();
         new BlockPropertyPolyfill().registerPolyfills(t);
-        // The genuine 26.1 factory takes a Class<Direction> 2nd arg — must be untouched.
+        // The genuine 26.1 factory takes a Class<Direction> 2nd arg - must be untouched.
         var realKey = new RetromodTransformer.MethodKey(
                 ENUM_PROPERTY, "create",
                 "(Ljava/lang/String;Ljava/lang/Class;)" + ENUM_DESC);

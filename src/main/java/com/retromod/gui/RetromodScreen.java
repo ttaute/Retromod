@@ -57,7 +57,7 @@ public class RetromodScreen {
     }
 
     /**
-     * Open the Retromod manager — shows a file picker and transforms mods.
+     * Open the Retromod manager - shows a file picker and transforms mods.
      */
     public void open() {
         // Run file picker on background thread to avoid freezing Minecraft
@@ -89,7 +89,7 @@ public class RetromodScreen {
             frame.setUndecorated(true);
             frame.setVisible(false);
 
-            FileDialog dialog = new FileDialog(frame, "Retromod — Select Mod JARs to Transform", FileDialog.LOAD);
+            FileDialog dialog = new FileDialog(frame, "Retromod - Select Mod JARs to Transform", FileDialog.LOAD);
             dialog.setDirectory(System.getProperty("user.home"));
             dialog.setMultipleMode(true);
 
@@ -133,7 +133,7 @@ public class RetromodScreen {
                 ModComplexityAnalyzer.ComplexityReport report = complexityAnalyzer.analyze(modPath);
 
                 if (report.isUnlikelyToWork() && !forceComplex) {
-                    LOGGER.warn("Skipped {} — complexity score {} (unlikely to work: {})",
+                    LOGGER.warn("Skipped {} - complexity score {} (unlikely to work: {})",
                         name, report.score(), report.reason());
                     results.add(new TransformResult(
                         name,

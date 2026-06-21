@@ -34,7 +34,7 @@ class FabricItemGroupEventsShimTest {
     @BeforeAll
     static void pinHostTo26_1() {
         // The shim self-gates to 26.1+ hosts (pre-26.1, ItemGroupEvents is still alive
-        // and must not be hijacked) — pin the detected host so registerRedirects runs.
+        // and must not be hijacked) - pin the detected host so registerRedirects runs.
         RetromodVersion.TARGET_MC_VERSION = "26.1";
     }
 
@@ -133,7 +133,7 @@ class FabricItemGroupEventsShimTest {
         // The riskiest assumption: the class redirect (owner FabricItemGroupEntries →
         // FabricCreativeModeTabOutput, from the version shim) and the method rename
         // (addAfter → insertAfter, keyed on the NEW owner, from this shim) must
-        // compose in one transform — i.e. the method redirect sees the post-class-
+        // compose in one transform - i.e. the method redirect sees the post-class-
         // redirect owner. Verify on a real class through the transformer.
         RetromodTransformer t = RetromodTransformer.getInstance();
         new Fabric_1_21_11_to_26_1().registerRedirects(t);   // FabricItemGroupEntries → FabricCreativeModeTabOutput

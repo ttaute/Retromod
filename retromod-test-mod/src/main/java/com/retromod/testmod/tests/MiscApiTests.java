@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Grab-bag of utility APIs that don't fit elsewhere — {@code Util},
+ * Grab-bag of utility APIs that don't fit elsewhere - {@code Util},
  * {@code MathHelper}, {@code Random}, {@code SoundCategory}, plus more
  * sound and particle accessors than {@link SoundParticleTests} alone covered.
  */

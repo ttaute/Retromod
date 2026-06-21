@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
  * {@code EntityModelLayerRegistry$TexturedModelDataProvider}.
  *
  * <p>The provider SAM renamed ({@code createModelData} → {@code createLayerDefinition})
- * — a lambda trap — but its return type is unchanged: Yarn {@code TexturedModelData}
+ * - a lambda trap - but its return type is unchanged: Yarn {@code TexturedModelData}
  * is Mojang {@code LayerDefinition} (intermediary {@code class_5607}), so the harvest
  * already fixes the lambda body. We keep a synthetic {@code EntityModelLayerRegistry}
  * holder and a {@code TexturedModelDataProvider} SAM at the old names; the holder's
@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
  * <p>Replaces the previous {@code EntityModelLayerRegistry → ModelLayerRegistry}
  * class redirect (a latent lambda trap) in {@code Fabric_1_21_11_to_26_1}.</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Checked against
  * {@code fabric-api-0.141.1} / {@code 0.145.4+26.1.2}. A 26.1 client launch with a
  * custom-entity-model mod is still required.</p>
  */
@@ -57,13 +57,13 @@ public class FabricEntityModelLayerShim implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
         // 26.1+ hosts ONLY (pitfall #9). Pre-26.1, EntityModelLayerRegistry is still
-        // ALIVE in the Fabric API — redirecting it would hijack a working API and wire
+        // ALIVE in the Fabric API - redirecting it would hijack a working API and wire
         // it to ModelLayerRegistry, which doesn't exist there. The synthetics also
         // declare Mojang-named MC types (ModelLayerLocation, LayerDefinition),
         // unresolvable on an intermediary runtime.
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
-            LOGGER.debug("[Retromod] EntityModelLayerRegistry bridge skipped (host {} < 26.1 — old API still present)",
+            LOGGER.debug("[Retromod] EntityModelLayerRegistry bridge skipped (host {} < 26.1 - old API still present)",
                     com.retromod.core.RetromodVersion.TARGET_MC_VERSION);
             return;
         }
@@ -76,7 +76,7 @@ public class FabricEntityModelLayerShim implements VersionShim {
         transformer.registerClassRedirect(OLD, HOLDER);
         transformer.registerClassRedirect(OLD + "$TexturedModelDataProvider", PROVIDER);
 
-        LOGGER.info("[Retromod] Fabric EntityModelLayerRegistry bridge — kept registerModelLayer + "
+        LOGGER.info("[Retromod] Fabric EntityModelLayerRegistry bridge - kept registerModelLayer + "
                 + "TexturedModelDataProvider SAM (createModelData) wired to ModelLayerRegistry "
                 + "(STATUS: needs in-game verification)");
     }

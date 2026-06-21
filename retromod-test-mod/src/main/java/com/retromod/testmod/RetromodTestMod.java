@@ -12,12 +12,12 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
  * Fabric client entry point. Three lifecycle hooks, three phases:
  *
  * <ol>
- *   <li><b>onInitializeClient</b> — runs the {@code init}-phase tests
+ *   <li><b>onInitializeClient</b> - runs the {@code init}-phase tests
  *       (core APIs, static registries, math, NBT, etc.).</li>
- *   <li><b>ClientLifecycleEvents.CLIENT_STARTED</b> — runs the
+ *   <li><b>ClientLifecycleEvents.CLIENT_STARTED</b> - runs the
  *       {@code client-started}-phase tests (data-component-dependent stuff
  *       like {@code new ItemStack}).</li>
- *   <li><b>ClientPlayConnectionEvents.JOIN</b> — runs the {@code world-join}
+ *   <li><b>ClientPlayConnectionEvents.JOIN</b> - runs the {@code world-join}
  *       phase tests (dynamic-registry stuff like enchantments and mob
  *       effects in MC 1.21+, where they're data-driven).</li>
  * </ol>
@@ -30,10 +30,10 @@ public class RetromodTestMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Phase 1: init — most tests (vanilla MC surface only, no Fabric API)
+        // Phase 1: init - most tests (vanilla MC surface only, no Fabric API)
         TestRunner.runImmediate();
 
-        // Phases 2+3 hook Fabric API events — but Fabric API can legitimately
+        // Phases 2+3 hook Fabric API events - but Fabric API can legitimately
         // be ABSENT (a brand-new MC snapshot before any fabric-api build is
         // tagged for it; 26.2-rc-1 was the first to bite). The harness must
         // degrade to phase-1-only there, not crash the whole game with a
@@ -42,7 +42,7 @@ public class RetromodTestMod implements ClientModInitializer {
         try {
             registerDeferredPhases();
         } catch (NoClassDefFoundError e) {
-            System.err.println("[Retromod-Test] Fabric API not installed — "
+            System.err.println("[Retromod-Test] Fabric API not installed - "
                     + "client-started and world-join test phases skipped ("
                     + e.getMessage() + ")");
         }
@@ -53,17 +53,17 @@ public class RetromodTestMod implements ClientModInitializer {
         try {
             BridgeVerification.registerAll();
         } catch (NoClassDefFoundError e) {
-            System.err.println("[Retromod-Test] Fabric API not installed — "
+            System.err.println("[Retromod-Test] Fabric API not installed - "
                     + "bridge verification skipped (" + e.getMessage() + ")");
         }
     }
 
     private void registerDeferredPhases() {
-        // Phase 2: client-started — fires once, right before the title screen.
+        // Phase 2: client-started - fires once, right before the title screen.
         // Static + data-component registries are fully bootstrapped by then.
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> TestRunner.runOnClientStarted());
 
-        // Phase 3: world-join — fires every time the player joins a world or
+        // Phase 3: world-join - fires every time the player joins a world or
         // server. Dynamic registries are populated by then. Idempotent: if
         // you join multiple worlds the suite just runs each time.
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> TestRunner.runOnWorldJoin());

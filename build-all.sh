@@ -14,8 +14,8 @@
 # Don't exit on error - we'll handle errors ourselves
 # set -e
 
-VERSION="1.2.0-snapshot.1"
-# Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
+VERSION="1.2.0-snapshot.2"
+# Only build for 1.20+ - older mods are translated BY Retromod, not hosted separately.
 # Security-only updates for versions before 26.1.
 MC_VERSIONS=("1.20" "1.20.1" "1.20.2" "1.20.3" "1.20.4" "1.20.5" "1.20.6" "1.21" "1.21.1" "1.21.2" "1.21.3" "1.21.4" "1.21.5" "1.21.6" "1.21.7" "1.21.8" "1.21.9" "1.21.10" "1.21.11" "26.1" "26.1.1" "26.1.2" "26.2")
 LOADERS=("fabric" "forge" "neoforge")
@@ -136,7 +136,7 @@ echo ""
 echo "[Step 3/4] Creating loader-specific JARs..."
 
 # Defensive guard: host MC versions below 1.20 never go into dist/.
-# Retromod itself requires Java 25 and MC 1.20+ to run as a mod — earlier MC
+# Retromod itself requires Java 25 and MC 1.20+ to run as a mod - earlier MC
 # versions are only relevant as TRANSLATION SOURCES (the shim chain walks an
 # old mod forward to your 1.20+ host), not as host targets. If someone later
 # adds "1.19.2" or "1.16.5" to MC_VERSIONS by mistake, this filter stops it
@@ -150,14 +150,14 @@ is_host_mc_supported() {
         26.[0-9]*) return 0 ;;
         27.[0-9]*) return 0 ;;  # forward-compat
         28.[0-9]*) return 0 ;;  # forward-compat
-        # Everything else (1.12 – 1.19.x, plus anything unrecognized) is rejected
+        # Everything else (1.12 - 1.19.x, plus anything unrecognized) is rejected
         *) return 1 ;;
     esac
 }
 
 # Function to check if a loader supports a given MC version.
 #
-# This is more nuanced than a simple "loader started at version X" cutoff —
+# This is more nuanced than a simple "loader started at version X" cutoff -
 # NeoForge in particular skips MC patch releases. For the 26.x line NeoForge
 # has only released builds for 26.1.2 (as of this writing), NOT 26.1 or
 # 26.1.1. Building our own Retromod-for-NeoForge JAR that declares 26.1 or
@@ -194,12 +194,8 @@ loader_supports_version() {
             esac
             ;;
         forge)
-            # Forge has no 26.2 release yet (no MC snapshot/rc builds);
-            # remove the exception the moment a Forge 26.2 build ships.
-            case $ver in
-                26.2) return 1 ;;
-                *) return 0 ;;
-            esac
+            # Forge 26.2 shipped (forge 65.x), so every listed MC version now builds.
+            return 0
             ;;
         *) return 0 ;;
     esac
@@ -215,7 +211,7 @@ create_mod_jar() {
     # Noisy skip (log at WARN) rather than silent so a misconfigured
     # MC_VERSIONS array is visible.
     if ! is_host_mc_supported "$MC_VERSION"; then
-        echo "  skip: ${LOADER} ${MC_VERSION} — host MC < 1.20 not built into dist/"
+        echo "  skip: ${LOADER} ${MC_VERSION} - host MC < 1.20 not built into dist/"
         return 0
     fi
 
@@ -248,12 +244,12 @@ create_mod_jar() {
         return 1
     }
 
-    # Strip bundled ASM from the MOD jar — use the loader's ASM instead.
+    # Strip bundled ASM from the MOD jar - use the loader's ASM instead.
     #
     # This is the resolution of the ASM shading dilemma that bit beta.3/beta.4:
     #   - Relocating ASM (com.retromod.shaded.asm) broke Forge's
     #     EventSubclassTransformer, which runs on the system classloader and
-    #     looks up ASM class names by string — it can't see our shaded copy.
+    #     looks up ASM class names by string - it can't see our shaded copy.
     #     (issue #12, beta.3)
     #   - NOT relocating but still bundling ASM broke Fabric AND NeoForge with
     #     a loader-constraint violation: the loader already loaded
@@ -262,13 +258,13 @@ create_mod_jar() {
     #     same name → LinkageError. (issues #18 NeoForge, #19 Fabric, beta.4)
     #
     # Every mod loader (Fabric, Forge, NeoForge) bundles its own ASM and
-    # exposes it to mods. So the mod JAR doesn't need its own copy at all —
+    # exposes it to mods. So the mod JAR doesn't need its own copy at all -
     # stripping org/objectweb/asm/ here makes Retromod resolve ASM against
     # the loader's copy, which is exactly one consistent ASM per runtime.
     # No relocation, no duplicate, no conflict on any loader.
     #
     # The CLI keeps its bundled ASM because it runs standalone with no loader
-    # to provide one — and the CLI is a direct copy of the shaded jar, it
+    # to provide one - and the CLI is a direct copy of the shaded jar, it
     # never goes through this extraction/strip path.
     rm -rf "$TEMP_DIR/org/objectweb/asm" 2>/dev/null
 
@@ -276,7 +272,7 @@ create_mod_jar() {
     #
     # We bundle javax/annotation/{Nullable,Nonnull}.class as polyfill stubs so
     # old mods that reference javax.annotation.* resolve even when nothing else
-    # provides them. They CAN'T be relocated — a polyfill only works if it sits
+    # provides them. They CAN'T be relocated - a polyfill only works if it sits
     # at the real package name the mod expects.
     #
     # But Forge and NeoForge bundle Guava, which pulls in jsr305 as a JPMS
@@ -284,7 +280,7 @@ create_mod_jar() {
     # refuses to start: "Modules jsr305 and retromod export package
     # javax.annotation to module mixin_synthetic" (issue #20, NeoForge 1.21.1
     # + Forge 1.20.1). On those loaders jsr305 already provides the real
-    # javax.annotation, so our stub is redundant AND conflicting — strip it.
+    # javax.annotation, so our stub is redundant AND conflicting - strip it.
     #
     # Fabric does NOT enforce JPMS module boundaries (everything loads in the
     # knot classloader), so there's no conflict there and the stub stays as a
@@ -295,7 +291,7 @@ create_mod_jar() {
     # near-universal transitive dependency so javax.annotation conflicts on
     # essentially every Forge/NeoForge install. The others are stubs for
     # ancient 1.7-1.12 mods that are basically never present as modules on
-    # modern MC, so they don't collide — and stripping them would break the
+    # modern MC, so they don't collide - and stripping them would break the
     # polyfill for the rare user actually translating one of those old mods.
     if [ "$LOADER" = "forge" ] || [ "$LOADER" = "neoforge" ]; then
         rm -rf "$TEMP_DIR/javax/annotation" 2>/dev/null
@@ -304,9 +300,9 @@ create_mod_jar() {
     # NOTE (#78): the NeoForge mod-file locator (com/retromod/locator/
     # RetromodModLocator + its META-INF/services entry) is deliberately KEPT in
     # every loader's jar, even though it's only functional on NeoForge. It's inert
-    # on Fabric/Forge (verified: Fabric loads fine — that SPI isn't read there) and
+    # on Fabric/Forge (verified: Fabric loads fine - that SPI isn't read there) and
     # is a Retromod-OWN class, so stripping it per-loader would change the jar's
-    # com/retromod/** set and break the self-hash invariant — the whole point of
+    # com/retromod/** set and break the self-hash invariant - the whole point of
     # which is that ONE embedded hash matches every per-loader dist jar (build-all
     # strips bundled deps, NOT own classes). Leave it in; the dead weight is one
     # tiny class + a service file.
@@ -320,7 +316,7 @@ create_mod_jar() {
     find "$TEMP_DIR" -type d -empty -delete 2>/dev/null
 
     # Per-MC-version Java requirement. Retromod's compiled bytecode targets
-    # Java 17 so the same JAR runs on Java 17, 21, and 25 — but the fabric.mod.json
+    # Java 17 so the same JAR runs on Java 17, 21, and 25 - but the fabric.mod.json
     # "java" constraint is set per-MC-version so the loader rejects users running
     # the wrong Java for their MC version (e.g. MC 26.1 with Java 21 won't work
     # because MC 26.1's own class files are Java 25 bytecode).
@@ -334,7 +330,7 @@ create_mod_jar() {
 
     # Per-MC Forge loader minimum. Each MC version ships a specific Forge
     # loader number; we previously hardcoded "[52,)" which silently rejected
-    # every Forge build for MC 1.20.x (Forge 47-50) — our Forge JARs for
+    # every Forge build for MC 1.20.x (Forge 47-50) - our Forge JARs for
     # those MC versions wouldn't actually load. Setting this per-MC fixes
     # the mismatch.
     case $MC_VERSION in
@@ -350,14 +346,15 @@ create_mod_jar() {
         1.21.6)                 FORGE_LV="56" ;;
         1.21.7|1.21.8)          FORGE_LV="57" ;;
         1.21.9|1.21.10|1.21.11) FORGE_LV="58" ;;
-        26.*)                   FORGE_LV="64" ;;
+        26.2*)                  FORGE_LV="65" ;;   # Forge 26.2 → 65.x
+        26.*)                   FORGE_LV="64" ;;   # Forge 26.1.2 → 64.x
         *)                      FORGE_LV="40" ;;  # Permissive fallback
     esac
 
     # Per-MC NeoForge loader minimum. NeoForge's versioning mostly mirrors
     # the MC version (NeoForge X.Y.Z for MC X.Y), with 1.20.1 as the legacy
     # 47.x outlier (NeoForge inherited Forge's version scheme for that
-    # initial MC version). Previously hardcoded "[4,)" — too low.
+    # initial MC version). Previously hardcoded "[4,)" - too low.
     case $MC_VERSION in
         1.20|1.20.1)            NEOFORGE_LV="47" ;;
         1.20.2)                 NEOFORGE_LV="20.2" ;;
@@ -380,7 +377,7 @@ create_mod_jar() {
         26.1*)                  NEOFORGE_LV="26.1" ;;
         # 26.2: NeoForge has only shipped a PRE-RELEASE so far (26.2.0.0-beta).
         # Maven version ordering sorts a "-beta" qualifier BELOW the bare release,
-        # so a range of "[26.2,)" does NOT match 26.2.0.0-beta — the mod is rejected
+        # so a range of "[26.2,)" does NOT match 26.2.0.0-beta - the mod is rejected
         # with "requires neoforge 26.2 or above" against an actual 26.2.0.0-beta
         # (caught in-game on the 26.2 NeoForge instance). Use the pre-release as the
         # inclusive floor: "[26.2.0.0-beta,)" matches the beta AND every later 26.2
@@ -469,7 +466,7 @@ TOML
             # NeoForge: loaderVersion is the FancyModLoader version, NOT the
             # NeoForge version. FML versions don't align with MC versions in
             # any obvious way (FML 1.x for MC 1.20.2, FML 4.x for MC 1.20.6,
-            # FML 11.x for MC 26.1.x — and the numbers drift across each
+            # FML 11.x for MC 26.1.x - and the numbers drift across each
             # NeoForge release). Setting it to a low permissive value lets
             # any current FML accept the mod; the actual NeoForge version
             # gating is in the [[dependencies.retromod]] modId="neoforge"
@@ -607,7 +604,7 @@ fi
 # The per-loader counts above are computed from `find` on the real output, so
 # they can't over-report. But two silent-partial failures still need catching:
 #   (1) create_mod_jar returning 0 while emitting nothing (e.g. a cwd/path bug
-#       that makes every `mv` miss) — FAILED stays 0 but TOTAL collapses.
+#       that makes every `mv` miss) - FAILED stays 0 but TOTAL collapses.
 #   (2) a whole loader producing zero jars.
 # Guard with an expected floor + a hard non-zero exit so CI and the release
 # flow actually fail instead of shipping an empty/partial dist/.
@@ -616,13 +613,13 @@ RELEASE_OK=1
 if [ "$TOTAL_COUNT" -lt "$EXPECTED_MIN" ]; then
     echo ""
     echo "  ERROR: produced ${TOTAL_COUNT} JARs, expected at least ${EXPECTED_MIN}."
-    echo "         dist/ is INCOMPLETE — do not publish this build."
+    echo "         dist/ is INCOMPLETE - do not publish this build."
     RELEASE_OK=0
 fi
 for pair in "Fabric:${FABRIC_COUNT}" "Forge:${FORGE_COUNT}" "NeoForge:${NEOFORGE_COUNT}" "CLI:${CLI_COUNT}"; do
     name=${pair%%:*}; n=${pair##*:}
     if [ "$n" -eq 0 ]; then
-        echo "  ERROR: ${name} produced 0 JARs — a whole loader is missing."
+        echo "  ERROR: ${name} produced 0 JARs - a whole loader is missing."
         RELEASE_OK=0
     fi
 done

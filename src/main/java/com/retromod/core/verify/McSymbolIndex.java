@@ -13,9 +13,9 @@ import java.util.List;
  * <p>This interface is the shared foundation for two features that both need
  * to answer membership questions against the target MC API surface:</p>
  * <ul>
- *   <li>{@link ReferenceVerifier} — scans transformed bytecode and reports any
+ *   <li>{@link ReferenceVerifier} - scans transformed bytecode and reports any
  *       reference the index says doesn't exist.</li>
- *   <li>{@link ReflectionStringRemapper} — before rewriting a reflection LDC
+ *   <li>{@link ReflectionStringRemapper} - before rewriting a reflection LDC
  *       string, can ask the index whether the rewritten target would actually
  *       resolve.</li>
  * </ul>
@@ -34,7 +34,7 @@ import java.util.List;
  * is either declared on the target class OR inherited through a superclass/
  * interface chain. So {@code hasMethod("net/minecraft/world/level/Level",
  * "getBlockState", "(...)")} is {@code true} even if {@code getBlockState} is
- * declared on a {@code LevelReader} interface that {@code Level} extends —
+ * declared on a {@code LevelReader} interface that {@code Level} extends -
  * because that's a legal call site at compile time.</p>
  *
  * <p>"Doesn't exist" simply means "not found in the index." If the index hasn't
@@ -48,7 +48,7 @@ import java.util.List;
  *   <li>Everything under {@code net/minecraft/**} and {@code com/mojang/**}
  *       in the target MC JAR.</li>
  * </ul>
- * Loader-API renames (Fabric, NeoForge, Forge) are <b>not</b> in this index —
+ * Loader-API renames (Fabric, NeoForge, Forge) are <b>not</b> in this index -
  * those are handled by {@link LoaderApiRenames}, which is a curated hand-maintained
  * table rather than an auto-indexed one. See that class for rationale.</p>
  */
@@ -57,7 +57,7 @@ public interface McSymbolIndex {
     /**
      * @return {@code true} if the index has been populated with MC JAR data.
      *         When {@code false}, every {@code hasXxx} call returns {@code false}
-     *         — callers should treat that as "unknown" rather than "missing."
+     *         - callers should treat that as "unknown" rather than "missing."
      */
     boolean isAvailable();
 
@@ -99,7 +99,7 @@ public interface McSymbolIndex {
      *
      * <p>Implementations may use any similarity heuristic. A simple substring-
      * match on the simple name (everything after the last slash) is typically
-     * sufficient — {@code net/minecraft/util/math/BlockPos} → {@code net/minecraft/core/BlockPos}
+     * sufficient - {@code net/minecraft/util/math/BlockPos} → {@code net/minecraft/core/BlockPos}
      * is an obvious simple-name match.</p>
      *
      * @param missingInternalName the class we couldn't find
@@ -112,7 +112,7 @@ public interface McSymbolIndex {
      * Suggest up to {@code maxResults} alternative methods that exist on the
      * given owner (or its hierarchy) and resemble the missing name.
      *
-     * <p>Does NOT include the exact target itself — only alternatives, for cases
+     * <p>Does NOT include the exact target itself - only alternatives, for cases
      * where the member name or descriptor changed.</p>
      *
      * @param owner         the class the reference was against
@@ -131,7 +131,7 @@ public interface McSymbolIndex {
 
     /**
      * Lightweight record for a method or field signature used in suggestions.
-     * Not meant to carry metadata — just the trio needed to identify a member
+     * Not meant to carry metadata - just the trio needed to identify a member
      * in the gap report output.
      */
     record MemberSignature(String owner, String name, String descriptor) {

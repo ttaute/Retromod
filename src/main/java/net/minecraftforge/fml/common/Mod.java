@@ -1,5 +1,5 @@
 /*
- * Retromod — compile-time stub of net.minecraftforge.fml.common.Mod
+ * Retromod - compile-time stub of net.minecraftforge.fml.common.Mod
  * Copyright (c) 2026 Bownlux. MIT License.
  *
  * This is NOT a copy of Forge's Mod annotation. It exists only so that
@@ -10,14 +10,14 @@
  * gain.
  *
  * AT RUNTIME under Forge, Forge's classloader provides the REAL
- * net.minecraftforge.fml.common.Mod class — the one that FML's mod
+ * net.minecraftforge.fml.common.Mod class - the one that FML's mod
  * scanner actually reads. Forge's class-loading hierarchy gets first
  * dibs on classes in its own packages, so our stub here is shadowed
  * and never used at runtime.
  *
  * Under Fabric / the standalone CLI, this class is loaded but never
  * referenced (the @Mod annotation only appears on RetromodForge,
- * which Fabric/CLI never instantiate). Dead weight, but tiny — one
+ * which Fabric/CLI never instantiate). Dead weight, but tiny - one
  * class file, ~250 bytes.
  *
  * If you ever consider deleting this file: the compile WILL fail for

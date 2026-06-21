@@ -59,7 +59,7 @@ public class NetworkPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // Pure class redirects — no stub implementations needed.
+        // Pure class redirects - no stub implementations needed.
         // All old packet classes map directly to modern Mojang-named equivalents.
         return new String[]{};
     }

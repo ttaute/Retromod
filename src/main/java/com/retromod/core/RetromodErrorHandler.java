@@ -39,7 +39,7 @@ public class RetromodErrorHandler {
         }
 
         if (seenErrors.add(key)) {
-            // First time seeing this error — log it fully
+            // First time seeing this error - log it fully
             System.err.println("[Retromod] Non-fatal: entrypoint failed in " + className + ": " + t);
             t.printStackTrace();
         }

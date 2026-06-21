@@ -115,7 +115,7 @@ public class RetromodTest {
         // $Start/EndWorldTick → $Start/EndLevelTick while keeping the outer
         // ClientTickEvents/ServerTickEvents names and the onStartTick/onEndTick SAM
         // method. The pre-existing entries lived only in the 1.16.5→1.17 shim,
-        // whose chain never covers a 1.19–1.21 mod, so those mods broke on 26.1.
+        // whose chain never covers a 1.19-1.21 mod, so those mods broke on 26.1.
         // This is a true redirect (verified against fabric-api 0.145.4: host has
         // only the $*LevelTick inners with the same descriptor), not a lambda trap.
         new Fabric_1_21_11_to_26_1().registerRedirects(transformer);
@@ -179,7 +179,29 @@ public class RetromodTest {
         List<VersionShim> chain2 = shimRegistry.findShimChain("fabric", "1.20", "1.21");
         assertTrue(chain2.isEmpty());
     }
-    
+
+    @Test
+    @DisplayName("ShimRegistry tolerates a null source/target version (no NPE)")
+    void testNullVersionDoesNotThrow() {
+        // Regression: a NeoForge/Forge mod whose toml declares only loaderVersion and
+        // no minecraft dependency (e.g. Macaw's Furniture 3.4.2 for 1.21.11) makes
+        // ModVersionDetector return a null source MC version. batchCommand still calls
+        // findShimChain with that null, and resolveVersion(null) -> null used to NPE on
+        // "resolvedSource is null". A null/unknown version means no resolvable chain, so
+        // an empty chain is the correct, crash-free answer.
+        shimRegistry.register(new Fabric_1_21_8_to_1_21_9());
+
+        assertTrue(assertDoesNotThrow(
+                () -> shimRegistry.findShimChain("neoforge", null, "26.1")).isEmpty(),
+            "null source version must yield an empty chain, not an NPE");
+        assertTrue(assertDoesNotThrow(
+                () -> shimRegistry.findShimChain("fabric", "1.21.8", null)).isEmpty(),
+            "null target version must yield an empty chain, not an NPE");
+        assertTrue(assertDoesNotThrow(
+                () -> shimRegistry.findShimChain("fabric", null, null)).isEmpty(),
+            "null source and target must yield an empty chain, not an NPE");
+    }
+
     // =========================================================
     // BYTECODE TRANSFORMATION TESTS
     // =========================================================
@@ -251,7 +273,7 @@ public class RetromodTest {
         transformer.resetIterationMetrics();
         byte[] transformed = transformer.transformClass(original, "test/chain/Caller");
 
-        // Final call should be to HopC — the end of the chain — not HopA or HopB.
+        // Final call should be to HopC - the end of the chain - not HopA or HopB.
         assertTrue(containsMethodCall(transformed, "test/chain/HopC", "call"),
                 "Expected final call site to be HopC.call after chain resolution");
         assertFalse(containsMethodCall(transformed, "test/chain/HopA", "call"),
@@ -291,14 +313,14 @@ public class RetromodTest {
 
         // Assert the call returns in finite time even with a cycle.
         // assertTimeoutPreemptively would be stronger, but that requires extra
-        // test infra. The iteration cap of 5 means at most 5 ASM visits — fast.
+        // test infra. The iteration cap of 5 means at most 5 ASM visits - fast.
         byte[] transformed = assertDoesNotThrow(
                 () -> transformer.transformClass(original, "test/cycle/Caller"),
                 "Transform must not throw even with cyclic redirects");
         assertNotNull(transformed, "Must return some output, not null");
 
         // We should have hit the cap. The last-pass output is returned as-is,
-        // which will oscillate between ClassA and ClassB — either is acceptable
+        // which will oscillate between ClassA and ClassB - either is acceptable
         // for this test; what matters is termination.
         assertEquals(1, transformer.getClassesHittingIterationCap(),
                 "Cyclic redirect must register as hitting the iteration cap");
@@ -322,7 +344,7 @@ public class RetromodTest {
                 "Single hop should still be applied");
 
         // Single-hop case: pass 1 rewrites, pass 2 verifies. 1 active pass.
-        // Should NOT trigger the "multiple passes" counter — that's reserved for
+        // Should NOT trigger the "multiple passes" counter - that's reserved for
         // actual chained redirects (2+ active passes).
         assertEquals(0, transformer.getClassesNeedingMultiplePasses(),
                 "Single-hop redirect should not register as chained");
@@ -411,7 +433,7 @@ public class RetromodTest {
      * we can then drive through registered method redirects.
      *
      * <p>Using {@code INVOKESTATIC} avoids the {@code NEW/DUP/INVOKESPECIAL} setup
-     * that {@link #createTestClass()} uses — it's just a clean single-instruction
+     * that {@link #createTestClass()} uses - it's just a clean single-instruction
      * call that maps 1:1 to what the tests want to verify.</p>
      */
     private byte[] createStaticCallerClass(String className, String calleeOwner, String calleeName) {
@@ -579,14 +601,14 @@ public class RetromodTest {
         assertEquals("GRANITE", f.get("f_50122_"));   // was wrongly "GRAVEL"
         assertEquals("OBSIDIAN", f.get("f_50080_"));   // was wrongly "GRANITE"
 
-        // ResourceLocation methods — getPath/getNamespace had been swapped,
+        // ResourceLocation methods - getPath/getNamespace had been swapped,
         // and m_135820_ had been "parse" (no such 1.20.1 method; it's tryParse).
         assertEquals("tryParse", m.get("m_135820_"));
         assertEquals("of", m.get("m_135822_"));
         assertEquals("getPath", m.get("m_135815_"));
         assertEquals("getNamespace", m.get("m_135827_"));
 
-        // Entries the old file already had right — must survive the regen.
+        // Entries the old file already had right - must survive the regen.
         assertEquals("STONE", f.get("f_50069_"));
         assertEquals("literal", m.get("m_237113_"));
     }
@@ -605,7 +627,7 @@ public class RetromodTest {
         // applyClassMovesOnly is now host-version-aware: it filters each rename
         // by the indexed host MC JAR. The test JVM has no MC JAR on the
         // classpath, so it falls back to the coarse gate keyed on
-        // TARGET_MC_VERSION — pin it to a 26.1 (unobfuscated) host so the
+        // TARGET_MC_VERSION - pin it to a 26.1 (unobfuscated) host so the
         // fallback applies the whole table. (The host-FILTERING path, where a
         // 1.21.11 host gets only the renames that already landed there, is
         // exercised at runtime / in the Prism repro, not in this unit test.)

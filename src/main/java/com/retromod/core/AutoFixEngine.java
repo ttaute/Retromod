@@ -81,13 +81,13 @@ public class AutoFixEngine {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ERROR PATTERNS — each pattern has a regex, a parser, and a fix action
+    // ERROR PATTERNS - each pattern has a regex, a parser, and a fix action
     // ═══════════════════════════════════════════════════════════════════════
 
     private final List<ErrorPattern> patterns = new ArrayList<>();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // FIX TRACKING — prevents infinite loops and duplicate fixes
+    // FIX TRACKING - prevents infinite loops and duplicate fixes
     // ═══════════════════════════════════════════════════════════════════════
 
     /** All fixes applied during this analysis run. */
@@ -110,7 +110,7 @@ public class AutoFixEngine {
     private final Set<String> previousRunFixKeys = new HashSet<>();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // CONSTRUCTOR — registers all known error patterns
+    // CONSTRUCTOR - registers all known error patterns
     // ═══════════════════════════════════════════════════════════════════════
 
     public AutoFixEngine() {
@@ -161,7 +161,7 @@ public class AutoFixEngine {
         for (int i = 0; i < logLines.size() && fixCount < MAX_FIXES_PER_RUN; i++) {
             String line = logLines.get(i);
 
-            // Some errors span multiple lines — gather context
+            // Some errors span multiple lines - gather context
             // Look ahead up to 5 lines for stack trace context
             String context = buildContext(logLines, i, 5);
 
@@ -179,9 +179,9 @@ public class AutoFixEngine {
                     }
 
                     // If this fix was applied in a previous run but the error recurred,
-                    // it means the fix didn't work — blacklist it
+                    // it means the fix didn't work - blacklist it
                     if (previousRunFixKeys.contains(fixKey)) {
-                        LOGGER.warn("[AutoFix] Fix '{}' was applied previously but error recurred — blacklisting", fixKey);
+                        LOGGER.warn("[AutoFix] Fix '{}' was applied previously but error recurred - blacklisting", fixKey);
                         blacklist.add(fixKey);
                         break;
                     }
@@ -212,7 +212,7 @@ public class AutoFixEngine {
     }
 
     /**
-     * Analyze a log file without applying fixes — just report what would be done.
+     * Analyze a log file without applying fixes - just report what would be done.
      * Used by the CLI {@code autofix} command for dry-run / analysis mode.
      *
      * @param logFile path to the log file
@@ -319,7 +319,7 @@ public class AutoFixEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PATTERN REGISTRATION — all 20 error patterns
+    // PATTERN REGISTRATION - all 20 error patterns
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -349,7 +349,7 @@ public class AutoFixEngine {
                 String owner = ownerDot.replace('.', '/');
                 String desc = buildDescriptor(paramTypes, returnType);
 
-                // Try pattern heuristics FIRST — faster and more reliable than fuzzy
+                // Try pattern heuristics FIRST - faster and more reliable than fuzzy
                 PatternHeuristics patterns = transformer.getPatternHeuristics();
                 if (patterns != null) {
                     PatternHeuristics.PatternResult patternMatch = patterns.resolveMethod(owner, methodName, desc);
@@ -403,11 +403,11 @@ public class AutoFixEngine {
                         );
                     }
                 }
-                // No pattern, no bridge, no fuzzy match — log but can't fix
+                // No pattern, no bridge, no fuzzy match - log but can't fix
                 return new AppliedFix(
                     "NoSuchMethodError",
                     ownerDot + "." + methodName + "(" + paramTypes + ")",
-                    "No replacement found — pattern heuristics and fuzzy resolver could not match. Manual shim needed.",
+                    "No replacement found - pattern heuristics and fuzzy resolver could not match. Manual shim needed.",
                     "method_redirect:" + owner + "." + methodName + desc
                 );
             }
@@ -442,7 +442,7 @@ public class AutoFixEngine {
                 String owner = ownerDot.replace('.', '/');
                 String desc = typeNameToDescriptor(fieldType);
 
-                // Try pattern heuristics FIRST — faster and more reliable than fuzzy
+                // Try pattern heuristics FIRST - faster and more reliable than fuzzy
                 PatternHeuristics patterns = transformer.getPatternHeuristics();
                 if (patterns != null) {
                     PatternHeuristics.PatternResult patternMatch = patterns.resolveField(owner, fieldName, desc);
@@ -482,7 +482,7 @@ public class AutoFixEngine {
                 return new AppliedFix(
                     "NoSuchFieldError",
                     ownerDot + "." + fieldName,
-                    "No replacement found — manual field redirect needed.",
+                    "No replacement found - manual field redirect needed.",
                     "field_redirect:" + owner + "." + fieldName
                 );
             }
@@ -495,7 +495,7 @@ public class AutoFixEngine {
         //   "Missing implementation of resolved method 'abstract void
         //    net.minecraft.X.extractContents(...)' in class com.example.MyBlock"
         // Parses: class, method, descriptor
-        // Action: Log — injecting a no-op requires ASM and is deferred to retransform
+        // Action: Log - injecting a no-op requires ASM and is deferred to retransform
         patterns.add(new ErrorPattern(
             "AbstractMethodError",
             Pattern.compile("(?:AbstractMethodError|Missing implementation of resolved method).*?'(?:abstract )?(?:(\\S+)\\s+)?(\\S+)\\.(\\w+)\\(([^)]*)\\)'"),
@@ -522,7 +522,7 @@ public class AutoFixEngine {
         //   "VerifyError: Bad type on operand stack
         //    Type 'net/minecraft/world/level/Level' is not assignable to 'net/minecraft/server/level/ServerLevel'"
         // Parses: class, method, expected type, actual type
-        // Action: If caused by fuzzy match — blacklist. If field redirect — revert.
+        // Action: If caused by fuzzy match - blacklist. If field redirect - revert.
         patterns.add(new ErrorPattern(
             "VerifyError",
             Pattern.compile("VerifyError.*(?:Bad type on operand stack|Bad return type)"),
@@ -570,7 +570,7 @@ public class AutoFixEngine {
                 String ownerDot = rawRef;
                 int lastDot = rawRef.lastIndexOf('.');
                 if (lastDot > 0) {
-                    // Could be a method name after the last dot — check if it starts lowercase
+                    // Could be a method name after the last dot - check if it starts lowercase
                     String suffix = rawRef.substring(lastDot + 1);
                     if (suffix.length() > 0 && Character.isLowerCase(suffix.charAt(0))) {
                         ownerDot = rawRef.substring(0, lastDot);
@@ -719,7 +719,7 @@ public class AutoFixEngine {
         //   "NoClassDefFoundError: com/teamresourceful/resourcefulconfig/api/ConfigEntry"
         //   OR: "ClassNotFoundException: com.teamresourceful.resourcefulconfig.api.ConfigEntry"
         // Parses: missing class
-        // Action: Log as missing dependency — cannot fix without the library
+        // Action: Log as missing dependency - cannot fix without the library
         patterns.add(new ErrorPattern(
             "ClassNotFound",
             Pattern.compile("(?:NoClassDefFoundError|ClassNotFoundException):\\s*'?(\\S+?)(?:'|$)"),
@@ -785,7 +785,7 @@ public class AutoFixEngine {
         //   "ClassCastException: class net.minecraft.world.level.Level cannot
         //    be cast to class net.minecraft.server.level.ServerLevel"
         // Parses: source type, target type
-        // Action: If from constructor redirect CHECKCAST — fix the CHECKCAST type
+        // Action: If from constructor redirect CHECKCAST - fix the CHECKCAST type
         patterns.add(new ErrorPattern(
             "ClassCastException",
             Pattern.compile("ClassCastException:.*?(?:class )?(\\S+) cannot be cast to (?:class )?(\\S+)"),
@@ -1014,7 +1014,7 @@ public class AutoFixEngine {
         //   "Mod 'sodium' is a required dependency of 'iris' but it is not installed"
         //   OR: "Unmet dependency: modid requires fabricapi >= 0.90.0"
         // Parses: missing mod, requiring mod
-        // Action: Log — user must install the dependency
+        // Action: Log - user must install the dependency
         patterns.add(new ErrorPattern(
             "MissingModDependency",
             Pattern.compile("(?:'(\\S+)' is a (?:required )?dependency of '(\\S+)'.*not installed|Unmet dependency.*?(\\S+) requires (\\S+))"),
@@ -1071,7 +1071,7 @@ public class AutoFixEngine {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PERSISTENCE — save/load fixes between launches
+    // PERSISTENCE - save/load fixes between launches
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -1326,9 +1326,9 @@ public class AutoFixEngine {
      *
      * <p>Each pattern has:</p>
      * <ul>
-     *   <li>{@code name} — human-readable name for logging</li>
-     *   <li>{@code regex} — compiled regex that matches the error line</li>
-     *   <li>{@code fixAction} — lambda that parses the match and applies a fix</li>
+     *   <li>{@code name} - human-readable name for logging</li>
+     *   <li>{@code regex} - compiled regex that matches the error line</li>
+     *   <li>{@code fixAction} - lambda that parses the match and applies a fix</li>
      * </ul>
      */
     static class ErrorPattern {
@@ -1346,7 +1346,7 @@ public class AutoFixEngine {
          * Build a unique key for this error match, used for deduplication
          * and blacklisting. Defaults to name + matched text hash.
          *
-         * NOTE (LOW): Using hashCode() has collision potential — two different
+         * NOTE (LOW): Using hashCode() has collision potential - two different
          * error lines could hash to the same fix key, causing a legitimate fix
          * to be skipped. In practice this is unlikely given the pattern-specific
          * name prefix, but for maximum correctness consider using the matched
@@ -1385,7 +1385,7 @@ public class AutoFixEngine {
          */
         AppliedFix describe(Matcher matcher, String line, String context) {
             try {
-                // Call the fix action with a null transformer — patterns that
+                // Call the fix action with a null transformer - patterns that
                 // register redirects will produce an AppliedFix but the redirect
                 // won't actually be registered since transformer is null.
                 // Patterns that require the transformer will return a descriptive fix.

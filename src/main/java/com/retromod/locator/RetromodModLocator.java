@@ -1,5 +1,5 @@
 /*
- * Retromod — NeoForge mod-file locator for the Retromod-owned mods subfolder.
+ * Retromod - NeoForge mod-file locator for the Retromod-owned mods subfolder.
  * Copyright (c) 2026 Bownlux. MIT License.
  */
 package com.retromod.locator;
@@ -31,21 +31,21 @@ import net.neoforged.neoforgespi.locating.ModFileDiscoveryAttributes;
  * the mods it transforms are arbitrary jars. CurseForge <em>does</em> allow bundling
  * arbitrary files as pack "overrides". So a pack author puts those jars in
  * {@code mods/Retromod/} (an override directory, which CF export accepts) and this
- * locator hands them to the loader at discovery time — the
+ * locator hands them to the loader at discovery time - the
  * <a href="https://github.com/Sinytra/Connector">Sinytra Connector</a> model.
  *
  * <p><b>How NeoForge picks this up.</b> The class is registered in
  * {@code META-INF/services/net.neoforged.neoforgespi.locating.IModFileCandidateLocator}.
  * At startup FML's early-service discovery walks the {@code mods/} folder, finds any
  * jar declaring that service, loads it onto the early-service layer, and runs its
- * {@link #findCandidates} during mod discovery — <em>before</em> the module layer is
+ * {@link #findCandidates} during mod discovery - <em>before</em> the module layer is
  * built, so the jars we add load like any other mod. The top-level
  * {@code ModsFolderLocator} scans {@code mods/} non-recursively, so it never sees the
  * {@code mods/Retromod/} subfolder on its own; this locator is what loads it.
  *
  * <p><b>Loader scope.</b> NeoForge only (loader 10.x/11.x → MC 1.21.0 through 26.2,
  * which share this SPI). Forge uses a different locator SPI and Fabric has no
- * third-party extra-folder service — both are tracked separately. Jars placed here
+ * third-party extra-folder service - both are tracked separately. Jars placed here
  * should already be loader-correct (e.g. AOT-transformed via {@code retromod batch},
  * or a native NeoForge mod like Retromod): this locator only <em>discovers</em>, it
  * does not transform.
@@ -133,7 +133,7 @@ public final class RetromodModLocator implements IModFileCandidateLocator {
 
     /**
      * List regular {@code *.jar} files directly in {@code folder} (non-recursive),
-     * sorted for deterministic load order. Never throws — returns empty on error.
+     * sorted for deterministic load order. Never throws - returns empty on error.
      */
     static List<Path> listJars(Path folder) {
         List<Path> out = new ArrayList<>();

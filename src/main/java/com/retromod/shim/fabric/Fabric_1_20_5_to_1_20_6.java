@@ -20,7 +20,7 @@ public class Fabric_1_20_5_to_1_20_6 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // No redirects needed — 1.20.6 is a hotfix for trader llama data loss.
+        // No redirects needed - 1.20.6 is a hotfix for trader llama data loss.
         // No API renames, removals, or signature changes. This shim exists
         // solely for BFS chain continuity (ShimRegistry needs a connected path
         // from any version to 26.1).

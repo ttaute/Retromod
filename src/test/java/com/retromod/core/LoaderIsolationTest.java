@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * <p>This has bitten twice: {@code Retromod implements ModInitializer} (Fabric)
  * crashed Forge reading {@code TARGET_MC_VERSION} (fixed by {@link RetromodVersion}),
  * and beta.7 had {@code RetromodNeoForge}/{@code RetromodForge} call a helper on
- * {@code RetromodPreLaunch}, which {@code implements PreLaunchEntrypoint} (Fabric) —
+ * {@code RetromodPreLaunch}, which {@code implements PreLaunchEntrypoint} (Fabric) -
  * so NeoForge/Forge crashed at load with `NoClassDefFoundError` even with no mods
  * (issue #40).
  *
@@ -47,7 +47,7 @@ class LoaderIsolationTest {
             assertFalse(cp.contains("net/fabricmc/"),
                     cls + " must not reference any net.fabricmc class (loads on a non-Fabric loader)");
             assertFalse(cp.contains("RetromodPreLaunch"),
-                    cls + " must not reference RetromodPreLaunch — it implements the Fabric-only "
+                    cls + " must not reference RetromodPreLaunch - it implements the Fabric-only "
                             + "PreLaunchEntrypoint, so loading it on NeoForge/Forge crashes (#40)");
         }
     }

@@ -268,7 +268,7 @@ class ClassShapeMatcherTest {
         return cw.toByteArray();
     }
 
-    /** Generate a class resembling a BlockEntity — load/save + tick methods. */
+    /** Generate a class resembling a BlockEntity - load/save + tick methods. */
     private static byte[] classWithNbtReadWriteTick(String className, String superName) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, className, null, superName, null);
@@ -282,7 +282,7 @@ class ClassShapeMatcherTest {
         ctor.visitMaxs(0, 0);
         ctor.visitEnd();
 
-        // public void load(CompoundTag tag) — NBT read
+        // public void load(CompoundTag tag) - NBT read
         MethodVisitor load = cw.visitMethod(Opcodes.ACC_PUBLIC,
                 "load", "(Lnet/minecraft/nbt/CompoundTag;)V", null, null);
         load.visitCode();
@@ -290,7 +290,7 @@ class ClassShapeMatcherTest {
         load.visitMaxs(0, 0);
         load.visitEnd();
 
-        // public CompoundTag save(CompoundTag tag) — NBT write
+        // public CompoundTag save(CompoundTag tag) - NBT write
         MethodVisitor save = cw.visitMethod(Opcodes.ACC_PUBLIC,
                 "save",
                 "(Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/nbt/CompoundTag;",
@@ -301,7 +301,7 @@ class ClassShapeMatcherTest {
         save.visitMaxs(0, 0);
         save.visitEnd();
 
-        // public void tick() — tick method
+        // public void tick() - tick method
         MethodVisitor tick = cw.visitMethod(Opcodes.ACC_PUBLIC, "tick", "()V", null, null);
         tick.visitCode();
         tick.visitInsn(Opcodes.RETURN);

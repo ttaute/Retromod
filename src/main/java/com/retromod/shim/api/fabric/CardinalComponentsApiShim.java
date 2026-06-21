@@ -228,17 +228,17 @@ public class CardinalComponentsApiShim implements VersionShim {
 
     /**
      * The bulk dev.onyxstudios.cca → org.ladysnake.cca package move (CCA 5.x→6.x),
-     * harvested by sub-path match from the real jars (5.2.3 vs 6.1.3) — every
+     * harvested by sub-path match from the real jars (5.2.3 vs 6.1.3) - every
      * public {@code api/} class that kept its sub-path across the rename
      * (verified present in both; inner classes get explicit entries since the
      * ASM remapper matches exact names). These are plain class moves; the
      * curated method/field redirects in {@link #registerRedirects} handle the
      * classes whose API <i>also</i> changed.
      *
-     * <p>Deliberately NOT redirected — removed outright in CCA 6 (no successor;
+     * <p>Deliberately NOT redirected - removed outright in CCA 6 (no successor;
      * a mod using these needs the 6.x API, beyond a redirect): the item-component
      * family ({@code api/v3/item/ItemComponent}, {@code ItemComponentFactoryRegistry},
-     * {@code CcaNbtType}, {@code ItemTagInvalidationListener} — CCA 6 dropped item
+     * {@code CcaNbtType}, {@code ItemTagInvalidationListener} - CCA 6 dropped item
      * components in favour of vanilla data components), {@code api/v3/entity/PlayerComponent}
      * and {@code PlayerCopyCallback}, and the {@code api/v3/block/util/Sided*Compound}
      * helpers. CCA-internal ({@code internal/}, {@code mixin/}) classes are skipped:

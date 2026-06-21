@@ -28,13 +28,13 @@ import java.util.TreeMap;
  *
  * <h3>Why the extra cost?</h3>
  * <p>Cheap patterns (method signatures, annotations) can miss classes that use
- * MC APIs <i>indirectly</i> — via helper methods, via reflection helpers that
+ * MC APIs <i>indirectly</i> - via helper methods, via reflection helpers that
  * take fully-qualified strings, via patterns where the signature is generic but
  * the method body is full of {@code INVOKE*} calls into {@code net/minecraft/*}.
  * This pattern catches those cases by doing the work nothing else does: reading
  * every instruction.</p>
  *
- * <p>Per-class cost is ~5–50ms depending on class size (proportional to total
+ * <p>Per-class cost is ~5-50ms depending on class size (proportional to total
  * instruction count). That's dramatically more than the other patterns
  * combined. It's worth it because the fingerprint is the highest-signal
  * diagnostic output for classifying mod code: "this class hits 47 block APIs,
@@ -44,17 +44,17 @@ import java.util.TreeMap;
  * <h3>Match behaviour</h3>
  * <p>Always matches (confidence 0.6) for any mod class that invokes at least
  * one {@code net/minecraft/*} or {@code com/mojang/*} method or field. The
- * "match" is really just "here's the fingerprint" — the pattern library runs
+ * "match" is really just "here's the fingerprint" - the pattern library runs
  * every class, and this pattern makes sure we report the usage breakdown
  * regardless of whether other patterns already matched.</p>
  *
  * <h3>Metadata captured</h3>
  * <ul>
- *   <li>{@code mcPackageCounts} — ordered {@code "package: count"} entries
+ *   <li>{@code mcPackageCounts} - ordered {@code "package: count"} entries
  *       for the top 5 most-used MC subpackages</li>
- *   <li>{@code totalMcRefs} — total MC reference count (method calls + field
+ *   <li>{@code totalMcRefs} - total MC reference count (method calls + field
  *       accesses + type references)</li>
- *   <li>{@code suspiciousPatterns} — number of "watch out" patterns detected,
+ *   <li>{@code suspiciousPatterns} - number of "watch out" patterns detected,
  *       e.g. hardcoded block positions, deprecated API calls (listed in
  *       {@link #SUSPICIOUS_PREFIXES})</li>
  * </ul>
@@ -70,7 +70,7 @@ public final class ApiUsageFingerprintPattern implements ClassPattern {
     };
 
     /**
-     * Known-suspicious prefixes — API areas that are notoriously unstable
+     * Known-suspicious prefixes - API areas that are notoriously unstable
      * across MC versions. A class that uses these heavily is high-risk for
      * post-transform breakage.
      */
@@ -100,7 +100,7 @@ public final class ApiUsageFingerprintPattern implements ClassPattern {
         }
         if (cls.methods == null || cls.methods.isEmpty()) return null;
 
-        // Counter per "sub-namespace" — e.g. "net/minecraft/world/level" — so
+        // Counter per "sub-namespace" - e.g. "net/minecraft/world/level" - so
         // the output is informative without being noisy. A TreeMap gives
         // deterministic iteration for the top-N logic.
         Map<String, Integer> counts = new TreeMap<>();
@@ -140,7 +140,7 @@ public final class ApiUsageFingerprintPattern implements ClassPattern {
         if (!topBreakdown.isEmpty()) metadata.put("topSubpackages", topBreakdown);
         if (suspicious > 0) metadata.put("suspiciousRefs", suspicious);
 
-        // Low confidence because "uses MC API" is weak signal on its own —
+        // Low confidence because "uses MC API" is weak signal on its own -
         // every mod class uses MC API. The value is the metadata breakdown,
         // not the match itself.
         return new PatternMatch(name(), cls.name, 0.6, metadata);
@@ -157,7 +157,7 @@ public final class ApiUsageFingerprintPattern implements ClassPattern {
      * for {@code ANEWARRAY}). We normalize both forms through
      * {@link Type#getType(String)} / {@link Type#getObjectType(String)} so the
      * caller always gets a clean internal name. For primitive-array descriptors
-     * like {@code "[I"} we return null — no MC reference to count.</p>
+     * like {@code "[I"} we return null - no MC reference to count.</p>
      */
     private static String extractReferenceOwner(AbstractInsnNode insn) {
         if (insn instanceof MethodInsnNode m) return m.owner;
@@ -174,11 +174,11 @@ public final class ApiUsageFingerprintPattern implements ClassPattern {
     private static String normalizeTypeRef(String desc) {
         if (desc == null || desc.isEmpty()) return null;
         if (desc.charAt(0) == '[') {
-            // Array descriptor — unwrap to the element type.
+            // Array descriptor - unwrap to the element type.
             Type elem = Type.getType(desc).getElementType();
             return elem.getSort() == Type.OBJECT ? elem.getInternalName() : null;
         }
-        // Bare internal name (CHECKCAST / NEW / INSTANCEOF) — use as-is.
+        // Bare internal name (CHECKCAST / NEW / INSTANCEOF) - use as-is.
         return desc;
     }
 

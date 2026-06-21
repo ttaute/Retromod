@@ -1,5 +1,5 @@
 /*
- * Retromod — compile-time stub of
+ * Retromod - compile-time stub of
  * net.neoforged.neoforgespi.locating.IncompatibleFileReporting.
  * Copyright (c) 2026 Bownlux. MIT License.
  *

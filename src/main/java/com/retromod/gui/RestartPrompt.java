@@ -13,7 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * In-game "mods converted — restart to apply" prompt (issue #33).
+ * In-game "mods converted - restart to apply" prompt (issue #33).
  *
  * <p>Retromod transforms old mods into {@code mods/} during pre-launch, but the
  * loader already scanned {@code mods/} by then, so the freshly-converted mods
@@ -30,7 +30,7 @@ import java.nio.file.Path;
  * (default on). Set it to {@code false} to suppress the prompt.
  *
  * <p>On confirm we cleanly stop the client (the user relaunches from their
- * launcher). True in-process relaunch isn't attempted — it can't be done
+ * launcher). True in-process relaunch isn't attempted - it can't be done
  * reliably across launchers (Prism/MultiMC/vanilla each wrap the launch), and a
  * half-working relaunch is worse than a clean stop.
  */

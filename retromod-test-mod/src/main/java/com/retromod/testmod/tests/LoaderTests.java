@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * Fabric Loader APIs. These aren't part of vanilla MC at all, so Retromod
- * shouldn't be touching them — the test confirms that loader-API references
+ * shouldn't be touching them - the test confirms that loader-API references
  * pass through the transformer untouched and still work after Retromod's
  * pipeline runs.
  *
@@ -36,12 +36,12 @@ public final class LoaderTests {
             new SimpleTest("FabricLoader.isModLoaded(\"fabricloader\")", () -> {
                 return FabricLoader.getInstance().isModLoaded("fabricloader")
                     ? TestResult.success()
-                    : TestResult.fail("returned false — impossible if we're running");
+                    : TestResult.fail("returned false - impossible if we're running");
             }),
             new SimpleTest("FabricLoader.isModLoaded(\"retromod\")", () -> {
                 return FabricLoader.getInstance().isModLoaded("retromod")
                     ? TestResult.success()
-                    : TestResult.fail("returned false — Retromod missing?");
+                    : TestResult.fail("returned false - Retromod missing?");
             }),
             new SimpleTest("FabricLoader.getGameDir() not null", () -> {
                 Path dir = FabricLoader.getInstance().getGameDir();

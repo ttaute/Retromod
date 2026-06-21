@@ -35,7 +35,7 @@ import net.minecraft.text.Text;
  * loading {@code SuperCallScreen} below throws {@link VerifyError} and the
  * test fails.
  *
- * <p>We don't need to instantiate the screen — class load alone forces the
+ * <p>We don't need to instantiate the screen - class load alone forces the
  * JVM to verify its methods, which is what we care about.
  */
 public class Test05SuperKeyPressed implements Test {
@@ -64,7 +64,7 @@ public class Test05SuperKeyPressed implements Test {
     /**
      * Deliberately a separate class so the {@code SuperCallScreen.class}
      * literal in {@link #run()} forces a fresh load on the first call.
-     * Doesn't need to be instantiated — class verification covers our needs.
+     * Doesn't need to be instantiated - class verification covers our needs.
      */
     private static class SuperCallScreen extends Screen {
         protected SuperCallScreen() {
@@ -73,7 +73,7 @@ public class Test05SuperKeyPressed implements Test {
 
         @Override
         public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-            // This call compiles to INVOKESPECIAL Screen.keyPressed — exactly
+            // This call compiles to INVOKESPECIAL Screen.keyPressed - exactly
             // the case the Retromod transformer fixup targets.
             return super.keyPressed(keyCode, scanCode, modifiers);
         }

@@ -22,30 +22,30 @@ import java.util.jar.Manifest;
 
 /**
  * Checks whether the running Retromod build still matches the published
- * release hash — that the bytecode hasn't changed since it was shipped.
+ * release hash - that the bytecode hasn't changed since it was shipped.
  *
  * <h2>How it works</h2>
  * The build embeds a SHA-256 of Retromod's own compiled classes
  * ({@link #EXPECTED_SELF_HASH}). At startup this class re-hashes its own
- * bytecode and compares: a match reports {@link Status#VERIFIED} — the bytecode
+ * bytecode and compares: a match reports {@link Status#VERIFIED} - the bytecode
  * is unchanged from the published release; a mismatch fires a fork notice in
  * the log.
  *
  * <h2>Why "verified" and not "official"</h2>
- * A match means the hash lines up — <b>not</b> that this is provably the genuine
+ * A match means the hash lines up - <b>not</b> that this is provably the genuine
  * official build. There is <b>no secret key</b>, so a determined attacker who
  * edits the bytecode can recompute the embedded hash (or strip this class) and
  * still show a match. We deliberately report {@link Status#VERIFIED} ("the hash
  * checks out") rather than claiming officialness the in-jar hash can't prove.
  * What it reliably catches is
  * <b>accidental corruption</b> (a truncated/garbled download) and
- * <b>casual modification</b> (a repack that didn't bother to update the hash) —
+ * <b>casual modification</b> (a repack that didn't bother to update the hash) -
  * for those, a build that <i>quietly</i> differs from official stands out.
  *
  * <p>For real verification, compare the JAR's SHA-256 against the value
  * <b>published on the official releases page</b> (Modrinth / GitHub show one for
  * every file). That reference lives out-of-band, where a tamperer can't change
- * it — which is the part an in-jar hash can't provide.
+ * it - which is the part an in-jar hash can't provide.
  *
  * <p>Verification never blocks: an unmodified, modified, or forked build all run
  * identically. The MIT license guarantees that. This is purely informational.
@@ -58,7 +58,7 @@ public final class SignatureVerifier {
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
     /**
-     * SHA-256 (uppercase hex) of Retromod's own classes — every
+     * SHA-256 (uppercase hex) of Retromod's own classes - every
      * {@code com/retromod/} {@code .class} entry <i>except</i> this verifier
      * class (which carries the value, so it can't hash itself) and the
      * relocated {@code com/retromod/shaded/} dependencies. Those deps are
@@ -69,13 +69,13 @@ public final class SignatureVerifier {
      * <p>Empty in dev/source builds: the status is then {@link Status#UNKNOWN}
      * and the freshly computed hash is logged so a release build can embed it.
      * To cut a release: build, read the logged "Computed self-hash" line (or run
-     * {@link #computeSelfHash(JarFile)} over the jar), paste it here, rebuild —
+     * {@link #computeSelfHash(JarFile)} over the jar), paste it here, rebuild -
      * this class is excluded from the hash, so re-embedding doesn't invalidate
      * it. See {@code docs/authenticity.md}.
      */
-    private static final String EXPECTED_SELF_HASH = "26F00C6565A3A687193E230505C099EB8A4EEF342CD4C611D9654E8C3AF23BA8";
+    private static final String EXPECTED_SELF_HASH = "8FFC5AC692EA704A5726800A982A6D4F9236E21E2C0D922AF0AFE5B4F8CDB362";
 
-    /** This class's own jar entry — excluded from the hash (it carries the hash). */
+    /** This class's own jar entry - excluded from the hash (it carries the hash). */
     private static final String SELF_ENTRY = "com/retromod/security/SignatureVerifier.class";
 
     private static final String EXPECTED_IMPL_TITLE = "Retromod";
@@ -157,9 +157,9 @@ public final class SignatureVerifier {
     }
 
     /**
-     * SHA-256 over Retromod's own {@code com/retromod/} classes — sorted by
+     * SHA-256 over Retromod's own {@code com/retromod/} classes - sorted by
      * name, excluding this class ({@link #SELF_ENTRY}) and the relocated
-     * {@code com/retromod/shaded/} dependencies — hashing each entry's name
+     * {@code com/retromod/shaded/} dependencies - hashing each entry's name
      * (UTF-8) then its bytes. Uppercase hex, or {@code null} if no class entries.
      *
      * <p>Package-private so the release tooling/tests can compute the same value.
@@ -172,7 +172,7 @@ public final class SignatureVerifier {
             if (je.isDirectory()) continue;
             String n = je.getName();
             if (!n.endsWith(".class")) continue;
-            // Only Retromod's OWN classes — these are identical across every
+            // Only Retromod's OWN classes - these are identical across every
             // shipped variant. Exclude the relocated dependencies under
             // com/retromod/shaded/ (build-all.sh strips/varies them per loader),
             // and this verifier class (it carries the expected hash).
@@ -224,7 +224,7 @@ public final class SignatureVerifier {
     // FORK NOTICE
     // ──────────────────────────────────────────────────────────────────────
     //
-    // Plain string template — by design. Anyone forking Retromod can change
+    // Plain string template - by design. Anyone forking Retromod can change
     // this text trivially (it's MIT-licensed; that's their right). The deterrent
     // is social: if honest forks keep it, a build that's silently missing it is
     // the red flag. Clarity over cleverness.
@@ -250,20 +250,20 @@ public final class SignatureVerifier {
 
     private static void logResult(VerificationResult result) {
         switch (result.status()) {
-            case VERIFIED -> LOGGER.info("[Retromod] ✓ Authenticity: VERIFIED — {}",
+            case VERIFIED -> LOGGER.info("[Retromod] ✓ Authenticity: VERIFIED - {}",
                     result.detail());
             case MODIFIED -> {
-                LOGGER.warn("[Retromod] ⚠ Authenticity: MODIFIED build — {}",
+                LOGGER.warn("[Retromod] ⚠ Authenticity: MODIFIED build - {}",
                         result.detail());
                 LOGGER.warn("[Retromod] {}", forkNotice());
             }
             case IMPOSTOR -> {
-                LOGGER.error("[Retromod] ✗ Authenticity: IMPOSTOR — {}",
+                LOGGER.error("[Retromod] ✗ Authenticity: IMPOSTOR - {}",
                         result.detail());
                 LOGGER.error("[Retromod] {}", forkNotice());
             }
             case UNKNOWN -> {
-                LOGGER.debug("[Retromod] Authenticity: unknown — {}", result.detail());
+                LOGGER.debug("[Retromod] Authenticity: unknown - {}", result.detail());
                 // Dev/source build with no embedded hash: surface the computed value
                 // at INFO so a release build can embed it in EXPECTED_SELF_HASH.
                 if (result.selfHash() != null
@@ -280,13 +280,13 @@ public final class SignatureVerifier {
     // ──────────────────────────────────────────────────────────────────────
 
     public enum Status {
-        /** Bytecode matches the embedded release hash — unchanged since publish. */
+        /** Bytecode matches the embedded release hash - unchanged since publish. */
         VERIFIED,
-        /** Bytecode differs from the release hash — a fork, repack, or corruption. */
+        /** Bytecode differs from the release hash - a fork, repack, or corruption. */
         MODIFIED,
         /** Manifest says this JAR isn't Retromod at all. */
         IMPOSTOR,
-        /** Could not determine — dev/source build, no embedded hash, or unreadable. */
+        /** Could not determine - dev/source build, no embedded hash, or unreadable. */
         UNKNOWN,
     }
 

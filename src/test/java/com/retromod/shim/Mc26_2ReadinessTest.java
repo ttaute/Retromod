@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * MC 26.2 readiness: the 26.1→26.2 shims chain on every loader, the
  * pre/rc/snapshot version aliases resolve, and the core move list (harvested
- * from the real 26.1.2 / 26.2-rc-1 client jars) contains the verified moves —
+ * from the real 26.1.2 / 26.2-rc-1 client jars) contains the verified moves -
  * and does NOT touch {@code client/gui/Gui}, which 26.2 split (HUD half went
  * to the new {@code Hud}) but did not remove.
  */
@@ -49,7 +49,7 @@ class Mc26_2ReadinessTest {
         reg.register(new Fabric_1_21_11_to_26_1());
         reg.register(new Fabric_26_1_to_26_2());
 
-        // Host reports the raw rc version string — the alias must normalize it
+        // Host reports the raw rc version string - the alias must normalize it
         List<VersionShim> chain = reg.findShimChain("fabric", "1.21.11", "26.2-rc-1");
         assertEquals(2, chain.size());
         assertEquals("26.1", chain.get(0).getTargetVersion());
@@ -74,7 +74,7 @@ class Mc26_2ReadinessTest {
             Mc26_1To26_2CoreMoves.register(t);
             Map<String, String> r = t.getClassRedirects();
 
-            // advancements split — the bulk of 26.2
+            // advancements split - the bulk of 26.2
             assertEquals("net/minecraft/advancements/triggers/CriteriaTriggers",
                     r.get("net/minecraft/advancements/CriteriaTriggers"));
             assertEquals("net/minecraft/advancements/predicates/entity/EntityPredicate",
@@ -88,14 +88,14 @@ class Mc26_2ReadinessTest {
             assertEquals("net/minecraft/client/gui/contextualbar/ExperienceBar",
                     r.get("net/minecraft/client/gui/contextualbar/ExperienceBarRenderer"));
 
-            // Gui was SPLIT, not renamed — a redirect would hijack the live class
+            // Gui was SPLIT, not renamed - a redirect would hijack the live class
             assertFalse(r.containsKey("net/minecraft/client/gui/Gui"),
                     "Gui survives in 26.2; it must never be redirected");
 
             assertTrue(r.size() >= 180, "expected the full harvested move set, got " + r.size());
 
             // 26.2 extracted the registry constants into EntityTypes /
-            // BlockEntityTypes holder classes — caught live on 26.2-rc-1
+            // BlockEntityTypes holder classes - caught live on 26.2-rc-1
             // (27 test-mod failures, every EntityType.X a NoSuchFieldError)
             var zombie = t.getFieldRedirects().get(
                     new RetromodTransformer.FieldKey("net/minecraft/world/entity/EntityType", "ZOMBIE"));

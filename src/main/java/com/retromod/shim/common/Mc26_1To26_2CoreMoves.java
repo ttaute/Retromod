@@ -19,7 +19,7 @@ import com.retromod.core.RetromodTransformer;
  * {@code advancements/predicates/*}. Notables:
  * <ul>
  *   <li>Slime/MagmaCube moved to {@code monster/cubemob/} with an extracted
- *       {@code AbstractCubeMob} base — Slime's AI inner classes became
+ *       {@code AbstractCubeMob} base - Slime's AI inner classes became
  *       {@code AbstractCubeMob$CubeMob*} (and {@code SlimePredicate} became
  *       {@code CubeMobPredicate}).</li>
  *   <li>{@code contextualbar} renderers dropped their {@code Renderer}
@@ -28,7 +28,7 @@ import com.retromod.core.RetromodTransformer;
  *       moved into {@code renderer/feature/*FeatureRenderer$Submit}.</li>
  * </ul>
  *
- * <p>Deliberately NOT here: {@code client/gui/Gui} — 26.2 SPLIT it (HUD
+ * <p>Deliberately NOT here: {@code client/gui/Gui} - 26.2 SPLIT it (HUD
  * parts went to the new {@code Hud} class) but {@code Gui} itself survives,
  * so a class redirect would hijack a live class (the #snapshot.3 Gui-hijack
  * lesson). Known 26.2 REMOVALS with no successor (need bridges, tracked):
@@ -427,7 +427,7 @@ public final class Mc26_1To26_2CoreMoves {
         // 26.2 extracted the registry constants out of EntityType /
         // BlockEntityType into new EntityTypes / BlockEntityTypes holder
         // classes (the Blocks/Items pattern). Same field names and
-        // descriptors, new owner — caught live by the test mod on 26.2-rc-1
+        // descriptors, new owner - caught live by the test mod on 26.2-rc-1
         // (every EntityType.X access threw NoSuchFieldError).
         for (String f : ENTITY_TYPE_CONSTANTS) {
             t.registerFieldRedirect("net/minecraft/world/entity/EntityType", f,
@@ -436,6 +436,39 @@ public final class Mc26_1To26_2CoreMoves {
         for (String f : BLOCK_ENTITY_TYPE_CONSTANTS) {
             t.registerFieldRedirect("net/minecraft/world/level/block/entity/BlockEntityType", f,
                     "net/minecraft/world/level/block/entity/BlockEntityTypes", f);
+        }
+
+        // 26.2 consolidated the 16-per-color block families into ColorCollection<Block>
+        // fields (Blocks.DYED_CANDLE, ...), DELETING the per-color static fields
+        // (Blocks.WHITE_CANDLE, ...). A mod referencing an old field hits
+        // NoSuchFieldError on 26.2; rewrite each GETSTATIC as
+        // Blocks.DYED_<FAMILY>.pick(DyeColor.<COLOR>) cast to Block - a field access
+        // that has to become a method call. Found via YUNG's Extras
+        // (SwampFeatureProcessor builds a candle list); the fields still exist on 26.1,
+        // so this only fires when targeting 26.2.
+        registerDyedBlockFields(t, "CANDLE", "DYED_CANDLE");
+        registerDyedBlockFields(t, "CANDLE_CAKE", "DYED_CANDLE_CAKE");
+        registerDyedBlockFields(t, "SHULKER_BOX", "DYED_SHULKER_BOX");
+        registerDyedBlockFields(t, "TERRACOTTA", "DYED_TERRACOTTA");
+    }
+
+    private static final String BLOCKS = "net/minecraft/world/level/block/Blocks";
+    private static final String COLOR_COLLECTION = "net/minecraft/world/level/block/ColorCollection";
+    private static final String DYE_COLOR = "net/minecraft/world/item/DyeColor";
+    private static final String[] DYE_COLORS = {
+        "WHITE", "ORANGE", "MAGENTA", "LIGHT_BLUE", "YELLOW", "LIME", "PINK", "GRAY",
+        "LIGHT_GRAY", "CYAN", "PURPLE", "BLUE", "BROWN", "GREEN", "RED", "BLACK"
+    };
+
+    /** Register the 16 per-color fields of a family (e.g. WHITE_CANDLE) as DYED_&lt;F&gt;.pick(color). */
+    private static void registerDyedBlockFields(RetromodTransformer t, String suffix, String dyedField) {
+        for (String color : DYE_COLORS) {
+            t.registerStaticFieldAccessor(
+                    BLOCKS, color + "_" + suffix,
+                    BLOCKS, dyedField, "Lnet/minecraft/world/level/block/ColorCollection;",
+                    DYE_COLOR, color, "Lnet/minecraft/world/item/DyeColor;",
+                    COLOR_COLLECTION, "pick", "(Lnet/minecraft/world/item/DyeColor;)Ljava/lang/Object;",
+                    "net/minecraft/world/level/block/Block");
         }
     }
 

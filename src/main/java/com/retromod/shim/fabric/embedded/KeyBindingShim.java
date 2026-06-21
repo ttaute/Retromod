@@ -101,7 +101,7 @@ public final class KeyBindingShim {
             }
 
             if (categoryClass == null) {
-                // Category class doesn't exist — this MC version may still use String categories
+                // Category class doesn't exist - this MC version may still use String categories
                 initFailed = true;
                 return;
             }

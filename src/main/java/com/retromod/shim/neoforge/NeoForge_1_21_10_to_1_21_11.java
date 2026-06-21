@@ -63,12 +63,12 @@ public class NeoForge_1_21_10_to_1_21_11 implements VersionShim {
         // loot/parameters package to net.minecraft.util.context.ContextKeySet
         // by 1.21.11 (verified: 1.21.11 has util/context/ContextKeySet[$Builder]
         // and no loot/parameters/LootContextParamSet). The PLURAL
-        // LootContextParamSets stays put — exact-name redirects below don't
+        // LootContextParamSets stays put - exact-name redirects below don't
         // touch it. Illagers Wear Armor's IWALootTables.<clinit> referenced
         // LootContextParamSet$Builder and died with ClassNotFoundException
         // because this rename wasn't mapped (it crashed only because the host
         // was also being misdetected, gating out this whole shim; both are now
-        // fixed — detection in RetromodNeoForge, the rename here).
+        // fixed - detection in RetromodNeoForge, the rename here).
         // ============================================================
         transformer.registerClassRedirect(
             "net/minecraft/world/level/storage/loot/parameters/LootContextParamSet",

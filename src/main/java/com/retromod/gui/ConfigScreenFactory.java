@@ -43,7 +43,7 @@ public final class ConfigScreenFactory {
     /**
      * Boolean config keys in display order. The visible label for each row
      * comes from the translation key {@code retromod.settings.<key>}, so
-     * these are just the config.json keys — labels live in lang files.
+     * these are just the config.json keys - labels live in lang files.
      */
     private static final String[] TOGGLE_KEYS = {
         "use_aot",
@@ -69,7 +69,7 @@ public final class ConfigScreenFactory {
      */
     public static void open(Object parentScreen) {
         if (!resolveClasses()) {
-            LOGGER.warn("Cannot open config screen — MC classes not available");
+            LOGGER.warn("Cannot open config screen - MC classes not available");
             return;
         }
 
@@ -146,7 +146,7 @@ public final class ConfigScreenFactory {
                 rowSpacing = Math.max(1, unitsAvail - rowH);
             }
 
-            // (No action row — Add Mods / Open Mods Folder live in the
+            // (No action row - Add Mods / Open Mods Folder live in the
             // main Retromod screen; this is the settings-only screen.)
 
             // ── TOGGLE ROWS ───────────────────────────────────────────────
@@ -172,7 +172,7 @@ public final class ConfigScreenFactory {
             // ── AUTHENTICITY STATUS LINE (label-style row above Done) ─────
             // displayLine() is §-colored ("§aVerified build§r", …) and verify()
             // is cached after the startup verifyAndLog(), so no I/O happens on
-            // the render thread. Informational only — pressing does nothing.
+            // the render thread. Informational only - pressing does nothing.
             Object statusText = McI18n.literal(
                     com.retromod.security.SignatureVerifier.verify().displayLine());
             if (statusText != null) {
@@ -205,7 +205,7 @@ public final class ConfigScreenFactory {
         config.put(key, newVal);
         saveConfig(config);
 
-        // Re-open the screen to refresh button labels — runs on render thread
+        // Re-open the screen to refresh button labels - runs on render thread
         // because the press action is dispatched by MC on the render thread.
         Object title = McI18n.translatable("retromod.settings.title");
         Object fresh = ScreenClassGenerator.createScreen(

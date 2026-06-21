@@ -37,7 +37,7 @@ public class ItemComponentPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getRemovedClasses() {
-        // No classes were removed — the methods on ItemStack changed signature
+        // No classes were removed - the methods on ItemStack changed signature
         return new String[]{};
     }
 
@@ -70,7 +70,7 @@ public class ItemComponentPolyfill implements PolyfillProvider {
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
 
-        // getTagCompound() — older Forge name for the same method
+        // getTagCompound() - older Forge name for the same method
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/ItemStack",
             "getTagCompound",

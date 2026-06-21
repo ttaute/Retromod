@@ -75,7 +75,7 @@ public class JadeWailaApiShim implements VersionShim {
         // JADE INTERFACE CHANGES
         // ============================================================
         
-        // IWailaPlugin is still IWailaPlugin in Jade 11.x — no rename needed
+        // IWailaPlugin is still IWailaPlugin in Jade 11.x - no rename needed
         // (IWailaClientPlugin does not exist in Jade 11.x)
         
         // IBlockComponentProvider

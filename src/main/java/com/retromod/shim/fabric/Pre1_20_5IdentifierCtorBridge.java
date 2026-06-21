@@ -37,7 +37,7 @@ import java.lang.reflect.Modifier;
  * the visitor sees {@code class_2960} in the bytecode and never matches those keys.
  * The mapper also installs intermediary-named ctor redirects via
  * {@code IntermediaryToMojangMapper.applyClassMovesOnly}, but those too are
- * 26.1+-gated — they fire under {@code isUnobfuscatedTarget(host)}, i.e. only when
+ * 26.1+-gated - they fire under {@code isUnobfuscatedTarget(host)}, i.e. only when
  * the bytecode has already been renamed to Mojang names. So pre-26.1 Fabric was an
  * uncovered gap.
  *
@@ -55,7 +55,7 @@ import java.lang.reflect.Modifier;
  *
  * <h2>Gating</h2>
  * Wired in alongside the model + InteractionResult bridges (pre-26.1 hosts only).
- * Self-gated as a no-op when either factory is absent — i.e. on a host where the
+ * Self-gated as a no-op when either factory is absent - i.e. on a host where the
  * old ctors are still present and the registration would do nothing useful.
  */
 public final class Pre1_20_5IdentifierCtorBridge {
@@ -75,7 +75,7 @@ public final class Pre1_20_5IdentifierCtorBridge {
             identifier = Class.forName(IDENTIFIER_FQN, false,
                     Pre1_20_5IdentifierCtorBridge.class.getClassLoader());
         } catch (Throwable t) {
-            LOGGER.debug("[Retromod] Identifier ctor bridge — class_2960 not on classpath, skipping ({})",
+            LOGGER.debug("[Retromod] Identifier ctor bridge - class_2960 not on classpath, skipping ({})",
                     t.getClass().getSimpleName());
             return;
         }
@@ -100,11 +100,11 @@ public final class Pre1_20_5IdentifierCtorBridge {
         }
 
         if (registered == 0) {
-            LOGGER.info("[Retromod] Identifier ctor bridge — no static (String)→Identifier "
+            LOGGER.info("[Retromod] Identifier ctor bridge - no static (String)→Identifier "
                     + "or (String,String)→Identifier factory on class_2960; host likely still "
                     + "has the public ctors, nothing to redirect");
         } else {
-            LOGGER.info("[Retromod] Identifier ctor bridge — wired {} redirect(s): "
+            LOGGER.info("[Retromod] Identifier ctor bridge - wired {} redirect(s): "
                     + "new class_2960({}) → class_2960.{}(...)",
                     registered,
                     fromNsPathName != null ? "(String[,String])" : "String",
@@ -114,7 +114,7 @@ public final class Pre1_20_5IdentifierCtorBridge {
 
     /**
      * Find the single public-static method on {@code cls} whose signature is
-     * {@code (paramTypes...) -> cls}, returning its name (intermediary or Mojang —
+     * {@code (paramTypes...) -> cls}, returning its name (intermediary or Mojang -
      * whichever the host exposes). Returns null if zero or multiple candidates
      * exist; multiple is a deliberate fail-safe because rewriting to the wrong
      * factory would silently corrupt every Identifier construction at every call
@@ -135,8 +135,8 @@ public final class Pre1_20_5IdentifierCtorBridge {
             }
             if (!ok) continue;
             if (match != null) {
-                LOGGER.warn("[Retromod] Identifier ctor bridge — multiple static factories with the "
-                        + "expected signature on class_2960 ({} and {}), refusing to guess — "
+                LOGGER.warn("[Retromod] Identifier ctor bridge - multiple static factories with the "
+                        + "expected signature on class_2960 ({} and {}), refusing to guess - "
                         + "this Identifier ctor will stay broken",
                         match, m.getName());
                 return null;

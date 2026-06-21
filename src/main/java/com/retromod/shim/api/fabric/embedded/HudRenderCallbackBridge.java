@@ -16,19 +16,19 @@ import java.util.function.Function;
  * The synthetic {@code HudRenderCallback} interface (injected by
  * {@link com.retromod.shim.api.fabric.FabricHudRenderCallbackShim}) <b>extends</b>
  * the new {@code HudElement} and bridges its SAM with a default method
- * ({@code extractRenderState} → {@code onHudRender}) — so every registered v1
+ * ({@code extractRenderState} → {@code onHudRender}) - so every registered v1
  * listener, and the event's combined invoker, <i>is</i> a {@code HudElement}.
  *
  * <p>That makes this bridge tiny: build a real array-backed {@code Event} for the
  * mod's {@code EVENT.register(...)} calls, then hand the event's invoker to
  * {@code HudElementRegistry.addLast(...)} once. The registry calls
  * {@code extractRenderState}, the default method forwards to {@code onHudRender},
- * and every v1 listener fires — no per-frame reflection.
+ * and every v1 listener fires - no per-frame reflection.
  *
  * <p>All reflection happens once at install; fails soft (logged, HUD overlays
  * inert) if the registry can't be reached.</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code fabric-api-0.145.4+26.1.2} ({@code HudElementRegistry.addLast(Identifier,
  * HudElement)}) and {@code minecraft-26.1.2} ({@code Identifier.fromNamespaceAndPath}).</p>
  */
@@ -54,12 +54,12 @@ public final class HudRenderCallbackBridge {
             Class<?> eventFactory = Class.forName(EVENT_FACTORY, true, cl);
             Method createArrayBacked = eventFactory.getMethod("createArrayBacked", Class.class, Function.class);
 
-            final Method sam = sam(v1Type); // onHudRender — resolved once
+            final Method sam = sam(v1Type); // onHudRender - resolved once
             Function<Object, Object> invokerFactory = (listenersObj) -> {
                 final Object[] listeners = (Object[]) listenersObj;
                 return java.lang.reflect.Proxy.newProxyInstance(cl, new Class<?>[]{v1Type}, (proxy, method, args) -> {
                     // The registry calls extractRenderState; the synthetic's default
-                    // forwards it to onHudRender, which lands here for the proxy —
+                    // forwards it to onHudRender, which lands here for the proxy -
                     // fan out to every registered v1 listener.
                     if (method.getDeclaringClass().isInterface()
                             && !"equals".equals(method.getName())
@@ -85,13 +85,13 @@ public final class HudRenderCallbackBridge {
 
             try {
                 // HudElementRegistry.addLast(Identifier, HudElement) with the combined
-                // invoker — it implements the synthetic, which extends HudElement.
+                // invoker - it implements the synthetic, which extends HudElement.
                 Class<?> registry = Class.forName(REGISTRY, true, cl);
                 Class<?> hudElement = Class.forName(HUD_ELEMENT, false, cl);
                 Class<?> identifier = Class.forName(IDENTIFIER, false, cl);
                 Object id = identifier.getMethod("fromNamespaceAndPath", String.class, String.class)
                         .invoke(null, "retromod", "legacy_hud_render");
-                // invoker() via the PUBLIC Event interface — the runtime class
+                // invoker() via the PUBLIC Event interface - the runtime class
                 // (fabric.impl ArrayBackedEvent) is not public.
                 Object invoker = Class.forName("net.fabricmc.fabric.api.event.Event", false, cl)
                         .getMethod("invoker").invoke(event);

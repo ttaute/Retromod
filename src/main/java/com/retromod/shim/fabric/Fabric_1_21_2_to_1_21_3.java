@@ -19,7 +19,7 @@ public class Fabric_1_21_2_to_1_21_3 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // No redirects needed — 1.21.3 is a hotfix (salmon size bug) with no
+        // No redirects needed - 1.21.3 is a hotfix (salmon size bug) with no
         // API renames, removals, or signature changes. This shim exists solely
         // for BFS chain continuity (ShimRegistry needs a connected path from
         // any version to 26.1).

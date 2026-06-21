@@ -9,7 +9,7 @@ It covers MC **1.14.4 through 1.21.11** with 31 Fabric shims, 317+ method redire
 
 All mods listed here were downloaded exclusively from **[Modrinth](https://modrinth.com)** (a curated, reviewed mod repository).
 
-> **About the `*` on entries below:** "Successfully transformed" in this document means **the mod's bytecode passed Retromod's pipeline and the mod loader accepts it on the target MC version** — i.e. it loads. It does **not** mean every in-game feature works. In practice **most mods on this list only get to the loading stage** — Minecraft starts, the mod registers, log lines for it appear — but specific features (rendering hooks, mixin injections, registry-keyed accessors, NBT round-trips, etc.) commonly fail at runtime once they're actually exercised. Each entry below is marked with `*` to make that limitation explicit. Closing those runtime gaps is what Retromod's beta phase is for; if you hit a broken feature in a listed mod, please [file an issue with the log](https://github.com/Bownlux/Retromod/issues).
+> **About the `*` on entries below:** "Successfully transformed" in this document means **the mod's bytecode passed Retromod's pipeline and the mod loader accepts it on the target MC version** - i.e. it loads. It does **not** mean every in-game feature works. In practice **most mods on this list only get to the loading stage** - Minecraft starts, the mod registers, log lines for it appear - but specific features (rendering hooks, mixin injections, registry-keyed accessors, NBT round-trips, etc.) commonly fail at runtime once they're actually exercised. Each entry below is marked with `*` to make that limitation explicit. Closing those runtime gaps is what Retromod's beta phase is for; if you hit a broken feature in a listed mod, please [file an issue with the log](https://github.com/Bownlux/Retromod/issues).
 
 ---
 
@@ -123,7 +123,7 @@ relaxed to load on MC 1.21.11. They are sorted by original MC version (oldest fi
 
 ## Recommended Test Setup (21 mods simultaneously)*
 
-These mods were selected to run together (one per unique mod, picking the oldest version). Same `*` caveat as above — the set loads, but individual feature-level functionality isn't guaranteed for any of them yet.
+These mods were selected to run together (one per unique mod, picking the oldest version). Same `*` caveat as above - the set loads, but individual feature-level functionality isn't guaranteed for any of them yet.
 
 | # | Mod | From MC | Hops | Notes |
 |---|-----|---------|------|-------|
@@ -162,7 +162,7 @@ These mods were selected to run together (one per unique mod, picking the oldest
 
 ## Mods That Can Never Be Translated
 
-The mods below sit in a category separate from "skipped this run." They can't be made to work by any automated bytecode translator — Retromod or otherwise — and never will be. The full reasoning, the general rules behind the list, and the difference between "won't load" and "loads but features are broken" lives on its own page: **[Mods That Can't Be Translated](https://bownlux.github.io/Retromod/incompatible-mods)**.
+The mods below sit in a category separate from "skipped this run." They can't be made to work by any automated bytecode translator - Retromod or otherwise - and never will be. The full reasoning, the general rules behind the list, and the difference between "won't load" and "loads but features are broken" lives on its own page: **[Mods That Can't Be Translated](https://bownlux.github.io/Retromod/incompatible-mods)**.
 
 The short version:
 
@@ -173,7 +173,7 @@ The short version:
 | **Tinkers' Construct** | Tool/material system replaced at JSON-schema *and* bytecode level; schemas change too much to redirect. |
 | **IndustrialCraft / IC2** | Coremod heritage, energy network internals tied to MC's tick scheduler. |
 | **Thaumcraft** | Aspect/research data tied to MC internals; multiple full redesigns. |
-| **OptiFine** | Proprietary, closed-source, Forge coremod — license + technical reasons both block translation. |
+| **OptiFine** | Proprietary, closed-source, Forge coremod - license + technical reasons both block translation. |
 | **Sodium / Iris / Embeddium / Flywheel** | Replace MC's rendering pipeline; mixin injections target bytecode offsets that move between versions. They may *load* but full functionality is not realistic. |
 
 **The general rule.** Any mod that uses native code (`.so` / `.dll` / `.dylib` files), ships its own bytecode transformer (coremod), uses a custom or modified Mixin framework, replaces MC's rendering pipeline, or interacts with MC at byte-level GPU buffers will **never** be translatable by any automated tool. See the [Mods That Can't Be Translated](https://bownlux.github.io/Retromod/incompatible-mods) page for the full breakdown.
@@ -223,7 +223,7 @@ Total mods processed via CLI: **45 mods from Modrinth**
 
 **Average transformation time: 209ms per mod**
 
-> `*` "Transformed" here means the bytecode pipeline ran without error and the resulting JAR was accepted by the loader. It does **not** mean the mod runs without runtime errors once gameplay actually exercises its hooks. Most mods on the list have at least one feature that breaks in-game on the new MC version — see the section caveat above.
+> `*` "Transformed" here means the bytecode pipeline ran without error and the resulting JAR was accepted by the loader. It does **not** mean the mod runs without runtime errors once gameplay actually exercises its hooks. Most mods on the list have at least one feature that breaks in-game on the new MC version - see the section caveat above.
 
 ---
 
@@ -262,9 +262,9 @@ retromod transform old-mod.jar --output new-mod-retromod.jar
 ## Known Limitations
 
 1. **Loading vs functioning is a real distinction.** The `*` on every entry in this document means "loads, may not function." A mod showing up in the list above is *not* a guarantee that any specific feature of that mod actually works in-game. We're closing the runtime-functionality gap shim by shim during beta.
-2. **Mixin-heavy mods** (Sodium, Iris, Lithium) may have runtime issues beyond bytecode redirection — mixins target specific bytecode positions that often move between MC versions, and a transformer can't synthesize a new injection point that didn't exist before.
+2. **Mixin-heavy mods** (Sodium, Iris, Lithium) may have runtime issues beyond bytecode redirection - mixins target specific bytecode positions that often move between MC versions, and a transformer can't synthesize a new injection point that didn't exist before.
 3. **Mods needing specific Fabric API submodules** that were renamed/removed may need additional shims.
-4. **Very old mods** (1.16.5 and earlier) have the most API changes to bridge — expect more rough edges here than on shorter translation distances.
+4. **Very old mods** (1.16.5 and earlier) have the most API changes to bridge - expect more rough edges here than on shorter translation distances.
 5. **Kotlin mods** need Fabric Language Kotlin installed separately.
 6. **Resource packs** for MC 1.21.11 need `min_format`/`max_format` in `pack.mcmeta`.
 

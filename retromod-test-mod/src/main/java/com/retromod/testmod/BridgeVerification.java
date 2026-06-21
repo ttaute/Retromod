@@ -27,22 +27,22 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * End-to-end verification of Retromod's Fabric API bridges — the rc.1 gate.
+ * End-to-end verification of Retromod's Fabric API bridges - the rc.1 gate.
  *
  * <p>This class is compiled against fabric-api 0.92.0 (1.20.1), i.e. the REAL
  * old APIs, so the shipped jar carries genuine old-mod bytecode: intermediary
  * MC names, old fabric-api class names, and real {@code invokedynamic} lambda
  * sites against the old SAM methods. On a 26.1+ host Retromod must carry every
  * one of these through its bridges (the renamed-SAM synthetics, the reflective
- * event holders, the registry renames) — so each check here proves a bridge
+ * event holders, the registry renames) - so each check here proves a bridge
  * end-to-end, not just "the class resolved".
  *
  * <p>Two result levels per bridge:
  * <ul>
- *   <li><b>registered</b> — the registration call went through the bridge
+ *   <li><b>registered</b> - the registration call went through the bridge
  *       without throwing (the lambda LINKED against the old SAM and the event
- *       accepted it — this alone catches every lambda-trap regression);</li>
- *   <li><b>FIRED</b> — the listener was actually invoked by the game. Some
+ *       accepted it - this alone catches every lambda-trap regression);</li>
+ *   <li><b>FIRED</b> - the listener was actually invoked by the game. Some
  *       events need gameplay that a boot test can't produce (dimension change,
  *       tooltip hover); those legitimately stay at "registered".</li>
  * </ul>
@@ -135,7 +135,7 @@ public final class BridgeVerification {
             ok("ClientPlayNetworking.registerGlobalReceiver");
         } catch (Throwable t) { fail("ClientPlayNetworking.registerGlobalReceiver", t); }
 
-        // ── Convention tags v1 (class redirect + field renames) — touching the field IS the test
+        // ── Convention tags v1 (class redirect + field renames) - touching the field IS the test
         try {
             if (ConventionalItemTags.SHEARS != null) {
                 STATE.put("ConventionalItemTags.SHEARS", "FIRED"); // resolution = full verification
@@ -144,7 +144,7 @@ public final class BridgeVerification {
 
         report("init");
 
-        // Reporting hooks (these use 1.20.1 APIs too — tick + join — so they
+        // Reporting hooks (these use 1.20.1 APIs too - tick + join - so they
         // double as live checks of the tick-event and connection-event paths).
         try {
             ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {

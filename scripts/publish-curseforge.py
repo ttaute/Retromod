@@ -19,7 +19,7 @@ Usage:
   publish-curseforge.py --version 1.1.0 --release-type release [--changelog-file CHANGELOG.md] [--dist dist] [--dry-run]
 
 ALWAYS run with --dry-run first: it hits only the read-only game-versions endpoint,
-validates the token/project, and prints exactly what it WOULD upload — no files sent.
+validates the token/project, and prints exactly what it WOULD upload - no files sent.
 
 CurseForge version tags lag real MC releases, so a JAR whose MC version CF doesn't
 list yet (e.g. a brand-new 26.2) is SKIPPED with a warning rather than failing the run.
@@ -77,7 +77,7 @@ def load_game_versions(token):
     }
     if not mc_type_ids:
         sys.exit("ERROR: could not identify CurseForge's Minecraft version types from "
-                 "/api/game/version-types — aborting rather than uploading with wrong "
+                 "/api/game/version-types - aborting rather than uploading with wrong "
                  "game-version ids. (CF may have changed its type naming.)")
 
     mc, loaders = {}, {}
@@ -92,7 +92,7 @@ def load_game_versions(token):
             mc[name] = vid
 
     if not mc:
-        sys.exit("ERROR: resolved 0 Minecraft versions after type-filtering — the CF API "
+        sys.exit("ERROR: resolved 0 Minecraft versions after type-filtering - the CF API "
                  "response shape may have changed (expected 'gameVersionTypeID' per version). "
                  "Aborting.")
     return mc, loaders
@@ -130,10 +130,10 @@ def upload(project_id, token, jar, game_version_ids, display_name, changelog, re
             return True
         except ValueError:
             # 200 but not the expected {"id": ...} JSON. Almost always means the
-            # request never reached the upload handler — e.g. a wrong/non-numeric
+            # request never reached the upload handler - e.g. a wrong/non-numeric
             # CF_PROJECT_ID routed to an HTML error or redirect page. Surface the
             # body instead of crashing on r.json().
-            print(f"  FAIL {base}  HTTP 200 but unexpected (non-JSON) body — "
+            print(f"  FAIL {base}  HTTP 200 but unexpected (non-JSON) body - "
                   f"is CF_PROJECT_ID the numeric id? Body: {r.text[:200]!r}")
             return False
     print(f"  FAIL {base}  HTTP {r.status_code}: {r.text[:300]}")

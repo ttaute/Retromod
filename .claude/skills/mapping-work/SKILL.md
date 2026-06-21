@@ -1,6 +1,6 @@
 ---
 name: mapping-work
-description: Work with Minecraft name mappings — intermediary, Mojang official, SRG, and Yarn. Use when adding new mappings to IntermediaryToMojangMapper, generating mapping files with MappingComposer, or debugging name mismatches.
+description: Work with Minecraft name mappings - intermediary, Mojang official, SRG, and Yarn. Use when adding new mappings to IntermediaryToMojangMapper, generating mapping files with MappingComposer, or debugging name mismatches.
 argument-hint: "task (e.g. add class mapping class_1234 Entity, generate mappings from tinyv2)"
 ---
 
@@ -79,7 +79,7 @@ java -cp retromod.jar com.retromod.mapping.MappingComposer \
 ## Important Notes
 
 - 26.1+ = Mojang official names (no obfuscation)
-- NeoForge already used Mojang names since 1.17 — no name changes for NeoForge mods going to 26.1
-- Fabric mods use intermediary names — these ALL need mapping to Mojang names for 26.1
-- Forge mods use SRG names up to 1.20 — the Forge 26.1 shim handles SRG→Mojang
+- NeoForge already used Mojang names since 1.17 - no name changes for NeoForge mods going to 26.1
+- Fabric mods use intermediary names - these ALL need mapping to Mojang names for 26.1
+- Forge mods use SRG names up to 1.20 - the Forge 26.1 shim handles SRG→Mojang
 - Method descriptors also need remapping (class references inside descriptors)

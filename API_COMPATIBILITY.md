@@ -73,21 +73,21 @@ Many popular mods from older Minecraft versions depend on APIs that are no longe
 
 When a mod uses an API that doesn't have a version for your current Minecraft client:
 
-1. **Retromod identifies the API** — Scans the mod's bytecode for known API package references
-2. **Selects the best shim** — Picks the embedded shim that bridges the old API to its modern replacement
-3. **Embeds compatibility classes** — Adds shim implementation classes directly into the transformed mod JAR
-4. **Redirects at bytecode level** — Old API calls are rewritten to call the shim, which internally uses the closest available modern API
+1. **Retromod identifies the API** - Scans the mod's bytecode for known API package references
+2. **Selects the best shim** - Picks the embedded shim that bridges the old API to its modern replacement
+3. **Embeds compatibility classes** - Adds shim implementation classes directly into the transformed mod JAR
+4. **Redirects at bytecode level** - Old API calls are rewritten to call the shim, which internally uses the closest available modern API
 
-The mod never knows the difference — it thinks it's calling the old API, but the shim translates everything to the modern equivalent. This works even if the old API jar is completely missing from the modpack, because the shim provides all the bridge classes the mod needs.
+The mod never knows the difference - it thinks it's calling the old API, but the shim translates everything to the modern equivalent. This works even if the old API jar is completely missing from the modpack, because the shim provides all the bridge classes the mod needs.
 
 ## How It Works
 
 When Retromod loads an old mod, it:
 
-1. **Detects API usage** — Scans for imports/calls to old APIs
-2. **Selects appropriate shims** — Based on the APIs used
-3. **Transforms bytecode** — Redirects old API calls to shim methods
-4. **Embeds compatibility classes** — Adds shim implementations to the mod
+1. **Detects API usage** - Scans for imports/calls to old APIs
+2. **Selects appropriate shims** - Based on the APIs used
+3. **Transforms bytecode** - Redirects old API calls to shim methods
+4. **Embeds compatibility classes** - Adds shim implementations to the mod
 
 ## Example Transformations
 

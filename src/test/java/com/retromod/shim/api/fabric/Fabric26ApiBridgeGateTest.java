@@ -16,14 +16,14 @@ import static org.junit.jupiter.api.Assertions.*;
  * Host-gate regression test for the 26.1 Fabric API bridges (pitfall #9).
  *
  * <p>On a pre-26.1 host, {@code ItemGroupEvents}, {@code ServerWorldEvents}, and
- * {@code EntityModelLayerRegistry} still EXIST in the Fabric API — redirecting them
+ * {@code EntityModelLayerRegistry} still EXIST in the Fabric API - redirecting them
  * to the synthetic bridges would hijack working APIs and wire them to 26.1-only
  * successors. Each bridge shim must therefore register NOTHING below 26.1 and
  * everything at 26.1+. (Caught in the snapshot.3 full-code review: the shims'
  * fabric-api-style target versions parse below every MC version, so the entry-point
  * {@code target <= host} gate alone would have let them register everywhere.)
  *
- * <p>Uses {@link RetromodTransformer#clearRedirectsForTesting()} — the transformer is
+ * <p>Uses {@link RetromodTransformer#clearRedirectsForTesting()} - the transformer is
  * a JVM-wide singleton, so absence assertions are only meaningful from a clean slate.
  * Each test re-registers what it needs; nothing here leaks expectations into other
  * test classes (they all self-register too).
@@ -63,7 +63,7 @@ class Fabric26ApiBridgeGateTest {
 
         for (String old : GATED_OLD_CLASSES) {
             assertFalse(t.getClassRedirects().containsKey(old),
-                    old + " must NOT be redirected on a 1.21.11 host — the API is still alive there");
+                    old + " must NOT be redirected on a 1.21.11 host - the API is still alive there");
         }
         assertTrue(t.getClassRedirects().isEmpty(), "no class redirects at all from gated shims below 26.1");
         assertTrue(t.getMethodRedirects().isEmpty(), "no method redirects at all from gated shims below 26.1");
@@ -95,6 +95,6 @@ class Fabric26ApiBridgeGateTest {
 
         assertEquals("com/retromod/generated/legacycmd/CommandRegistrationCallbackV1",
                 t.getClassRedirects().get("net/fabricmc/fabric/api/command/v1/CommandRegistrationCallback"),
-                "command/v1 was removed in the 1.19 era — the bridge helps pre-26.1 hosts too");
+                "command/v1 was removed in the 1.19 era - the bridge helps pre-26.1 hosts too");
     }
 }

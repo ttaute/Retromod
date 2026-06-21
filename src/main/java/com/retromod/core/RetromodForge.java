@@ -16,7 +16,7 @@ import java.nio.file.Paths;
 
 // Imported for the @Mod annotation only. We use the FQN at the annotation site
 // rather than a top-of-file import so the class still compiles when Forge isn't
-// on the classpath (e.g., the standalone CLI build) — Java only resolves
+// on the classpath (e.g., the standalone CLI build) - Java only resolves
 // annotation classes that actually exist in the compile classpath.
 //
 // The annotation MUST be present at runtime under Forge: javafml's mods.toml
@@ -26,7 +26,7 @@ import java.nio.file.Paths;
 //
 //     The Mod File <jar> has mods that were not found
 //
-// — which is FML's way of saying "I read your mods.toml, then went looking for
+// - which is FML's way of saying "I read your mods.toml, then went looking for
 // the corresponding @Mod entry-point class, and couldn't find one."
 
 /**
@@ -69,9 +69,10 @@ public class RetromodForge {
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
     public RetromodForge() {
+        RetromodVersion.logPresenceBanner(LOGGER);
         // Detect MC version from Forge's loader. This is normally done in
         // Retromod.<clinit>, but Retromod implements Fabric's ModInitializer
-        // and can't be loaded on Forge — so the static block never runs here
+        // and can't be loaded on Forge - so the static block never runs here
         // and we have to populate the version on the loader-agnostic
         // RetromodVersion holder ourselves.
         detectMcVersionForForge();
@@ -113,10 +114,10 @@ public class RetromodForge {
 
         // Vanilla net/minecraft/* class moves & renames. Forge mods are
         // Mojang-named (post-SRG remap), so they skip the Fabric intermediary→
-        // Mojang remap — but they still need vanilla renames applied or they
+        // Mojang remap - but they still need vanilla renames applied or they
         // crash with NoClassDefFoundError. applyClassMovesOnly is host-version-
         // aware: it consults the indexed host MC JAR and applies each rename
-        // only where the host has the NEW class and not the OLD one — so it
+        // only where the host has the NEW class and not the OLD one - so it
         // works on a 1.21.11 host AND a 26.1 host, without the #9 hazard.
         try {
             int moves = com.retromod.mapping.IntermediaryToMojangMapper
@@ -134,7 +135,7 @@ public class RetromodForge {
         // matches AutoFixEngine's error-pattern regex could trick Retromod
         // into registering attacker-chosen method/field redirects on the
         // shared transformer. The opt-in flag must gate BOTH the persisted
-        // fix loader AND the live log analyzer (further down) — turning
+        // fix loader AND the live log analyzer (further down) - turning
         // AutoFix off needs to actually turn it all the way off.
         // See the long-form security comment in Retromod.java for details.
         boolean autoFixEnabled = Boolean.parseBoolean(
@@ -156,7 +157,7 @@ public class RetromodForge {
             }
         }
 
-        // Initialize fuzzy resolver — last-resort fallback for unresolved references.
+        // Initialize fuzzy resolver - last-resort fallback for unresolved references.
         // Auto-detects the MC JAR from the classpath.
         try {
             transformer.initFuzzyResolver(null);
@@ -223,7 +224,7 @@ public class RetromodForge {
                         autoFixEngine.analyzeAndFix(logFile, transformer);
                     if (!fixes.isEmpty()) {
                         LOGGER.warn("AutoFix: registered {} redirect(s) from previous log (opt-in feature). "
-                                + "Review each one — log lines are an attacker-writable surface:",
+                                + "Review each one - log lines are an attacker-writable surface:",
                                 fixes.size());
                         for (AutoFixEngine.AppliedFix fix : fixes) {
                             LOGGER.warn("  AutoFix [{}] {} => {}",
@@ -263,7 +264,7 @@ public class RetromodForge {
         // New Forge / NeoForge unified FancyModLoader, robust across FML API
         // generations. The old code only tried the static versionInfo() form,
         // which NoSuchMethodException'd on FML 10.x and silently used the wrong
-        // default — gating out every newer-MC shim (#47/#51/#52). Shared with
+        // default - gating out every newer-MC shim (#47/#51/#52). Shared with
         // RetromodNeoForge via the loader-neutral RetromodVersion helper.
         String mcVersion = RetromodVersion.detectFmlMcVersion();
         if (mcVersion != null) {
@@ -281,9 +282,9 @@ public class RetromodForge {
             }
         } catch (Throwable ignored) {}
 
-        // Couldn't detect — dangerous (the shim gate then skips every newer-MC
+        // Couldn't detect - dangerous (the shim gate then skips every newer-MC
         // shim and mods silently mistranslate). Fail loudly instead.
-        LOGGER.error("Retromod could NOT detect the Forge host MC version — "
+        LOGGER.error("Retromod could NOT detect the Forge host MC version - "
                 + "falling back to {}. Version shims for newer MC will be SKIPPED, "
                 + "so mods may fail to translate. Please report your Forge/FML version.",
                 RetromodVersion.TARGET_MC_VERSION);
@@ -352,7 +353,7 @@ public class RetromodForge {
                 try {
                     shim = it.next();
                 } catch (java.util.ServiceConfigurationError e) {
-                    // Class not found — expected in lite builds
+                    // Class not found - expected in lite builds
                     continue;
                 }
                 String loaderType = shim.getModLoaderType();

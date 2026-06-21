@@ -151,7 +151,7 @@ public class TransformationErrorHandler {
      * Open GitHub Issues in browser. If the JVM's Desktop API isn't
      * available (rare on a system that's running Minecraft with a window),
      * fall through to a dialog that shows the URL for the user to copy.
-     * We intentionally don't shell out to {@code xdg-open} as a fallback —
+     * We intentionally don't shell out to {@code xdg-open} as a fallback -
      * the user-facing dialog is a better UX than a process exec, and
      * avoiding {@code Runtime.exec} entirely keeps the mod's behavior
      * easier to audit.

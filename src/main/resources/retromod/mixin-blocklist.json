@@ -3,10 +3,10 @@
     "Curated list of mixin handler methods that FATALLY crash on the target MC and",
     "cannot be repaired by remapping. Retromod surgically removes the listed handler",
     "method(s) from the mixin during transformation, so the mixin framework never",
-    "processes them — the mod loads and the one feature that handler implemented is",
+    "processes them - the mod loads and the one feature that handler implemented is",
     "inert, instead of the whole game crashing.",
     "",
-    "This is the escape hatch for failures we cannot safely auto-detect — most notably",
+    "This is the escape hatch for failures we cannot safely auto-detect - most notably",
     "MixinExtras @WrapOperation / @ModifyExpressionValue handlers that capture a @Local",
     "from a vanilla method whose local-variable layout changed between MC versions. The",
     "@Local then resolves to the wrong slot and MixinExtras emits an invalid bridge",
@@ -20,7 +20,7 @@
     "If 'methods' is omitted/empty, every injector handler on the class is stripped.",
     "",
     "Add '\"strip\": \"class\"' to neutralize the WHOLE mixin instead of stripping",
-    "handlers — Retromod repoints the @Mixin annotation at a non-existent target so",
+    "handlers - Retromod repoints the @Mixin annotation at a non-existent target so",
     "the framework skips it entirely (the harmless 'target not found' path). Use this",
     "for mixins that ADD AN INTERFACE to their target (handler-stripping leaves the",
     "interface unapplied → ClassCastException downstream, #68) or that have an",
@@ -37,31 +37,43 @@
       "mixin": "com/naterbobber/darkerdepths/mixin/PlayerMixin",
       "methods": ["G$addAdditionalSaveData", "G$readAdditionalSaveData"],
       "issue": "#48",
-      "reason": "@Inject handlers on Entity.addAdditionalSaveData/readAdditionalSaveData capture CompoundTag, but MC moved those params to ValueOutput/ValueInput in the 1.21.5 serialization (ValueIO/codec) refactor -> InvalidInjectionException (Invalid descriptor: expected ValueOutput, found CompoundTag) on 1.21.11. Not a rename (ValueOutput has a different API than CompoundTag), so the handler body can't be auto-retyped yet. Stripping these handlers removes the injection error. NOTE (#48): Darker Depths' death-anchor feature is interdependent (the stripped handlers leave orphaned helper lambdas + a @Unique field/interface), so this mod still does not fully construct after the strip — it's a PARTIAL soft-fail, kept here because the handlers are genuinely broken and the strip is correct as far as it goes. Mods with a self-contained broken handler soft-fail cleanly."
+      "reason": "@Inject handlers on Entity.addAdditionalSaveData/readAdditionalSaveData capture CompoundTag, but MC moved those params to ValueOutput/ValueInput in the 1.21.5 serialization (ValueIO/codec) refactor -> InvalidInjectionException (Invalid descriptor: expected ValueOutput, found CompoundTag) on 1.21.11. Not a rename (ValueOutput has a different API than CompoundTag), so the handler body can't be auto-retyped yet. Stripping these handlers removes the injection error. NOTE (#48): Darker Depths' death-anchor feature is interdependent (the stripped handlers leave orphaned helper lambdas + a @Unique field/interface), so this mod still does not fully construct after the strip - it's a PARTIAL soft-fail, kept here because the handlers are genuinely broken and the strip is correct as far as it goes. Mods with a self-contained broken handler soft-fail cleanly."
     },
     {
       "mixin": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
       "methods": ["revamped_phantoms$getDefaultDimensions"],
       "issue": "#50",
-      "reason": "@ModifyReturnValue handler on a getDefaultDimensions/getDimensions method (returns EntityDimensions) fails injection on 1.21.11 with 'failed injection check, (0/1) succeeded. Scanned 0 target(s)' — the target method couldn't be resolved on the newer MC (renamed/re-signatured; mod ships no refMap). The handler body only rescales the dimensions' EntityAttachments via the mod's own Accessors util — it does NOT touch the mod's shared-goals feature (revamped_phantoms$goalHolder/registerGoals/getGoalHolder/HasSharedGoals), which injects fine — so this is a CLEAN, self-contained soft-fail: stripping it lets Revamped Phantoms construct with goals intact and only the phantom-size tweak inert. Contrast #48, which was interdependent."
+      "reason": "@ModifyReturnValue handler on a getDefaultDimensions/getDimensions method (returns EntityDimensions) fails injection on 1.21.11 with 'failed injection check, (0/1) succeeded. Scanned 0 target(s)' - the target method couldn't be resolved on the newer MC (renamed/re-signatured; mod ships no refMap). The handler body only rescales the dimensions' EntityAttachments via the mod's own Accessors util - it does NOT touch the mod's shared-goals feature (revamped_phantoms$goalHolder/registerGoals/getGoalHolder/HasSharedGoals), which injects fine - so this is a CLEAN, self-contained soft-fail: stripping it lets Revamped Phantoms construct with goals intact and only the phantom-size tweak inert. Contrast #48, which was interdependent."
     },
     {
       "mixin": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
       "strip": "class",
       "issue": "#69 (re-open of #50)",
-      "reason": "@Inject handler revamped_phantoms$onHurtsTarget fails injection on 1.21.11 as a CRITICAL failure: 'InjectionError: failed injection check, (0/1) succeeded. Scanned 0 target(s). No refMap loaded' — the target method signature changed in vanilla and the mod ships no refMap, so it can't be repaired by remapping. Confirmed against the #69 re-open log (the crash that took down DataComponents/EntityType <clinit>). Upgraded from handler-strip to whole-class strip ('strip':'class'): the sweep-attack tweak is a single self-contained mixin, so neutralizing the whole class is equivalent in scope but guarantees the critical injection can never fire regardless of any @Unique/helper interdependency. Revamped Phantoms loads with the sweep-attack tweak inert; PhantomMixin's shared-goals + size features stay live via the separate handler-strip entry above."
+      "reason": "@Inject handler revamped_phantoms$onHurtsTarget fails injection on 1.21.11 as a CRITICAL failure: 'InjectionError: failed injection check, (0/1) succeeded. Scanned 0 target(s). No refMap loaded' - the target method signature changed in vanilla and the mod ships no refMap, so it can't be repaired by remapping. Confirmed against the #69 re-open log (the crash that took down DataComponents/EntityType <clinit>). Upgraded from handler-strip to whole-class strip ('strip':'class'): the sweep-attack tweak is a single self-contained mixin, so neutralizing the whole class is equivalent in scope but guarantees the critical injection can never fire regardless of any @Unique/helper interdependency. Revamped Phantoms loads with the sweep-attack tweak inert; PhantomMixin's shared-goals + size features stay live via the separate handler-strip entry above."
     },
     {
       "mixin": "grondag/darkness/mixin/MixinLightTexture",
       "strip": "class",
       "issue": "#68",
-      "reason": "True Darkness (grondag.darkness, the base mod that True Darkness Biomes depends on). MixinLightTexture does '@Mixin(LightTexture.class) implements LightmapAccess' — it makes the vanilla LightTexture implement darkness's LightmapAccess duck-interface. On 1.21.11 it fails to apply ('InvalidMixinException: @Shadow field lightTexture was not located in the target class LightTexture. No refMap loaded') because the shadowed field's surrounding structure changed and the mod ships no refMap. A field rename can't fix it (the structure moved, not just the name), and handler-stripping is useless here — there are no injector handlers, the mixin's whole job is adding the interface. Whole-class strip neutralizes it cleanly. Pairs with the MixinGameRenderer entry below."
+      "reason": "True Darkness (grondag.darkness, the base mod that True Darkness Biomes depends on). MixinLightTexture does '@Mixin(LightTexture.class) implements LightmapAccess' - it makes the vanilla LightTexture implement darkness's LightmapAccess duck-interface. On 1.21.11 it fails to apply ('InvalidMixinException: @Shadow field lightTexture was not located in the target class LightTexture. No refMap loaded') because the shadowed field's surrounding structure changed and the mod ships no refMap. A field rename can't fix it (the structure moved, not just the name), and handler-stripping is useless here - there are no injector handlers, the mixin's whole job is adding the interface. Whole-class strip neutralizes it cleanly. Pairs with the MixinGameRenderer entry below."
     },
     {
       "mixin": "grondag/darkness/mixin/MixinGameRenderer",
       "strip": "class",
       "issue": "#68",
-      "reason": "True Darkness's MixinGameRenderer.onRenderLevel handler DID apply, and on first level render it casts the vanilla LightTexture to grondag.darkness.LightmapAccess -> ClassCastException (the actual fatal crash in #68, on world load). The cast only fails because MixinLightTexture (above) couldn't add the interface. Even if handler-stripping removed onRenderLevel, darkness's lighting would be half-wired; neutralizing the whole render-mixin pair is the clean soft-fail: True Darkness's darker-lighting feature goes inert but the mod loads and the game runs (vs the current crash-on-world-create). MixinDynamicTexture / MixinEndEffects / MixinNetherEffects are left alone — Effects already skip gracefully (their target inner classes moved), DynamicTexture applies fine."
+      "reason": "True Darkness's MixinGameRenderer.onRenderLevel handler DID apply, and on first level render it casts the vanilla LightTexture to grondag.darkness.LightmapAccess -> ClassCastException (the actual fatal crash in #68, on world load). The cast only fails because MixinLightTexture (above) couldn't add the interface. Even if handler-stripping removed onRenderLevel, darkness's lighting would be half-wired; neutralizing the whole render-mixin pair is the clean soft-fail: True Darkness's darker-lighting feature goes inert but the mod loads and the game runs (vs the current crash-on-world-create). MixinDynamicTexture / MixinEndEffects / MixinNetherEffects are left alone - Effects already skip gracefully (their target inner classes moved), DynamicTexture applies fine."
+    },
+    {
+      "mixin": "com/yungnickyoung/minecraft/yungsapi/mixin/BeardifierMixin",
+      "strip": "class",
+      "issue": "Yung's API world-gen crash on 26.2",
+      "reason": "Yung's API's enhanced terrain-adaptation. BeardifierMixin does '@Mixin(Beardifier.class) implements EnhancedBeardifierData' (ADDS an interface) plus @Unique enhanced-iterator fields and two handlers (supportCustomTerrainAdaptations - an @Inject returning a custom Beardifier - and calculateDensity), and it reads Beardifier's internals through the paired accessor.BeardifierAccessor. 26.2 rewrote Beardifier: the fastutil ObjectListIterator fields pieceIterator/junctionIterator became plain java.util.List fields pieces/junctions, so the accessor's @Accessor getPieceIterator() resolves to an abstract method and the enhanced handler hits 'AbstractMethodError: Beardifier.getPieceIterator()' on EVERY chunk -> ALL world generation crashes (the user-visible symptom is a frozen 'Preparing for world creation', because the error churns in the async chunk pipeline rather than surfacing). Because the mixin adds an interface and its handlers are interdependent, this is a whole-class strip (handler-stripping would leave the interface unapplied -> ClassCastException). Neutralized, Beardifier falls back to vanilla terrain adaptation (which still blends structures into terrain); Yung's structures generate normally. This affects EVERY Yung's structure mod (Better Strongholds, Better Mineshafts, Extras, ...), since they all depend on Yung's API."
+    },
+    {
+      "mixin": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BeardifierAccessor",
+      "strip": "class",
+      "issue": "Yung's API world-gen crash on 26.2",
+      "reason": "The @Accessor interface paired with BeardifierMixin (above). getPieceIterator()/getJunctionIterator() target Beardifier's pieceIterator/junctionIterator fields, which 26.2 replaced with the pieces/junctions Lists, so the accessors can't bind and resolve to abstract methods -> AbstractMethodError when called. Whole-class stripped alongside BeardifierMixin so the broken accessor never applies; its only caller (EnhancedBeardifierHelper, reached via BeardifierMixin's now-stripped handler) is gone too."
     }
   ]
 }

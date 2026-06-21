@@ -67,7 +67,7 @@ public class ClothConfigApiShim implements VersionShim {
         // ============================================================
         // CLOTH CONFIG v6.x COMPATIBILITY
         // ============================================================
-        // v6.x was widely used with MC 1.17–1.19 and is a common
+        // v6.x was widely used with MC 1.17-1.19 and is a common
         // dependency. Many mods pin "cloth-config >= 6.0" specifically.
         //
         // Key changes between v6.x and v11.x:

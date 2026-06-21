@@ -51,7 +51,7 @@ public class ForgeEventApiShim implements VersionShim {
     public void registerRedirects(RetromodTransformer transformer) {
         // Despite the file name, every redirect in here maps Forge package
         // names to their NeoForge equivalents. That's a *cross-loader*
-        // migration — only correct when the runtime is NeoForge. On a Forge
+        // migration - only correct when the runtime is NeoForge. On a Forge
         // runtime these rewrite Forge mods to reference NeoForge classes
         // that don't exist, causing every transformed mod to die at
         // constructor time with NoClassDefFoundError on

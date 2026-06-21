@@ -104,7 +104,7 @@ public class JitRuntime implements ClassFileTransformer {
         // Remove JIT annotations after processing
         removeJitAnnotations(classNode);
 
-        // SafeClassWriter (not raw ClassWriter) — see AotCompiler.transformClassSimple
+        // SafeClassWriter (not raw ClassWriter) - see AotCompiler.transformClassSimple
         // for the rationale. JIT can run off-thread where MC classes aren't
         // resolvable via Class.forName, so getCommonSuperClass needs the
         // non-throwing fallback.

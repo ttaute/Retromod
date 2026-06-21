@@ -89,7 +89,7 @@ The repo's CI (`.github/workflows/ci.yml`) runs tests on every push and PR, auto
 
 **Break-glass bypass:** if you push within 5 minutes of a revert, CI skips tests. This is for unsticking the tree when CI itself is broken; don't use it to land untested code. If you use it, document why in the commit message and fix CI in a follow-up PR.
 
-If CI reverts a change you think was correct, the first thing to check is whether the linter pass disagreed with it — sometimes the linter rewrites things the test suite doesn't like. The CLAUDE.md has notes on common gotchas.
+If CI reverts a change you think was correct, the first thing to check is whether the linter pass disagreed with it - sometimes the linter rewrites things the test suite doesn't like. The CLAUDE.md has notes on common gotchas.
 
 ## Code style
 

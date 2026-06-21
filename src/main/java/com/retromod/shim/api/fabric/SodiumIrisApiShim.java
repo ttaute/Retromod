@@ -100,7 +100,7 @@ public class SodiumIrisApiShim implements VersionShim {
         );
         
         // ============================================================
-        // FABRIC RENDERING API (FRAPI) — DELETED IDENTITY REDIRECTS
+        // FABRIC RENDERING API (FRAPI) - DELETED IDENTITY REDIRECTS
         //
         // The previous form registered identity redirects (`A → A`) for
         // Renderer / MeshBuilder / QuadEmitter "for Indium/Sodium FRAPI compat,"

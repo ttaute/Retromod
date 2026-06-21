@@ -56,7 +56,7 @@ public class ForgeCapabilitiesShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // All redirects below are Forge → NeoForge — only valid on NeoForge
+        // All redirects below are Forge → NeoForge - only valid on NeoForge
         // runtime. See sibling Forge*ApiShim files for the same pattern.
         if (!McReflect.isNeoForge()) {
             LOGGER.debug("Skipping Forge → NeoForge capabilities migration (runtime is not NeoForge)");

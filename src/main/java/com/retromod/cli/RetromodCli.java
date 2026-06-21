@@ -36,8 +36,12 @@ import java.util.*;
  */
 public class RetromodCli {
     
-    private static final String VERSION = "1.2.0-snapshot.1";
-    private static final String TARGET_MC_VERSION = "26.1";
+    private static final String VERSION = "1.2.0-snapshot.2";
+    // Default target; overridable per-invocation via `--target <mc-version>` so the
+    // offline transform/batch/AOT can prep mods for a specific host (e.g. 26.2, whose
+    // 26.1->26.2 shims - candle ColorCollection, advancements moves - only fire when
+    // the chain actually targets 26.2).
+    private static String TARGET_MC_VERSION = "26.1";
     
     private static ShimRegistry shimRegistry;
     private static ModVersionDetector detector;
@@ -63,7 +67,21 @@ public class RetromodCli {
         }
         
         String command = args[0].toLowerCase();
-        
+
+        // Optional `--target <mc-version>` overrides the default 26.1 target so the
+        // offline transform/batch/AOT can prep mods for another host (e.g. `--target 26.2`,
+        // which the 26.1->26.2 shims only fire for). The per-command arg parsers ignore it.
+        for (int i = 1; i < args.length - 1; i++) {
+            if ("--target".equals(args[i])) {
+                String v = args[i + 1].trim();
+                if (!v.isEmpty()) {
+                    TARGET_MC_VERSION = v;
+                    System.out.println("Target MC version: " + TARGET_MC_VERSION);
+                }
+                break;
+            }
+        }
+
         try {
             switch (command) {
                 case "analyze" -> analyzeCommand(args);
@@ -169,7 +187,7 @@ public class RetromodCli {
         // The hardcoded `new XYZ()` block above covers every version-jump shim by
         // class reference, but the API shims (FabricApiShim, FabricRendererApiShim,
         // ModMenuApiShim, …) only live in META-INF/services and weren't being
-        // picked up by the CLI — so transforms via `retromod transform ...` were
+        // picked up by the CLI - so transforms via `retromod transform ...` were
         // running a SUBSET of what the runtime would apply, making transformed
         // jars look broken even when an in-game boot would fix them. We dedupe by
         // class so adding a new shim doesn't double-fire it.
@@ -449,7 +467,7 @@ public class RetromodCli {
         }
 
         // API shims (FabricApiShim, FabricRendererApiShim, …) sit in a separate
-        // namespace — their source/target are Fabric API release numbers, not MC
+        // namespace - their source/target are Fabric API release numbers, not MC
         // version strings, so BFS over the MC version graph never reaches them.
         // RetromodPreLaunch handles this at runtime by iterating getAllShims()
         // and registering every shim whose target ≤ host; we mirror that here so
@@ -465,14 +483,14 @@ public class RetromodCli {
                     && !loader.equalsIgnoreCase(info.modLoaderType())) continue;
             // Heuristic: API shims have non-MC version strings (e.g. "0.50.0"),
             // never matched by the MC version graph. Anything not in `chain`
-            // that lives in `com.retromod.shim.api.*` is one — include it.
+            // that lives in `com.retromod.shim.api.*` is one - include it.
             String pkg = shim.getClass().getName();
             if (!pkg.startsWith("com.retromod.shim.api.")) continue;
             try {
                 shim.registerRedirects(transformer);
                 apiApplied++;
             } catch (Exception e) {
-                // Best-effort — one bad API shim shouldn't kill the rest.
+                // Best-effort - one bad API shim shouldn't kill the rest.
             }
         }
 
@@ -480,7 +498,7 @@ public class RetromodCli {
         // targeting 26.1+. At runtime the loader entry points call
         // IntermediaryToMojangMapper.applyTo / applyClassMovesOnly; the CLI never did,
         // so `retromod transform` (and the compat audit built on it) saw far more
-        // "missing class" gaps than a real boot — every GuiGraphics→GuiGraphicsExtractor,
+        // "missing class" gaps than a real boot - every GuiGraphics→GuiGraphicsExtractor,
         // MobSpawnType→…, etc. showed unresolved here while resolving fine in-game.
         // With no host MC on the CLI classpath, applyClassMovesOnly falls back to
         // apply-all for the 26.1 target, which is exactly right since the CLI always
@@ -492,7 +510,7 @@ public class RetromodCli {
                 // that method host-gates on RetromodVersion.TARGET_MC_VERSION (auto-
                 // detected, "1.21.4" in a standalone CLI), so its no-host fallback
                 // evaluates false and registers nothing. The CLI always targets 26.1
-                // (RetromodCli.TARGET_MC_VERSION), so applying ALL moves is correct —
+                // (RetromodCli.TARGET_MC_VERSION), so applying ALL moves is correct -
                 // these are exactly the renames an in-game 26.1 boot would do.
                 var moves = com.retromod.mapping.IntermediaryToMojangMapper
                         .getInstance().getClassMoves();
@@ -501,7 +519,7 @@ public class RetromodCli {
                     classMovesApplied++;
                 }
             } catch (Exception e) {
-                // Best-effort — the chain + API shims still apply without the moves.
+                // Best-effort - the chain + API shims still apply without the moves.
             }
 
             // Also wire the Fabric intermediary→Mojang MEMBER-name mappings
@@ -514,15 +532,38 @@ public class RetromodCli {
             // both for `transform` output parity and so the compat audit (built on the
             // CLI) reflects what an in-game boot actually produces. This is the same
             // gap that left Rubinated Nether's JIJ "Critter" registry lib unremapped (#71).
-            try {
-                int memberMappings = com.retromod.mapping.IntermediaryToMojangMapper
-                        .applyTo(transformer);
-                if (memberMappings > 0) {
-                    System.out.println("Applied intermediary→Mojang member mappings ("
-                            + memberMappings + ").");
+            // Member mappings are FABRIC-ONLY: distributed Fabric mods carry
+            // intermediary names; NeoForge/Forge mods are already Mojang-named, so
+            // applying these clobbers their Mojang fields (it renamed YUNG's API's
+            // Blocks.WHITE_CANDLE to a field 26.2 lacks -> NoSuchFieldError). The class
+            // moves above stay loader-agnostic. Mirrors the runtime split and
+            // registerAuxiliaryRedirects (used by batch).
+            if ("fabric".equalsIgnoreCase(info.modLoaderType())) {
+                try {
+                    int memberMappings = com.retromod.mapping.IntermediaryToMojangMapper
+                            .applyTo(transformer);
+                    if (memberMappings > 0) {
+                        System.out.println("Applied intermediary->Mojang member mappings ("
+                                + memberMappings + ").");
+                    }
+                } catch (Exception e) {
+                    // Best-effort - class moves already applied above.
                 }
-            } catch (Exception e) {
-                // Best-effort — class moves already applied above.
+            }
+
+            // Register the NeoForge deleted-class bridges (#52 DeferredSpawnEggItem, #85
+            // FMLJavaModLoadingContext) so embedIntoJar (below) can place them per-mod.
+            // NeoForge OR Forge: a cross-loader mod shipping both mods.toml +
+            // neoforge.mods.toml is detected as "forge" yet runs on NeoForge; the embed is
+            // reference-gated, so a pure-Forge mod with no net/neoforged refs is a no-op.
+            // (batch registers these via registerAuxiliaryRedirects; transform's aux is inline.)
+            String synLoaderT = info.modLoaderType();
+            if ("neoforge".equalsIgnoreCase(synLoaderT) || "forge".equalsIgnoreCase(synLoaderT)) {
+                try {
+                    com.retromod.shim.forge.ForgeNeoForgeSynthetics.registerAll(transformer);
+                } catch (Exception e) {
+                    // Best-effort.
+                }
             }
         }
 
@@ -538,6 +579,9 @@ public class RetromodCli {
         }
 
         transformJar(modPath, outputPath, transformer, info);
+        // Embed any referenced deleted-class synthetics (#52/#85) per-mod into the output jar.
+        com.retromod.core.SyntheticEmbedder.embedIntoJar(
+                outputPath, modPath.getFileName().toString(), transformer);
         System.out.println("✓ Transformation complete: " + outputPath);
         verifyIfRequested(outputPath, modPath.getFileName().toString(), args);
     }
@@ -570,6 +614,100 @@ public class RetromodCli {
     /**
      * Process all mods in a folder.
      */
+    /**
+     * Register the auxiliary redirects an in-game boot applies on top of the version
+     * chain: loader-matched API shims (their version strings are Fabric API release
+     * numbers, so the MC version-graph BFS never reaches them), the vanilla 26.1
+     * class-move table, and the Fabric intermediary->Mojang member mappings.
+     *
+     * <p>transformCommand registers these inline; batchCommand historically did NOT,
+     * so {@code batch} output (and the recommended NeoForge AOT-prep flow built on it)
+     * silently skipped EVERY vanilla class move. Concretely: a 1.21.4 mod's
+     * {@code ServerLevel} mixin kept the old {@code EndDragonFight} @Shadow type
+     * instead of 26.x's {@code EnderDragonFight}, so the @Shadow descriptor no longer
+     * matched the target and the mod failed construction (Yung's Better End Island on
+     * 26.2). Keep this in sync with the inline block in {@link #transformCommand}.
+     *
+     * @return a one-line summary of what was applied, or null if nothing extra applied
+     */
+    // Package-private for RetromodCliAuxRedirectsTest (loader-gating regression).
+    static String registerAuxiliaryRedirects(
+            RetromodTransformer transformer, ModVersionInfo info, List<VersionShim> chain) {
+        java.util.Set<VersionShim> chainSet = new java.util.HashSet<>(chain);
+        int apiApplied = 0;
+        // shimRegistry is null only in unit tests exercising the gating directly; the
+        // API-shim pass is then skipped (class moves + member gating below still run).
+        java.util.List<VersionShim> allShims =
+                (shimRegistry != null) ? shimRegistry.getAllShims() : java.util.List.of();
+        for (VersionShim shim : allShims) {
+            if (chainSet.contains(shim)) continue;
+            String loader = shim.getModLoaderType();
+            if (loader != null && !"any".equalsIgnoreCase(loader)
+                    && !loader.equalsIgnoreCase(info.modLoaderType())) continue;
+            if (!shim.getClass().getName().startsWith("com.retromod.shim.api.")) continue;
+            try {
+                shim.registerRedirects(transformer);
+                apiApplied++;
+            } catch (Exception e) {
+                // Best-effort - one bad API shim shouldn't kill the rest.
+            }
+        }
+
+        int classMovesApplied = 0;
+        int memberMappings = 0;
+        if (com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
+            // Vanilla 26.1 class relocations (Mojang->Mojang, e.g. EndDragonFight ->
+            // EnderDragonFight) apply to EVERY loader: NeoForge/Forge mods reference
+            // these by their Mojang names too, so a 1.21.x mod's @Shadow/@Inject needs
+            // them rewritten regardless of loader.
+            try {
+                var moves = com.retromod.mapping.IntermediaryToMojangMapper
+                        .getInstance().getClassMoves();
+                for (var e : moves.entrySet()) {
+                    transformer.registerClassRedirect(e.getKey(), e.getValue());
+                    classMovesApplied++;
+                }
+            } catch (Exception e) {
+                // Best-effort - the chain + API shims still apply without the moves.
+            }
+            // The intermediary->Mojang MEMBER mappings (class_/method_/field_XXXX) are
+            // FABRIC-ONLY: distributed Fabric mods carry intermediary names, NeoForge/
+            // Forge mods are already Mojang-named. Applying them to a NeoForge mod is the
+            // runtime's own split (RetromodPreLaunch=Fabric registers them; RetromodNeoForge
+            // does not) - and doing it anyway clobbers correct Mojang field refs with
+            // 26.1-era names (it renamed YUNG's API's Blocks.WHITE_CANDLE to a field 26.2
+            // no longer has -> NoSuchFieldError at construct).
+            if ("fabric".equalsIgnoreCase(info.modLoaderType())) {
+                try {
+                    memberMappings = com.retromod.mapping.IntermediaryToMojangMapper.applyTo(transformer);
+                } catch (Exception e) {
+                    // Best-effort - class moves already applied above.
+                }
+            }
+            // Register the NeoForge deleted-class bridges (#52 DeferredSpawnEggItem, #85
+            // FMLJavaModLoadingContext) so SyntheticEmbedder can place them per-mod after
+            // transformJar. Gated to the JPMS loaders (NeoForge OR Forge): a cross-loader mod
+            // that ships both mods.toml + neoforge.mods.toml is detected as "forge" yet loads on
+            // a NeoForge host and uses these net/neoforged classes. The CLI has no host MC, so we
+            // register unconditionally here; the embedder is reference-gated, so a pure-Forge mod
+            // (no net/neoforged refs) and any mod that doesn't use them are left untouched.
+            String synLoader = info.modLoaderType();
+            if ("neoforge".equalsIgnoreCase(synLoader) || "forge".equalsIgnoreCase(synLoader)) {
+                try {
+                    com.retromod.shim.forge.ForgeNeoForgeSynthetics.registerAll(transformer);
+                } catch (Exception e) {
+                    // Best-effort.
+                }
+            }
+        }
+
+        if (apiApplied == 0 && classMovesApplied == 0 && memberMappings == 0) {
+            return null;
+        }
+        return "Applied alongside the version chain: " + apiApplied + " API shim(s), "
+                + classMovesApplied + " class move(s), " + memberMappings + " member mapping(s).";
+    }
+
     private static void batchCommand(String[] args) throws Exception {
         if (args.length < 2) {
             System.err.println("Usage: batch <mods-folder> [--output <output-folder>] [--aot]");
@@ -632,6 +770,23 @@ public class RetromodCli {
                 // of whether bytecode transformation is needed
                 boolean needs26Patch = TARGET_MC_VERSION.startsWith("26.");
                 boolean needsBytecodeTransform = info.needsTransformation(TARGET_MC_VERSION);
+                // For a 26.x target, force the full bytecode transform on a mod whose own MC
+                // version we can't read (null / unparseable / literal ${placeholder} metadata).
+                // We can't confirm it's 26.x-native, and a pre-26 mod needs the class moves,
+                // removed-API polyfills, and deleted-class bridges - metadata-only (PATCHED)
+                // skips all of that and the mod crashes at load/construct (NoSuchFieldError on a
+                // removed field, NoClassDefFound on a deleted class). A genuine 26.x-native mod
+                // has readable 26.x metadata, so it won't hit this branch (and the class moves
+                // no-op on already-26 names anyway, so a false positive is harmless). Found via
+                // Luminous: Nether, whose neoforge.mods.toml ships ${minecraft_version_range}.
+                if (!needsBytecodeTransform && needs26Patch) {
+                    String mv = info.targetMcVersion();
+                    boolean readable = mv != null && !mv.isBlank() && !mv.contains("$")
+                            && mv.matches(".*\\d+\\.\\d+.*");
+                    if (!readable) {
+                        needsBytecodeTransform = true;
+                    }
+                }
 
                 Path outputPath = outputFolder.resolve(modFile.getName());
                 String status;
@@ -652,6 +807,11 @@ public class RetromodCli {
                         for (VersionShim shim : chain) {
                             shim.registerRedirects(transformer);
                         }
+                        // Apply the same class-move table + API shims + member mappings
+                        // an in-game boot (and the single-mod `transform`) layers on top
+                        // of the chain. Without this, batch output kept pre-26.x class
+                        // names (e.g. EndDragonFight) and 1.21.x mixin @Shadows broke.
+                        registerAuxiliaryRedirects(transformer, info, chain);
                         transformJar(modFile.toPath(), outputPath, transformer, info);
                     }
                     status = "OK";
@@ -672,6 +832,25 @@ public class RetromodCli {
                 // Post-process: patch mod metadata for 26.1+ compatibility
                 if (needs26Patch) {
                     patchModMetadata(outputPath);
+                    // Embed any referenced deleted-class synthetics (#52 DeferredSpawnEggItem,
+                    // #85 FMLJavaModLoadingContext) per-mod - whether the mod was bytecode-
+                    // transformed/AOT-compiled above OR only metadata-patched. A mod that reads
+                    // as "compatible" by version can still reference a class 26.x deleted (e.g.
+                    // Luminous: Nether targets 1.21.1, takes the PATCHED branch, yet uses
+                    // DeferredSpawnEggItem). Gated to the JPMS loaders (NeoForge OR Forge -
+                    // a cross-loader mod shipping both tomls is detected as "forge" but runs on
+                    // NeoForge); reference-gated, so a no-op for mods that don't use them.
+                    String embLoader = info.modLoaderType();
+                    if ("neoforge".equalsIgnoreCase(embLoader) || "forge".equalsIgnoreCase(embLoader)) {
+                        try {
+                            RetromodTransformer rt = RetromodTransformer.getInstance();
+                            com.retromod.shim.forge.ForgeNeoForgeSynthetics.registerAll(rt);
+                            com.retromod.core.SyntheticEmbedder.embedIntoJar(
+                                    outputPath, modFile.getName(), rt);
+                        } catch (Exception e) {
+                            // Best-effort - the mod is otherwise complete.
+                        }
+                    }
                 }
 
                 long elapsed = System.currentTimeMillis() - start;
@@ -766,7 +945,7 @@ public class RetromodCli {
                 String version = args[3];
                 boolean autoYes = args.length > 4 && "--yes".equalsIgnoreCase(args[4]);
 
-                // Explicit user-consent download — see ApiArchiveManager
+                // Explicit user-consent download - see ApiArchiveManager
                 // Javadoc for the network-policy rationale. The CLI is
                 // the only entry point allowed to drive this; we prompt
                 // before any network traffic so the user knows exactly
@@ -777,7 +956,7 @@ public class RetromodCli {
                 if (downloaded) {
                     System.out.println("✓ Download complete");
                 } else {
-                    System.out.println("Skipped — no download performed.");
+                    System.out.println("Skipped - no download performed.");
                 }
             }
             case "list" -> {
@@ -835,7 +1014,7 @@ public class RetromodCli {
                 new java.io.InputStreamReader(System.in)).readLine();
             return line != null && (line.equalsIgnoreCase("y") || line.equalsIgnoreCase("yes"));
         } catch (java.io.IOException e) {
-            System.err.println("Could not read response — treating as 'no'.");
+            System.err.println("Could not read response - treating as 'no'.");
             return false;
         }
     }
@@ -865,7 +1044,7 @@ public class RetromodCli {
                 new java.io.InputStreamReader(System.in)).readLine();
             return line != null && (line.equalsIgnoreCase("y") || line.equalsIgnoreCase("yes"));
         } catch (java.io.IOException e) {
-            System.err.println("Could not read response — treating as 'no'.");
+            System.err.println("Could not read response - treating as 'no'.");
             return false;
         }
     }
@@ -907,6 +1086,11 @@ public class RetromodCli {
              var outJar = new java.util.jar.JarOutputStream(
                      new FileOutputStream(output.toFile()))) {
 
+            // Offline analogue of the runtime mixin blocklist (ForgeModTransformer /
+            // FabricModTransformer): neutralize blocklisted mixin handlers / whole mixin
+            // classes that fatally fail on the target MC, so a batch/transform-prepped mod
+            // gets the same soft-fail an in-game boot would. No-op for unlisted classes.
+            var mixinStripper = new com.retromod.mixin.MixinCompatibilityTransformer(transformer);
             var entries = inJar.entries();
             while (entries.hasMoreElements()) {
                 var entry = entries.nextElement();
@@ -919,14 +1103,20 @@ public class RetromodCli {
 
                 if (!entry.isDirectory()) {
                     try (var is = inJar.getInputStream(entry)) {
-                        // Bounded read — defends against a mod JAR with a
+                        // Bounded read - defends against a mod JAR with a
                         // falsified-size entry that would otherwise allocate
                         // gigabytes when decompressed.
                         byte[] data = com.retromod.util.ZipSecurity.safeReadAllBytes(is);
 
-                        if (entry.getName().endsWith(".class") &&
-                                shouldTransformClass(entry.getName(), info)) {
-                            data = transformer.transformClass(data, entry.getName());
+                        if (entry.getName().endsWith(".class")) {
+                            if (shouldTransformClass(entry.getName(), info)) {
+                                data = transformer.transformClass(data, entry.getName());
+                            }
+                            // Neutralize blocklisted mixins (e.g. Yung's API BeardifierMixin,
+                            // which crashes 26.2 world-gen). Always runs for .class entries -
+                            // a mixin can need neutralizing even when its bytecode otherwise
+                            // "doesn't need transformation".
+                            data = mixinStripper.stripBlocklistedHandlers(data);
                         } else if (entry.getName().equals("fabric.mod.json")) {
                             // Relax version dependencies for compatibility
                             data = relaxFabricModDependencies(data);
@@ -943,11 +1133,26 @@ public class RetromodCli {
                             // Make mixin configs non-fatal so @Accessor/@Invoker
                             // on removed fields don't crash the game
                             data = makeMixinConfigNonFatal(data);
-                        } else if (entry.getName().startsWith("META-INF/jars/") &&
-                                   entry.getName().endsWith(".jar")) {
-                            // Process JiJ (Jar-in-Jar) nested JARs — patch their
-                            // mixin configs and fabric.mod.json too
-                            data = transformNestedJar(data);
+                        } else if (com.retromod.resources.ModDataMigrator.isMigratableData(entry.getName())) {
+                            // 26.x data-only changes the bytecode pass can't reach: item
+                            // renames (minecraft:chain -> iron_chain) and JSON shape changes
+                            // (dyed_color object -> int, advancement icon "item" -> "id").
+                            // Without this a 1.21.x structure mod's STRUCTURES still generate
+                            // (vanilla worldgen types resolve), but its loot tables and
+                            // advancements fail to parse - empty chests, missing advancements.
+                            // Found on a headless 26.1 server with When Dungeons Arise. Gated
+                            // to 26.x targets inside migrate().
+                            data = com.retromod.resources.ModDataMigrator.migrate(
+                                    entry.getName(), data, TARGET_MC_VERSION);
+                        } else if ((entry.getName().startsWith("META-INF/jars/")        // Fabric JiJ
+                                    || entry.getName().startsWith("META-INF/jarjar/"))  // NeoForge/Forge JiJ
+                                   && entry.getName().endsWith(".jar")) {
+                            // Recurse the full transform (bytecode + metadata) into bundled
+                            // Jar-in-Jar libraries, not just the mod's own classes. A mod that
+                            // registers content through a JiJ'd library (#71) or bundles a lib
+                            // referencing a relocated class needs the nested jar transformed too,
+                            // or it loads broken / reports the library "missing" (#95).
+                            data = transformNestedJar(data, 1);
                         }
 
                         outJar.write(data);
@@ -1046,12 +1251,24 @@ public class RetromodCli {
         }
     }
 
+    /** Max Jar-in-Jar nesting depth Retromod recurses through (libraries inside libraries). */
+    private static final int MAX_JIJ_DEPTH = 4;
+
     /**
-     * Transform a nested JAR (Jar-in-Jar / JiJ) by processing its mixin configs
-     * and fabric.mod.json. This handles bundled Fabric API modules that contain
-     * @Accessor/@Invoker targeting removed fields.
+     * Recursively transform a nested Jar-in-Jar (JiJ) library: rewrite its bytecode with the
+     * same transformer as the parent, relax its metadata (fabric.mod.json / quilt.mod.json /
+     * mods.toml / neoforge.mods.toml), make its mixin configs non-fatal, and recurse into its
+     * OWN bundled jars (META-INF/jars/ for Fabric, META-INF/jarjar/ for NeoForge/Forge) up to
+     * {@link #MAX_JIJ_DEPTH}.
+     *
+     * <p>Many mods register all their content through a JiJ'd library (Critter, Botarium,
+     * Moonlight, …) whose calls reference relocated/intermediary names - without remapping the
+     * nested bytecode those calls hit dead names and the mod loads but registers nothing (#71).
+     * A bundled library that references a relocated class otherwise loads broken or is reported
+     * "missing" (#95). Mirrors the runtime path's FabricModTransformer.remapNestedJar.
      */
-    private static byte[] transformNestedJar(byte[] jarData) {
+    // Package-private for NestedJarRecursionTest (#95 recursion regression).
+    static byte[] transformNestedJar(byte[] jarData, int depth) {
         try {
             var bais = new java.io.ByteArrayInputStream(jarData);
             var baos = new java.io.ByteArrayOutputStream(jarData.length);
@@ -1067,35 +1284,40 @@ public class RetromodCli {
 
                     if (!entry.isDirectory()) {
                         byte[] data = com.retromod.util.ZipSecurity.safeReadAllBytes(jis);
+                        String name = entry.getName();
 
-                        if (entry.getName().endsWith(".class")) {
-                            // Transform the nested jar's BYTECODE too — not just its
-                            // metadata. Many mods register all their content through a
-                            // JIJ-bundled library (Critter, Botarium, Moonlight, …)
-                            // whose Registry.register calls are full of intermediary
-                            // names; without remapping these the calls hit dead
-                            // intermediary names on a 26.1 host and silently no-op, so
-                            // the mod loads but registers nothing (#71, Rubinated
-                            // Nether → Critter). Mirrors the runtime path's
-                            // FabricModTransformer.remapNestedJar.
-                            String className = entry.getName().substring(0,
-                                    entry.getName().length() - ".class".length());
+                        if (name.endsWith(".class")) {
+                            String className = name.substring(0, name.length() - ".class".length());
                             try {
-                                byte[] t = RetromodTransformer.getInstance()
-                                        .transformClass(data, className);
+                                byte[] t = RetromodTransformer.getInstance().transformClass(data, className);
                                 if (t != null && t != data) { data = t; modified = true; }
                             } catch (Exception ignored) {
                                 // leave the class untouched on any transform error
                             }
-                        } else if (entry.getName().endsWith(".mixins.json") ||
-                            entry.getName().endsWith("mixin.json") ||
-                            (entry.getName().contains("mixin") && entry.getName().endsWith(".json"))) {
+                        } else if (name.endsWith(".mixins.json") || name.endsWith("mixin.json")
+                                || (name.contains("mixin") && name.endsWith(".json"))) {
                             byte[] patched = makeMixinConfigNonFatal(data);
                             if (patched != data) modified = true;
                             data = patched;
-                        } else if (entry.getName().equals("fabric.mod.json")) {
+                        } else if (name.equals("fabric.mod.json") || name.equals("quilt.mod.json")) {
                             data = relaxFabricModDependencies(data);
                             modified = true;
+                        } else if (name.equals("META-INF/mods.toml") || name.equals("META-INF/neoforge.mods.toml")) {
+                            data = relaxNeoForgeDependencies(data);
+                            modified = true;
+                        } else if (com.retromod.resources.ModDataMigrator.isMigratableData(name)) {
+                            // Migrate JiJ'd data-pack JSON across the 1.21.x -> 26.x data-only
+                            // format changes (mirrors the top-level transformJar branch). A mod
+                            // that ships its loot tables / tags inside a bundled library needs
+                            // the nested data migrated too. Gated to 26.x inside migrate().
+                            byte[] t = com.retromod.resources.ModDataMigrator.migrate(
+                                    name, data, TARGET_MC_VERSION);
+                            if (t != data) { data = t; modified = true; }
+                        } else if (depth < MAX_JIJ_DEPTH
+                                && (name.startsWith("META-INF/jars/") || name.startsWith("META-INF/jarjar/"))
+                                && name.endsWith(".jar")) {
+                            byte[] t = transformNestedJar(data, depth + 1);
+                            if (t != data) { data = t; modified = true; }
                         }
 
                         jos.write(data);
@@ -1196,7 +1418,7 @@ public class RetromodCli {
 
                 if (!entry.isDirectory()) {
                     try (var is = inJar.getInputStream(entry)) {
-                        // Bounded read — defends against a mod JAR with a
+                        // Bounded read - defends against a mod JAR with a
                         // falsified-size entry that would otherwise allocate
                         // gigabytes when decompressed.
                         byte[] data = com.retromod.util.ZipSecurity.safeReadAllBytes(is);
@@ -1207,6 +1429,14 @@ public class RetromodCli {
                         } else if (entry.getName().equals("META-INF/mods.toml") ||
                                    entry.getName().equals("META-INF/neoforge.mods.toml")) {
                             data = relaxNeoForgeDependencies(data);
+                        } else if (com.retromod.resources.ModDataMigrator.isMigratableData(entry.getName())) {
+                            // A "compatible by version" mod takes this metadata-only branch (its
+                            // bytecode needs no transform), but it can still ship data that hits a
+                            // 26.x data-only change - e.g. Luminous: Nether targets 1.21.1 yet
+                            // carries chain loot tables. Migrate here too. Gated to 26.x inside
+                            // migrate(), so pre-26.x targets pass through untouched.
+                            data = com.retromod.resources.ModDataMigrator.migrate(
+                                    entry.getName(), data, TARGET_MC_VERSION);
                         }
 
                         outJar.write(data);
@@ -1996,7 +2226,7 @@ public class RetromodCli {
         System.out.println("  # See what API changes you need for updating your own mod");
         System.out.println("  retromod devhelp mymod-1.21.4.jar 26.1");
         System.out.println();
-        System.out.println("  # Cross-mod gap report — what's missing across a whole mods folder");
+        System.out.println("  # Cross-mod gap report - what's missing across a whole mods folder");
         System.out.println("  retromod gaps ./mods --mc-jar minecraft-26.1.jar");
         System.out.println();
         System.out.println("Target Minecraft version: " + TARGET_MC_VERSION);
@@ -2004,7 +2234,7 @@ public class RetromodCli {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // GAPS COMMAND — cross-mod gap report
+    // GAPS COMMAND - cross-mod gap report
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -2023,7 +2253,7 @@ public class RetromodCli {
      *     ...
      * </pre>
      *
-     * <p>Doesn't modify any mods on disk — purely diagnostic. Runs transformation
+     * <p>Doesn't modify any mods on disk - purely diagnostic. Runs transformation
      * in-memory for each class.</p>
      *
      * <p>Usage: {@code retromod gaps <mods-folder> [--mc-jar <path>] [--output <file>]}</p>
@@ -2059,7 +2289,7 @@ public class RetromodCli {
         }
 
         // Enable verification for this run (disabled by default in the transformer).
-        // Setting the property BEFORE touching RetromodTransformer is not enough —
+        // Setting the property BEFORE touching RetromodTransformer is not enough -
         // the transformer reads it at class-init time. For CLI use, we add a
         // public static check instead (see RetromodTransformer.isVerificationEnabled)
         // and we gate on that. For now, if verification isn't on, we tell the user.
@@ -2077,7 +2307,7 @@ public class RetromodCli {
         // Without this, Fabric mods (which ship intermediary class_XXXX /
         // method_XXXX / field_XXXX names in their bytecode) go through
         // transformation with those names untouched, then show up as
-        // "missing" in the verifier — a gap report full of noise from
+        // "missing" in the verifier - a gap report full of noise from
         // unresolved intermediary names rather than the real gaps.
         // RetromodPreLaunch does the same wiring for the runtime Fabric
         // entry; the CLI does it here for consistency.
@@ -2144,13 +2374,13 @@ public class RetromodCli {
 
     /**
      * Open one mod JAR, transform + verify each class, return the per-mod report.
-     * In-memory only — does not write a new JAR.
+     * In-memory only - does not write a new JAR.
      *
      * <p>Pipeline: (1) read all classes; (2) transform each through the main
      * pipeline (which includes iterative loop + reflection remapping);
      * (3) optionally run bridge synthesis; (4) optionally run pattern matching;
      * (5) run the verifier against the final bytecode. Each step is gated by its
-     * own system-property flag — all must be enabled independently via
+     * own system-property flag - all must be enabled independently via
      * {@code -Dretromod.*} to fully exercise this command.</p>
      */
     private static com.retromod.core.verify.VerificationReport verifyOneMod(
@@ -2172,7 +2402,7 @@ public class RetromodCli {
                 String internalName = entry.getName().substring(0, entry.getName().length() - 6);
                 modOwnClasses.add(internalName);
                 try (var in = jar.getInputStream(entry)) {
-                    // Bounded read — a crafted mod could otherwise ship a
+                    // Bounded read - a crafted mod could otherwise ship a
                     // .class entry with declared-size=0 but gigabytes of
                     // compressed data, OOMing the gaps command.
                     classBytesByName.put(internalName,
@@ -2185,7 +2415,7 @@ public class RetromodCli {
                 new com.retromod.core.verify.VerificationReport(
                         modId, TARGET_MC_VERSION, classBytesByName.size());
 
-        // Pattern-matching context — shared across all class visits for this mod
+        // Pattern-matching context - shared across all class visits for this mod
         com.retromod.core.pattern.MatchContext matchCtx = null;
         if (RetromodTransformer.isPatternMatchingEnabled()) {
             com.retromod.core.verify.McSymbolIndex idx = transformer.getFuzzyResolver() != null
@@ -2206,7 +2436,7 @@ public class RetromodCli {
         // Each per-class pipeline is independent: transform, bridge-synth, verify,
         // and pattern-match all work from the class's own bytes and the shared,
         // thread-safe redirect tables. The verifier's report accumulator is
-        // thread-safe thanks to its use of synchronizedList-wrapped internals —
+        // thread-safe thanks to its use of synchronizedList-wrapped internals -
         // we serialize only the final per-mod report aggregation, not the
         // per-class pipeline steps.
         final com.retromod.core.pattern.MatchContext finalMatchCtx = matchCtx;
@@ -2218,7 +2448,7 @@ public class RetromodCli {
                     transformer.verifyClass(transformed, className, modOwnClasses, report);
                     if (finalMatchCtx != null) {
                         // VerificationReport.addPatternMatch is synchronized
-                        // internally — safe to call from worker threads.
+                        // internally - safe to call from worker threads.
                         for (var m : transformer.matchPatterns(transformed, finalMatchCtx)) {
                             report.addPatternMatch(m);
                         }

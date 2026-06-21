@@ -1,5 +1,5 @@
 /*
- * Retromod — compile-time stub of
+ * Retromod - compile-time stub of
  * net.neoforged.neoforgespi.locating.IDiscoveryPipeline.
  * Copyright (c) 2026 Bownlux. MIT License.
  *
@@ -7,8 +7,8 @@
  * overload RetromodModLocator calls is declared. In the real interface this is
  * a default method (a convenience wrapper over addPath(List, ...)); declaring it
  * abstract here is fine because invokeinterface resolves to the real default at
- * runtime. The erased descriptor — (Path, ModFileDiscoveryAttributes,
- * IncompatibleFileReporting) -> Optional — matches NeoForge exactly.
+ * runtime. The erased descriptor - (Path, ModFileDiscoveryAttributes,
+ * IncompatibleFileReporting) -> Optional - matches NeoForge exactly.
  */
 package net.neoforged.neoforgespi.locating;
 

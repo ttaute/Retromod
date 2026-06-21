@@ -29,7 +29,7 @@ public final class GuiTests {
                 MinecraftClient mc = MinecraftClient.getInstance();
                 return mc != null
                     ? TestResult.success()
-                    : TestResult.fail("null — too early in client init?");
+                    : TestResult.fail("null - too early in client init?");
             }),
             new SimpleTest("ButtonWidget.builder(text, onPress)", () -> {
                 Object builder = ButtonWidget.builder(Text.literal("test"), b -> {});

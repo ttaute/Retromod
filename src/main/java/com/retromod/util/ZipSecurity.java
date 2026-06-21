@@ -28,7 +28,7 @@ import java.nio.file.Path;
  */
 public final class ZipSecurity {
 
-    /** Default per-entry size cap (50 MB) — matches Fabric/Forge extractor defaults. */
+    /** Default per-entry size cap (50 MB) - matches Fabric/Forge extractor defaults. */
     public static final long DEFAULT_MAX_ENTRY_SIZE = 50L * 1024 * 1024;
     /** Default total extraction cap (500 MB). */
     public static final long DEFAULT_MAX_TOTAL_SIZE = 500L * 1024 * 1024;
@@ -36,7 +36,7 @@ public final class ZipSecurity {
     private ZipSecurity() {}
 
     /**
-     * Validate that a ZIP entry name is safe — no path traversal components,
+     * Validate that a ZIP entry name is safe - no path traversal components,
      * no absolute paths, no empty/null. Use this whenever copying an entry
      * name to disk OR to another archive (since downstream tools may extract
      * the output archive and be vulnerable to zip-slip themselves).
@@ -69,7 +69,7 @@ public final class ZipSecurity {
 
     /**
      * Read an InputStream into a byte array, capping total bytes read. Unlike
-     * InputStream.readAllBytes() this does NOT trust the header-declared size —
+     * InputStream.readAllBytes() this does NOT trust the header-declared size -
      * it counts bytes actually read, so a malicious archive that reports size=0
      * but streams gigabytes will be caught.
      *
@@ -128,7 +128,7 @@ public final class ZipSecurity {
     public static void validateNotSymlink(Path path) throws IOException {
         if (Files.exists(path) && Files.isSymbolicLink(path)) {
             throw new IOException("Security: symlink detected at " + path
-                + " — refusing to operate on symlinked directories");
+                + " - refusing to operate on symlinked directories");
         }
     }
 
@@ -139,7 +139,7 @@ public final class ZipSecurity {
      * <p>Use this instead of {@link Files#copy(InputStream, Path, java.nio.file.CopyOption...)}
      * whenever extracting from an untrusted archive. The size cap is enforced
      * against bytes <em>actually read</em>, not the size declared in the ZIP
-     * central directory — so an entry that lies about its size (a classic
+     * central directory - so an entry that lies about its size (a classic
      * zip-bomb vector where the header reports a few KB but the deflate
      * stream expands to gigabytes) is caught mid-stream rather than after
      * the disk has filled up.
@@ -168,7 +168,7 @@ public final class ZipSecurity {
                     // remove it on the IOException path.
                     throw new IOException("ZIP entry too large: " + entryNameForError
                         + " (exceeded " + maxBytes + " bytes while reading, "
-                        + "possible zip bomb — declared size in central directory "
+                        + "possible zip bomb - declared size in central directory "
                         + "may be falsified)");
                 }
                 out.write(buf, 0, n);

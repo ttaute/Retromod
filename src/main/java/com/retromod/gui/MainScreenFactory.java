@@ -15,13 +15,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * The main Retromod in-game screen — the one that opens when you click the
+ * The main Retromod in-game screen - the one that opens when you click the
  * Retromod logo on the title screen. Has:
  *
  * <ul>
  *   <li>A "settings" gear button at top-right that opens the toggle screen</li>
- *   <li>"Add Mods" — opens the OS native file picker (with macOS workarounds)</li>
- *   <li>"Open Mods Folder" — opens the {@code retromod-input/} folder in the
+ *   <li>"Add Mods" - opens the OS native file picker (with macOS workarounds)</li>
+ *   <li>"Open Mods Folder" - opens the {@code retromod-input/} folder in the
  *       OS file manager. Reliable cross-platform fallback when the file
  *       picker has issues.</li>
  *   <li>"Done" at the bottom to return to the parent screen</li>
@@ -51,13 +51,13 @@ public final class MainScreenFactory {
     public static void open(Object parentScreen) {
         LOGGER.info("[Retromod] MainScreenFactory.open() entered");
         if (!resolveClasses()) {
-            LOGGER.warn("[Retromod] Cannot open main screen — MC classes not available");
+            LOGGER.warn("[Retromod] Cannot open main screen - MC classes not available");
             return;
         }
 
         Object title = McI18n.translatable("retromod.main.title");
         if (title == null) {
-            LOGGER.warn("[Retromod] Could not create title text — McI18n returned null");
+            LOGGER.warn("[Retromod] Could not create title text - McI18n returned null");
             return;
         }
 
@@ -73,7 +73,7 @@ public final class MainScreenFactory {
                 }
         );
         if (screen == null) {
-            LOGGER.warn("[Retromod] ScreenClassGenerator returned null — cannot open main screen");
+            LOGGER.warn("[Retromod] ScreenClassGenerator returned null - cannot open main screen");
             return;
         }
         LOGGER.info("[Retromod] Calling setScreen() with generated main screen");
@@ -117,14 +117,14 @@ public final class MainScreenFactory {
                     x, startY, btnWidth, btnHeight);
             addWidget(screen, subtitle);
 
-            // Add Mods button — opens the OS native file picker
+            // Add Mods button - opens the OS native file picker
             Object addBtn = buildButton(
                     McI18n.translatable("retromod.main.add_mods"),
                     makePressAction(() -> openNativeFilePicker(screen)),
                     x, startY + btnHeight + gap, btnWidth, btnHeight);
             addWidget(screen, addBtn);
 
-            // Open Mods Folder button — reliable cross-platform alternative
+            // Open Mods Folder button - reliable cross-platform alternative
             Object folderBtn = buildButton(
                     McI18n.translatable("retromod.main.open_folder"),
                     makePressAction(MainScreenFactory::openInputFolder),
@@ -180,7 +180,7 @@ public final class MainScreenFactory {
 
     /**
      * Open {@code retromod-input/} in the OS file manager so the user can
-     * drop JARs into it. Works on every platform — uses MC's own
+     * drop JARs into it. Works on every platform - uses MC's own
      * Util.getOperatingSystem().open() (same call as the vanilla
      * "Open Resource Pack Folder" button).
      */

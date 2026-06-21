@@ -123,7 +123,7 @@ public class SafeCrashHandler {
      * code 1 with no text" problem where exceptions are swallowed silently.
      */
     private void handleUncaughtException(Thread thread, Throwable error) {
-        // ALWAYS log the full exception first — before anything else.
+        // ALWAYS log the full exception first - before anything else.
         // This prevents the "crash error 1 with no text" problem.
         LOGGER.error("Uncaught exception on thread '{}': {}", thread.getName(), error.getMessage());
         LOGGER.error("Full stack trace:", error);
@@ -178,7 +178,7 @@ public class SafeCrashHandler {
             sb.append("\nJava: ").append(System.getProperty("java.version")).append("\n");
             sb.append("OS: ").append(System.getProperty("os.name")).append(" ")
               .append(System.getProperty("os.version")).append("\n");
-            sb.append("Retromod: 1.2.0-snapshot.1\n");
+            sb.append("Retromod: 1.2.0-snapshot.2\n");
             sb.append("\nPlease report this at: https://github.com/Bownlux/Retromod/issues\n");
 
             java.nio.file.Files.writeString(crashLog, sb.toString());
@@ -499,7 +499,7 @@ public class SafeCrashHandler {
 
         // Block this thread briefly while screen is showing
         try {
-            Thread.sleep(30000); // 30 seconds max — user should click Save & Quit
+            Thread.sleep(30000); // 30 seconds max - user should click Save & Quit
         } catch (InterruptedException ignored) {
             System.exit(1);
         }

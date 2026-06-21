@@ -23,7 +23,7 @@ import java.nio.file.Path;
  * folder) and no editable config (#74). The generation logic lives here as
  * plain {@code static} methods on a class with <b>no loader supertype</b>, so
  * all three entry points can call it without dragging another loader's classes
- * in (the loader-isolation rule, CLAUDE.md pitfall #8 — same reason
+ * in (the loader-isolation rule, CLAUDE.md pitfall #8 - same reason
  * {@code RetromodVersion} is loader-agnostic).
  */
 public final class RetromodConfig {
@@ -66,7 +66,7 @@ public final class RetromodConfig {
 
               "verify_transforms": true,
 
-              "_network_comment": "Retromod never initiates network downloads without user consent. The flag below is OFF by default — flip it to true to enable the optional Modrinth lookup (queries Modrinth's public API to suggest native versions of mods you're transforming). No JAR files are ever auto-downloaded; the CLI's 'archive download' command is the only path that fetches files, and it prompts before each download.",
+              "_network_comment": "Retromod never initiates network downloads without user consent. The flag below is OFF by default - flip it to true to enable the optional Modrinth lookup (queries Modrinth's public API to suggest native versions of mods you're transforming). No JAR files are ever auto-downloaded; the CLI's 'archive download' command is the only path that fetches files, and it prompts before each download.",
               "check_for_native_versions": false
             }
             """;

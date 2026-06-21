@@ -21,7 +21,7 @@ import java.lang.reflect.Method;
  *
  * This shim wraps getDefaultInstance() to catch the NPE and return ItemStack.EMPTY,
  * allowing the mod to continue loading. The affected code paths typically don't need
- * a real ItemStack at that point — they're registering handlers or building data structures
+ * a real ItemStack at that point - they're registering handlers or building data structures
  * that will be populated later when items are actually available.
  */
 public class ItemSafetyShim {
@@ -30,7 +30,7 @@ public class ItemSafetyShim {
     private static volatile boolean warned = false;
 
     // Cached reflection lookups (initialized lazily, thread-safe via volatile).
-    // We use reflection because MC classes aren't on the compile classpath — this
+    // We use reflection because MC classes aren't on the compile classpath - this
     // shim is compiled as part of Retromod, not against a specific MC version.
     private static volatile Method getDefaultInstanceMethod;
     private static volatile Object itemStackEmpty;
@@ -59,13 +59,13 @@ public class ItemSafetyShim {
                     && npe.getMessage() != null
                     && npe.getMessage().contains("Components not bound")) {
                 if (!warned) {
-                    LOGGER.warn("Item.getDefaultInstance() called before components are bound — " +
+                    LOGGER.warn("Item.getDefaultInstance() called before components are bound - " +
                         "returning EMPTY. This is expected during early mod initialization in 26.1.");
                     warned = true;
                 }
                 return getItemStackEmpty();
             }
-            // Not the expected error — rethrow
+            // Not the expected error - rethrow
             if (e instanceof RuntimeException re) throw re;
             throw new RuntimeException(e);
         }
@@ -90,7 +90,7 @@ public class ItemSafetyShim {
      * Devirtualized: the instance is passed as first parameter.
      */
     public static void noOp(Object instance, float value) {
-        // Intentionally empty — method was removed in 26.1
+        // Intentionally empty - method was removed in 26.1
     }
 
     /**
@@ -98,7 +98,7 @@ public class ItemSafetyShim {
      * Used for e.g. VertexConsumer.endVertex() which auto-ends in 26.1.
      */
     public static void noOpVoid(Object instance) {
-        // Intentionally empty — method was removed in 26.1
+        // Intentionally empty - method was removed in 26.1
     }
 
     /** No-op for removed static void methods (e.g., RenderSystem.enableBlend). */
@@ -137,7 +137,7 @@ public class ItemSafetyShim {
 
     /** No-op for removed RenderSystem.setShaderColor(float, float, float, float). */
     public static void noOpColor(float r, float g, float b, float a) {
-        // Intentionally empty — rendering is now pipeline-based
+        // Intentionally empty - rendering is now pipeline-based
     }
 
     /**
@@ -197,7 +197,7 @@ public class ItemSafetyShim {
     }
 
     // ================================================================
-    // Item tooltip dummy — prevents AbstractMethodError on hover
+    // Item tooltip dummy - prevents AbstractMethodError on hover
     // ================================================================
 
     /**
@@ -211,11 +211,11 @@ public class ItemSafetyShim {
     }
 
     // ================================================================
-    // Screen mouse event dummy — prevents AbstractMethodError on click
+    // Screen mouse event dummy - prevents AbstractMethodError on click
     // ================================================================
 
     // Cache of dummy Events per listener type (singleton, never fires).
-    // Old mods call EVENT.register(listener) — if the event interface changed signature,
+    // Old mods call EVENT.register(listener) - if the event interface changed signature,
     // we give them a dummy Event that silently accepts registrations but never invokes
     // the callback. This prevents AbstractMethodError at registration time.
     private static final java.util.concurrent.ConcurrentHashMap<String, Object> dummyEvents =
@@ -254,7 +254,7 @@ public class ItemSafetyShim {
     }
 
     // ================================================================
-    // Safe Event.register() — catches ArrayStoreException
+    // Safe Event.register() - catches ArrayStoreException
     // ================================================================
 
     /**
@@ -339,6 +339,6 @@ public class ItemSafetyShim {
         } catch (Exception e) {
             LOGGER.warn("Failed to create dummy mouse event: {}", e.getMessage());
         }
-        return null; // Fallback: will cause NPE on .register() — better than AbstractMethodError spam
+        return null; // Fallback: will cause NPE on .register() - better than AbstractMethodError spam
     }
 }

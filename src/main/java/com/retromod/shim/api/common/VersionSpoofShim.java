@@ -21,13 +21,13 @@ import com.retromod.core.VersionShim;
  * <h3>Why this is a VersionShim rather than inline init</h3>
  * <p>Retromod's VersionShim SPI fires once, during transformer setup, on
  * every loader/environment. Registering the redirect there means every mod
- * transformed by Retromod — whether via Fabric pre-launch, NeoForge
- * constructor, CLI batch, or Java Agent — gets the same redirect applied
+ * transformed by Retromod - whether via Fabric pre-launch, NeoForge
+ * constructor, CLI batch, or Java Agent - gets the same redirect applied
  * uniformly. Making it a shim also keeps the wiring file-local (no sprawl
  * into Retromod.onInitialize or its loader-specific siblings).</p>
  *
  * <h3>What this shim does NOT do</h3>
- * <p>It doesn't register the spoof rules themselves — those live in the
+ * <p>It doesn't register the spoof rules themselves - those live in the
  * bundled JSON resource that {@link com.retromod.compat.VersionSpoofer}
  * loads on first use. Editing the rules doesn't require touching this
  * shim.</p>
@@ -41,7 +41,7 @@ public final class VersionSpoofShim implements VersionShim {
 
     @Override
     public String getSourceVersion() {
-        // Loader-API shims aren't tied to a source MC version — they apply
+        // Loader-API shims aren't tied to a source MC version - they apply
         // wherever mods run. "*" signals "always active" to the chain finder.
         return "*";
     }
@@ -53,7 +53,7 @@ public final class VersionSpoofShim implements VersionShim {
 
     @Override
     public String getModLoaderType() {
-        // "common" — applies under every loader since FabricLoader.getModContainer
+        // "common" - applies under every loader since FabricLoader.getModContainer
         // is only called by Fabric-adapted mod code. Under NeoForge/Forge the
         // redirect simply never fires because the method isn't called.
         return "common";
@@ -72,7 +72,7 @@ public final class VersionSpoofShim implements VersionShim {
         //     INVOKEINTERFACE FabricLoader.getModContainer(String) : Optional
         // becomes
         //     INVOKESTATIC VersionSpoofer.getModContainer(FabricLoader, String) : Optional
-        // — semantically identical except our static method gets a chance to
+        // - semantically identical except our static method gets a chance to
         // wrap the result with a version-spoofing proxy before returning it.
         transformer.registerMethodRedirect(
                 "net/fabricmc/loader/api/FabricLoader",

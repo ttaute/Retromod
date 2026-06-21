@@ -67,7 +67,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     // CurseForge-export folder (#78). NeoForge loads this in-place via
     // RetromodModLocator; on Fabric (no locator SPI) RetromodPreLaunch drains it
     // into mods/. Holds LOADER-READY jars (Retromod itself + already-transformed
-    // mods shipped as CF pack overrides) — not raw old mods (those go in
+    // mods shipped as CF pack overrides) - not raw old mods (those go in
     // retromod-input/). Same folder name on every loader so pack authors have one
     // place to put things.
     private static final String CF_EXPORT_FOLDER = "mods/Retromod";
@@ -95,8 +95,9 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     @Override
     public void onPreLaunch() {
         LOGGER.info("╔════════════════════════════════════════════════════════════╗");
-        LOGGER.info("║  Retromod v1.2.0-snapshot.1                                ║");
+        LOGGER.info("║  Retromod v1.2.0-snapshot.2                                ║");
         LOGGER.info("╚════════════════════════════════════════════════════════════╝");
+        RetromodVersion.logPresenceBanner(LOGGER);
         
         try {
             Path gameDir = FabricLoader.getInstance().getGameDir();
@@ -111,7 +112,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             // Publish the detected host BEFORE shims register: API shims self-gate on
             // RetromodVersion.isUnobfuscatedTarget(RetromodVersion.TARGET_MC_VERSION)
             // (the 26.1-only Fabric API bridges must not hijack still-alive pre-26.1
-            // APIs — pitfall #9). Without this, the field still holds its compile-time
+            // APIs - pitfall #9). Without this, the field still holds its compile-time
             // default during prelaunch and the gate mis-fires.
             RetromodVersion.TARGET_MC_VERSION = targetVersion;
 
@@ -164,7 +165,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                 targetVersion
             );
 
-            // Step 2.6: CurseForge-export folder (mods/Retromod/) — #78.
+            // Step 2.6: CurseForge-export folder (mods/Retromod/) - #78.
             // The Fabric counterpart to NeoForge's RetromodModLocator: NeoForge
             // loads this folder in-place via an SPI, but Fabric has no locator SPI
             // and PreLaunch runs AFTER mod discovery, so we drain the (already
@@ -175,7 +176,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             int fromCfFolder;
             Path cfFolder = gameDir.resolve(CF_EXPORT_FOLDER);
             if (fabricAddModsCovers(gameDir, cfFolder)) {
-                LOGGER.info("mods/Retromod/ is on -Dfabric.addMods — Fabric loaded it in-place "
+                LOGGER.info("mods/Retromod/ is on -Dfabric.addMods - Fabric loaded it in-place "
                     + "this launch; skipping drain (#78 option 2, no restart needed)");
                 fromCfFolder = 0;
             } else {
@@ -205,7 +206,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     
     // Version math moved to the loader-agnostic RetromodVersion so the
     // NeoForge/Forge entry points can use it without dragging in this Fabric
-    // class (PreLaunchEntrypoint) — see issue #40. These thin delegates keep the
+    // class (PreLaunchEntrypoint) - see issue #40. These thin delegates keep the
     // Fabric pre-launch call sites and tests pointing here.
     static boolean isUnobfuscatedTarget(String hostVersion) {
         return RetromodVersion.isUnobfuscatedTarget(hostVersion);
@@ -240,7 +241,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                 try {
                     shim = shimIt.next();
                 } catch (java.util.ServiceConfigurationError e) {
-                    // Class not found — expected in lite builds
+                    // Class not found - expected in lite builds
                     continue;
                 }
                 try {
@@ -250,7 +251,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     // BREAKS the mod. The clearest case is the 1.21.11→26.1 shim: it
                     // renames Fabric API classes (ScreenEvents$BeforeRender→BeforeExtract,
                     // ExtendedScreenHandlerFactory→ExtendedMenuProvider, …) and rewrites
-                    // rendering types — applied on a 1.21.8/1.21.1 host that produces
+                    // rendering types - applied on a 1.21.8/1.21.1 host that produces
                     // 26.1-only names → NoClassDefFoundError/VerifyError (bugs #31/#32/#35).
                     // Unlike the intermediary remap, Fabric API names are identical in the
                     // mod and the runtime, so these renames bite even on Fabric.
@@ -267,13 +268,13 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             LOGGER.info("Registered {} version shims for transformation ({} skipped as newer than host MC {})",
                 shimCount, skippedNewer, hostVersion);
 
-            // Pre-1.17 entity-model bridge (intermediary namespace) — pre-26.1 hosts ONLY.
+            // Pre-1.17 entity-model bridge (intermediary namespace) - pre-26.1 hosts ONLY.
             // The old ModelPart self-construction API (new class_630(model,u,v) + addBox/
             // texOffs/...) was removed in the 1.17 model rewrite; the names survive but the
             // signatures/owners changed, so neither the name-keyed shims nor the (gated-off)
             // intermediary→Mojang remap fix it. On a 26.x host class_630 doesn't exist and the
             // runtime is Mojang-named, so this intermediary synthetic must NOT be injected there
-            // (its `extends class_630` would fail to load) — hence the pre-26.1 gate. (#55)
+            // (its `extends class_630` would fail to load) - hence the pre-26.1 gate. (#55)
             if (!isUnobfuscatedTarget(hostVersion)) {
                 try {
                     com.retromod.shim.fabric.Pre1_17ModelBridge.register(transformer);
@@ -282,7 +283,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     LOGGER.warn("Could not register pre-1.17 model bridge: {}", e.getMessage());
                 }
 
-                // Pre-1.21.2 InteractionResult descriptor bridge — see class javadoc.
+                // Pre-1.21.2 InteractionResult descriptor bridge - see class javadoc.
                 // class_1269 was rebuilt as a sealed interface in 1.21.2, breaking every
                 // pre-1.21.2 mod that compiled `GETSTATIC class_1269.field_5811 :
                 // Lclass_1269;` (AutoConfig on Earth2Java was the first repro). The
@@ -295,7 +296,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     LOGGER.warn("Could not register pre-1.21.2 InteractionResult bridge: {}", e.getMessage());
                 }
 
-                // Pre-1.20.5 Identifier (ResourceLocation) ctor bridge — the public
+                // Pre-1.20.5 Identifier (ResourceLocation) ctor bridge - the public
                 // (String) and (String, String) ctors were removed in 1.20.5 in favor
                 // of static parse / fromNamespaceAndPath factories. RegistryPolyfill
                 // already handles the MOJANG-named variants of this redirect, but on
@@ -309,7 +310,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     LOGGER.warn("Could not register pre-1.20.5 Identifier ctor bridge: {}", e.getMessage());
                 }
 
-                // Pre-1.18.2 Biome.Category stand-in — class_1959$class_1961 was
+                // Pre-1.18.2 Biome.Category stand-in - class_1959$class_1961 was
                 // deleted in 1.18.2 (categories → tags). Inject a synthetic enum +
                 // class redirect + Biome.getCategory rewrite so pre-1.18.2 spawn
                 // helpers (Earth2Java's BiomeSpawnHelper is the canonical case)
@@ -335,10 +336,10 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                 com.retromod.mapping.IntermediaryToMojangMapper mapper =
                     com.retromod.mapping.IntermediaryToMojangMapper.getInstance();
                 if (!mapper.isLoaded()) {
-                    LOGGER.warn("IntermediaryToMojangMapper not loaded — bytecode class remapping disabled");
+                    LOGGER.warn("IntermediaryToMojangMapper not loaded - bytecode class remapping disabled");
                 } else if (!isUnobfuscatedTarget(hostVersion)) {
                     LOGGER.info("Host MC {} is pre-26.1 (obfuscated; Fabric runtime uses "
-                        + "intermediary names) — skipping intermediary→Mojang remap and 26.1 "
+                        + "intermediary names) - skipping intermediary→Mojang remap and 26.1 "
                         + "class moves so mods keep their working names (bugs #21/#29)", hostVersion);
                 } else {
                     // IMPORTANT: ASM ClassRemapper is single-pass, so we must compose
@@ -400,7 +401,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     try {
                         provider = polyfillIt.next();
                     } catch (java.util.ServiceConfigurationError e) {
-                        // Class not found — expected in lite builds
+                        // Class not found - expected in lite builds
                         continue;
                     }
                     try {
@@ -416,7 +417,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             } catch (Exception e) {
                 LOGGER.debug("No polyfill providers found");
             }
-            // Initialize fuzzy resolver — last-resort fallback for unresolved references.
+            // Initialize fuzzy resolver - last-resort fallback for unresolved references.
             // Auto-detects the MC JAR from the classpath (Fabric Loader always has it loaded).
             try {
                 transformer.initFuzzyResolver(null);
@@ -519,7 +520,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     ║                                                            ║
                     ║  ALTERNATIVE LOCATION:                                     ║
                     ║  You can also use: mods/retromod-input/                    ║
-                    ║  (Same rule — don't use its processed/ subfolder either.) ║
+                    ║  (Same rule - don't use its processed/ subfolder either.) ║
                     ║                                                            ║
                     ╚════════════════════════════════════════════════════════════╝
                     """);
@@ -554,7 +555,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     ║  4. Mods work!                                             ║
                     ║                                                            ║
                     ║  ⚠️  Drop mods HERE, not in the processed/ subfolder.      ║
-                    ║  processed/ is where originals go AFTER transformation —  ║
+                    ║  processed/ is where originals go AFTER transformation -  ║
                     ║  mods dropped there are treated as already-handled and    ║
                     ║  skipped on the next scan.                                ║
                     ║                                                            ║
@@ -607,7 +608,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                 ║   ⚠️  IMPORTANT: drop mods directly in retromod-input/.    ║
                 ║   Do NOT put them in the `processed/` subfolder! That's    ║
                 ║   where Retromod moves originals AFTER it transforms       ║
-                ║   them — mods dropped there are skipped and won't load.   ║
+                ║   them - mods dropped there are skipped and won't load.   ║
                 ║                                                            ║
                 ╠════════════════════════════════════════════════════════════╣
                 ║                                                            ║
@@ -713,16 +714,16 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     LOGGER.info("│  Mod version: {}", modVersion != null ? modVersion : "unknown");
                     LOGGER.info("│  Target: {}", targetVersion);
 
-                    // Complexity check — warn if mod is unlikely to work
+                    // Complexity check - warn if mod is unlikely to work
                     com.retromod.gui.ModComplexityAnalyzer analyzer =
                         new com.retromod.gui.ModComplexityAnalyzer();
                     com.retromod.gui.ModComplexityAnalyzer.ComplexityReport report =
                         analyzer.analyze(modJar);
 
-                    // Always transform — never skip based on complexity.
+                    // Always transform - never skip based on complexity.
                     // Retromod should try its best with every mod, even complex ones.
                     if (report.isUnlikelyToWork()) {
-                        LOGGER.warn("│  ⚠ High complexity (score: {}) — some features may not work", report.score());
+                        LOGGER.warn("│  ⚠ High complexity (score: {}) - some features may not work", report.score());
                         LOGGER.warn("│  Reason: {}", report.reason());
                     }
 
@@ -764,7 +765,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
     }
 
     /**
-     * Drain the CurseForge-export folder (mods/Retromod/) into mods/ — #78, Fabric.
+     * Drain the CurseForge-export folder (mods/Retromod/) into mods/ - #78, Fabric.
      *
      * <p>This is the Fabric counterpart to NeoForge's {@code RetromodModLocator}.
      * NeoForge loads mods/Retromod/ in-place through a loader SPI, but Fabric has
@@ -773,9 +774,9 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
      * scan them (hence the one-time restart).
      *
      * <p>Unlike {@link #transformModsFromFolder} (which transforms RAW old mods),
-     * jars here are expected to be loader-ready already — Retromod itself, or mods
+     * jars here are expected to be loader-ready already - Retromod itself, or mods
      * pre-built for this MC via {@code retromod batch} and shipped as CF pack
-     * overrides — so they're moved verbatim, never re-transformed. (That also
+     * overrides - so they're moved verbatim, never re-transformed. (That also
      * avoids Retromod trying to transform its own jar.)
      *
      * @return number of jars moved (a non-zero count arms the restart prompt)
@@ -808,7 +809,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             return 0;
         }
 
-        LOGGER.info("Found {} ready jar(s) in mods/Retromod/ — moving into mods/ (CF-export folder, #78)",
+        LOGGER.info("Found {} ready jar(s) in mods/Retromod/ - moving into mods/ (CF-export folder, #78)",
             jars.size());
         LOGGER.info("  (tip: launch with -Dfabric.addMods=<gamedir>/mods/Retromod to load them "
             + "in-place and skip this restart)");
@@ -861,14 +862,14 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     return true;
                 }
             } catch (Exception ignored) {
-                // malformed entry — ignore
+                // malformed entry - ignore
             }
         }
         return false;
     }
 
     /**
-     * Create the README in the CurseForge-export folder (mods/Retromod/) — #78.
+     * Create the README in the CurseForge-export folder (mods/Retromod/) - #78.
      */
     private void createCfExportReadme(Path folder) {
         try {
@@ -901,7 +902,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     """);
             }
         } catch (Exception e) {
-            // ignore — README is a convenience, not required
+            // ignore - README is a convenience, not required
         }
     }
 

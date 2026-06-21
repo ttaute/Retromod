@@ -37,7 +37,7 @@ public class Retromod implements ModInitializer {
     // Initialize target version from mod loader.
     // Also mirrors to RetromodVersion.TARGET_MC_VERSION so loader-side
     // entry points (RetromodForge / RetromodNeoForge) can read the value
-    // without triggering Retromod's class linkage — Retromod implements
+    // without triggering Retromod's class linkage - Retromod implements
     // Fabric's ModInitializer, which doesn't exist on Forge/NeoForge
     // classpaths and would NoClassDefFoundError if those entry points
     // tried to read Retromod.TARGET_MC_VERSION directly.
@@ -113,7 +113,7 @@ public class Retromod implements ModInitializer {
     public static final String[] SUPPORTED_TARGET_VERSIONS = {
         "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5",
         "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11",
-        // 26.1 — first unobfuscated MC version
+        // 26.1 - first unobfuscated MC version
         "26.1", "26.1-pre.1", "26.1-pre.2", "26.1-pre-1", "26.1-pre-2",
         "26.1.0", "26.1.1", "26.1.2",
         // Future versions
@@ -123,12 +123,13 @@ public class Retromod implements ModInitializer {
     @Override
     public void onInitialize() {
         instance = this;
+        RetromodVersion.logPresenceBanner(LOGGER);
         LOGGER.info("Retromod initializing - Target MC version: {}", TARGET_MC_VERSION);
 
         // Log the full environment (OS, CPU arch, rendering backend)
         EnvironmentDetector.logEnvironment();
 
-        // Verify authenticity of this Retromod build — informational only,
+        // Verify authenticity of this Retromod build - informational only,
         // never blocks. A modified or forked build still runs fine.
         com.retromod.security.SignatureVerifier.verifyAndLog();
 
@@ -207,8 +208,8 @@ public class Retromod implements ModInitializer {
 
         // Register Forge SRG → Mojang member-name mappings.
         // Primary value is on Forge runtimes (where reobf'd Forge mods carry
-        // SRG names), but cross-loader scenarios — e.g. running a Forge SRG-baked
-        // mod through Fabric's loader via a translator chain — benefit too.
+        // SRG names), but cross-loader scenarios - e.g. running a Forge SRG-baked
+        // mod through Fabric's loader via a translator chain - benefit too.
         // Loading on every loader keeps the dictionary available regardless of
         // how the input bytecode arrived.
         try {
@@ -231,7 +232,7 @@ public class Retromod implements ModInitializer {
         // The file itself was written by an earlier run of AutoFixEngine.
         // If a malicious mod previously managed to get a redirect persisted
         // (back when AutoFix was always-on), disabling AutoFix today would
-        // not remove those persisted entries — they'd still reload every
+        // not remove those persisted entries - they'd still reload every
         // launch. Gate the READ on the same -Dretromod.autoFix opt-in flag
         // so that turning off AutoFix actually turns it all the way off.
         boolean autoFixEnabled = Boolean.parseBoolean(
@@ -277,7 +278,7 @@ public class Retromod implements ModInitializer {
         try {
             com.retromod.shim.fabric.embedded.HudRenderCallbackShim.bridgeToNewApi();
         } catch (Throwable e) {
-            // Catch Throwable — ExceptionInInitializerError from IdentifierShim
+            // Catch Throwable - ExceptionInInitializerError from IdentifierShim
             // is an Error, not Exception. Non-critical, don't crash Retromod.
             LOGGER.warn("Could not bridge HUD callbacks: {}", e.getMessage());
         }
@@ -301,7 +302,7 @@ public class Retromod implements ModInitializer {
         // error-pattern regex can cause Retromod to register attacker-chosen
         // method/field redirects into the shared transformer. The poisoned
         // redirects are constrained to real MC methods (fuzzy resolver requires
-        // ≥85 match score against the indexed JAR), so this is not RCE — but
+        // ≥85 match score against the indexed JAR), so this is not RCE - but
         // one mod could deliberately mis-route another mod's bytecode rewrites.
         //
         // Mitigation: auto-fix is OPT-IN via -Dretromod.autoFix=true. Off by
@@ -318,7 +319,7 @@ public class Retromod implements ModInitializer {
                         autoFixEngine.analyzeAndFix(logFile, RetromodTransformer.getInstance());
                     if (!fixes.isEmpty()) {
                         LOGGER.warn("AutoFix: registered {} redirect(s) from previous log (opt-in feature). "
-                                + "Review each one — log lines are an attacker-writable surface:",
+                                + "Review each one - log lines are an attacker-writable surface:",
                                 fixes.size());
                         for (AutoFixEngine.AppliedFix fix : fixes) {
                             LOGGER.warn("  AutoFix [{}] {} => {}",
@@ -344,12 +345,12 @@ public class Retromod implements ModInitializer {
      * Deferred so the title screen has time to initialize first.
      */
     private void scheduleRestartScreen() {
-        // No in-game popup — just log the restart message.
+        // No in-game popup - just log the restart message.
         // The log already shows RESTART REQUIRED with the list of transformed mods.
         // In-game screens cause issues with Fabric's screen API changes in newer versions.
         List<String> mods = RetromodPreLaunch.getTransformedMods();
         if (!mods.isEmpty()) {
-            LOGGER.info("Transformed {} mod(s) — restart to load them", mods.size());
+            LOGGER.info("Transformed {} mod(s) - restart to load them", mods.size());
         }
     }
     
@@ -569,7 +570,7 @@ public class Retromod implements ModInitializer {
         try {
             Path backupPath = BACKUP_FOLDER.resolve(modName);
             // Resolve mods folder from the Fabric game directory when available,
-            // not CWD — this is more robust if Retromod is launched from a
+            // not CWD - this is more robust if Retromod is launched from a
             // different working directory (e.g. CLI mode).
             Path modsFolder;
             try {
@@ -614,14 +615,14 @@ public class Retromod implements ModInitializer {
      * <p>Filtering by {@link VersionShim#getModLoaderType()} matters: shim
      * classes register their redirects on the global {@code RetromodTransformer}
      * map, so a Forge-only shim's redirects would also affect Fabric mods
-     * if applied here. We saw exactly this bug — the Forge_1_19_2_to_1_19_3
+     * if applied here. We saw exactly this bug - the Forge_1_19_2_to_1_19_3
      * shim had a {@code Registry → BuiltInRegistries} class redirect that
      * was wrong even for Forge but additionally poisoned Fabric runs (Test
      * 14 in retromod-test-mod's RegistryTests). The Forge entry point
      * ({@code RetromodForge.loadForgeShims}) already filters this way.
      *
      * <p>Accepts {@code "fabric"} (Fabric-specific) and {@code "common"}
-     * (loader-agnostic). Forge / NeoForge shims are skipped — they're loaded
+     * (loader-agnostic). Forge / NeoForge shims are skipped - they're loaded
      * by their own respective entry points.
      */
     private void registerShims() {
@@ -638,14 +639,14 @@ public class Retromod implements ModInitializer {
             try {
                 shim = it.next();
             } catch (java.util.ServiceConfigurationError e) {
-                // Class not found — expected in lite builds
+                // Class not found - expected in lite builds
                 LOGGER.debug("Skipping unavailable shim: {}", e.getMessage());
                 continue;
             }
 
             String loaderType = shim.getModLoaderType();
             if (!"fabric".equals(loaderType) && !"common".equals(loaderType)) {
-                // Forge / NeoForge / other shims — not relevant on Fabric.
+                // Forge / NeoForge / other shims - not relevant on Fabric.
                 // Skipping them prevents their redirects from leaking into
                 // the Fabric transformer's global redirect map.
                 skippedNonFabric++;

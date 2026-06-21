@@ -7,20 +7,20 @@ package com.retromod.core.pattern;
 import org.objectweb.asm.tree.ClassNode;
 
 /**
- * A detector for one specific "shape" a mod class might have — a Forge event
+ * A detector for one specific "shape" a mod class might have - a Forge event
  * listener, a {@code DeferredRegister} holder, a BlockEntity-like class, etc.
  *
  * <h3>Why patterns?</h3>
  * <p>Lots of mods implement the same concepts (register blocks, handle events,
  * define block entities) with slightly different code. If we can recognize
- * these concepts structurally — independent of exact class names or parent
- * hierarchies — we get two benefits:</p>
+ * these concepts structurally - independent of exact class names or parent
+ * hierarchies - we get two benefits:</p>
  * <ol>
  *   <li><b>Better diagnostics.</b> A gap report that says "your mod has 7
  *       Forge-event-listener classes" is more actionable than a list of
  *       individual unresolved references.</li>
  *   <li><b>Better adaptation.</b> Future versions can apply targeted fixes
- *       when a pattern is recognized — wire up registries, retarget event
+ *       when a pattern is recognized - wire up registries, retarget event
  *       handlers, synthesize stubs. v1 is detection-only.</li>
  * </ol>
  *
@@ -35,7 +35,7 @@ import org.objectweb.asm.tree.ClassNode;
  *       methods would blow up on large classes. Aim for linear-or-better.</li>
  *   <li><b>Honor the scope filter.</b> If the class isn't in
  *       {@link MatchContext#modOwnClasses()}, patterns should typically return
- *       null immediately — we don't want to match MC or JDK classes.</li>
+ *       null immediately - we don't want to match MC or JDK classes.</li>
  *   <li><b>Be deterministic.</b> Same class + same context always produces the
  *       same match result. This keeps gap reports diff-stable across CI runs.</li>
  * </ul>

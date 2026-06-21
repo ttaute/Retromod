@@ -77,7 +77,7 @@ public class EntityPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // Pure class redirects — no stub implementations needed.
+        // Pure class redirects - no stub implementations needed.
         // All old entity classes map directly to modern Mojang-named equivalents.
         return new String[]{};
     }
@@ -130,7 +130,7 @@ public class EntityPolyfill implements PolyfillProvider {
             "net/minecraft/entity/projectile/EntityArrow",
             "net/minecraft/world/entity/projectile/AbstractArrow");
 
-        // AI system — the entire EntityAI* hierarchy was replaced with Goal-based classes
+        // AI system - the entire EntityAI* hierarchy was replaced with Goal-based classes
         transformer.registerClassRedirect(
             "net/minecraft/entity/ai/EntityAIBase",
             "net/minecraft/world/entity/ai/goal/Goal");

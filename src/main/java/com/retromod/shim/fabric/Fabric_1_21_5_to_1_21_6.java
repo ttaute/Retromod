@@ -134,7 +134,7 @@ public class Fabric_1_21_5_to_1_21_6 implements VersionShim {
         // a polyfill that casts the float result. For mods that discard the
         // return value, no redirect is needed (JVM handles it).
         // ============================================================
-        // NOTE: No redirect registered — return type mismatch requires a
+        // NOTE: No redirect registered - return type mismatch requires a
         // polyfill rather than a simple method redirect.
     }
     

@@ -126,7 +126,7 @@ public class TextPolyfill implements PolyfillProvider {
             "net/minecraft/network/chat/Component$Serializer");
 
         // ---- TranslatableContents constructor changes (1.19.3+) ----
-        // Old: new TranslatableContents(String key) — single-arg constructor removed
+        // Old: new TranslatableContents(String key) - single-arg constructor removed
         // New: new TranslatableContents(String key, String fallback, Object[] args)
         // Redirect via factory shim using reflection
         transformer.registerConstructorRedirect(
@@ -136,7 +136,7 @@ public class TextPolyfill implements PolyfillProvider {
             "create",
             "(Ljava/lang/String;)Ljava/lang/Object;");
 
-        // Old: new TranslatableContents(String key, Object[] args) — two-arg constructor removed
+        // Old: new TranslatableContents(String key, Object[] args) - two-arg constructor removed
         transformer.registerConstructorRedirect(
             "net/minecraft/network/chat/contents/TranslatableContents",
             "(Ljava/lang/String;[Ljava/lang/Object;)V",

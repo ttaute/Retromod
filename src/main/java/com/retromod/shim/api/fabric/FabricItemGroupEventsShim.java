@@ -14,8 +14,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Bridges the removed Fabric <b>item-group events v1</b> API
- * ({@code net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents}) — adding items to
- * creative tabs — onto the surviving {@code creativetab/v1/CreativeModeTabEvents}.
+ * ({@code net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents}) - adding items to
+ * creative tabs - onto the surviving {@code creativetab/v1/CreativeModeTabEvents}.
  * This is the single biggest functional-interface gap in the compat audit:
  * ~83 mods are sole-blocked on {@code ItemGroupEvents$ModifyEntries}.
  *
@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  *       {@code addAfter}/{@code addBefore} on the entries object; on
  *       {@code FabricCreativeModeTabOutput} (the existing class-redirect target of
  *       {@code FabricItemGroupEntries}) those are now {@code insertAfter}/
- *       {@code insertBefore}. We rename all 12 overloads of each — descriptors taken
+ *       {@code insertBefore}. We rename all 12 overloads of each - descriptors taken
  *       verbatim from {@code fabric-api-0.145.4} so a 1:1 rename is exact. The
  *       {@code prepend}/getter methods kept their names and ride the class redirect.</li>
  * </ol>
@@ -50,7 +50,7 @@ import org.slf4j.LoggerFactory;
  * version shim's job ({@code Fabric_1_21_11_to_26_1}); this shim assumes it and only
  * renames the methods on the new owner.</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code fabric-api-0.141.1+1.21.11} (old) and {@code 0.145.4+26.1.2} (new). A 26.1
  * launch that adds an item to a creative tab through a v1 mod is still required.</p>
  */
@@ -106,13 +106,13 @@ public class FabricItemGroupEventsShim implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
         // 26.1+ hosts ONLY (pitfall #9). On a pre-26.1 host ItemGroupEvents is still
-        // ALIVE in the Fabric API — redirecting it to our synthetic would hijack a
+        // ALIVE in the Fabric API - redirecting it to our synthetic would hijack a
         // working API and wire it to creativetab/v1, which doesn't exist there. The
         // synthetics also declare Mojang-named MC types (ResourceKey, CreativeModeTab)
         // that don't resolve on an intermediary runtime.
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
-            LOGGER.debug("[Retromod] item-group events v1 bridge skipped (host {} < 26.1 — old API still present)",
+            LOGGER.debug("[Retromod] item-group events v1 bridge skipped (host {} < 26.1 - old API still present)",
                     com.retromod.core.RetromodVersion.TARGET_MC_VERSION);
             return;
         }
@@ -138,7 +138,7 @@ public class FabricItemGroupEventsShim implements VersionShim {
             transformer.registerMethodRedirect(OUTPUT, "addBefore", desc, OUTPUT, "insertBefore", desc);
         }
 
-        LOGGER.info("[Retromod] Fabric item-group events v1 bridge — kept ItemGroupEvents holder + "
+        LOGGER.info("[Retromod] Fabric item-group events v1 bridge - kept ItemGroupEvents holder + "
                 + "ModifyEntries/ModifyEntriesAll SAMs wired to creativetab/v1, renamed "
                 + "addAfter/addBefore→insertAfter/insertBefore (STATUS: needs in-game verification)");
     }

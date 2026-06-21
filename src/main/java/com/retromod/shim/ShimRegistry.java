@@ -190,6 +190,20 @@ public class ShimRegistry {
      * [Shim_1.21.7_to_1.21.8, Shim_1.21.8_to_1.21.9, Shim_1.21.9_to_1.21.10]</p>
      */
     public List<VersionShim> findShimChain(String modLoader, String sourceVersion, String targetVersion) {
+        // A null source or target means we don't know where to start (or stop) the
+        // BFS, so there is no shim chain to find - return an empty chain and let the
+        // caller fall back to its best-effort path. Without this guard resolveVersion
+        // hands back null (getOrDefault(null, null)) and the resolvedSource.equals(...)
+        // comparison below NPEs ("Cannot invoke String.equals(Object) because
+        // resolvedSource is null"). Real trigger: a NeoForge/Forge mod whose toml
+        // declares only loaderVersion and no minecraft dependency (e.g. Macaw's
+        // Furniture 3.4.2 for 1.21.11) -> ModVersionDetector returns a null source MC
+        // version, and batchCommand forces a bytecode transform anyway, calling this
+        // with a null source.
+        if (sourceVersion == null || targetVersion == null) {
+            return Collections.emptyList();
+        }
+
         // Resolve intermediate versions to their nearest milestone
         String resolvedSource = resolveVersion(sourceVersion);
         String resolvedTarget = resolveVersion(targetVersion);
@@ -222,7 +236,7 @@ public class ShimRegistry {
         while (!queue.isEmpty()) {
             ShimPath current = queue.poll();
 
-            // Found the target — return the chain of shims that got us here
+            // Found the target - return the chain of shims that got us here
             if (current.version.equals(resolvedTarget)) {
                 return current.shims;
             }

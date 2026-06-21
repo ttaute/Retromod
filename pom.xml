@@ -6,7 +6,7 @@
 
     <groupId>com.retromod</groupId>
     <artifactId>retromod</artifactId>
-    <version>1.2.0-snapshot.1</version>
+    <version>1.2.0-snapshot.2</version>
     <packaging>jar</packaging>
 
     <name>Retromod</name>
@@ -259,7 +259,7 @@
                                 via the "-agent" classifier JAR below for advanced CLI
                                 use. Putting Premain on the mod JAR would advertise
                                 "this can hijack arbitrary JVM classes" to any analyzer
-                                inspecting the JAR manifest, which is misleading — the
+                                inspecting the JAR manifest, which is misleading - the
                                 mod-runtime path never uses the agent interface at all.
                             -->
                         </manifestEntries>
@@ -271,7 +271,7 @@
                         only so RetromodForge.java compiles when Forge isn't on the
                         classpath (CLI / standalone builds). At RUNTIME on Forge,
                         the real net.minecraftforge.fml.common.Mod annotation must
-                        win — but if the stub ends up in the production JAR, Forge's
+                        win - but if the stub ends up in the production JAR, Forge's
                         secure-bootstrap classloader sees both definitions and dies
                         silently during MC's bootstrap (no log output, no crash
                         report). Strip the stub so only Forge's real class is on
@@ -303,7 +303,7 @@
                              REAL SPI is provided by NeoForge at runtime, so the
                              stub .class files must NOT ship in the jar or
                              NeoForge's classloader would see two definitions.
-                             RetromodModLocator.class itself stays — it implements
+                             RetromodModLocator.class itself stays - it implements
                              the real SPI at runtime. -->
                         <exclude>net/neoforged/neoforgespi/ILaunchContext.class</exclude>
                         <exclude>net/neoforged/neoforgespi/locating/IOrderedProvider.class</exclude>
@@ -311,6 +311,15 @@
                         <exclude>net/neoforged/neoforgespi/locating/IDiscoveryPipeline.class</exclude>
                         <exclude>net/neoforged/neoforgespi/locating/ModFileDiscoveryAttributes.class</exclude>
                         <exclude>net/neoforged/neoforgespi/locating/IncompatibleFileReporting.class</exclude>
+                        <!-- Compile-only stubs of Forge's mod-locator SPI
+                             (net.minecraftforge.forgespi.locating.*), used by
+                             com.retromod.locator.RetromodForgeModLocator (#78). Same
+                             story as the NeoForge stubs above: real SPI provided by
+                             Forge at runtime; stubs must not ship.
+                             RetromodForgeModLocator.class itself stays. -->
+                        <exclude>net/minecraftforge/forgespi/locating/IModFile.class</exclude>
+                        <exclude>net/minecraftforge/forgespi/locating/IModProvider.class</exclude>
+                        <exclude>net/minecraftforge/forgespi/locating/IModLocator.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>
@@ -369,7 +378,7 @@
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.retromod.cli.RetromodCli</mainClass>
                                     <!--
-                                        Same rationale as the main-JAR config above —
+                                        Same rationale as the main-JAR config above -
                                         no Premain-Class on the shaded fat JAR. The
                                         CLI transforms JARs on disk; it doesn't use
                                         the -javaagent interface. The dedicated
@@ -407,7 +416,7 @@
                                         for class com/retromod/shaded/asm/commons/SignatureRemapper
                                     (reported by No11290 on beta.3 Forge 1.20.1). All three Minecraft
                                     loaders bundle a compatible ASM version, so a non-relocated ASM
-                                    resolves against the loader's copy and there's no conflict —
+                                    resolves against the loader's copy and there's no conflict -
                                     the JPMS resolver doesn't reject it the way it rejects Gson.
                                     DO NOT add ASM back into this relocation block without first
                                     finding a fix for the EventSubclassTransformer side.

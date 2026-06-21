@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * the ItemStack NBT polyfill registered instance→static redirects through the
  * 6-arg {@code registerMethodRedirect} form (no devirtualize flag), so
  * {@code ItemStack.getTag()} was rewritten to
- * {@code INVOKEVIRTUAL ItemStackNbtBridge.getTag(Object)} — an instruction that
+ * {@code INVOKEVIRTUAL ItemStackNbtBridge.getTag(Object)} - an instruction that
  * pops a receiver <i>plus</i> an argument where the call site only pushed the
  * receiver. The resulting stack underflow made ASM's {@code Frame.merge} throw
  * {@code ArrayIndexOutOfBoundsException} when Mixin recomputed frames over the
@@ -70,7 +70,7 @@ class AutoDevirtualizeTest {
         assertNotNull(call, "the getTag call must survive (redirected)");
         assertEquals("com/retromod/polyfill/minecraft/item/embedded/ItemStackNbtBridge", call.owner);
         assertEquals(Opcodes.INVOKESTATIC, call.getOpcode(),
-                "receiver-as-arg0 redirect MUST be INVOKESTATIC — INVOKEVIRTUAL pops one "
+                "receiver-as-arg0 redirect MUST be INVOKESTATIC - INVOKEVIRTUAL pops one "
                 + "value too many and corrupts the frame stack (the MobBucketItemMixin crash)");
         assertEquals("(Ljava/lang/Object;)Ljava/lang/Object;", call.desc);
     }

@@ -47,7 +47,7 @@ Each toggle has a short label and a one-line description. The options map 1:1 to
 
 ### Authenticity status
 
-Near the bottom of the settings screen is a small line showing your build's integrity status — **Verified build**, **Modified / unofficial build**, **Not Retromod (manifest mismatch)**, or **Authenticity unknown** — and the same status is reported in the launch log at startup (search for `[Retromod] ... Authenticity:`). This is informational; modified and forked builds work normally. See [Authenticity]({{ '/authenticity' | relative_url }}) for what each status means.
+Near the bottom of the settings screen is a small line showing your build's integrity status - **Verified build**, **Modified / unofficial build**, **Not Retromod (manifest mismatch)**, or **Authenticity unknown** - and the same status is reported in the launch log at startup (search for `[Retromod] ... Authenticity:`). This is informational; modified and forked builds work normally. See [Authenticity]({{ '/authenticity' | relative_url }}) for what each status means.
 
 ### Reset to defaults
 

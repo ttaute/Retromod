@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * descriptor rewrites) can't be exercised in a JVM that doesn't ship Minecraft, so
  * what we CAN pin down here is the safety contract: the bridge must register
  * <b>zero</b> field redirects when the host class isn't on the classpath, and must
- * never throw — registering it on every Fabric pre-26.1 host is the calling
+ * never throw - registering it on every Fabric pre-26.1 host is the calling
  * convention in {@link com.retromod.core.RetromodPreLaunch}, and a thrown exception
  * there would degrade other bridges (or whole startup) for no reason.</p>
  */
@@ -30,7 +30,7 @@ class Pre1_21_2InteractionResultBridgeTest {
         int before = t.getFieldRedirectCount();
 
         // The probe should swallow the ClassNotFoundException and exit early. If this
-        // ever throws, fix the bridge — RetromodPreLaunch only wraps it in a
+        // ever throws, fix the bridge - RetromodPreLaunch only wraps it in a
         // best-effort try/catch that LOGS THE FAILURE, which would silently degrade
         // a real-host scenario where the bridge is genuinely needed.
         assertDoesNotThrow(() -> Pre1_21_2InteractionResultBridge.register(t));

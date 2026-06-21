@@ -17,20 +17,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Detects classes that host Forge-style event listeners — methods annotated
+ * Detects classes that host Forge-style event listeners - methods annotated
  * with {@code @SubscribeEvent} (either the old Forge FQN or the new NeoForge
  * FQN).
  *
  * <h3>Match confidence</h3>
- * <p>High — an annotation match is unambiguous. Returns 1.0.</p>
+ * <p>High - an annotation match is unambiguous. Returns 1.0.</p>
  *
  * <h3>What it reports</h3>
  * <ul>
- *   <li>{@code handlerCount} — how many annotated methods on the class</li>
- *   <li>{@code annotationFqn} — which form of {@code @SubscribeEvent} was used
+ *   <li>{@code handlerCount} - how many annotated methods on the class</li>
+ *   <li>{@code annotationFqn} - which form of {@code @SubscribeEvent} was used
  *       (Forge vs NeoForge), so mod authors know if their code has already
  *       been migrated</li>
- *   <li>{@code eventTypes} — comma-separated list of the event types handled,
+ *   <li>{@code eventTypes} - comma-separated list of the event types handled,
  *       extracted from each handler method's first parameter</li>
  * </ul>
  *
@@ -38,7 +38,7 @@ import java.util.Map;
  * <p>When Retromod translates Forge → NeoForge the annotation class itself gets
  * redirected via {@code ForgeEventApiShim}. Detection here lets us verify
  * <b>after</b> transformation that every event listener still has a valid
- * {@code @SubscribeEvent} annotation pointing at a reachable class — a missed
+ * {@code @SubscribeEvent} annotation pointing at a reachable class - a missed
  * rename would produce a silently-unregistered handler (mod loads but never
  * handles any events, very confusing to debug).</p>
  */
@@ -63,7 +63,7 @@ public final class ForgeEventListenerPattern implements ClassPattern {
     @Override
     public PatternMatch match(ClassNode cls, MatchContext ctx) {
         if (cls.name == null) return null;
-        // Honour scope filter — never match MC or JDK classes.
+        // Honour scope filter - never match MC or JDK classes.
         if (!ctx.modOwnClasses().isEmpty() && !ctx.modOwnClasses().contains(cls.name)) {
             return null;
         }
@@ -112,7 +112,7 @@ public final class ForgeEventListenerPattern implements ClassPattern {
      * descriptor. Returns null if the method has no parameters or its first
      * parameter is primitive.
      *
-     * <p>Simplistic parser — doesn't handle nested arrays/generics because
+     * <p>Simplistic parser - doesn't handle nested arrays/generics because
      * event handlers conventionally take a single event object.</p>
      */
     private static String extractFirstParamInternalName(String desc) {
@@ -127,7 +127,7 @@ public final class ForgeEventListenerPattern implements ClassPattern {
         if (cursor >= desc.length()) return null;
 
         if (desc.charAt(cursor) != 'L') {
-            // Primitive first parameter — event handlers never do this
+            // Primitive first parameter - event handlers never do this
             return null;
         }
         int semi = desc.indexOf(';', cursor);

@@ -487,10 +487,10 @@ public class ModScorer {
                 ? (double) validMixins / totalMixins * 100 : 100;
 
         // Weighted overall score:
-        //   Methods (40%) — most common source of breakage, highest weight
-        //   Classes (30%) — missing classes are fatal but less frequent
-        //   Fields  (20%) — field changes are less common than method changes
-        //   Mixins  (10%) — only applies to mods using Mixin, lower weight
+        //   Methods (40%) - most common source of breakage, highest weight
+        //   Classes (30%) - missing classes are fatal but less frequent
+        //   Fields  (20%) - field changes are less common than method changes
+        //   Mixins  (10%) - only applies to mods using Mixin, lower weight
         // A mod scoring 90+ will almost certainly work; below 50 is likely broken.
         double overallScore = classScore * 0.3 + methodScore * 0.4 + fieldScore * 0.2 + mixinScore * 0.1;
 

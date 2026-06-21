@@ -10,9 +10,9 @@ Creates a new `VersionShim` implementation that maps API changes between two Min
 
 ## Steps
 
-1. **Identify the version gap** — Check `src/main/java/com/retromod/shim/` for existing shims. Find what source→target versions are missing. Use `ShimRegistry` BFS to verify no chain already exists.
+1. **Identify the version gap** - Check `src/main/java/com/retromod/shim/` for existing shims. Find what source→target versions are missing. Use `ShimRegistry` BFS to verify no chain already exists.
 
-2. **Research API changes** — Compare the two MC versions to find:
+2. **Research API changes** - Compare the two MC versions to find:
    - Renamed classes (e.g. `net/minecraft/class_1234` → `net/minecraft/world/entity/Entity`)
    - Renamed methods (e.g. `method_5678` → `getBlockState`)
    - Renamed fields (e.g. `field_9012` → `STONE`)
@@ -48,17 +48,17 @@ Creates a new `VersionShim` implementation that maps API changes between two Min
    }
    ```
 
-5. **Register in ServiceLoader** — Add the full class name to:
+5. **Register in ServiceLoader** - Add the full class name to:
    ```
    src/main/resources/META-INF/services/com.retromod.core.VersionShim
    ```
 
-6. **Add version aliases** — If the new version has sub-versions (e.g. 26.1.0, 26.1.1), add aliases in `ShimRegistry.java`:
+6. **Add version aliases** - If the new version has sub-versions (e.g. 26.1.0, 26.1.1), add aliases in `ShimRegistry.java`:
    ```java
    VERSION_ALIASES.put("26.1.0", "26.1");
    ```
 
-7. **Add tests** — Create test in `src/test/java/com/retromod/` verifying:
+7. **Add tests** - Create test in `src/test/java/com/retromod/` verifying:
    - Shim registers correctly
    - ShimRegistry BFS finds a chain through the new shim
    - Key redirects work (class, method, field)
@@ -79,4 +79,4 @@ Creates a new `VersionShim` implementation that maps API changes between two Min
 ## Important Notes
 - For 26.1+ shims, use `IntermediaryToMojangMapper` for Fabric intermediary→Mojang mappings
 - NeoForge 26.1 shims mainly need API-level changes (not name remapping)
-- Shims are chainable — a mod going 1.16.5→26.1 will traverse ALL intermediate shims via BFS
+- Shims are chainable - a mod going 1.16.5→26.1 will traverse ALL intermediate shims via BFS

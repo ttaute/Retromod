@@ -28,7 +28,7 @@ import java.util.Set;
  * comprehensive loader-JAR index at transform time).
  *
  * <h3>Why hand-curated, not auto-indexed?</h3>
- * <p>The MC JAR is a single artifact per version — trivial to index. Loader
+ * <p>The MC JAR is a single artifact per version - trivial to index. Loader
  * APIs are different: Fabric API is split into ~40 modules, each versioned
  * independently, and mod developers depend on an arbitrary subset. Building a
  * full symbol index would require knowing exactly which loader-API artifacts
@@ -44,9 +44,9 @@ import java.util.Set;
  * <p>The JSON file at {@code /retromod/loader-api-renames.json} has one section
  * per loader ({@code "fabric"}, {@code "neoforge"}, {@code "forge"}), each with:
  * <ul>
- *   <li>{@code renamed_classes} — map of old internal-name → new internal-name</li>
- *   <li>{@code renamed_methods} — map of {@code "owner#name desc"} → {@code "newOwner#newName newDesc"}</li>
- *   <li>{@code removed_classes} — list of internal-names that were deleted outright
+ *   <li>{@code renamed_classes} - map of old internal-name → new internal-name</li>
+ *   <li>{@code renamed_methods} - map of {@code "owner#name desc"} → {@code "newOwner#newName newDesc"}</li>
+ *   <li>{@code removed_classes} - list of internal-names that were deleted outright
  *       (no replacement available; the reference is just broken)</li>
  * </ul>
  * </p>
@@ -95,7 +95,7 @@ public final class LoaderApiRenames {
      * Returns the process-wide loader rename table. Loads from the bundled
      * JSON resource on first call and caches the result. If the resource
      * cannot be loaded, returns an empty table (every lookup returns null /
-     * empty) rather than throwing — a misconfigured data file shouldn't
+     * empty) rather than throwing - a misconfigured data file shouldn't
      * break transformation entirely.
      */
     public static LoaderApiRenames getInstance() {
@@ -140,7 +140,7 @@ public final class LoaderApiRenames {
         return removedClasses.contains(internalName);
     }
 
-    /** Size of the rename table — for diagnostics/logging only. */
+    /** Size of the rename table - for diagnostics/logging only. */
     public int size() {
         return renamedClasses.size() + renamedMethods.size() + removedClasses.size();
     }
@@ -160,7 +160,7 @@ public final class LoaderApiRenames {
     private static LoaderApiRenames loadFromResource() {
         try (InputStream in = LoaderApiRenames.class.getResourceAsStream(RESOURCE_PATH)) {
             if (in == null) {
-                LOGGER.warn("Loader API rename table not found at {} — loader-API checks disabled",
+                LOGGER.warn("Loader API rename table not found at {} - loader-API checks disabled",
                         RESOURCE_PATH);
                 return EMPTY;
             }
@@ -174,7 +174,7 @@ public final class LoaderApiRenames {
             LOGGER.warn("Failed to read loader API rename table: {}", e.getMessage());
             return EMPTY;
         } catch (Exception e) {
-            // Malformed JSON, unexpected structure — don't break the transformer
+            // Malformed JSON, unexpected structure - don't break the transformer
             LOGGER.warn("Loader API rename table is malformed: {}", e.getMessage());
             return EMPTY;
         }
@@ -196,7 +196,7 @@ public final class LoaderApiRenames {
         try {
             skipForgeSection = !com.retromod.util.McReflect.isNeoForge();
         } catch (Throwable t) {
-            // McReflect not available (rare — happens in CLI / test contexts);
+            // McReflect not available (rare - happens in CLI / test contexts);
             // fall back to including the section to preserve current CLI
             // behavior. The runtime crash only matters in the in-game path.
             skipForgeSection = false;
@@ -204,12 +204,12 @@ public final class LoaderApiRenames {
 
         // Per-loader try-catch so a malformed section for one loader doesn't
         // wipe out valid data from the others. One broken entry in the Forge
-        // section shouldn't also invalidate NeoForge renames — the biggest
+        // section shouldn't also invalidate NeoForge renames - the biggest
         // surface area.
         for (String loader : LOADER_KEYS) {
             if (!root.has(loader)) continue;
             if ("forge".equals(loader) && skipForgeSection) {
-                LOGGER.debug("Skipping loader-api 'forge' section (runtime is not NeoForge — Forge→NeoForge migrations don't apply)");
+                LOGGER.debug("Skipping loader-api 'forge' section (runtime is not NeoForge - Forge→NeoForge migrations don't apply)");
                 continue;
             }
             try {
@@ -242,7 +242,7 @@ public final class LoaderApiRenames {
                             .forEach(el -> removed.add(el.getAsString()));
                 }
             } catch (Exception sectionError) {
-                // Log and continue — malformed data for one loader must not
+                // Log and continue - malformed data for one loader must not
                 // silently kill all loader-rename coverage.
                 LOGGER.warn("Loader-API rename section '{}' is malformed, skipping it: {}",
                         loader, sectionError.getMessage());

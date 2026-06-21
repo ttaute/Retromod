@@ -42,7 +42,7 @@ public final class FontBridge {
 
     // All MC method handles are resolved via reflection because MC classes aren't on
     // Retromod's compile classpath. We use Double-Checked Locking (DCL) with volatile
-    // fields for thread-safe lazy initialization — text rendering can be called from
+    // fields for thread-safe lazy initialization - text rendering can be called from
     // the render thread at any point after mod init.
     private static volatile boolean initialized = false;
     private static volatile boolean initFailed = false;
@@ -71,7 +71,7 @@ public final class FontBridge {
     // Component.getString() for Component→String fallback
     private static volatile Method componentGetString;
 
-    // FormattedCharSequence handling — we convert to String via reflection
+    // FormattedCharSequence handling - we convert to String via reflection
     private static boolean hasFCSeqMethod = false;
 
     private FontBridge() {
@@ -328,7 +328,7 @@ public final class FontBridge {
             }
 
         } catch (Exception e) {
-            // Log once and continue — better to silently skip text than crash
+            // Log once and continue - better to silently skip text than crash
             LOGGER.debug("FontBridge.drawInternal failed: {}", e.getMessage());
         }
 

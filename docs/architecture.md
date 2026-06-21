@@ -54,8 +54,8 @@ Each box is a composable stage. The [CLI]({{ '/cli' | relative_url }}) exposes t
 ```
 src/main/java/com/retromod/
 ├── core/       main transformer, version detectors, mod transformers
-├── cli/        RetromodCli — command-line entry point
-├── aot/        AOT compiler — caches transformed mods
+├── cli/        RetromodCli - command-line entry point
+├── aot/        AOT compiler - caches transformed mods
 ├── shim/       version shims organized by loader (fabric/ neoforge/ forge/ api/)
 ├── mapping/    IntermediaryToMojangMapper, MappingComposer
 ├── mixin/      MixinCompatibilityTransformer, MixinTargetRedirector
@@ -89,7 +89,7 @@ The heart of the transformation path. Version shims are small classes that decla
 - `toVersion` (e.g. `"1.20.2"`)
 - a set of class/method/field redirects
 
-They're registered via `META-INF/services/com.retromod.core.VersionShim`. For a given source → target pair, `ShimRegistry` runs a breadth-first search over the shim graph to find the shortest valid chain. For 1.16.5 → 26.1.2 that might be 8–10 hops, each hop a different shim applying its own batch of redirects.
+They're registered via `META-INF/services/com.retromod.core.VersionShim`. For a given source → target pair, `ShimRegistry` runs a breadth-first search over the shim graph to find the shortest valid chain. For 1.16.5 → 26.1.2 that might be 8-10 hops, each hop a different shim applying its own batch of redirects.
 
 Version aliases (e.g. "1.20" matches "1.20.0") are handled by the registry so shim authors don't have to declare every point release.
 
@@ -161,7 +161,7 @@ After transformation, [Verify Transforms]({{ '/verify-transforms' | relative_url
 
 ## Testing
 
-- `src/test/java/com/retromod/RetromodTest.java` — JUnit 5 test suite.
+- `src/test/java/com/retromod/RetromodTest.java` - JUnit 5 test suite.
 - Run with `mvn test -Dexec.skip=true`.
 - Integration tests cover shim chain resolution, mapping composition, metadata patching, and verification.
 

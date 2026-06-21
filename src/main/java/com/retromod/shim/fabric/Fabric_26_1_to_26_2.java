@@ -12,7 +12,7 @@ import com.retromod.shim.common.Mc26_1To26_2CoreMoves;
  * Fabric 26.1 → 26.2 shim.
  *
  * <p>Both versions are fully Mojang-named, so this is class moves/renames
- * only — the shared {@link Mc26_1To26_2CoreMoves} list harvested from the
+ * only - the shared {@link Mc26_1To26_2CoreMoves} list harvested from the
  * real client jars. Fabric API renames for the 26.2 line get added here
  * once a fabric-api build is tagged for the 26.2 release (0.152.x currently
  * targets the 26.2 pre-releases only).

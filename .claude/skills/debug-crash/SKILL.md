@@ -56,11 +56,11 @@ transformer.registerMethodRedirect(
 
 ### `MixinApplyError` / `InvalidMixinException`
 **Cause:** Mixin target class or method no longer exists.
-**Fix:** Check `MixinCompatibilityTransformer` and `MixinTargetRedirector` — the target redirect table may be missing an entry.
+**Fix:** Check `MixinCompatibilityTransformer` and `MixinTargetRedirector` - the target redirect table may be missing an entry.
 
 ### `UnsupportedClassVersionError`
 **Cause:** Mod was compiled for a newer Java version than what's running.
-**Fix:** Cannot be fixed by Retromod — user needs to install the correct Java version. MC 26.1 requires Java 25.
+**Fix:** Cannot be fixed by Retromod - user needs to install the correct Java version. MC 26.1 requires Java 25.
 
 ## Step 3: Enable Debug Logging
 

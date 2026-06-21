@@ -13,7 +13,7 @@ import com.retromod.core.VersionShim;
  * <h2>What changed</h2>
  * Around Fabric API 0.110+ (for 1.21.x) the {@code fabric-renderer-api-v1} module
  * moved every public type from {@code net/fabricmc/fabric/api/renderer/v1/*} to
- * {@code net/fabricmc/fabric/api/client/renderer/v1/*} — inserting {@code /client/}
+ * {@code net/fabricmc/fabric/api/client/renderer/v1/*} - inserting {@code /client/}
  * to match the rest of the client-side Fabric API packages. Same class names,
  * same APIs (for the surviving ones), just a new package prefix.
  *
@@ -24,7 +24,7 @@ import com.retromod.core.VersionShim;
  * in the top-30 hitting this).</p>
  *
  * <h2>What this shim covers</h2>
- * The surviving-but-renamed types under {@code mesh/} and {@code model/} —
+ * The surviving-but-renamed types under {@code mesh/} and {@code model/} -
  * straight 1:1 class redirects. The transformer rewrites every reference to the
  * old path in mod bytecode (descriptors, INVOKE owners, CONSTANT_Class entries)
  * to the new path during pre-launch.
@@ -32,7 +32,7 @@ import com.retromod.core.VersionShim;
  * <h2>What this shim does NOT cover</h2>
  * The {@code material/} subtree ({@code RenderMaterial}, {@code BlendMode},
  * {@code MaterialFinder}) was REMOVED outright in the relocation rather than
- * moved — the material concept was rewritten. A mod that uses those types
+ * moved - the material concept was rewritten. A mod that uses those types
  * (Continuity is the biggest one) needs a deeper API-bridging pass, not just
  * a rename. That's tracked as follow-up; this shim cuts the bytecode load-time
  * crashes down to just the material refs.
@@ -43,11 +43,11 @@ public class FabricRendererApiShim implements VersionShim {
     private static final String NEW = "net/fabricmc/fabric/api/client/renderer/v1/";
 
     /**
-     * Survived-the-relocation classes — verified by listing the modern jar
+     * Survived-the-relocation classes - verified by listing the modern jar
      * (fabric-renderer-api-v1 13.0.0 ships exactly these at the new path).
      * If a future Fabric API release re-deletes one of these, the redirect
      * still fires but the call resolves to nothing and the mod gets a clean
-     * NoSuchClassDefError pointing at the new name — easier to diagnose than
+     * NoSuchClassDefError pointing at the new name - easier to diagnose than
      * the symptom-on-load-of-an-old-name we have today.
      */
     private static final String[] MOVED_CLASSES = {
@@ -68,7 +68,7 @@ public class FabricRendererApiShim implements VersionShim {
 
     @Override
     public String getSourceVersion() {
-        // The old paths were stable across Fabric API ~0.50–0.109 (1.18–1.21.x).
+        // The old paths were stable across Fabric API ~0.50-0.109 (1.18-1.21.x).
         return "0.50.0";
     }
 

@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>NeoForge gets a wider test surface than Forge because the 1.21.1 →
  * 26.1.2 translation distance is small and a lot of Forge mods are
- * actively migrating to NeoForge — this set covers the API surfaces those
+ * actively migrating to NeoForge - this set covers the API surfaces those
  * migrations most commonly touch (Component / Text mutation, NBT, math
  * types, registry lookups, ItemStack construction, entity types, sounds).
  *
@@ -77,7 +77,7 @@ public class RetromodTestModNeoForge {
         // That worked through MC 1.21.4 but stopped working in MC 26.1+
         // where getString() on a multi-sibling MutableComponent returns
         // the toString-style tree representation. The test's real intent
-        // — verifying that copy().append() actually attached a sibling —
+        // - verifying that copy().append() actually attached a sibling -
         // is checked more reliably with getSiblings().size().
         n++; passed += check(n, "Component copy().append() attaches sibling", () -> {
             MutableComponent c = Component.literal("a").copy().append(Component.literal("b"));
@@ -171,12 +171,12 @@ public class RetromodTestModNeoForge {
         // This mod's SOURCE jar deliberately ships
         // org/spongepowered/asm/synthetic/args/Dummy.class (the old-Forge
         // export hack Blueprint-era mods use). On a NeoForge 1.20.2+ host
-        // the transform must strip that package — the host's own
+        // the transform must strip that package - the host's own
         // mixin_synthetic module owns it, and a jar still shipping it fails
         // JPMS resolution for the whole module layer at boot. Booting far
         // enough to run this check is most of the assertion; the resource
         // lookup confirms the entries are really gone from the jar.
-        // (Only meaningful on the TRANSFORMED jar — on a same-version host
+        // (Only meaningful on the TRANSFORMED jar - on a same-version host
         // the mod is passed through untransformed and this check fails.)
         n++; passed += check(n, "#87 mixin synthetic-args dummy stripped from jar", () ->
             getClass().getClassLoader()

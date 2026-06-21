@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Regression test for #87: a transformed mod jar must not ship
- * {@code org/spongepowered/asm/synthetic/} — that package belongs to
+ * {@code org/spongepowered/asm/synthetic/} - that package belongs to
  * NeoForge's runtime {@code mixin_synthetic} module, and a jar that also
  * exports it (Blueprint 7.x ships a {@code Dummy.class} placeholder there)
  * fails JPMS module resolution for the whole layer at boot.

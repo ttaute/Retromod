@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * Block + item tags. Mods read these for things like "is this an axe-effective
- * block" or "is this in the leaves tag" — the underlying class
+ * block" or "is this in the leaves tag" - the underlying class
  * {@code TagKey<T>} replaced the older {@code Tag.Identified<T>} a while
  * back, and the field shape has been stable since.
  */

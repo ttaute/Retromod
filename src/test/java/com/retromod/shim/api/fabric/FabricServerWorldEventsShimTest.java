@@ -29,7 +29,7 @@ class FabricServerWorldEventsShimTest {
     @BeforeAll
     static void pinHostTo26_1() {
         // The shim self-gates to 26.1+ hosts (pre-26.1, ServerWorldEvents is still
-        // alive) — pin the detected host so registerRedirects runs in tests.
+        // alive) - pin the detected host so registerRedirects runs in tests.
         RetromodVersion.TARGET_MC_VERSION = "26.1";
     }
 
@@ -64,7 +64,7 @@ class FabricServerWorldEventsShimTest {
                 .filter(m -> (m.access & Opcodes.ACC_ABSTRACT) != 0).findFirst().orElse(null);
         assertNotNull(sam);
         assertEquals(name, sam.name, "SAM name must stay " + name + " so the lambda links");
-        assertEquals(SAM_DESC, sam.desc, "(MinecraftServer, ServerLevel) — World→Level handled by the harvest");
+        assertEquals(SAM_DESC, sam.desc, "(MinecraftServer, ServerLevel) - World→Level handled by the harvest");
     }
 
     @Test

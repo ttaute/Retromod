@@ -77,7 +77,7 @@ public final class VerificationReport {
     /**
      * Add an unresolved reference to the report, bucketed by {@link UnresolvedReference.Kind}.
      *
-     * <p>Thread-safe via per-report synchronization — concurrent calls from
+     * <p>Thread-safe via per-report synchronization - concurrent calls from
      * multiple worker threads during parallel verification won't corrupt the
      * bucket lists. Callers never read from the lists while add() can be in
      * flight (results are read only after {@code matchAllClasses} completes).</p>
@@ -113,8 +113,8 @@ public final class VerificationReport {
     /**
      * Unmodifiable view of pattern matches grouped by pattern name.
      *
-     * <p>Reads the {@code patternMatches} map under the report monitor — the
-     * same lock {@link #addPatternMatch} writes under — to establish a
+     * <p>Reads the {@code patternMatches} map under the report monitor - the
+     * same lock {@link #addPatternMatch} writes under - to establish a
      * happens-before relationship between concurrent writers and this reader.
      * Without this, a reader could observe a partially published map in the
      * JMM.</p>
@@ -149,7 +149,7 @@ public final class VerificationReport {
                 + missingFields.size() + badSignatures.size();
     }
 
-    /** True if there were no unresolved references — the mod passes verification. */
+    /** True if there were no unresolved references - the mod passes verification. */
     public boolean isClean() {
         return totalUnresolved() == 0;
     }
@@ -180,12 +180,12 @@ public final class VerificationReport {
      * {@code config/retromod/reports/<modid>-gaps.txt} or printing at WARN
      * level when there are unresolved refs.
      *
-     * <p>The output is stable — same input produces same bytes — so it can
+     * <p>The output is stable - same input produces same bytes - so it can
      * be diffed across runs to see whether new gaps appeared after a Retromod
      * update.</p>
      */
     public void writeTo(Appendable out) throws IOException {
-        out.append("=== Retromod verification — ").append(modId).append(" ===\n");
+        out.append("=== Retromod verification - ").append(modId).append(" ===\n");
         out.append("Target MC: ").append(targetMcVersion).append('\n');
         out.append("Classes scanned: ").append(Integer.toString(classesScanned)).append('\n');
         out.append("Unresolved references: ").append(Integer.toString(totalUnresolved())).append('\n');

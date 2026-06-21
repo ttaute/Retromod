@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Batch of <b>renamed-SAM event bridges</b> for Fabric API interfaces whose
- * 26.1 successor renamed the functional method — the "lambda trap" class of
+ * 26.1 successor renamed the functional method - the "lambda trap" class of
  * break, where a plain class redirect makes {@code LambdaMetafactory} throw
  * the moment a mod registers a listener. Every entry was verified against the
  * real fabric-api jars (0.141.4+1.21.11 vs 0.145.4+26.1.2); each synthetic
@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
  *   <li>{@code ServerEntityWorldChangeEvents} →
  *       {@code ServerEntityLevelChangeEvents} ({@code afterChangeWorld} →
  *       {@code afterChangeLevel} on both SAMs + both holder fields renamed).
- *       NOTE: the real 1.21.x class lives at {@code entity/event/v1/} — the
+ *       NOTE: the real 1.21.x class lives at {@code entity/event/v1/} - the
  *       previous redirect's {@code event/lifecycle/v1/} source path never
  *       existed, so this event was effectively unbridged; both paths now point
  *       at the synthetic.</li>
@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
  *       {@code ExtractItemDecorationsCallback} ({@code onDrawItemStackOverlay}
  *       → {@code onExtractItemDecorations}).</li>
  *   <li>{@code TooltipComponentCallback} → {@code ClientTooltipComponentCallback}
- *       ({@code getComponent} → {@code getClientComponent}; non-void SAM —
+ *       ({@code getComponent} → {@code getClientComponent}; non-void SAM -
  *       previously not bridged at all).</li>
  *   <li>{@code ServerChunkEvents$LevelTypeChange} →
  *       {@code $FullChunkStatusChange} ({@code onChunkLevelTypeChange} →
@@ -51,7 +51,7 @@ import org.slf4j.LoggerFactory;
  *   <li>{@code LandPathNodeTypesRegistry} → {@code LandPathTypeRegistry}
  *       (static registry: class+method renames; its {@code Static}/{@code
  *       Dynamic} provider SAMs renamed {@code getPathNodeType} →
- *       {@code getPathType} — those two get synthetics; previously not
+ *       {@code getPathType} - those two get synthetics; previously not
  *       bridged at all).</li>
  * </ul>
  *
@@ -59,7 +59,7 @@ import org.slf4j.LoggerFactory;
  * working on pre-26.1 hosts, and the synthetics' Mojang-name descriptors only
  * resolve on 26.1.</p>
  *
- * <p><b>STATUS — authored + transform-tested; events need the same in-game
+ * <p><b>STATUS - authored + transform-tested; events need the same in-game
  * pass as the other reflective bridges (they soft-fail to inert).</b></p>
  */
 public class FabricRenamedSamBridgesShim implements VersionShim {
@@ -78,7 +78,7 @@ public class FabricRenamedSamBridgesShim implements VersionShim {
     public void registerRedirects(RetromodTransformer t) {
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
-            LOGGER.debug("[Retromod] renamed-SAM bridges skipped (host {} < 26.1 — old APIs still present)",
+            LOGGER.debug("[Retromod] renamed-SAM bridges skipped (host {} < 26.1 - old APIs still present)",
                     com.retromod.core.RetromodVersion.TARGET_MC_VERSION);
             return;
         }
@@ -144,7 +144,7 @@ public class FabricRenamedSamBridgesShim implements VersionShim {
                         + "Lnet/minecraft/client/renderer/entity/EntityRendererProvider$Context;)V",
                 lefNew.replace('/', '.'), "EVENT"));
         t.registerClassRedirect(lefOld, lefSynth);
-        // Helper inner kept its `register` SAM name — plain redirect is safe.
+        // Helper inner kept its `register` SAM name - plain redirect is safe.
         t.registerClassRedirect(lefOld + "$RegistrationHelper", lefNew + "$RegistrationHelper");
 
         // ── DrawItemStackOverlayCallback ────────────────────────────────────
@@ -188,7 +188,7 @@ public class FabricRenamedSamBridgesShim implements VersionShim {
         String lpNew = FAPI + "registry/LandPathTypeRegistry";
         t.registerClassRedirect(lpOld, lpNew);
         t.registerClassRedirect(lpOld + "$PathNodeTypeProvider", lpNew + "$PathTypeProvider");
-        // Provider SAMs renamed getPathNodeType → getPathType — lambda traps.
+        // Provider SAMs renamed getPathNodeType → getPathType - lambda traps.
         t.registerSyntheticClass(GEN + "LandStaticPathProvider", SamBridgeSynthetics.samInterface(
                 GEN + "LandStaticPathProvider", lpNew + "$StaticPathTypeProvider",
                 "getPathNodeType", "getPathType",
@@ -204,7 +204,7 @@ public class FabricRenamedSamBridgesShim implements VersionShim {
                 null, null));
         t.registerClassRedirect(lpOld + "$DynamicPathNodeTypeProvider", GEN + "LandDynamicPathProvider");
         // Static getters renamed (register/registerDynamic kept their names);
-        // keyed on the NEW owner — class redirects run before method redirects.
+        // keyed on the NEW owner - class redirects run before method redirects.
         t.registerMethodRedirect(
                 lpNew, "getPathNodeType",
                 "(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;"
@@ -218,7 +218,7 @@ public class FabricRenamedSamBridgesShim implements VersionShim {
                 lpNew, "getPathTypeProvider",
                 "(Lnet/minecraft/world/level/block/Block;)L" + lpNew + "$PathTypeProvider;");
 
-        LOGGER.info("[Retromod] Fabric renamed-SAM bridges — ClientWorldEvents, "
+        LOGGER.info("[Retromod] Fabric renamed-SAM bridges - ClientWorldEvents, "
                 + "ServerEntityWorldChangeEvents, LivingEntityFeatureRendererRegistrationCallback, "
                 + "DrawItemStackOverlayCallback, TooltipComponentCallback, "
                 + "ServerChunkEvents$LevelTypeChange, LandPathNodeTypesRegistry "

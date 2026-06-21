@@ -261,7 +261,7 @@ public final class TransformVerifier {
     }
 
     // ──────────────────────────────────────────────────────────────────────
-    // RESOLUTION — check references against runtime classpath
+    // RESOLUTION - check references against runtime classpath
     // ──────────────────────────────────────────────────────────────────────
 
     private static boolean isSafe(String className) {
@@ -277,7 +277,7 @@ public final class TransformVerifier {
     /**
      * Is this internal name a class the mapping knows exists in the target MC?
      *
-     * <p>Used as a fallback when {@link Class#forName} can't load a class — which
+     * <p>Used as a fallback when {@link Class#forName} can't load a class - which
      * happens for legitimate, present classes the verifier's classloader simply
      * can't see: client classes when verifying on a dedicated server, or classes
      * in another module under NeoForge's modular loading. Without this, those
@@ -311,7 +311,7 @@ public final class TransformVerifier {
             // The verifier's classloader can't always see every MC class (client
             // classes on a server, or other-module classes under NeoForge). Before
             // declaring a real gap, confirm against the mapping: a known target
-            // class exists in MC — this was just a classloader-visibility miss.
+            // class exists in MC - this was just a classloader-visibility miss.
             return isKnownTargetClass(internalName);
         } catch (Exception e) {
             return true; // Avoid false positives
@@ -488,7 +488,7 @@ public final class TransformVerifier {
         public boolean passed() { return issues.isEmpty(); }
         public int issueCount() { return issues.size(); }
         public int totalChecked() {
-            // Approximate — the actual number of references checked
+            // Approximate - the actual number of references checked
             return issueCount() > 0 ? issueCount() : 1;
         }
     }

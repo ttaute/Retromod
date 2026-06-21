@@ -50,7 +50,7 @@ public class GlStateManagerShim {
             disableDepthTest = lookup.findStatic(renderSystem, "disableDepthTest",
                 MethodType.methodType(void.class));
         } catch (Exception e) {
-            // Running on dedicated server or RenderSystem not available — all ops become no-ops
+            // Running on dedicated server or RenderSystem not available - all ops become no-ops
         }
 
         SET_SHADER_COLOR = setShaderColor;

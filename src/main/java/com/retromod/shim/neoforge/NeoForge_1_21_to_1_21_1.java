@@ -19,7 +19,7 @@ public class NeoForge_1_21_to_1_21_1 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Bugfix release — no API breaks requiring redirects
+        // Bugfix release - no API breaks requiring redirects
     }
 
     @Override public String[] getShimClasses() { return new String[0]; }

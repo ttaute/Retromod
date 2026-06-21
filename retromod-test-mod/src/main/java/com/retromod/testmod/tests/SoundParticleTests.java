@@ -15,7 +15,7 @@ import java.util.List;
 /**
  * Sound + particle static accessors. These classes have many fields each
  * (every vanilla sound and particle type), and field renames between MC
- * versions are common — these tests would fail noisily if a redirect on
+ * versions are common - these tests would fail noisily if a redirect on
  * any frequently-used field was missing.
  */
 public final class SoundParticleTests {

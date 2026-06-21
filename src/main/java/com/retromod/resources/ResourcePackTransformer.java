@@ -327,7 +327,7 @@ public class ResourcePackTransformer {
                     totalSize += writtenBytes;
                     if (totalSize > ZipSecurity.DEFAULT_MAX_TOTAL_SIZE) {
                         throw new IOException("Resource pack total extracted size exceeds limit ("
-                            + ZipSecurity.DEFAULT_MAX_TOTAL_SIZE + " bytes) — possible zip bomb "
+                            + ZipSecurity.DEFAULT_MAX_TOTAL_SIZE + " bytes) - possible zip bomb "
                             + "(decompressed " + totalSize + " bytes so far)");
                     }
                 }

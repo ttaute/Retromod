@@ -205,7 +205,7 @@ public class FabricModTransformer {
             wrapEntrypoints(tempDir);
 
             // Step 2.5: Remap intermediary names to Mojang official names
-            // MC 26.1+ uses official namespace — all class_XXXX, field_XXXX,
+            // MC 26.1+ uses official namespace - all class_XXXX, field_XXXX,
             // method_XXXX references must be remapped in mixin configs, refmaps,
             // and access wideners
             remapIntermediaryNames(tempDir);
@@ -217,6 +217,18 @@ public class FabricModTransformer {
 
             // Step 3: Update fabric.mod.json
             updateFabricModJson(tempDir);
+
+            // Step 3.5: Migrate bundled data-pack JSON across the 1.21.x -> 26.x data-only
+            // format changes the bytecode pass can't reach (minecraft:chain -> iron_chain,
+            // dyed_color object -> int, advancement icon "item" -> "id", custom_model_data
+            // int -> object, entity_type tag minecraft:potion -> splash/lingering split).
+            // Without this a transformed structure mod's STRUCTURES still generate (vanilla
+            // worldgen types resolve) but its loot tables / advancements / tags fail to parse.
+            // Gated to 26.x targets inside ModDataMigrator.
+            int dataMigrated = com.retromod.resources.ModDataMigrator.migrateTree(tempDir, targetMcVersion);
+            if (dataMigrated > 0) {
+                LOGGER.info("Migrated 26.x data formats in {} data file(s)", dataMigrated);
+            }
 
             // Step 4: Repackage
             repackageJar(tempDir, outputJar, sourceJar);
@@ -503,7 +515,7 @@ public class FabricModTransformer {
                     totalSize += writtenBytes;
                     if (totalSize > MAX_TOTAL_SIZE) {
                         throw new IOException("ZIP total extracted size exceeds limit ("
-                            + MAX_TOTAL_SIZE + " bytes) — possible zip bomb (decompressed "
+                            + MAX_TOTAL_SIZE + " bytes) - possible zip bomb (decompressed "
                             + totalSize + " bytes so far)");
                     }
                 }
@@ -550,7 +562,7 @@ public class FabricModTransformer {
         // ConcurrentHashMap lookups are safe under concurrent reads.
         //
         // Workers use the shared Retromod executor pool sized to all cores
-        // by default — tunable via -Dretromod.parallelism=N. A ~200-mod-class
+        // by default - tunable via -Dretromod.parallelism=N. A ~200-mod-class
         // JAR finishes in ~100ms on an 8-core machine vs ~800ms single-threaded.
         final java.util.concurrent.atomic.AtomicInteger counter =
                 new java.util.concurrent.atomic.AtomicInteger();
@@ -664,9 +676,9 @@ public class FabricModTransformer {
                 return null; // already has the method
             }
 
-            // Inject a no-op implementation (can't call super — it's abstract):
+            // Inject a no-op implementation (can't call super - it's abstract):
             //   public void extractContents(GuiGraphicsExtractor g, int x, int y, float t) {
-            //       // no-op — old mod doesn't know about this method
+            //       // no-op - old mod doesn't know about this method
             //   }
             MethodNode newMethod = new MethodNode(
                 Opcodes.ACC_PUBLIC,
@@ -785,11 +797,13 @@ public class FabricModTransformer {
                         ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES) {
                             @Override
                             protected String getCommonSuperClass(String type1, String type2) {
-                                // Can't resolve MC class hierarchy offline — use Object as fallback
+                                // Can't resolve MC / JiJ class hierarchy offline. Don't blindly
+                                // return Object - that corrupts exception-merge frames into a
+                                // VerifyError (see RetromodTransformer.commonSuperFallback, #94).
                                 try {
                                     return super.getCommonSuperClass(type1, type2);
-                                } catch (Exception e) {
-                                    return "java/lang/Object";
+                                } catch (Exception | LinkageError e) {
+                                    return RetromodTransformer.commonSuperFallback(type1, type2);
                                 }
                             }
                         };
@@ -820,7 +834,7 @@ public class FabricModTransformer {
             || name.equals("playerLeave")
             || name.equals("reload");
         // Explicitly NOT matching: render, tick, draw, mouseClicked, keyPressed,
-        // charTyped, close, removed, init, resize — these are core Screen/Widget
+        // charTyped, close, removed, init, resize - these are core Screen/Widget
         // methods where errors should propagate normally.
     }
 
@@ -833,7 +847,7 @@ public class FabricModTransformer {
             return false;
         }
 
-        // Don't double-wrap — check if there's already a handler for Throwable
+        // Don't double-wrap - check if there's already a handler for Throwable
         if (method.tryCatchBlocks != null) {
             for (TryCatchBlockNode tcb : method.tryCatchBlocks) {
                 if ("java/lang/Throwable".equals(tcb.type)) {
@@ -874,7 +888,7 @@ public class FabricModTransformer {
         // Store exception
         newInsns.add(new VarInsnNode(Opcodes.ASTORE, method.maxLocals));
         // Call RetromodErrorHandler.handleNonFatal(String className, Throwable t)
-        // This deduplicates — only logs each unique error once
+        // This deduplicates - only logs each unique error once
         newInsns.add(new LdcInsnNode(className.replace('/', '.')));
         newInsns.add(new VarInsnNode(Opcodes.ALOAD, method.maxLocals));
         newInsns.add(new MethodInsnNode(Opcodes.INVOKESTATIC,
@@ -945,10 +959,10 @@ public class FabricModTransformer {
         // 26.1+ ONLY. On a pre-26.1 host the Fabric runtime still uses intermediary
         // names, so the mod's mixin configs / refmaps / accesswideners already match
         // the runtime. Remapping them to Mojang names would make every mixin target
-        // miss (bugs #21/#29) — same root cause as the bytecode remap gate in
+        // miss (bugs #21/#29) - same root cause as the bytecode remap gate in
         // RetromodPreLaunch.registerShimsForTransform.
         if (!RetromodPreLaunch.isUnobfuscatedTarget(targetMcVersion)) {
-            LOGGER.info("Host MC {} is pre-26.1 — skipping intermediary→Mojang metadata "
+            LOGGER.info("Host MC {} is pre-26.1 - skipping intermediary→Mojang metadata "
                 + "remap (mods keep their working intermediary names)", targetMcVersion);
             return;
         }
@@ -980,7 +994,7 @@ public class FabricModTransformer {
                     remapRefmap(file, mapper);
                     remappedFiles++;
                 } else if (name.endsWith(".jar")) {
-                    // JiJ nested JAR — remap its contents recursively
+                    // JiJ nested JAR - remap its contents recursively
                     remapNestedJar(file, mapper);
                     remappedFiles++;
                 }
@@ -1033,7 +1047,7 @@ public class FabricModTransformer {
     }
 
     /**
-     * Remap mixin config JSON file — update target class references.
+     * Remap mixin config JSON file - update target class references.
      *
      * Mixin configs don't directly contain class_XXXX names in the JSON
      * (the targets come from @Mixin annotations), but the refmap filename
@@ -1122,7 +1136,7 @@ public class FabricModTransformer {
     }
 
     /**
-     * Remap a refmap section — replace all intermediary names with Mojang names.
+     * Remap a refmap section - replace all intermediary names with Mojang names.
      */
     private com.google.gson.JsonObject remapRefmapSection(
             com.google.gson.JsonObject section,
@@ -1170,7 +1184,7 @@ public class FabricModTransformer {
                 // Extract nested JAR
                 extractJar(jarFile, tempDir);
 
-                // Transform bytecode. CAPTURE the count — a nested library jar that
+                // Transform bytecode. CAPTURE the count - a nested library jar that
                 // is PURE registration/helper code (no accesswidener, no mixins, no
                 // refmap, and a fabric.mod.json with no version constraint to loosen)
                 // has its classes remapped here but reports zero metadata changes, so
@@ -1247,6 +1261,14 @@ public class FabricModTransformer {
                     String after = Files.readString(nestedModJson);
                     metadataChanged = !before.equals(after);
                 }
+
+                // Migrate bundled data-pack JSON inside the JiJ too (a mod that registers
+                // content through a JiJ'd library can ship its data there as well). Counts
+                // toward the repackage decision so a JiJ whose ONLY change is migrated data
+                // still gets rewritten rather than silently discarded.
+                int nestedDataMigrated =
+                        com.retromod.resources.ModDataMigrator.migrateTree(tempDir, targetMcVersion);
+                remapped += nestedDataMigrated;
 
                 if (remapped > 0 || metadataChanged) {
                     // Repackage the nested JAR
@@ -1345,7 +1367,7 @@ public class FabricModTransformer {
 
         // Strip "breaks" and "conflicts" declarations. Old mods often declare
         // incompatibilities that are either (a) visual-glitch concerns that
-        // don't actually crash the game, or (b) outdated — the breaks target
+        // don't actually crash the game, or (b) outdated - the breaks target
         // has since fixed the issue. Either way, Fabric Loader enforces them
         // as hard incompatibilities at load time BEFORE any Retromod runtime
         // transform can mediate. Leaving them in place means translated mods
@@ -1363,7 +1385,7 @@ public class FabricModTransformer {
         // a namespace (intermediary or official). When the mod was built for
         // one MC era and the target runtime uses a different namespace,
         // Fabric Loader throws ClassTweakerFormatException at startup before
-        // any mod even gets to load — so the entire game crashes on launch.
+        // any mod even gets to load - so the entire game crashes on launch.
         //
         // The existing remapAccessWidener helper only handles the intermediary
         // → official direction (it returns early on "official" files). For
@@ -1372,7 +1394,7 @@ public class FabricModTransformer {
         // silently and Fabric crashes.
         //
         // Stripping the declaration from fabric.mod.json means Fabric Loader
-        // never tries to read the file — no crash. The mod loses whatever
+        // never tries to read the file - no crash. The mod loses whatever
         // class-opening that classtweaker was providing (some mixin targets
         // may now fail to find their hooks), but the mod *loads* instead of
         // killing the game. That's the correct tradeoff for old-mod-on-new-MC.
@@ -1404,7 +1426,7 @@ public class FabricModTransformer {
 
         // classTweakers is an ARRAY of strings: "classTweakers": ["foo.classtweaker"]
         // [^\]]* permits string content between the brackets but stops at the
-        // closing bracket — same shape as stripBreaksAndConflicts uses for {}.
+        // closing bracket - same shape as stripBreaksAndConflicts uses for {}.
         result = result.replaceAll(
                 "(?s),\\s*\"classTweakers\"\\s*:\\s*\\[[^\\]]*\\]",
                 "");
@@ -1433,7 +1455,7 @@ public class FabricModTransformer {
 
     /**
      * Remove {@code "breaks"} and {@code "conflicts"} objects from the
-     * fabric.mod.json. Matches the outer brace block — Fabric's format has
+     * fabric.mod.json. Matches the outer brace block - Fabric's format has
      * these as objects mapping mod-id → version-range. Handled as a regex
      * on the raw JSON text because we want to avoid a full JSON reparse for
      * compatibility with the other regex-based edits in this class.
@@ -1457,14 +1479,14 @@ public class FabricModTransformer {
         // PREVIOUS BUG (review finding #5):
         //   The cleanup step after the strip was:
         //     result = result.replaceAll(",\\s*\\}", "\n}");
-        //   That applies GLOBALLY — it rewrites any trailing-comma-before-close-
+        //   That applies GLOBALLY - it rewrites any trailing-comma-before-close-
         //   brace anywhere in the document, including ones that appear inside
         //   string literals (e.g., an author name or description containing
         //   ", }"). That could silently corrupt valid JSON and make the loader
         //   reject the mod at scan time.
         //
         // FIX: Only clean up the specific trailing comma the strip itself
-        // might have left behind — consume an optional preceding comma as
+        // might have left behind - consume an optional preceding comma as
         // part of the strip pattern, so no separate global cleanup is needed.
         // Variant 1: {"breaks":{...}, "otherKey":...}  → strip includes the trailing comma
         // Variant 2: {"otherKey":..., "breaks":{...}}  → strip includes the leading comma
@@ -1480,7 +1502,7 @@ public class FabricModTransformer {
             result = result.replaceAll(
                     "(?s)\"" + target + "\"\\s*:\\s*\\{[^{}]*\\}\\s*,\\s*",
                     "");
-            // Isolated "breaks" (only key in object) — rare
+            // Isolated "breaks" (only key in object) - rare
             result = result.replaceAll(
                     "(?s)\"" + target + "\"\\s*:\\s*\\{[^{}]*\\}",
                     "");
@@ -1585,7 +1607,7 @@ public class FabricModTransformer {
 
         // Relax ALL shimmed third-party API dependencies
         // Retromod provides bytecode shims for these APIs, so the version constraint
-        // in fabric.mod.json is no longer needed — the transformed code will work
+        // in fabric.mod.json is no longer needed - the transformed code will work
         // with whatever version is installed.
         updated = relaxShimmedApiDependencies(updated);
 
@@ -1693,7 +1715,7 @@ public class FabricModTransformer {
             String constraint = matcher.group(2);
 
             if (!keepStrict.contains(depId) && !SHIMMED_API_MOD_IDS.contains(depId)) {
-                // This is an unknown API with an upper-bounded version — relax it
+                // This is an unknown API with an upper-bounded version - relax it
                 LOGGER.info("  Relaxed unknown API dependency: {} (was: {})", depId, constraint);
                 matcher.appendReplacement(sb, "\"" + depId + "\": \"*\"");
             }
@@ -1706,7 +1728,7 @@ public class FabricModTransformer {
     /**
      * Move non-core dependencies from "depends" to "suggests" using Gson.
      *
-     * Fabric Loader treats "depends" as hard requirements — if the mod isn't
+     * Fabric Loader treats "depends" as hard requirements - if the mod isn't
      * installed, the game won't launch. For old transformed mods, APIs like
      * fabric-api, fabric, mixinextras etc. may not be present or may have
      * incompatible versions. Moving them to "suggests" allows the mod to load
@@ -1788,7 +1810,7 @@ public class FabricModTransformer {
         try (JarOutputStream jos = new JarOutputStream(
                 new FileOutputStream(outputJar.toFile()), manifest)) {
             
-            // Class lookup for mixin config stripping — may be populated when processing mixin configs.
+            // Class lookup for mixin config stripping - may be populated when processing mixin configs.
             // Modified class bytes are written from this map instead of from disk.
             Map<String, byte[]> classLookupForStripping = null;
 
@@ -1869,7 +1891,7 @@ public class FabricModTransformer {
             //      generates as well.
             //
             //   2. The source JAR's central directory itself lists the same
-            //      entry twice — JarFile/ZipFile happily extract both,
+            //      entry twice - JarFile/ZipFile happily extract both,
             //      overwriting on disk; on case-insensitive filesystems,
             //      two same-name entries differing only by case collapse the
             //      same way.
@@ -1878,10 +1900,10 @@ public class FabricModTransformer {
             // on the second write and the whole transform aborts. The
             // original mod's bundled class wins over our synthetic one
             // (the mod was built against its own copy, so that's the shape
-            // it expects — overriding it with our polyfill could break
+            // it expects - overriding it with our polyfill could break
             // unrelated things).
             //
-            // See https://github.com/Bownlux/Retromod/issues — original
+            // See https://github.com/Bownlux/Retromod/issues - original
             // crash reported against "Abridged v2.0.1 Fabric 1.21.11" with
             // a duplicate entry on FabricMineableTags.class.
             Set<String> writtenEntries = new HashSet<>();
@@ -1899,7 +1921,7 @@ public class FabricModTransformer {
                     if (!writtenEntries.add(entryName)) {
                         LOGGER.warn("Skipping duplicate JAR entry from source: {} "
                                 + "(the source mod's central directory lists this "
-                                + "entry more than once — keeping the first copy)",
+                                + "entry more than once - keeping the first copy)",
                                 entryName);
                         continue;
                     }
@@ -1916,12 +1938,12 @@ public class FabricModTransformer {
             }
 
             // Inject synthetic classes (ASM-generated polyfills with MC-typed fields).
-            // Skip any whose class name was already written from sourceDir — see
+            // Skip any whose class name was already written from sourceDir - see
             // the writtenEntries comment block above.
             for (var entry : RetromodTransformer.getInstance().getSyntheticClasses().entrySet()) {
                 String classPath = entry.getKey() + ".class";
                 if (!writtenEntries.add(classPath)) {
-                    LOGGER.debug("Skipping synthetic class {} — source mod already "
+                    LOGGER.debug("Skipping synthetic class {} - source mod already "
                             + "ships its own copy at the same path", entry.getKey());
                     continue;
                 }
@@ -2030,10 +2052,10 @@ public class FabricModTransformer {
         try {
             com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
 
-            // Set "required": false — makes the entire mixin config non-fatal
+            // Set "required": false - makes the entire mixin config non-fatal
             root.addProperty("required", false);
 
-            // Set "injectors": {"defaultRequire": 0} — makes all injection points optional
+            // Set "injectors": {"defaultRequire": 0} - makes all injection points optional
             com.google.gson.JsonObject injectors = root.has("injectors") && root.get("injectors").isJsonObject()
                 ? root.getAsJsonObject("injectors")
                 : new com.google.gson.JsonObject();
@@ -2063,7 +2085,7 @@ public class FabricModTransformer {
             try {
                 // Extract nested JAR.
                 // Use the same bounded-extraction pattern as the top-level
-                // extractJar above — without it, a JIJ entry that lies about
+                // extractJar above - without it, a JIJ entry that lies about
                 // its size in the central directory can stream gigabytes onto
                 // disk before the existing safeResolve check has any way to
                 // intervene. We accumulate the actual decompressed bytes and
@@ -2086,7 +2108,7 @@ public class FabricModTransformer {
                             jijTotalSize += writtenBytes;
                             if (jijTotalSize > MAX_TOTAL_SIZE) {
                                 throw new IOException("JIJ JAR total extracted size exceeds limit ("
-                                    + MAX_TOTAL_SIZE + " bytes) — possible zip bomb in nested "
+                                    + MAX_TOTAL_SIZE + " bytes) - possible zip bomb in nested "
                                     + "JAR " + name + " (decompressed " + jijTotalSize
                                     + " bytes so far)");
                             }
@@ -2266,7 +2288,7 @@ public class FabricModTransformer {
     /**
      * Check if debug mode is enabled in config/retromod/config.json.
      * Uses the same config pattern as {@code isForceTranslateEnabled()} in
-     * RetromodPreLaunch — a simple string check to avoid pulling in a full
+     * RetromodPreLaunch - a simple string check to avoid pulling in a full
      * JSON parser dependency at this layer.
      */
     private static boolean isDebugEnabled() {
@@ -2278,7 +2300,7 @@ public class FabricModTransformer {
                        json.contains("\"debug\":true");
             }
         } catch (Exception e) {
-            // Default to false — never crash for config reading
+            // Default to false - never crash for config reading
         }
         return false;
     }
@@ -2297,7 +2319,7 @@ public class FabricModTransformer {
      * - Constructor signature mismatches (constructors whose parameter count
      *   doesn't match any constructor on the target class)
      *
-     * This method NEVER throws — all exceptions are caught and logged. It is
+     * This method NEVER throws - all exceptions are caught and logged. It is
      * designed to be purely informational; transformation continues regardless
      * of scan results.
      *
@@ -2385,7 +2407,7 @@ public class FabricModTransformer {
                             }
                         }, ClassReader.SKIP_DEBUG);
                     } catch (Exception e) {
-                        // Skip unreadable class files — don't crash the scan
+                        // Skip unreadable class files - don't crash the scan
                     }
                 }
 
@@ -2429,7 +2451,7 @@ public class FabricModTransformer {
                 String owner = entry.getKey();
                 if (modClasses.contains(owner)) continue;
                 if (isSafeLibrary(owner, safeLibraryPrefixes)) continue;
-                // Only check methods on classes we CAN resolve — if the class itself
+                // Only check methods on classes we CAN resolve - if the class itself
                 // is missing, we already logged that above.
                 if (!canResolveClass(owner)) continue;
 
@@ -2488,7 +2510,7 @@ public class FabricModTransformer {
             }
 
         } catch (Exception e) {
-            // NEVER crash — just log and move on
+            // NEVER crash - just log and move on
             LOGGER.info("[Retromod-Debug] Could not complete debug scan for {}: {}", modName, e.getMessage());
         }
     }
@@ -2526,7 +2548,7 @@ public class FabricModTransformer {
                 String pkg = pkgMatcher.find() ? pkgMatcher.group(1).replace('.', '/') + "/" : "";
 
                 // Look for @Mixin target annotations by scanning the "mixins",
-                // "client", and "server" arrays — but we actually need the TARGET
+                // "client", and "server" arrays - but we actually need the TARGET
                 // classes, not the mixin classes. Targets are specified inside the
                 // mixin class bytecode via @Mixin(targets=...). We check them by
                 // looking for the "target" field pattern in the config JSON, which
@@ -2575,7 +2597,7 @@ public class FabricModTransformer {
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
             return false;
         } catch (Exception e) {
-            // SecurityException, LinkageError, etc. — treat as resolvable
+            // SecurityException, LinkageError, etc. - treat as resolvable
             // to avoid false positives
             return true;
         }
@@ -2631,7 +2653,7 @@ public class FabricModTransformer {
             }
             return false;
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
-            // Class not found — we already log this in the class check
+            // Class not found - we already log this in the class check
             return true; // Don't double-report
         } catch (Exception e) {
             return true; // Avoid false positives
@@ -2673,13 +2695,13 @@ public class FabricModTransformer {
         while (i < desc.length() && desc.charAt(i) != ')') {
             char c = desc.charAt(i);
             if (c == 'L') {
-                // Object type — skip to ';'
+                // Object type - skip to ';'
                 int end = desc.indexOf(';', i);
                 if (end < 0) break; // malformed (no ';'): indexOf+1 would reset i and spin forever
                 i = end + 1;
                 count++;
             } else if (c == '[') {
-                // Array — skip dimension markers
+                // Array - skip dimension markers
                 i++;
             } else {
                 // Primitive type (B, C, D, F, I, J, S, Z)

@@ -15,7 +15,7 @@ import java.util.Optional;
  *
  * <p>In older MC, {@code CompoundTag.getString(String key)} returned
  * {@code String} directly (defaulting to empty string on miss). In MC
- * 1.21.5+ that signature is gone — the same method now returns
+ * 1.21.5+ that signature is gone - the same method now returns
  * {@code Optional<String>}, and to get the underlying primitive you call
  * {@code .orElse("")}. {@code getInt}, {@code getDouble}, etc. follow the
  * same pattern. {@code ListTag.getString(int)} got the same treatment.
@@ -29,7 +29,7 @@ import java.util.Optional;
  * {@code INVOKESTATIC} via {@code devirtualize=true}), looks up the
  * runtime method via reflection on whichever signature is actually
  * present, and unwraps the {@code Optional} when needed. Default-on-miss
- * matches the legacy behavior — empty string, zero, false.
+ * matches the legacy behavior - empty string, zero, false.
  */
 public final class NbtCompatLookup {
 
@@ -42,7 +42,7 @@ public final class NbtCompatLookup {
     private NbtCompatLookup() {}
 
     // =====================================================================
-    // CompoundTag — replaces the legacy direct-return getters with helpers
+    // CompoundTag - replaces the legacy direct-return getters with helpers
     // that adapt to the new Optional-returning signatures.
     // =====================================================================
 
@@ -77,7 +77,7 @@ public final class NbtCompatLookup {
     }
 
     // =====================================================================
-    // ListTag — same pattern, but the key is an int index.
+    // ListTag - same pattern, but the key is an int index.
     // =====================================================================
 
     public static String listGetString(Object list, int index) {
@@ -166,7 +166,7 @@ public final class NbtCompatLookup {
     /**
      * Look up a method by (class, name, paramType, returnType). Cached.
      * Walks the class hierarchy and only matches methods whose return type
-     * is exactly {@code returnType} — that lets us pick between the
+     * is exactly {@code returnType} - that lets us pick between the
      * modern Optional-returning and legacy direct-returning overloads
      * deterministically.
      */

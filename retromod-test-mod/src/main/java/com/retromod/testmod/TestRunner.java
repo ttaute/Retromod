@@ -38,17 +38,17 @@ import java.util.UUID;
  *
  * <p><b>Phases:</b>
  * <ul>
- *   <li><b>{@code init}</b> (during {@code onInitializeClient}) — most tests.
+ *   <li><b>{@code init}</b> (during {@code onInitializeClient}) - most tests.
  *       Static registries (Blocks, Items, EntityType) and core API surfaces
  *       (Text, Identifier, NBT, math, codecs, fabric loader API) are all
  *       available. Run by {@link #runImmediate()}.</li>
  *   <li><b>{@code client-started}</b> (during {@code ClientLifecycleEvents.CLIENT_STARTED})
- *       — tests that touch the data-component registry. {@code new ItemStack(item, count)}
+ *       - tests that touch the data-component registry. {@code new ItemStack(item, count)}
  *       in MC 1.20.5+ requires the data-component registry, which is
  *       bootstrapped after {@code onInitializeClient} but before the title
  *       screen renders. Run by {@link #runOnClientStarted()}.</li>
  *   <li><b>{@code world-join}</b> (during {@code ClientPlayConnectionEvents.JOIN})
- *       — tests that touch dynamic registries. In MC 1.21+ enchantments are
+ *       - tests that touch dynamic registries. In MC 1.21+ enchantments are
  *       data-driven and live in the dynamic registry; same for mob effects in
  *       1.21.6+. The dynamic registry isn't populated until the client connects
  *       to a server (or opens a single-player world). Run by
@@ -99,7 +99,7 @@ public final class TestRunner {
     private static List<Test> buildClientStartedSuite() {
         // Empty for now. CLIENT_STARTED was supposed to be the right phase
         // for ItemStack-construction tests, but in MC 26.1 the data-component
-        // registry isn't frozen until a world actually loads — at
+        // registry isn't frozen until a world actually loads - at
         // CLIENT_STARTED the registration loop is still mid-bootstrap and
         // `new ItemStack(item, count)` throws
         //   NullPointerException: Components not bound yet
@@ -117,7 +117,7 @@ public final class TestRunner {
     }
 
     // =====================================================================
-    // PHASE ENTRY POINTS — called by RetromodTestMod's lifecycle hooks
+    // PHASE ENTRY POINTS - called by RetromodTestMod's lifecycle hooks
     // =====================================================================
 
     /** {@code onInitializeClient} entry point. Runs all init-phase tests. */
@@ -131,7 +131,7 @@ public final class TestRunner {
     }
 
     /**
-     * {@code ClientPlayConnectionEvents.JOIN} entry point. Idempotent —
+     * {@code ClientPlayConnectionEvents.JOIN} entry point. Idempotent -
      * if you re-join a world the tests just run again; nothing latches.
      */
     public static void runOnWorldJoin() {

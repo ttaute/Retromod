@@ -58,7 +58,7 @@ public class TagPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed — class redirects handle relocations,
+        // No embedded stubs needed - class redirects handle relocations,
         // and the removed management classes have no direct equivalent.
         return new String[]{};
     }
@@ -108,7 +108,7 @@ public class TagPolyfill implements PolyfillProvider {
         // Removed tag management classes
         // TagGroup, TagManager, and ServerTagManagerHolder were removed when
         // tags became part of the registry system. There are no direct
-        // replacements — mods need to use Registry.getOrCreateTag() or
+        // replacements - mods need to use Registry.getOrCreateTag() or
         // BuiltInRegistries to look up tags. We redirect to TagKey as a
         // best-effort to prevent ClassNotFoundException.
         // =====================================================================

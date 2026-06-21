@@ -16,7 +16,7 @@ import java.util.Map;
  * holders.
  *
  * <p>Older MC versions had {@code Enchantments.SHARPNESS} typed as
- * {@code Enchantment} — a direct reference to the actual instance. In MC
+ * {@code Enchantment} - a direct reference to the actual instance. In MC
  * 1.21+ the same field name still exists but its type changed to
  * {@code ResourceKey<Enchantment>} (just a registry key, not the value).
  * The same migration happened to {@code MobEffects.*} (= yarn
@@ -47,7 +47,7 @@ import java.util.Map;
  * was, so the consuming bytecode verifies cleanly.
  *
  * <p>Adding a new entry is one method here plus one
- * {@code registerFieldRedirect} call in the appropriate shim class — see
+ * {@code registerFieldRedirect} call in the appropriate shim class - see
  * {@code Fabric_1_21_11_to_26_1.java} for examples.
  */
 public final class RegistryRefLookup {
@@ -79,15 +79,15 @@ public final class RegistryRefLookup {
 
     private RegistryRefLookup() {}
 
-    /** Cached anchor classloader — resolved once on the first successful call. */
+    /** Cached anchor classloader - resolved once on the first successful call. */
     private static volatile ClassLoader anchorClassLoader;
 
     /**
      * Resolve an MC class by name. Tries multiple classloaders because the
      * obvious ones (this helper's loader, thread context, system) all fail
-     * in Fabric — {@code RegistryRefLookup} appears to live in a loader
+     * in Fabric - {@code RegistryRefLookup} appears to live in a loader
      * sibling to or below KnotClassLoader, not above it. The reliable
-     * anchor is the classloader of the *caller* — the transformed mod
+     * anchor is the classloader of the *caller* - the transformed mod
      * bytecode that called us is loaded by Knot, and Knot can see MC.
      *
      * <p>Attempt order:
@@ -102,7 +102,7 @@ public final class RegistryRefLookup {
      * </ol>
      */
     private static Class<?> loadMcClass(String... names) {
-        // Stock candidates — try each in priority order, since this is
+        // Stock candidates - try each in priority order, since this is
         // called many times we cache the first successful loader.
         ClassLoader anchor = anchorClassLoader;
         if (anchor != null) {
@@ -173,7 +173,7 @@ public final class RegistryRefLookup {
     }
 
     // =====================================================================
-    // ENCHANTMENTS — public static methods that return Object (CHECKCAST'd
+    // ENCHANTMENTS - public static methods that return Object (CHECKCAST'd
     // to Enchantment by the transformer's field-to-method redirect).
     // =====================================================================
 
@@ -289,7 +289,7 @@ public final class RegistryRefLookup {
         Object value = doLookup(registryName, entryName);
         CACHE.put(cacheKey, value != null ? value : NULL_SENTINEL);
         if (value != null && RESOLVED_REGISTRIES.add(registryName)) {
-            LOGGER.info("Polyfill resolved {} registry — first hit on {} returned {}",
+            LOGGER.info("Polyfill resolved {} registry - first hit on {} returned {}",
                     registryName, entryName, value.getClass().getName());
         }
         return value;

@@ -63,11 +63,11 @@ public class MinecraftVanillaPolyfill implements PolyfillProvider {
 
         // Material/MaterialColor removed in 1.20, properties inlined into BlockState
         // StructureFeature removed in 1.18.2, replaced by Structure
-        // These are handled by the shim chain — no stub needed at runtime.
+        // These are handled by the shim chain - no stub needed at runtime.
 
         // LazyLoadedValue removed in 26.1. Redirect to our embedded polyfill.
         // Mods like Jade reference this at runtime (e.g., ClientProxy.java:304).
-        // Register BOTH Mojang name AND intermediary name — ASM remapper is single-pass,
+        // Register BOTH Mojang name AND intermediary name - ASM remapper is single-pass,
         // so class_3528→LazyLoadedValue doesn't chain to LazyLoadedValue→polyfill.
         transformer.registerClassRedirect(
             "net/minecraft/util/LazyLoadedValue",

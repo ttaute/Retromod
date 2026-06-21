@@ -244,7 +244,7 @@ public class LegacyModSupport {
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
-                // Sanitize entry name — even though we're writing to another JAR
+                // Sanitize entry name - even though we're writing to another JAR
                 // (not to disk here), downstream tools may extract the output
                 // and be vulnerable to zip-slip. Reject traversal / absolute paths.
                 String safeName;
@@ -298,7 +298,7 @@ public class LegacyModSupport {
                         outputStream.closeEntry();
 
                     } else {
-                        // Copy unchanged — stream with a byte counter so a giant
+                        // Copy unchanged - stream with a byte counter so a giant
                         // asset entry can't blow up the total budget silently.
                         outputStream.putNextEntry(new JarEntry(safeName));
                         byte[] buf = new byte[8192];
@@ -486,7 +486,7 @@ public class LegacyModSupport {
                     // to heuristic detection.
                 }
                 case UNKNOWN -> {
-                    // Loader-detect said "don't know" — skip the metadata path
+                    // Loader-detect said "don't know" - skip the metadata path
                     // and let heuristic detection take over below.
                 }
             }

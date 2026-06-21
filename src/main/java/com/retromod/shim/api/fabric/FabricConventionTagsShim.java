@@ -18,19 +18,19 @@ import org.slf4j.LoggerFactory;
  * <p>The v1 classes are plain holders of {@code public static final TagKey} fields,
  * so this is field resolution, not a lambda problem. Verified against the real jars
  * (fabric-api 0.92.7 for v1, 0.145.4 for v2): <b>54 of 79</b> item-tag fields kept
- * their names across v1→v2 — those ride the class redirect untouched. The renamed
+ * their names across v1→v2 - those ride the class redirect untouched. The renamed
  * ones we could match with certainty get explicit field redirects (keyed on the v2
  * owner, because the ClassRemapper rewrites the GETSTATIC owner before the field
  * pass sees it). The handful with no certain v2 equivalent (e.g. {@code AXES},
  * {@code COAL}) are left unmapped: a mod touching one gets {@code NoSuchFieldError}
  * for that one tag instead of today's {@code NoClassDefFoundError} for the whole
- * class — strictly an improvement, never a regression.
+ * class - strictly an improvement, never a regression.
  *
  * <h2>Gating</h2>
  * Gated on the <b>presence of v2 on the host</b> (probed without initializing,
  * CLAUDE.md #14) rather than an MC version: v1 was removed from the Fabric API
  * around the 1.21 line, and v2 exists on every host Retromod targets from 1.20.x
- * up — but if someone runs an exotic host without v2, redirecting onto a missing
+ * up - but if someone runs an exotic host without v2, redirecting onto a missing
  * class would be worse than the status quo, so we check.
  */
 public class FabricConventionTagsShim implements VersionShim {
@@ -51,7 +51,7 @@ public class FabricConventionTagsShim implements VersionShim {
     };
 
     /**
-     * v1 item-tag fields whose v2 name differs — only pairs where the v2 field was
+     * v1 item-tag fields whose v2 name differs - only pairs where the v2 field was
      * verified to exist in fabric-api 0.145.4. Same {@code TagKey} type both sides,
      * so the desc-agnostic redirect form is exact.
      */
@@ -86,7 +86,7 @@ public class FabricConventionTagsShim implements VersionShim {
     public void registerRedirects(RetromodTransformer transformer) {
         // On a 26.1+ host v2 is guaranteed (the fabric-api line that removed v1).
         // On a pre-26.1 host, probe (non-initializing) for v2 before redirecting
-        // onto it — exotic hosts without v2 are left untouched.
+        // onto it - exotic hosts without v2 are left untouched.
         boolean v2Present = com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                         com.retromod.core.RetromodVersion.TARGET_MC_VERSION)
                 || EnvironmentDetector.hostClassExists(
@@ -99,14 +99,14 @@ public class FabricConventionTagsShim implements VersionShim {
         for (String holder : HOLDERS) {
             transformer.registerClassRedirect(V1 + holder, V2 + holder);
         }
-        // Renamed fields: keyed on the V2 owner — the ClassRemapper has already
+        // Renamed fields: keyed on the V2 owner - the ClassRemapper has already
         // rewritten the GETSTATIC owner by the time field redirects are applied.
         String itemOwner = V2 + "ConventionalItemTags";
         for (String[] r : ITEM_FIELD_RENAMES) {
             transformer.registerFieldRedirect(itemOwner, r[0], itemOwner, r[1]);
         }
 
-        LOGGER.info("[Retromod] Fabric convention tags v1→v2 — {} holder redirects + {} field renames "
+        LOGGER.info("[Retromod] Fabric convention tags v1→v2 - {} holder redirects + {} field renames "
                 + "(same-named fields ride the class redirect)", HOLDERS.length, ITEM_FIELD_RENAMES.length);
     }
 }

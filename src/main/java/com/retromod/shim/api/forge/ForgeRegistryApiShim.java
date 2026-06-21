@@ -50,7 +50,7 @@ public class ForgeRegistryApiShim implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
         // All redirects in this file map Forge package names to NeoForge
-        // package names — only correct on a NeoForge runtime. On Forge,
+        // package names - only correct on a NeoForge runtime. On Forge,
         // they break every transformed mod with NoClassDefFoundError on
         // net/neoforged/* classes. Same gating pattern as the other
         // Forge → NeoForge migration sources.

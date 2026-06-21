@@ -105,7 +105,7 @@ public class ForgeModTransformer {
         // FILENAME when a mod ships no module-info / Automatic-Module-Name
         // (common for MCreator and small mods). Spaces or other odd characters
         // in that name break the derived module's reads, and the transformed
-        // mod's module then can't resolve core Minecraft classes — e.g.
+        // mod's module then can't resolve core Minecraft classes - e.g.
         // "ClassNotFoundException: net.minecraft.resources.ResourceLocation" in
         // the mod's own <clinit> (#47, Luminous Nether: its jar name had spaces,
         // while the exact same mod renamed without spaces loaded fine). Sanitize
@@ -159,6 +159,16 @@ public class ForgeModTransformer {
             // synthetic-args dummy package some 1.20.1-era Forge mods ship (#87).
             stripMixinSyntheticPackage(tempDir);
 
+            // Step 2.8: Embed any registered synthetic classes this mod references, under a
+            // unique-per-mod Retromod package (split-package-safe), and redirect the mod's
+            // references there. No-op until a NeoForge synthetic (e.g. a DeferredSpawnEggItem
+            // or FMLJavaModLoadingContext bridge) is both registered AND referenced by this mod.
+            int synthetics = SyntheticEmbedder.embed(
+                    tempDir, sourceJar.getFileName().toString(), bytecodeTransformer);
+            if (synthetics > 0) {
+                LOGGER.info("Embedded {} referenced synthetic class(es)", synthetics);
+            }
+
             // Step 3: Update mods.toml / neoforge.mods.toml
             updateModsToml(tempDir, "META-INF/mods.toml");
             updateModsToml(tempDir, "META-INF/neoforge.mods.toml");
@@ -166,19 +176,32 @@ public class ForgeModTransformer {
             // Step 3.1: On a NeoForge host, promote a legacy META-INF/mods.toml to
             // META-INF/neoforge.mods.toml. Modern NeoForge SKIPS a jar that only has
             // mods.toml ("is for Minecraft Forge or an older version of NeoForge,
-            // and cannot be loaded") at scan time, before any bytecode runs — so a
+            // and cannot be loaded") at scan time, before any bytecode runs - so a
             // 1.20.1 (Neo)Forge mod never loads (issue #42; the real cause of #38).
             promoteToNeoForgeToml(tempDir);
 
             // Step 3.5: Recursively patch metadata in JIJ (Jar-In-Jar) deps.
             // Mods like Create bundle dependencies (e.g. Flywheel) at
-            // META-INF/jarjar/*.jar — those nested JARs have their own
+            // META-INF/jarjar/*.jar - those nested JARs have their own
             // mods.toml that needs the same minecraft versionRange update,
             // otherwise Forge sees the JIJ's stale "[1.18.2,1.19)" range
             // and rejects it on 26.1, taking the whole loadout down.
             int jijPatched = patchJarInJarMetadata(tempDir);
             if (jijPatched > 0) {
                 LOGGER.info("Patched metadata in {} JIJ dependencies", jijPatched);
+            }
+
+            // Step 3.6: Migrate bundled data-pack JSON across the 1.21.x -> 26.x data-only
+            // format changes the bytecode pass can't reach (minecraft:chain -> iron_chain,
+            // dyed_color object -> int, advancement icon "item" -> "id", custom_model_data
+            // int -> object, entity_type tag minecraft:potion -> splash/lingering split).
+            // A 1.21.x structure mod's STRUCTURES generate (vanilla worldgen types resolve)
+            // but its loot tables / advancements / tags otherwise fail to parse on 26.x.
+            // Gated to 26.x targets inside ModDataMigrator. This is the in-place / from-input
+            // runtime path too (RetromodNeoForge calls transformMod).
+            int dataMigrated = com.retromod.resources.ModDataMigrator.migrateTree(tempDir, targetMcVersion);
+            if (dataMigrated > 0) {
+                LOGGER.info("Migrated 26.x data formats in {} data file(s)", dataMigrated);
             }
 
             // Step 4: Repackage
@@ -259,7 +282,7 @@ public class ForgeModTransformer {
                     totalSize += writtenBytes;
                     if (totalSize > MAX_TOTAL_SIZE) {
                         throw new IOException("ZIP total extracted size exceeds limit ("
-                            + MAX_TOTAL_SIZE + " bytes) — possible zip bomb (decompressed "
+                            + MAX_TOTAL_SIZE + " bytes) - possible zip bomb (decompressed "
                             + totalSize + " bytes so far)");
                     }
                 }
@@ -282,7 +305,7 @@ public class ForgeModTransformer {
                 if (written > maxBytes) {
                     throw new IOException("ZIP entry too large: " + entryNameForError
                         + " (exceeded " + maxBytes + " bytes while reading, "
-                        + "possible zip bomb — declared size in central directory "
+                        + "possible zip bomb - declared size in central directory "
                         + "may be falsified)");
                 }
                 out.write(buf, 0, n);
@@ -300,7 +323,7 @@ public class ForgeModTransformer {
                 .toList();
         }
 
-        // Parallel per-class transformation — same rationale as
+        // Parallel per-class transformation - same rationale as
         // FabricModTransformer.transformClasses. Classes transform
         // independently; the bytecodeTransformer's redirect tables are
         // thread-safe (ConcurrentHashMap reads). See RetromodExecutors
@@ -354,20 +377,27 @@ public class ForgeModTransformer {
      *
      * <p>JIJ ("Jar-In-Jar") is Forge's mechanism for bundling dependencies
      * inside a mod. When Retromod transforms a mod like Create, it updates
-     * Create's outer mods.toml correctly — but the bundled Flywheel jar at
+     * Create's outer mods.toml correctly - but the bundled Flywheel jar at
      * {@code META-INF/jarjar/flywheel-forge-1.18.2-0.6.11-107.jar} has its
      * own mods.toml declaring "minecraft 1.18.2..1.19", and Forge rejects
      * that on 26.1+.
      *
      * <p>Strategy: extract → patch → repack each JIJ jar in-place. We only
      * touch the metadata files (no bytecode transformation of JIJ contents
-     * yet — that's a bigger separate feature). For the metadata-only fix,
+     * yet - that's a bigger separate feature). For the metadata-only fix,
      * just rewriting versionRange and dependency mandatory flags is enough
      * to get Forge to accept the JIJ.
      *
      * @return the number of JIJ jars that were successfully patched
      */
+    /** Max Jar-in-Jar nesting depth Retromod recurses through (libraries inside libraries). */
+    private static final int MAX_JIJ_DEPTH = 4;
+
     private int patchJarInJarMetadata(Path dir) {
+        return patchJarInJarMetadata(dir, 1);
+    }
+
+    private int patchJarInJarMetadata(Path dir, int depth) {
         Path jarjarDir = dir.resolve("META-INF/jarjar");
         if (!Files.isDirectory(jarjarDir)) {
             return 0;
@@ -378,12 +408,12 @@ public class ForgeModTransformer {
             var jijList = entries.filter(p -> p.toString().endsWith(".jar")).toList();
             for (Path jijJar : jijList) {
                 try {
-                    if (patchSingleJijJar(jijJar)) {
+                    if (patchSingleJijJar(jijJar, depth)) {
                         patched++;
                     }
                 } catch (Exception e) {
                     // One bad JIJ shouldn't take down the whole transform.
-                    // Log and continue — the worst case is the JIJ keeps
+                    // Log and continue - the worst case is the JIJ keeps
                     // its old metadata, which Forge will then reject only
                     // for that one nested mod.
                     LOGGER.warn("Could not patch JIJ {}: {}", jijJar.getFileName(), e.getMessage());
@@ -396,55 +426,66 @@ public class ForgeModTransformer {
     }
 
     /**
-     * Patch metadata in a single JIJ jar: extract to a temp dir, run the
-     * existing {@link #updateModsToml} on each metadata file present,
-     * repack over the original.
+     * Transform a single JIJ (Jar-in-Jar) library: extract to a temp dir, rewrite its
+     * BYTECODE with the same transformer as the outer mod, patch its metadata
+     * ({@link #updateModsToml} + {@link #promoteToNeoForgeToml}), recurse into its own
+     * bundled jars, and repack over the original.
      *
-     * @return true if any metadata file was actually changed (so the jar
-     *         was rewritten); false if there were no metadata files to
-     *         patch (vanilla library jars with no MC mod metadata).
+     * <p>Previously this patched only metadata; #95 needs the nested bytecode transformed
+     * too - a JiJ'd library referencing a relocated MC class (e.g. crackerslib bundled by
+     * Cracker's Wither Storm) otherwise loads broken or is reported "missing". A
+     * Forge-built nested lib also ships only {@code mods.toml}, which NeoForge skips at scan
+     * ("for Minecraft Forge or an older version of NeoForge") before any bytecode runs, so
+     * it gets the same {@code mods.toml}->{@code neoforge.mods.toml} promotion as the outer jar.
+     *
+     * @return true if the jar was rewritten (a class changed, metadata patched, or a
+     *         nested jar changed); false for a pure library with nothing to do.
      */
-    private boolean patchSingleJijJar(Path jijJar) throws IOException {
+    private boolean patchSingleJijJar(Path jijJar, int depth) throws IOException {
         Path tempDir = Files.createTempDirectory("retromod-jij-");
         try {
             // Extract using the same hardened extractor as the outer mod.
-            // ZipSecurity / size limits / path-traversal checks all apply
-            // identically for JIJ contents.
+            // ZipSecurity / size limits / path-traversal checks all apply identically.
             extractJar(jijJar, tempDir);
+
+            // (#95) Transform the nested library's bytecode with the outer mod's transformer.
+            // Even a "pure library" jar with no mod metadata gets this; transformClasses
+            // returns the count of classes actually rewritten.
+            int classesTransformed = transformClasses(tempDir);
 
             boolean hasForgeToml      = Files.exists(tempDir.resolve("META-INF/mods.toml"));
             boolean hasNeoForgeToml   = Files.exists(tempDir.resolve("META-INF/neoforge.mods.toml"));
-            boolean hasFabricModJson  = Files.exists(tempDir.resolve("fabric.mod.json"));
 
-            if (!hasForgeToml && !hasNeoForgeToml && !hasFabricModJson) {
-                // Pure library jar (e.g. Cardinal Components core, Apache
-                // Commons-style deps). Nothing to patch — leave it alone.
-                return false;
-            }
-
-            // Reuse the existing metadata patchers — same regex / version
-            // logic as the outer-jar pass. Forge mods.toml first.
             if (hasForgeToml) {
                 updateModsToml(tempDir, "META-INF/mods.toml");
             }
             if (hasNeoForgeToml) {
                 updateModsToml(tempDir, "META-INF/neoforge.mods.toml");
             }
-            // Fabric inside Forge JIJ is rare but not impossible (some
-            // multi-loader libraries ship both). Patch with a best-effort
-            // version-relax — fabric.mod.json's version logic lives in
-            // FabricModTransformer; importing it here would create a cycle
-            // for a marginal use case, so we skip it for now and just
-            // repack the jar even if the Fabric metadata stays stale. If
-            // it becomes a real problem we can add a shared version-patch
-            // helper.
+            // (#95/#42) Promote a bundled Forge lib's mods.toml so NeoForge will scan it
+            // (self-gated to a NeoForge 1.20.2+ host; no-op otherwise).
+            promoteToNeoForgeToml(tempDir);
 
-            // Repack — overwrite the original JIJ in place. The outer
-            // jar's META-INF/jarjar/ directory will pick up the rewritten
-            // bytes when the outer jar gets repackaged in step 4.
+            // Migrate bundled data-pack JSON inside the JiJ too (a mod can ship data through
+            // a JiJ'd library). Counts toward the repackage decision so a JiJ whose ONLY
+            // change is migrated data still gets rewritten.
+            int dataMigrated = com.retromod.resources.ModDataMigrator.migrateTree(tempDir, targetMcVersion);
+
+            // Recurse: the nested library may bundle its own jars.
+            int nestedPatched = (depth < MAX_JIJ_DEPTH) ? patchJarInJarMetadata(tempDir, depth + 1) : 0;
+
+            boolean changed = classesTransformed > 0 || hasForgeToml || hasNeoForgeToml
+                    || dataMigrated > 0 || nestedPatched > 0;
+            if (!changed) {
+                // Pure library with nothing to rewrite (no relocated refs, no metadata).
+                return false;
+            }
+
+            // Repack over the original JIJ in place; the outer jar picks up the rewritten
+            // bytes when it gets repackaged.
             Files.delete(jijJar);
             repackageJar(tempDir, jijJar);
-            LOGGER.debug("Patched JIJ metadata: {}", jijJar.getFileName());
+            LOGGER.debug("Transformed JIJ {} ({} class(es) rewritten)", jijJar.getFileName(), classesTransformed);
             return true;
 
         } finally {
@@ -476,7 +517,7 @@ public class ForgeModTransformer {
         // Forge 1.16+ requires a top-level `license` field; mods from before it
         // (and some old ones) omit it, so Forge fatally rejects the transformed jar
         // with "Missing License Information in file …" (#62). Add a neutral default
-        // when the source has none — Forge only needs a non-empty value.
+        // when the source has none - Forge only needs a non-empty value.
         content = ensureLicense(content);
 
         // Add Retromod marker if not present
@@ -496,15 +537,15 @@ public class ForgeModTransformer {
      *
      * <p>NeoForge renamed its metadata file from {@code mods.toml} (the Forge name,
      * also used by NeoForge 1.20.1) to {@code neoforge.mods.toml} in 1.20.2. Modern
-     * NeoForge SKIPS a jar that has only {@code mods.toml} at scan time — "File X is
-     * for Minecraft Forge or an older version of NeoForge, and cannot be loaded" —
+     * NeoForge SKIPS a jar that has only {@code mods.toml} at scan time - "File X is
+     * for Minecraft Forge or an older version of NeoForge, and cannot be loaded" -
      * <em>before</em> any bytecode transform runs, so a 1.20.1 (Neo)Forge mod never
      * loads at all (issue #42; the real cause behind #38, which was wrongly filed as
      * a shim problem). We copy the (already version-patched) toml to the new name and
      * relax the top-level {@code loaderVersion}.
      *
-     * <p>Gated on the host actually being NeoForge, so a LexForge setup — which still
-     * uses {@code mods.toml} — is left untouched.
+     * <p>Gated on the host actually being NeoForge, so a LexForge setup - which still
+     * uses {@code mods.toml} - is left untouched.
      */
     private void promoteToNeoForgeToml(Path tempDir) throws IOException {
         if (!com.retromod.util.McReflect.isNeoForge()) return;
@@ -529,7 +570,7 @@ public class ForgeModTransformer {
      * <p>Some 1.20.1-era Forge mods (Blueprint 7.x and mods built from its
      * template) ship a placeholder class at
      * {@code org/spongepowered/asm/synthetic/args/Dummy.class} so their own
-     * module exports Mixin's runtime-generated args package — a hack old Forge
+     * module exports Mixin's runtime-generated args package - a hack old Forge
      * needed for {@code @ModifyArgs} handlers to resolve generated Args classes.
      * NeoForge 1.20.2+ creates its own {@code mixin_synthetic} module that owns
      * that package, so a mod jar still shipping the dummy makes module
@@ -546,7 +587,7 @@ public class ForgeModTransformer {
         if (RetromodVersion.mcVersionExceeds("1.20.2", targetMcVersion)) return;
 
         if (stripMixinSyntheticEntries(tempDir)) {
-            LOGGER.info("Stripped org/spongepowered/asm/synthetic/ from mod jar — NeoForge's "
+            LOGGER.info("Stripped org/spongepowered/asm/synthetic/ from mod jar - NeoForge's "
                     + "mixin_synthetic module owns that package (#87)");
         }
     }
@@ -556,7 +597,7 @@ public class ForgeModTransformer {
      * delete {@code org/spongepowered/asm/synthetic/} from the extracted tree,
      * then prune ancestor directories that became empty (so the repackaged jar
      * doesn't even declare the parent packages). A mod that shades full Mixin
-     * keeps its other {@code org/spongepowered/asm/} content — only the
+     * keeps its other {@code org/spongepowered/asm/} content - only the
      * runtime-generated synthetic package is never legitimate to ship.
      * Package-private for tests.
      */
@@ -596,14 +637,14 @@ public class ForgeModTransformer {
      * Ensure the toml declares a top-level {@code license} field. Forge 1.16+ fatally
      * rejects a mod whose {@code mods.toml} lacks one ("Missing License Information in
      * file …"), which a mod authored before that became mandatory will hit after
-     * transformation (#62). If absent, insert a neutral {@code "All Rights Reserved"} —
+     * transformation (#62). If absent, insert a neutral {@code "All Rights Reserved"} -
      * Forge only needs a non-empty value, and we don't assert a real license the author
      * never declared. Inserted before the first table header so it stays in the root
      * table (TOML requires top-level keys to precede any {@code [table]}).
      */
     static String ensureLicense(String toml) {
         if (java.util.regex.Pattern.compile("(?m)^\\s*license\\s*=").matcher(toml).find()) {
-            return toml; // already declares a license — leave the author's value untouched
+            return toml; // already declares a license - leave the author's value untouched
         }
         String line = "license=\"All Rights Reserved\" # added by Retromod (source declared none) (#62)\n";
         java.util.regex.Matcher firstTable =
@@ -619,7 +660,7 @@ public class ForgeModTransformer {
      *
      * <p>A Forge/1.20.1 mod declares a mandatory dependency on the {@code forge}
      * mod-id, but NeoForge has no mod with that id, so it rejects the mod with
-     * "Mod X requires forge 0 or above — forge is not installed" (#42) — even after
+     * "Mod X requires forge 0 or above - forge is not installed" (#42) - even after
      * the metadata is promoted to {@code neoforge.mods.toml}. Pointing the
      * dependency at {@code neoforge} (which IS present) satisfies it; its
      * versionRange is already relaxed to {@code "[0,)"} by {@link #updateModsToml}.
@@ -664,7 +705,7 @@ public class ForgeModTransformer {
             }
 
             // Detect modId = "xxx".
-            // Use find() rather than matches() — many mods.toml files have a
+            // Use find() rather than matches() - many mods.toml files have a
             // trailing inline comment like  modId="forge" #mandatory  which
             // makes matches() (full-line match) return false. find() looks
             // for the pattern *anywhere* in the line, which correctly handles
@@ -774,9 +815,9 @@ public class ForgeModTransformer {
                 return null; // already has the method
             }
 
-            // Inject a no-op implementation (can't call super — it's abstract):
+            // Inject a no-op implementation (can't call super - it's abstract):
             //   public void extractContents(GuiGraphicsExtractor g, int x, int y, float t) {
-            //       // no-op — old mod doesn't know about this method
+            //       // no-op - old mod doesn't know about this method
             //   }
             MethodNode newMethod = new MethodNode(
                 Opcodes.ACC_PUBLIC,
@@ -842,10 +883,10 @@ public class ForgeModTransformer {
         try {
             com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
 
-            // Set "required": false — makes the entire mixin config non-fatal
+            // Set "required": false - makes the entire mixin config non-fatal
             root.addProperty("required", false);
 
-            // Set "injectors": {"defaultRequire": 0} — makes all injection points optional
+            // Set "injectors": {"defaultRequire": 0} - makes all injection points optional
             com.google.gson.JsonObject injectors = root.has("injectors") && root.get("injectors").isJsonObject()
                 ? root.getAsJsonObject("injectors")
                 : new com.google.gson.JsonObject();
@@ -906,7 +947,7 @@ public class ForgeModTransformer {
             // Deduplicate entries. A source mod's central directory can list the
             // same entry twice (or two entries collide on a case-insensitive
             // filesystem), and JarOutputStream.putNextEntry throws ZipException
-            // on the second write — which would abort the whole transform and
+            // on the second write - which would abort the whole transform and
             // silently drop the mod. Keep the first copy, skip the rest. This
             // mirrors the guard already in FabricModTransformer.
             Set<String> writtenEntries = new java.util.HashSet<>();
@@ -919,7 +960,7 @@ public class ForgeModTransformer {
                     if (!writtenEntries.add(entryName)) {
                         LOGGER.warn("Skipping duplicate JAR entry from source: {} "
                                 + "(the source mod's central directory lists this "
-                                + "entry more than once — keeping the first copy)",
+                                + "entry more than once - keeping the first copy)",
                                 entryName);
                         continue;
                     }

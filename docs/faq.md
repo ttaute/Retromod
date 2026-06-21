@@ -70,7 +70,7 @@ Use the newest version of the dependency, the one built for the MC version you'r
 
 Don't go hunting for ancient builds of a library to match an old mod. That just gives you two old things to translate instead of one, and a library built for 1.20.1 has its own pile of removed-API problems on 26.1.
 
-Where this is still occasionally rough is a library that renamed its package *and* reshaped its API between the old and new versions. The worked example is Cardinal Components, which moved from `dev.onyxstudios.cca` (5.x) to `org.ladysnake.cca` (6.x): an old mod references `dev.onyxstudios.cca.*` while modern CCA provides `org.ladysnake.cca.*`. Retromod now bridges that package move — the public `api/` surface that kept its shape (the large majority) is redirected automatically, so install **modern CCA** and let Retromod line up the names; downgrading to old CCA is *not* the answer. The exception is the handful of classes CCA 6 *removed* rather than moved — chiefly the item-component API, which CCA dropped because Minecraft 1.20.5+ replaced it with vanilla data components. A mod built around old CCA item components needs that newer API and can't be bridged by a rename alone.
+Where this is still occasionally rough is a library that renamed its package *and* reshaped its API between the old and new versions. The worked example is Cardinal Components, which moved from `dev.onyxstudios.cca` (5.x) to `org.ladysnake.cca` (6.x): an old mod references `dev.onyxstudios.cca.*` while modern CCA provides `org.ladysnake.cca.*`. Retromod now bridges that package move - the public `api/` surface that kept its shape (the large majority) is redirected automatically, so install **modern CCA** and let Retromod line up the names; downgrading to old CCA is *not* the answer. The exception is the handful of classes CCA 6 *removed* rather than moved - chiefly the item-component API, which CCA dropped because Minecraft 1.20.5+ replaced it with vanilla data components. A mod built around old CCA item components needs that newer API and can't be bridged by a rename alone.
 
 So the rule of thumb is: install the newest version of every dependency, just like a normal modern install, and let Retromod carry the old mod across to it.
 
@@ -87,7 +87,7 @@ You have to preserve the copyright notice and MIT license text somewhere in the 
 
 ## What Minecraft versions are supported?
 
-- **Target:** Minecraft 26.1.2 and **26.2** (26.2 support landed in 1.1.0-snapshot.4; as of 1.1.0 the **Fabric and NeoForge** 26.2 jars ship now that those loaders have released for 26.2 — **Forge has no 26.2 build yet**, so a Forge 26.2 jar follows when it does). This is the version your transformed mods run *on*. On 26.2, use the **OpenGL** renderer — see below.
+- **Target:** Minecraft 26.1.2 and **26.2** (26.2 support landed in 1.1.0-snapshot.4; as of 1.1.0 the **Fabric and NeoForge** 26.2 jars ship now that those loaders have released for 26.2 - **Forge has no 26.2 build yet**, so a Forge 26.2 jar follows when it does). This is the version your transformed mods run *on*. On 26.2, use the **OpenGL** renderer - see below.
 - **Source:** mods built for 1.12.2 and newer. That's the version the mod was originally released for.
 
 So you can take a Fabric mod built for 1.20.1 and run it on 26.1.2, or a mod built for 1.16.5 and run it on 26.1.2. 1.12.2 is the oldest source we currently support.
@@ -98,11 +98,11 @@ Newer target versions will be added as Minecraft releases them. Retromod is buil
 
 ## On MC 26.2, should I use OpenGL or Vulkan?
 
-**Use OpenGL.** MC 26.2 added a Vulkan renderer and made it the default, but translated old mods often render incorrectly (or crash) on Vulkan because they do OpenGL-era rendering. 26.2 still ships the OpenGL backend, and that's what old mods need. Retromod sets `preferredGraphicsBackend:"opengl"` automatically the first time it runs on a 26.2+ client (it won't override a backend you chose yourself), so most people are already on OpenGL. To set or confirm it manually: Options → Video Settings → **Graphics API → OpenGL**. On macOS it's moot (Minecraft runs OpenGL-over-Metal regardless). OpenGL is expected to be removed in 26.3 — see [Troubleshooting]({{ '/troubleshooting' | relative_url }}) and the roadmap.
+**Use OpenGL.** MC 26.2 added a Vulkan renderer and made it the default, but translated old mods often render incorrectly (or crash) on Vulkan because they do OpenGL-era rendering. 26.2 still ships the OpenGL backend, and that's what old mods need. Retromod sets `preferredGraphicsBackend:"opengl"` automatically the first time it runs on a 26.2+ client (it won't override a backend you chose yourself), so most people are already on OpenGL. To set or confirm it manually: Options → Video Settings → **Graphics API → OpenGL**. On macOS it's moot (Minecraft runs OpenGL-over-Metal regardless). OpenGL is expected to be removed in 26.3 - see [Troubleshooting]({{ '/troubleshooting' | relative_url }}) and the roadmap.
 
 ## What does it mean if the build isn't VERIFIED?
 
-Retromod compares the running build's code against a hash embedded at release time. `VERIFIED` means it matches — the bytecode is unchanged from what was published (it doesn't *prove* the build is genuine, since the hash has no secret key; it means the hash checks out). `MODIFIED` means it doesn't match: a fork, a repack, a launcher that re-bundled it, or (rarely) a corrupted download. `UNKNOWN` is a dev/source build with no hash embedded. It's informational only and never blocks anything. For a real check, compare your file's SHA-256 against the one on the [releases page](https://github.com/Bownlux/Retromod/releases).
+Retromod compares the running build's code against a hash embedded at release time. `VERIFIED` means it matches - the bytecode is unchanged from what was published (it doesn't *prove* the build is genuine, since the hash has no secret key; it means the hash checks out). `MODIFIED` means it doesn't match: a fork, a repack, a launcher that re-bundled it, or (rarely) a corrupted download. `UNKNOWN` is a dev/source build with no hash embedded. It's informational only and never blocks anything. For a real check, compare your file's SHA-256 against the one on the [releases page](https://github.com/Bownlux/Retromod/releases).
 
 See [Authenticity]({{ '/authenticity' | relative_url }}) for the full breakdown of what each status means.
 
@@ -114,7 +114,7 @@ Partial compatibility. Sodium and Iris are mostly fine since they target modern 
 
 Yes, three of them:
 
-- The [Compatibility DB]({{ '/compatdb/' | relative_url }}) — community reports with badges (Diamond → Borked), the exact versions used, and details, ProtonDB-style. Add your own with the report form linked there.
+- The [Compatibility DB]({{ '/compatdb/' | relative_url }}) - community reports with badges (Diamond → Borked), the exact versions used, and details, ProtonDB-style. Add your own with the report form linked there.
 - The [compatibility list](https://github.com/Bownlux/Retromod/blob/main/COMPATIBILITY.md) covers mods confirmed to load after transformation, grouped by the MC version they were built for, plus a recommended multi-mod test setup.
 - [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}) is the "no" list and the rules behind it (rendering replacements, coremods, deep-integration mods like Create).
 

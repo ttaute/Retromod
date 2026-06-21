@@ -90,7 +90,7 @@ public class ItemStackNbtBridge {
 
     /**
      * Gets or creates NBT data on an ItemStack.
-     * Bridges old getOrCreateTag() — if no tag exists, creates a new CompoundTag
+     * Bridges old getOrCreateTag() - if no tag exists, creates a new CompoundTag
      * and attaches it to the ItemStack.
      */
     public static Object getOrCreateTag(Object itemStack) {

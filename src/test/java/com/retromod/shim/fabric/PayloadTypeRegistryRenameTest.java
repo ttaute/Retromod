@@ -34,12 +34,12 @@ class PayloadTypeRegistryRenameTest {
             new Fabric_1_21_11_to_26_1().registerRedirects(t);
             var r = t.getMethodRedirects();
 
-            // gen-1 (configurationClientbound — the exact name in the #94 crash)
+            // gen-1 (configurationClientbound - the exact name in the #94 crash)
             assertTarget(r, "configurationClientbound", "clientboundConfiguration");
             assertTarget(r, "configurationServerbound", "serverboundConfiguration");
             assertTarget(r, "playClientbound", "clientboundPlay");
             assertTarget(r, "playServerbound", "serverboundPlay");
-            // gen-2 (configurationS2C — what current forge-config-api-port calls)
+            // gen-2 (configurationS2C - what current forge-config-api-port calls)
             assertTarget(r, "configurationS2C", "clientboundConfiguration");
             assertTarget(r, "configurationC2S", "serverboundConfiguration");
             assertTarget(r, "playS2C", "clientboundPlay");

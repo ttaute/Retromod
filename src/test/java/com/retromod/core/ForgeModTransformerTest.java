@@ -6,6 +6,14 @@ package com.retromod.core;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests the {@code mods.toml} → {@code neoforge.mods.toml} promotion logic that
  * lets modern NeoForge accept 1.20.1 (Neo)Forge mods (issue #42). The file
  * rename + host gate are integration-level (need a NeoForge runtime), but the
- * {@code loaderVersion} relax — the part most likely to get the regex wrong — is
+ * {@code loaderVersion} relax - the part most likely to get the regex wrong - is
  * pure and testable.
  */
 class ForgeModTransformerTest {
@@ -73,7 +81,7 @@ class ForgeModTransformerTest {
         String in = "modLoader=\"javafml\"\nloaderVersion=\"[47,)\"\n\n[[mods]]\nmodId=\"survivalisland\"\n";
         String out = ForgeModTransformer.ensureLicense(in);
         assertTrue(out.contains("license="), "license must be added: " + out);
-        // Must stay in the root table — i.e. appear before the [[mods]] header.
+        // Must stay in the root table - i.e. appear before the [[mods]] header.
         assertTrue(out.indexOf("license=") < out.indexOf("[[mods]]"),
                 "license must precede the [[mods]] table: " + out);
         assertTrue(out.contains("modId=\"survivalisland\""), "existing content preserved");
@@ -85,6 +93,56 @@ class ForgeModTransformerTest {
         String in = "modLoader=\"javafml\"\nlicense=\"MIT\"\n[[mods]]\nmodId=\"x\"\n";
         assertEquals(in, ForgeModTransformer.ensureLicense(in),
                 "must not modify a toml that already declares a license");
+    }
+
+    /**
+     * End-to-end of the NeoForge/Forge RUNTIME path (RetromodNeoForge in-place / from-input both
+     * call {@link ForgeModTransformer#transformMod}): a 1.21.x structure mod that ships worldgen
+     * JSON with {@code //} comments must have them stripped during the in-place transform, because
+     * 26.1's strict gson rejects them (FatalStartupException on Philips Ruins before this). Proves
+     * the {@code migrateTree} wiring is reached by the runtime path, not just the offline CLI.
+     */
+    @Test
+    @DisplayName("runtime transformMod strips lenient-JSON comments from bundled worldgen data (26.x)")
+    void transformModMigratesBundledWorldgenData(@TempDir Path tmp) throws Exception {
+        Path src = tmp.resolve("structuremod-1.21.1.jar");
+        String commented = "{\n  // a comment 26.1 strict gson rejects\n  \"processors\": []\n}";
+        try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(src))) {
+            writeEntry(jos, "META-INF/neoforge.mods.toml",
+                    "modLoader=\"javafml\"\nloaderVersion=\"[1,)\"\nlicense=\"MIT\"\n"
+                  + "[[mods]]\nmodId=\"smod\"\n"
+                  + "[[dependencies.smod]]\nmodId=\"minecraft\"\nversionRange=\"[1.21.1,)\"\n");
+            writeEntry(jos, "data/smod/worldgen/processor_list/x.json", commented);
+        }
+
+        Path outDir = Files.createDirectory(tmp.resolve("out"));
+        Path out = new ForgeModTransformer("26.1").transformMod(src, outDir);
+
+        assertNotNull(out, "transformMod should produce an output jar");
+        String migrated = readEntry(out, "data/smod/worldgen/processor_list/x.json");
+        assertNotNull(migrated, "the bundled data file must survive the transform");
+        assertFalse(migrated.contains("//"), "the // comment must be stripped by the runtime path: " + migrated);
+        // and it must now parse under a STRICT (26.1-style) reader
+        var r = new com.google.gson.stream.JsonReader(new java.io.StringReader(migrated));
+        r.setLenient(false);
+        assertDoesNotThrow(() -> com.google.gson.JsonParser.parseReader(r),
+                "migrated worldgen JSON must be strict-parseable");
+    }
+
+    private static void writeEntry(JarOutputStream jos, String name, String content) throws Exception {
+        jos.putNextEntry(new JarEntry(name));
+        jos.write(content.getBytes(StandardCharsets.UTF_8));
+        jos.closeEntry();
+    }
+
+    private static String readEntry(Path jar, String name) throws Exception {
+        try (JarFile jf = new JarFile(jar.toFile())) {
+            JarEntry e = jf.getJarEntry(name);
+            if (e == null) return null;
+            try (var is = jf.getInputStream(e)) {
+                return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        }
     }
 
     @Test

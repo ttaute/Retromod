@@ -31,7 +31,7 @@ public class NeoForge_1_21_3_to_1_21_4 implements VersionShim {
         // 1.21.2 stopped syncing the full RecipeManager) and the successor exists
         // from 1.21.4 on, byte-identical through 26.1 (verified by branch diff).
         // Living here, the redirect covers a 1.21.1 mod landing on ANY 1.21.4+
-        // host — the 26.1 shim's copy only covered the final hop.
+        // host - the 26.1 shim's copy only covered the final hop.
         transformer.registerClassRedirect(
             "net/neoforged/neoforge/client/event/RecipesUpdatedEvent",
             "net/neoforged/neoforge/client/event/RecipesReceivedEvent"

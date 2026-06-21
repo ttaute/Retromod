@@ -3,7 +3,7 @@
   "_version": 1,
 
   "fabric": {
-    "_comment": "Fabric API's module reshuffles are mostly additive — few classes actually move. This table focuses on the handful of renames that caused widespread breakage.",
+    "_comment": "Fabric API's module reshuffles are mostly additive - few classes actually move. This table focuses on the handful of renames that caused widespread breakage.",
     "renamed_classes": {
       "net/fabricmc/fabric/api/server/PlayerStream": "net/fabricmc/fabric/api/networking/v1/PlayerLookup"
     },

@@ -8,7 +8,7 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Fabric {@code FabricBlockSettings} bridge — the single most-referenced removed
+ * Fabric {@code FabricBlockSettings} bridge - the single most-referenced removed
  * Fabric API class in the compat audit (~880 refs across the top mods).
  *
  * <h2>What it was</h2>
@@ -27,7 +27,7 @@ import com.retromod.core.VersionShim;
  * the actual load-blocker), and every builder call whose name already matches
  * {@code Properties} ({@code strength}, {@code mapColor}, {@code noCollision},
  * {@code lightLevel(ToIntFunction)}, {@code instrument}, {@code replaceable}, …)
- * works for free. A synthetic subclass is impossible here — {@code Properties}'
+ * works for free. A synthetic subclass is impossible here - {@code Properties}'
  * only constructor is private, with a static {@code of()} factory.
  *
  * <p>The remaining breakage is the <b>renamed</b> builders (Yarn→Mojang). For the
@@ -41,9 +41,9 @@ import com.retromod.core.VersionShim;
  * the parameter type differs between the two paths.
  *
  * <h2>Known follow-up (Phase 2)</h2>
- * Signature-changing builders — {@code luminance(int)} / {@code lightLevel(int)}
+ * Signature-changing builders - {@code luminance(int)} / {@code lightLevel(int)}
  * → {@code lightLevel(ToIntFunction)} (needs a constant-function adapter), and
- * the predicate-typed ones ({@code allowsSpawning}, {@code solidBlock}, …) — are
+ * the predicate-typed ones ({@code allowsSpawning}, {@code solidBlock}, …) - are
  * not yet bridged; a block that calls those still hits a {@code NoSuchMethodError}
  * at that call. The common property set (hardness/resistance/strength/sounds/
  * requiresTool/breakInstantly/…) is covered, which gets the large majority of
@@ -54,13 +54,13 @@ public class FabricBlockSettingsShim implements VersionShim {
     private static final String FBS = "net/fabricmc/fabric/api/object/builder/v1/block/FabricBlockSettings";
     // Pre-0.50 Fabric API (≈1.16) shipped FabricBlockSettings at a shorter path
     // before the object-builder-v1 module existed. A handful of very old mods
-    // still reference it — redirect the type the same way (the builder methods
+    // still reference it - redirect the type the same way (the builder methods
     // resolve via the shared method redirects, which are owner=Properties).
     private static final String FBS_OLD = "net/fabricmc/fabric/api/block/FabricBlockSettings";
     private static final String PROPS = "net/minecraft/world/level/block/state/BlockBehaviour$Properties";
     private static final String L_PROPS = "L" + PROPS + ";";
 
-    // MC param types — intermediary (what the CLI/audit sees) + Mojang (runtime).
+    // MC param types - intermediary (what the CLI/audit sees) + Mojang (runtime).
     private static final String SOUND_INT = "Lnet/minecraft/class_2498;";
     private static final String SOUND_MOJ = "Lnet/minecraft/world/level/block/SoundType;";
     private static final String MAPCOLOR_INT = "Lnet/minecraft/class_3620;";

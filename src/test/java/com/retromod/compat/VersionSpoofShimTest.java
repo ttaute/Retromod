@@ -43,7 +43,7 @@ class VersionSpoofShimTest {
         assertEquals("com/retromod/compat/VersionSpoofer", target.owner());
         assertEquals("getModContainer", target.name());
         assertTrue(target.devirtualize(),
-                "Must devirtualize — receiver becomes first static-method arg");
+                "Must devirtualize - receiver becomes first static-method arg");
     }
 
     @Test

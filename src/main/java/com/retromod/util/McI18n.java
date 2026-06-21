@@ -20,7 +20,7 @@ import java.lang.reflect.Method;
  *
  * <p>If the translatable API isn't available (weirdly old MC versions, or the
  * reflection call fails), we fall back to {@code Text.literal(key)} so nothing
- * crashes — users just see the raw translation key on screen, which is the
+ * crashes - users just see the raw translation key on screen, which is the
  * standard MC behavior for missing translations anyway.
  */
 public final class McI18n {

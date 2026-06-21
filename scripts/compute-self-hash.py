@@ -10,7 +10,7 @@ Release flow:
   1. Build the final release jar (no further source changes after this).
   2. Run this over that jar.
   3. Paste the result into SignatureVerifier.EXPECTED_SELF_HASH.
-  4. Rebuild — the verifier class is excluded from the hash, so re-embedding
+  4. Rebuild - the verifier class is excluded from the hash, so re-embedding
      does not invalidate it; the official build then reports OFFICIAL.
 
 Usage:

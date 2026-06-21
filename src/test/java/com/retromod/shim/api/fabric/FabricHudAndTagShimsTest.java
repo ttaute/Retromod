@@ -44,7 +44,7 @@ class FabricHudAndTagShimsTest {
                 "must extend the new HudElement so listeners/invoker ARE HudElements");
 
         long abstracts = cn.methods.stream().filter(m -> (m.access & Opcodes.ACC_ABSTRACT) != 0).count();
-        assertEquals(1, abstracts, "exactly one abstract method — must stay a functional interface");
+        assertEquals(1, abstracts, "exactly one abstract method - must stay a functional interface");
         MethodNode sam = cn.methods.stream().filter(m -> (m.access & Opcodes.ACC_ABSTRACT) != 0).findFirst().orElseThrow();
         assertEquals("onHudRender", sam.name, "old SAM name so v1 lambdas keep linking");
         assertEquals(SAM_DESC, sam.desc);

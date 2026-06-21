@@ -19,14 +19,14 @@ import java.util.function.Function;
  * 2-arg {@code ModifyEntriesAll}); the surviving 26.1 API is
  * {@code CreativeModeTabEvents} with {@code ModifyOutput.modifyOutput(
  * FabricCreativeModeTabOutput)}. The method name on the SAM changed
- * ({@code modifyEntries} → {@code modifyOutput}), which makes it a lambda trap —
+ * ({@code modifyEntries} → {@code modifyOutput}), which makes it a lambda trap -
  * a class redirect would crash {@code LambdaMetafactory}. The parameter object also
  * renamed ({@code FabricItemGroupEntries} → {@code FabricCreativeModeTabOutput}),
  * but those carry the <i>same</i> instance; the only divergence in the lambda body
  * is {@code addAfter}/{@code addBefore} → {@code insertAfter}/{@code insertBefore},
  * handled by method redirects in {@link com.retromod.shim.api.fabric.FabricItemGroupEventsShim}.</p>
  *
- * <p>So the SAM bodies need no adaptation — the forwarder just replays the v2 SAM's
+ * <p>So the SAM bodies need no adaptation - the forwarder just replays the v2 SAM's
  * arguments onto the v1 invoker (same {@code CreativeModeTab}/output objects, only
  * the method name differs). One generic {@link #wire} serves both the per-key event
  * and the all-tabs event.</p>
@@ -35,7 +35,7 @@ import java.util.function.Function;
  * raw into each transformed mod jar. Fails soft: a reflective miss leaves the event
  * registrable but inert (logged) rather than crashing the mod.</p>
  *
- * <p><b>STATUS — authored, not yet runtime-verified.</b> Contracts checked against
+ * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
  * {@code fabric-api-0.145.4+26.1.2}. A 26.1 launch that adds an item to a creative
  * tab through a v1 mod is still required.</p>
  */
@@ -67,7 +67,7 @@ public final class ItemGroupEventsBridge {
      * wired to {@code CreativeModeTabEvents.modifyOutputEvent(key)}.
      *
      * <p>{@code computeIfAbsent} (not get-then-putIfAbsent): {@code wire} has a side
-     * effect — it registers a forwarder on the live v2 event — so a lost race would
+     * effect - it registers a forwarder on the live v2 event - so a lost race would
      * leave a duplicate forwarder behind and fire every handler twice per tab build.
      * computeIfAbsent runs the wiring at most once per key.</p>
      */
@@ -112,12 +112,12 @@ public final class ItemGroupEventsBridge {
         Class<?> v2SamType = Class.forName(v2SamClassName, false, cl);
 
         Object v1Event = createArrayBacked(v1Type);
-        // Resolve Event methods on the PUBLIC interface — the runtime class
+        // Resolve Event methods on the PUBLIC interface - the runtime class
         // (fabric.impl ArrayBackedEvent) is not public and throws
         // IllegalAccessException for lookups against it.
         Class<?> eventIface = Class.forName("net.fabricmc.fabric.api.event.Event", false, cl);
         final Method invokerM = eventIface.getMethod("invoker");
-        final Method v1Sam = sam(v1Type); // resolved once — fires on every tab build
+        final Method v1Sam = sam(v1Type); // resolved once - fires on every tab build
 
         Object forwarder = Proxy.newProxyInstance(cl, new Class<?>[]{v2SamType}, (proxy, method, args) -> {
             if (isSam(method)) {

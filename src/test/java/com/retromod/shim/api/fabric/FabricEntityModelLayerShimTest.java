@@ -28,7 +28,7 @@ class FabricEntityModelLayerShimTest {
     @BeforeAll
     static void pinHostTo26_1() {
         // The shim self-gates to 26.1+ hosts (pre-26.1, EntityModelLayerRegistry is
-        // still alive) — pin the detected host so registerRedirects runs in tests.
+        // still alive) - pin the detected host so registerRedirects runs in tests.
         RetromodVersion.TARGET_MC_VERSION = "26.1";
     }
 

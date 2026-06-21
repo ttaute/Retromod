@@ -83,7 +83,7 @@ public class FabricMineableTagsStub {
                 .invoke(null, blockRegistryKey, resourceLocation);
 
         } catch (Exception e) {
-            LOGGER.warn("Failed to create block tag key {}:{} — {}", namespace, path, e.getMessage());
+            LOGGER.warn("Failed to create block tag key {}:{} - {}", namespace, path, e.getMessage());
             return null;
         }
     }
