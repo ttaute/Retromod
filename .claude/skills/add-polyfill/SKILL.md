@@ -17,9 +17,9 @@ Creates a `PolyfillProvider` that re-implements removed APIs using modern equiva
 
 ## Steps
 
-1. **Identify the removed API** - Find which classes/methods were removed and what (if anything) replaced them. Check crash logs for the exact class names and packages.
+1. **Identify the removed API.** Find which classes/methods were removed and what (if anything) replaced them. Check crash logs for the exact class names and packages.
 
-2. **Create polyfill classes** - For each removed class, create a reimplementation at the ORIGINAL package path that delegates to modern equivalents:
+2. **Create polyfill classes.** For each removed class, create a reimplementation at the ORIGINAL package path that delegates to modern equivalents:
    ```java
    // At the original package path so ClassNotFoundException is resolved
    package the.original.package;
@@ -73,16 +73,16 @@ Creates a `PolyfillProvider` that re-implements removed APIs using modern equiva
    }
    ```
 
-4. **Register in ServiceLoader** - Add to:
+4. **Register in ServiceLoader.** Add to:
    ```
    src/main/resources/META-INF/services/com.retromod.polyfill.PolyfillProvider
    ```
 
-5. **Handle interfaces vs classes** - If the removed API used interfaces:
+5. **Handle interfaces vs classes.** If the removed API used interfaces:
    - Keep the interface with empty default methods
    - If a class became an interface, use `registerSuperclassRedirect()`
 
-6. **Test** - Verify the polyfill loads and the crash is resolved.
+6. **Test.** Verify the polyfill loads and the crash is resolved.
 
 ## Key Files
 - Polyfill providers: `src/main/java/com/retromod/polyfill/`
@@ -92,17 +92,17 @@ Creates a `PolyfillProvider` that re-implements removed APIs using modern equiva
 - Config categories: `config/retromod/config.json` → `polyfill_categories`
 
 ## Categories
-- `fabric_api` - Removed Fabric API modules
-- `minecraft_vanilla` - Removed vanilla MC classes (Material, LiteralText, etc.)
-- `mixin_targets` - Removed MC classes used as Mixin targets
-- `forge` - Legacy Forge APIs (SidedProxy, RegistryObject, capabilities)
-- `neoforge` - Removed NeoForge APIs
-- `thirdparty` - Third-party mod APIs (Baubles, NEI, CoFH, WAILA)
-- `rendering` - Removed rendering APIs
-- `entity` - Removed entity APIs
+- `fabric_api`: Removed Fabric API modules
+- `minecraft_vanilla`: Removed vanilla MC classes (Material, LiteralText, etc.)
+- `mixin_targets`: Removed MC classes used as Mixin targets
+- `forge`: Legacy Forge APIs (SidedProxy, RegistryObject, capabilities)
+- `neoforge`: Removed NeoForge APIs
+- `thirdparty`: Third-party mod APIs (Baubles, NEI, CoFH, WAILA)
+- `rendering`: Removed rendering APIs
+- `entity`: Removed entity APIs
 
 ## Important Notes
-- Polyfills should delegate to modern equivalent APIs wherever possible - the goal is mods that WORK, not just load
+- Polyfills should delegate to modern equivalent APIs wherever possible. The goal is mods that WORK, not just load
 - Only fall back to no-op returns when there is genuinely no modern equivalent
 - Users can toggle polyfill categories in config.json
 - There are currently 72+ polyfill reimplementations across 10 providers

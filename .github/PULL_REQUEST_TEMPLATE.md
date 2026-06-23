@@ -1,5 +1,5 @@
 <!--
-Thanks for sending a PR. The checklist below isn't there to be annoying - it's
+Thanks for sending a PR. The checklist below isn't there to be annoying. It's
 the stuff I'd otherwise have to ask you about in review. Filling it in up front
 saves a round trip.
 -->

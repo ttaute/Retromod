@@ -104,7 +104,7 @@ Official builds embed a SHA-256 of Retromod's own classes. At startup, `Signatur
 
 | Status | Meaning |
 |--------|---------|
-| `VERIFIED` | Bytecode matches the embedded release hash: unchanged from the published build. (A hash match isn't proof of provenance - there's no secret key - so the status says "verified," not "official.") |
+| `VERIFIED` | Bytecode matches the embedded release hash: unchanged from the published build. (A hash match isn't proof of provenance, since there's no secret key, so the status says "verified," not "official.") |
 | `MODIFIED` | Bytecode differs from the release hash: a fork, a repack, or a corrupted download. |
 | `IMPOSTOR` | The manifest doesn't even claim to be Retromod. |
 | `UNKNOWN` | Can't tell: a dev/source build (no hash embedded), or not running from a JAR. |

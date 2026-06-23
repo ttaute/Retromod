@@ -161,7 +161,7 @@ After transformation, [Verify Transforms]({{ '/verify-transforms' | relative_url
 
 ## Testing
 
-- `src/test/java/com/retromod/RetromodTest.java` - JUnit 5 test suite.
+- `src/test/java/com/retromod/RetromodTest.java`: JUnit 5 test suite.
 - Run with `mvn test -Dexec.skip=true`.
 - Integration tests cover shim chain resolution, mapping composition, metadata patching, and verification.
 

@@ -17,7 +17,7 @@ What happens:
 
 1. You put old mods in `retromod-input/` (or pick them with the in-game file picker).
 2. On the **next launch**, Retromod transforms them, patches their metadata, and moves the finished JARs into `mods/`.
-3. The loader already scanned `mods/` before that move, so the converted mods aren't active *this* launch. Retromod shows a **"converted N mod(s) - the game needs to restart to load them"** prompt on the title screen.
+3. The loader already scanned `mods/` before that move, so the converted mods aren't active *this* launch. Retromod shows a **"converted N mod(s), the game needs to restart to load them"** prompt on the title screen.
 4. **Restart the game.** The converted mods are now in `mods/` and load normally.
 
 So a brand-new mod takes **two launches**: one to convert, one to run. After that it loads every time and isn't re-converted.
@@ -25,19 +25,19 @@ So a brand-new mod takes **two launches**: one to convert, one to run. After tha
 - The prompt is controlled by `restart_prompt` in `config/retromod/config.json` (default `true`). Setting it `false` doesn't skip conversion; you just have to remember to restart yourself.
 - **On Fabric, old mods can't go straight into `mods/`.** Fabric validates mod metadata *before* Retromod runs and rejects the old mod outright, so it never gets a chance to convert. `retromod-input/` is the inbox Retromod reads from, so always stage old mods there on Fabric. (NeoForge and Forge can also convert a mod in place in `mods/`, backing the original up to `retromod-backups/`, but `retromod-input/` is the reliable path on every loader.)
 
-## MC 26.2: graphics glitches, invisible models, or render crashes - use OpenGL, not Vulkan
+## MC 26.2: graphics glitches, invisible models, or render crashes (use OpenGL, not Vulkan)
 
-**On MC 26.2, set your renderer to OpenGL.** 26.2 added a Vulkan rendering backend and made **Vulkan the default**. Translated old mods that do their own OpenGL-era rendering (custom renderers, raw GL, immediate-mode draws) can render wrong, draw nothing, or crash on Vulkan - but they work on the OpenGL backend, which 26.2 still ships.
+**On MC 26.2, set your renderer to OpenGL.** 26.2 added a Vulkan rendering backend and made **Vulkan the default**. Translated old mods that do their own OpenGL-era rendering (custom renderers, raw GL, immediate-mode draws) can render wrong, draw nothing, or crash on Vulkan. They work on the OpenGL backend, which 26.2 still ships.
 
 How to select it:
 
 - **In game:** Options → Video Settings → **Graphics API → OpenGL**, then restart if prompted.
 - **Or by file:** set `preferredGraphicsBackend:"opengl"` in `options.txt` (in your game/instance folder).
 
-**Retromod already does this for you** on a 26.2+ client: the first time it runs it writes `preferredGraphicsBackend:"opengl"` to `options.txt` - but only if you haven't picked a backend yourself, and it leaves an explicit Vulkan choice alone (with a warning in the log). So most people are on OpenGL automatically; the steps above are for when you switched to Vulkan, want to confirm, or are on NeoForge (where the preference takes effect on the **next** launch, like mod conversion).
+**Retromod already does this for you** on a 26.2+ client: the first time it runs it writes `preferredGraphicsBackend:"opengl"` to `options.txt`, but only if you haven't picked a backend yourself, and it leaves an explicit Vulkan choice alone (with a warning in the log). So most people are on OpenGL automatically; the steps above are for when you switched to Vulkan, want to confirm, or are on NeoForge (where the preference takes effect on the **next** launch, like mod conversion).
 
 - To stop Retromod touching the setting, add `-Dretromod.graphics.noPreference=true` to your JVM args.
-- On macOS this is moot - Minecraft already runs OpenGL-over-Metal there (no native Vulkan).
+- On macOS this is moot. Minecraft already runs OpenGL-over-Metal there (no native Vulkan).
 - **Heads up for later:** OpenGL is expected to be removed in **MC 26.3**. When that happens this lever goes away, and mods doing raw OpenGL will need deeper work; see the [roadmap](https://github.com/Bownlux/Retromod/blob/main/ROADMAP.md). On 26.2, OpenGL is the right choice today.
 
 ## My mod doesn't load
@@ -128,7 +128,7 @@ Retromod has a `quilt.mod.json` baked into the Fabric JAR specifically so Quilt'
 
 These are Forge SRG names, short numeric identifiers that old Forge mods (anything built with ForgeGradle's `reobfJar` task, basically every Forge mod for MC < 1.20.5) use to reference Minecraft members. Forge's runtime used to remap them back to real names; Forge 64.x for MC 26.1+ dropped that remap layer, so reobf'd mods crash on first reference.
 
-Retromod ships a dictionary that handles the common ones (~120 entries covering Block/Item statics and the highest-frequency Component/ResourceLocation methods), but it's an explicitly-incomplete starter set. The full SRG namespace has tens of thousands of entries.
+Retromod ships a dictionary that handles the common ones (~120 entries covering Block/Item statics and the highest-frequency Component/ResourceLocation methods), but it's an explicitly incomplete starter set. The full SRG namespace has tens of thousands of entries.
 
 If you hit one of these errors:
 
@@ -228,13 +228,13 @@ If you see this on a build that *should* be relocated, the relocation table in `
 
 ## "Modules X and Y export package Z" naming *two non-Retromod mods* (a duplicate library)
 
-If the two modules in the error are **both mod/library names** - e.g. *"Modules crackerslib.forge and crackerslib export package nonamecrackers2.crackerslib.client.config to module entityculling"* - you have **two copies of the same library** installed, and Java's module system refuses to load when both export the same package. This is almost always a setup issue, not a Retromod bug, and it crashes at the module-layer build *before* Retromod even runs, so Retromod can't paper over it.
+If the two modules in the error are **both mod/library names** (e.g. *"Modules crackerslib.forge and crackerslib export package nonamecrackers2.crackerslib.client.config to module entityculling"*), you have **two copies of the same library** installed, and Java's module system refuses to load when both export the same package. This is almost always a setup issue, not a Retromod bug, and it crashes at the module-layer build *before* Retromod even runs, so Retromod can't paper over it.
 
-The usual cause: a mod **bundles** a library inside itself (jar-in-jar - you'll see a log line like *"Found library file crackerslib-forge-….jar [parent: witherstormmod-….jar, locator: jarinjar]"*) **and** you also installed that library **standalone** in `mods/`. Often you added the standalone copy because an earlier launch complained the library was "missing."
+The usual cause: a mod **bundles** a library inside itself (jar-in-jar: you'll see a log line like *"Found library file crackerslib-forge-….jar [parent: witherstormmod-….jar, locator: jarinjar]"*) **and** you also installed that library **standalone** in `mods/`. Often you added the standalone copy because an earlier launch complained the library was "missing."
 
-**Fix: remove the standalone copy** of the duplicated library from `mods/` - the bundled one is already provided by the mod that ships it. Look at the two module names in the error: the one *with* a suffix like `.forge` is typically the bundled copy; remove the other (plain) standalone jar, or vice-versa, leaving exactly one.
+**Fix: remove the standalone copy** of the duplicated library from `mods/`. The bundled one is already provided by the mod that ships it. Look at the two module names in the error: the one *with* a suffix like `.forge` is typically the bundled copy; remove the other (plain) standalone jar, or vice-versa, leaving exactly one.
 
-If removing the duplicate leaves you with the *original* "library missing" crash, that's the real problem - the bundled library is a Forge build inside a NeoForge mod (or a jar-in-jar dependency Retromod hasn't translated). Translating Forge-API libraries onto NeoForge and recursing metadata-patching into jar-in-jar dependencies are both tracked for a future release; for now those mods are most reliable on a matching **Forge** instance. (#95)
+If removing the duplicate leaves you with the *original* "library missing" crash, that's the real problem. The bundled library is a Forge build inside a NeoForge mod (or a jar-in-jar dependency Retromod hasn't translated). Translating Forge-API libraries onto NeoForge and recursing metadata-patching into jar-in-jar dependencies are both tracked for a future release; for now those mods are most reliable on a matching **Forge** instance. (#95)
 
 ## NeoForge: my old (1.20.1) mod doesn't appear at all
 
@@ -270,7 +270,7 @@ The mod didn't finish initializing. Check `latest.log` for `Retromod` messages; 
 
 ## Game loads but transformed mods aren't being picked up
 
-Make sure they're in `mods/`, not `retromod-input/`. `retromod-input/` is the inbox: after Retromod runs, successfully-transformed mods move to `mods/`. If your mod is stuck in `retromod-input/`, transformation failed, so check the log.
+Make sure they're in `mods/`, not `retromod-input/`. `retromod-input/` is the inbox: after Retromod runs, successfully transformed mods move to `mods/`. If your mod is stuck in `retromod-input/`, transformation failed, so check the log.
 
 ## AOT cache seems stale
 

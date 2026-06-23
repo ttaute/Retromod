@@ -97,5 +97,5 @@ Facets use JSON array format, URL-encoded:
 
 ## Rate Limits
 - No authentication needed for public endpoints
-- Be respectful - don't spam the API
+- Be respectful, don't spam the API
 - Cache responses when possible

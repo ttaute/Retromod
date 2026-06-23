@@ -1,6 +1,6 @@
 ---
 name: mod-loader-compat
-description: Work on mod loader compatibility - Fabric, NeoForge, Forge runtime integration, version constraint relaxation, and mod metadata patching. Use when fixing mod loading issues, version rejection errors, or adding support for a new loader version.
+description: Work on mod loader compatibility for Fabric, NeoForge, Forge runtime integration, version constraint relaxation, and mod metadata patching. Use when fixing mod loading issues, version rejection errors, or adding support for a new loader version.
 argument-hint: "loader issue (e.g. neoforge version-range-too-strict, fabric dependency-rejected)"
 ---
 
@@ -13,16 +13,16 @@ Handles how Retromod integrates with each mod loader's runtime and patches mod m
 Retromod runs as a mod on each loader and intercepts mod loading:
 
 ### Fabric
-- **PreLaunch** (`RetromodPreLaunch.java`) - Runs BEFORE Fabric scans `mods/`. Transforms mods in `retromod-input/`, patches `fabric.mod.json`, moves to `mods/`.
-- **Main** (`Retromod.java`) - Runs after mod scan. Initializes shims, AOT, polyfills.
-- Fabric is strictest - it rejects mods with wrong version constraints BEFORE Retromod can run. That's why `retromod-input/` exists.
+- **PreLaunch** (`RetromodPreLaunch.java`). Runs BEFORE Fabric scans `mods/`. Transforms mods in `retromod-input/`, patches `fabric.mod.json`, moves to `mods/`.
+- **Main** (`Retromod.java`). Runs after mod scan. Initializes shims, AOT, polyfills.
+- Fabric is strictest. It rejects mods with wrong version constraints BEFORE Retromod can run. That's why `retromod-input/` exists.
 
 ### NeoForge
-- **Constructor** (`RetromodNeoForge.java`) - Transforms from `retromod-input/` AND in-place in `mods/`. Patches `mods.toml`/`neoforge.mods.toml`.
-- NeoForge is more lenient - mods can go directly in `mods/` and Retromod transforms them.
+- **Constructor** (`RetromodNeoForge.java`). Transforms from `retromod-input/` AND in-place in `mods/`. Patches `mods.toml`/`neoforge.mods.toml`.
+- NeoForge is more lenient. Mods can go directly in `mods/` and Retromod transforms them.
 
 ### Forge
-- **Constructor** (`RetromodForge.java`) - Same pattern as NeoForge but also handles Forge→NeoForge class migration.
+- **Constructor** (`RetromodForge.java`). Same pattern as NeoForge but also handles Forge→NeoForge class migration.
 
 ## Key Files
 
@@ -32,7 +32,7 @@ Retromod runs as a mod on each loader and intercepts mod loading:
 | `Retromod.java` | Main Fabric initializer, auto-detects `TARGET_MC_VERSION` |
 | `RetromodNeoForge.java` | NeoForge entry point |
 | `RetromodForge.java` | Forge entry point |
-| `FabricModTransformer.java` | Patches `fabric.mod.json` - version constraints, API deps |
+| `FabricModTransformer.java` | Patches `fabric.mod.json`: version constraints, API deps |
 | `ForgeModTransformer.java` | Patches `mods.toml`/`neoforge.mods.toml` |
 | `ModVersionDetector.java` | Reads mod version from loader-specific metadata |
 | `fabric.mod.json` | Retromod's own Fabric metadata |
@@ -65,11 +65,11 @@ Retromod runs as a mod on each loader and intercepts mod loading:
 - A mod requires another mod that isn't installed, or the installed version is rejected due to version constraints
 - Fix: Relax the dependency's version constraint to accept any version (`"*"` for Fabric, `[0,)` for NeoForge/Forge) so it works across MC versions
 - If the dep mod genuinely isn't installed and has no polyfill, THEN make it optional as a fallback
-- Check if the dep is in `SHIMMED_API_MOD_IDS` set - shimmed deps get their versions relaxed automatically
+- Check if the dep is in `SHIMMED_API_MOD_IDS` set. Shimmed deps get their versions relaxed automatically
 
 ### "Mod detected as already compatible but crashes"
 - `needsTransformation()` returns false (null target version or same version)
-- Fix: Check `ModVersionDetector` - it may not be parsing the metadata correctly
+- Fix: Check `ModVersionDetector`. It may not be parsing the metadata correctly
 - For 26.1+: even "compatible" mods need metadata patching
 
 ### Version detection returns null
@@ -81,7 +81,7 @@ Retromod runs as a mod on each loader and intercepts mod loading:
 
 1. Build Retromod: `mvn package -DskipTests`
 2. Put old mods in `retromod-input/` in the game directory
-3. Launch the game - check `logs/latest.log` for Retromod messages
+3. Launch the game, then check `logs/latest.log` for Retromod messages
 4. Look for "Transformed X mod(s)" or error messages
 5. If a mod fails to load, check the exact error and trace it to the metadata patching code
 
