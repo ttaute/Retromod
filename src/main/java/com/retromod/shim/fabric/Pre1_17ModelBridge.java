@@ -94,6 +94,27 @@ public final class Pre1_17ModelBridge {
     private static final String M_SET_LIGHT   = "method_22922"; // setLight(I)VC
     private static final String M_SET_NORMAL  = "method_22914"; // setNormal(FFF)VC
 
+    // ── §A1: AgeableListModel-family abstract bases (ABSENT on 26.1 - synthetic reimpls) ──
+    // Structures recovered by remapping the 1.16.5 client jar to intermediary (see the probe
+    // note at PROBE_CLASSES). Each is rebuilt as an ABSTRACT synthetic that renders its
+    // abstract part-iterable(s) through the shared LegacyModelPart RGBA bridge.
+    static final String ANIMAL_MODEL      = "net/minecraft/class_4592"; // AnimalModel (head + body)
+    static final String TINTED_MODEL      = "net/minecraft/class_4593"; // tint subclass of AnimalModel
+    static final String COMPOSITE_MODEL   = "net/minecraft/class_4595"; // CompositeEntityModel (single parts list)
+    static final String ENTITY_MODEL_BASE = "net/minecraft/class_583";  // shared super - PRESENT on host
+    static final String GEN_ANIMAL    = "com/retromod/generated/LegacyAnimalModel";
+    static final String GEN_TINTED    = "com/retromod/generated/LegacyTintedAnimalModel";
+    static final String GEN_COMPOSITE = "com/retromod/generated/LegacyCompositeModel";
+    private static final String M_HEAD_PARTS      = "method_22946"; // AnimalModel head parts
+    private static final String M_BODY_PARTS      = "method_22948"; // AnimalModel body parts
+    private static final String M_COMPOSITE_PARTS = "method_22960"; // CompositeEntityModel parts
+    private static final String M_TINT_SET        = "method_22955"; // tint setter (FFF)
+    private static final String M_MODEL_RENDER    = "method_2828";  // Model.render(Pose,VC,light,overlay,r,g,b,a)
+    private static final String F_TINT_R = "field_20923", F_TINT_G = "field_20924", F_TINT_B = "field_20925";
+    private static final String ITERABLE_DESC = "()Ljava/lang/Iterable;";
+    private static final String FUNCTION_DESC = "Ljava/util/function/Function;";
+    private static final String MODEL_RENDER_DESC = "(" + L_POSE + L_VC + "IIFFFF)V";
+
     /**
      * Concrete vanilla model bases the mod's models extend, with the OLD (1.16-era)
      * {@code super()} ctor descriptor each one is called with. Each base's modern host
@@ -157,6 +178,24 @@ public final class Pre1_17ModelBridge {
             transformer.registerSuperclassRebase(base, legacy);
         }
 
+        // ── Layer 4 (§A1): AgeableListModel-family abstract bases (ABSENT on host) ──
+        // class_4592/4595 extend the present class_583; class_4593 extends class_4592.
+        // These are GONE on 26.1 (restructured to new intermediaries), so unlike the
+        // concrete Layer-3 bases a superclass-REBASE is not enough: every reference
+        // (field types, casts, params) would dangle on a missing class. A full class
+        // REDIRECT is correct and safe here precisely because there is no surviving real
+        // class to mismatch against (the Arcanus #70 trap only bites still-present bases).
+        transformer.registerSyntheticClass(GEN_ANIMAL, generateAgeableBase(GEN_ANIMAL,
+                new String[]{"()V", "(ZFF)V", "(ZFFFFF)V", "(" + FUNCTION_DESC + "ZFFFFF)V"},
+                new String[]{M_HEAD_PARTS, M_BODY_PARTS}, Opcodes.ACC_PROTECTED));
+        transformer.registerSyntheticClass(GEN_COMPOSITE, generateAgeableBase(GEN_COMPOSITE,
+                new String[]{"()V", "(" + FUNCTION_DESC + ")V"},
+                new String[]{M_COMPOSITE_PARTS}, Opcodes.ACC_PUBLIC));
+        transformer.registerSyntheticClass(GEN_TINTED, generateTintedBase(GEN_TINTED, GEN_ANIMAL));
+        transformer.registerClassRedirect(ANIMAL_MODEL, GEN_ANIMAL);
+        transformer.registerClassRedirect(COMPOSITE_MODEL, GEN_COMPOSITE);
+        transformer.registerClassRedirect(TINTED_MODEL, GEN_TINTED);
+
         probeHostModelApi();
     }
 
@@ -176,6 +215,25 @@ public final class Pre1_17ModelBridge {
     // class_3879 (Model): <init>(Lclass_630;Ljava/util/function/Function;)V
     // Concrete bases: <init>(Lclass_630;)V uniformly (class_560/597/601/620/623); class_583 also has (Lclass_630;Function)V.
     // ABSENT on 1.21.11: class_4592/4593/4595 (abstract bases - need synthetic reimpls).
+    //   §A1 structures recovered by remapping the 1.16.5 client jar to intermediary (the
+    //   host can't be probed - they're gone). Reconstruct as ABSTRACT synthetics extending
+    //   their (present) super, ctors -> super(EMPTY_ROOT) like generateLegacyBase, abstract
+    //   part getters kept abstract, render method_2828(class_4587,class_4588,II,FFFF) emitted.
+    //   Modern part render = class_630.method_22699(class_4587,class_4588,III) (light, overlay,
+    //   packed-ARGB) - pack (r,g,b,a) floats into the int.
+    //   - class_4592 (AnimalModel) extends class_583; abstract method_22946()=headParts,
+    //     method_22948()=bodyParts (both ()Ljava/lang/Iterable;); ctors ()V,(ZFF)V,(ZFFFFF)V,
+    //     (Ljava/util/function/Function;ZFFFFF)V. render: if young (field_3448) pushPose, optional
+    //     head scale (field_20915 -> 1.5f/field_20918), translate(0, field_20916/16, field_20917/16),
+    //     render headParts, popPose, render bodyParts; else render both directly. MINIMAL-SAFE
+    //     version: iterate headParts+bodyParts and render each, skip the baby scale/translate
+    //     (babies render adult-scale - a minor visual nuance, much lower bytecode risk).
+    //   - class_4595 (CompositeEntityModel) extends class_583; abstract method_22960()=parts
+    //     (()Ljava/lang/Iterable;); ctors ()V,(Ljava/util/function/Function;)V. render = iterate
+    //     method_22960() and render each (1.16 uses Iterable.forEach + a lambda; an explicit
+    //     Iterator loop is equivalent and avoids generating an invokedynamic).
+    //   - class_4593 extends class_4592; method_22955(FFF) stores tint into field_20923/24/25;
+    //     render multiplies r/g/b by them, then super.method_2828.
     // Render API (layer 2):
     //   PoseStack class_4587: push=method_22903, pop=method_22909, translate(FFF)=method_46416,
     //     scale(FFF)=method_22905, mulPose(Quaternionfc)=method_22907, last()=method_23760 -> Lclass_4587$class_4665;
@@ -974,5 +1032,169 @@ public final class Pre1_17ModelBridge {
         }
         cw.visitEnd();
         return cw.toByteArray();
+    }
+
+    /** A frame-computing ClassWriter that falls back to Object for unresolvable MC classes. */
+    private static ClassWriter framedWriter() {
+        return new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected String getCommonSuperClass(String type1, String type2) {
+                try {
+                    return super.getCommonSuperClass(type1, type2);
+                } catch (Throwable t) {
+                    return "java/lang/Object";
+                }
+            }
+        };
+    }
+
+    /**
+     * Generate an abstract AgeableListModel-family base (class_4592 AnimalModel /
+     * class_4595 CompositeEntityModel). Extends the present {@link #ENTITY_MODEL_BASE},
+     * keeps the part-iterable getter(s) abstract (the mod overrides them), and renders
+     * every part through the shared {@code LegacyModelPart.render} RGBA bridge. The 1.16
+     * baby head-scale path is intentionally dropped (a minor visual nuance - babies render
+     * at adult scale; see the §A1 note above), which keeps the bytecode low-risk.
+     */
+    static byte[] generateAgeableBase(String genName, String[] ctorDescs,
+                                      String[] getterNames, int getterAccess) {
+        ClassWriter cw = framedWriter();
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_SUPER,
+                genName, null, ENTITY_MODEL_BASE, null);
+
+        // Constructors mirror the 1.16 signatures; each forwards to class_583's modern
+        // (ModelPart) ctor with the forgiving EMPTY_ROOT (the Function-taking forms keep
+        // their render-layer Function so the host picks the right RenderType).
+        for (String desc : ctorDescs) {
+            MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", desc, null, null);
+            mv.visitCode();
+            mv.visitVarInsn(Opcodes.ALOAD, 0);
+            mv.visitFieldInsn(Opcodes.GETSTATIC, SELF, "EMPTY_ROOT", L_MP);
+            if (desc.startsWith("(" + FUNCTION_DESC)) {
+                mv.visitVarInsn(Opcodes.ALOAD, 1); // the render-layer Function (first param)
+                mv.visitMethodInsn(Opcodes.INVOKESPECIAL, ENTITY_MODEL_BASE, "<init>",
+                        "(" + L_MP + FUNCTION_DESC + ")V", false);
+            } else {
+                mv.visitMethodInsn(Opcodes.INVOKESPECIAL, ENTITY_MODEL_BASE, "<init>",
+                        "(" + L_MP + ")V", false);
+            }
+            mv.visitInsn(Opcodes.RETURN);
+            mv.visitMaxs(0, 0);
+            mv.visitEnd();
+        }
+
+        // Abstract part getters - the mod implements these (it may widen the access).
+        for (String getter : getterNames) {
+            cw.visitMethod(getterAccess | Opcodes.ACC_ABSTRACT, getter, ITERABLE_DESC, null, null).visitEnd();
+        }
+
+        // Concrete render: walk each getter's parts and draw them.
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, M_MODEL_RENDER, MODEL_RENDER_DESC, null, null);
+        mv.visitCode();
+        for (String getter : getterNames) {
+            emitPartLoop(mv, genName, getter);
+        }
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    /**
+     * Generate the abstract tint subclass (class_4593): extends the synthetic AnimalModel,
+     * stores a 3-float tint via {@code method_22955(FFF)} (default 1,1,1 = untinted), and
+     * multiplies the render colour by it before delegating to {@code super.render}.
+     */
+    static byte[] generateTintedBase(String genName, String animalGenName) {
+        ClassWriter cw = framedWriter();
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_SUPER,
+                genName, null, animalGenName, null);
+
+        final String[] fs = {F_TINT_R, F_TINT_G, F_TINT_B};
+        for (String f : fs) {
+            cw.visitField(Opcodes.ACC_PROTECTED, f, "F", null, null).visitEnd();
+        }
+
+        // ctor ()V: super() then default each tint to 1.0f.
+        MethodVisitor c = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        c.visitCode();
+        c.visitVarInsn(Opcodes.ALOAD, 0);
+        c.visitMethodInsn(Opcodes.INVOKESPECIAL, animalGenName, "<init>", "()V", false);
+        for (String f : fs) {
+            c.visitVarInsn(Opcodes.ALOAD, 0);
+            c.visitInsn(Opcodes.FCONST_1);
+            c.visitFieldInsn(Opcodes.PUTFIELD, genName, f, "F");
+        }
+        c.visitInsn(Opcodes.RETURN);
+        c.visitMaxs(0, 0);
+        c.visitEnd();
+
+        // method_22955(FFF): store the tint.
+        MethodVisitor s = cw.visitMethod(Opcodes.ACC_PUBLIC, M_TINT_SET, "(FFF)V", null, null);
+        s.visitCode();
+        for (int i = 0; i < 3; i++) {
+            s.visitVarInsn(Opcodes.ALOAD, 0);
+            s.visitVarInsn(Opcodes.FLOAD, i + 1);
+            s.visitFieldInsn(Opcodes.PUTFIELD, genName, fs[i], "F");
+        }
+        s.visitInsn(Opcodes.RETURN);
+        s.visitMaxs(0, 0);
+        s.visitEnd();
+
+        // render: super.render(pose, vc, light, overlay, tintR*r, tintG*g, tintB*b, a).
+        MethodVisitor r = cw.visitMethod(Opcodes.ACC_PUBLIC, M_MODEL_RENDER, MODEL_RENDER_DESC, null, null);
+        r.visitCode();
+        r.visitVarInsn(Opcodes.ALOAD, 0); // this (super receiver)
+        r.visitVarInsn(Opcodes.ALOAD, 1); // pose
+        r.visitVarInsn(Opcodes.ALOAD, 2); // vertexConsumer
+        r.visitVarInsn(Opcodes.ILOAD, 3); // light
+        r.visitVarInsn(Opcodes.ILOAD, 4); // overlay
+        int[] rgb = {5, 6, 7};
+        for (int i = 0; i < 3; i++) {
+            r.visitVarInsn(Opcodes.ALOAD, 0);
+            r.visitFieldInsn(Opcodes.GETFIELD, genName, fs[i], "F");
+            r.visitVarInsn(Opcodes.FLOAD, rgb[i]);
+            r.visitInsn(Opcodes.FMUL);
+        }
+        r.visitVarInsn(Opcodes.FLOAD, 8); // a (unchanged)
+        r.visitMethodInsn(Opcodes.INVOKESPECIAL, animalGenName, M_MODEL_RENDER, MODEL_RENDER_DESC, false);
+        r.visitInsn(Opcodes.RETURN);
+        r.visitMaxs(0, 0);
+        r.visitEnd();
+
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    /** Emit a loop rendering every {@code class_630} from {@code this.<getter>()}. */
+    private static void emitPartLoop(MethodVisitor mv, String genName, String getterName) {
+        mv.visitVarInsn(Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, genName, getterName, ITERABLE_DESC, false);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/lang/Iterable", "iterator",
+                "()Ljava/util/Iterator;", true);
+        mv.visitVarInsn(Opcodes.ASTORE, 9);
+        Label loop = new Label(), end = new Label();
+        mv.visitLabel(loop);
+        mv.visitVarInsn(Opcodes.ALOAD, 9);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Iterator", "hasNext", "()Z", true);
+        mv.visitJumpInsn(Opcodes.IFEQ, end);
+        mv.visitVarInsn(Opcodes.ALOAD, 9);
+        mv.visitMethodInsn(Opcodes.INVOKEINTERFACE, "java/util/Iterator", "next",
+                "()Ljava/lang/Object;", true);
+        mv.visitTypeInsn(Opcodes.CHECKCAST, MODEL_PART);
+        mv.visitVarInsn(Opcodes.ALOAD, 1); // pose
+        mv.visitVarInsn(Opcodes.ALOAD, 2); // vertexConsumer
+        mv.visitVarInsn(Opcodes.ILOAD, 3); // light
+        mv.visitVarInsn(Opcodes.ILOAD, 4); // overlay
+        mv.visitVarInsn(Opcodes.FLOAD, 5); // r
+        mv.visitVarInsn(Opcodes.FLOAD, 6); // g
+        mv.visitVarInsn(Opcodes.FLOAD, 7); // b
+        mv.visitVarInsn(Opcodes.FLOAD, 8); // a
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, SELF, "render",
+                "(" + L_MP + L_POSE + L_VC + "IIFFFF)V", false);
+        mv.visitJumpInsn(Opcodes.GOTO, loop);
+        mv.visitLabel(end);
     }
 }

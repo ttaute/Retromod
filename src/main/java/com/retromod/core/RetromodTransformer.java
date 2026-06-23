@@ -735,13 +735,24 @@ public class RetromodTransformer implements ClassFileTransformer {
      * nothing on a pre-26.1 host. The singleton accumulates state across the whole
      * JVM otherwise, which makes absence assertions meaningless.
      *
-     * <p>Deliberately does NOT touch the intermediary/SRG mapping tables or pattern
-     * heuristics - those are loaded from bundled resources, not per-shim state.
-     * Never call this from production code.
+     * <p>Also clears the intermediary-&gt;Mojang and SRG-&gt;Mojang member-name remap maps:
+     * those are populated per transform-setup (applyTo / registerSrgNameMappings) and drive the
+     * {@code hasIntermediaryNames} remap gate, so leaving them populated lets one test's mapping
+     * setup leak into the next. Pattern heuristics loaded from bundled resources are left
+     * untouched. Never call this from production code.
      */
     public void clearRedirectsForTesting() {
         methodRedirects.clear();
         mojangMethodRenames.clear();
+        // The intermediary->Mojang and SRG->Mojang member-name maps drive the remap gate
+        // (hasIntermediaryNames); leaving them populated lets a prior test's applyTo() /
+        // registerSrgNameMappings() leak into the next, silently remapping names a pre-26.1 test
+        // deliberately keeps. Clear them too so the reset is complete (test-ordering robustness;
+        // surfaced by the §A4 pre-26.1 acceptance test).
+        intermediaryMethodNames.clear();
+        intermediaryFieldNames.clear();
+        srgMethodNames.clear();
+        srgFieldNames.clear();
         classRedirects.clear();
         fieldRedirects.clear();
         superclassRedirects.clear();
@@ -846,7 +857,13 @@ public class RetromodTransformer implements ClassFileTransformer {
         if (methodRedirects.isEmpty() && classRedirects.isEmpty() &&
                 fieldRedirects.isEmpty() && superclassRedirects.isEmpty() &&
                 neutralizedMethods.isEmpty() && staticFieldAccessors.isEmpty() &&
-                mojangMethodRenames.isEmpty()) {
+                mojangMethodRenames.isEmpty() &&
+                // constructorRedirects + fieldAccessorRedirects must be here too, or a
+                // ctor-only / field-accessor-only redirect set skips the transform entirely
+                // (the per-method gate in visitMethod already includes both). In the full
+                // shim chain classRedirects is always populated, so this only bit when a
+                // ctor/field-accessor redirect was the *only* thing registered.
+                constructorRedirects.isEmpty() && fieldAccessorRedirects.isEmpty()) {
             return originalBytes;
         }
 
@@ -2036,6 +2053,47 @@ public class RetromodTransformer implements ClassFileTransformer {
             }
             // Don't flush - instructions like ICONST_0, ACONST_NULL can be constructor args
             super.visitInsn(opcode);
+        }
+
+        /**
+         * Rewrites a constructor reference ({@code X::new}) whose constructor has a
+         * registered constructor→factory redirect, so it points at the static factory.
+         *
+         * <p>{@code X::new} compiles to an {@code invokedynamic} whose implementation method
+         * handle is {@code H_NEWINVOKESPECIAL X.<init>(args)V}; LambdaMetafactory adapts that
+         * to the SAM {@code (args)->X}. Swapping it for {@code H_INVOKESTATIC factory(args)X}
+         * yields the identical SAM, so the lambda links against the factory instead of the
+         * removed constructor. This is the reference-form analogue of the direct
+         * {@code new X(...)} rewrite in {@link #visitMethodInsn} (which only sees
+         * {@code NEW}+{@code INVOKESPECIAL}, not the {@code invokedynamic} handle). Without it,
+         * codecs that capture {@code ChunkPos::new} (Resourceful Lib's {@code ExtraByteCodecs})
+         * still link to the deleted {@code ChunkPos(long)} ctor on 26.x. Same Mojang-named
+         * lookup as the direct path, so it's effective wherever that one is.</p>
+         */
+        @Override
+        public void visitInvokeDynamicInsn(String name, String descriptor,
+                org.objectweb.asm.Handle bootstrapMethodHandle, Object... bootstrapMethodArguments) {
+            if (!constructorRedirects.isEmpty() && bootstrapMethodArguments != null) {
+                for (int i = 0; i < bootstrapMethodArguments.length; i++) {
+                    if (!(bootstrapMethodArguments[i] instanceof org.objectweb.asm.Handle h)) continue;
+                    if (h.getTag() != Opcodes.H_NEWINVOKESPECIAL || !"<init>".equals(h.getName())) continue;
+                    String resolvedOwner = classRedirects.getOrDefault(h.getOwner(), h.getOwner());
+                    String resolvedDesc = resolveDescriptor(h.getDesc());
+                    FactoryTarget factory = constructorRedirects.get(new ConstructorKey(resolvedOwner, resolvedDesc));
+                    if (factory == null && !resolvedDesc.equals(h.getDesc())) {
+                        factory = constructorRedirects.get(new ConstructorKey(resolvedOwner, h.getDesc()));
+                    }
+                    if (factory != null) {
+                        bootstrapMethodArguments[i] = new org.objectweb.asm.Handle(
+                                Opcodes.H_INVOKESTATIC,
+                                factory.factoryClass(), factory.factoryMethod(), factory.factoryDesc(),
+                                false);
+                        LOGGER.info("Constructor-reference redirect: {}::new -> {}.{}{}",
+                                h.getOwner(), factory.factoryClass(), factory.factoryMethod(), factory.factoryDesc());
+                    }
+                }
+            }
+            super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
         }
 
         /**

@@ -5,13 +5,13 @@
 > Forward-looking plans only. Anything already shipped lives in the [changelog](CHANGELOG.md), not here.
 > No fixed dates - Retromod ships a release when it's ready, not on a calendar.
 >
-> Last updated: 2026-06-17 · 1.1.0 shipped · now on **v1.2.0-snapshot.2** (in progress)
+> Last updated: 2026-06-23 · 1.1.0 shipped · now on **v1.2.0-snapshot.3** (in progress)
 
 ---
 
 ## Where we are
 
-**Retromod 1.1.0 is the current stable release; 1.2.0 is now in progress on the snapshot track (`1.2.0-snapshot.2`).** It translates old Fabric, NeoForge, and Forge mod bytecode onto **MC 26.1.x and 26.2** - the maintained targets and the first unobfuscated Minecraft line. MC 26.2 ships for Fabric and NeoForge (Forge follows when its 26.2 loader does), with first-round Vulkan compatibility (prefer the OpenGL backend for old mods). The shim chain spans **MC 1.12.2 → 26.2**, third parties can extend Retromod through the [Addon API](docs/addons.md), and real-world results live in the community [Compatibility DB](https://bownlux.github.io/Retromod/compatdb/). **1.2.0 - "the general update" - is the active line; its plan is below.**
+**Retromod 1.1.0 is the current stable release; 1.2.0 is now in progress on the snapshot track (`1.2.0-snapshot.3`).** It translates old Fabric, NeoForge, and Forge mod bytecode onto **MC 26.1.x and 26.2** - the maintained targets and the first unobfuscated Minecraft line. MC 26.2 ships for Fabric and NeoForge (Forge follows when its 26.2 loader does), with first-round Vulkan compatibility (prefer the OpenGL backend for old mods). The shim chain spans **MC 1.12.2 → 26.2**, third parties can extend Retromod through the [Addon API](docs/addons.md), and real-world results live in the community [Compatibility DB](https://bownlux.github.io/Retromod/compatdb/). **1.2.0 - "the general update" - is the active line; its plan is below.**
 
 For everything that already landed, see the [changelog](CHANGELOG.md). This file is only what's *ahead*.
 

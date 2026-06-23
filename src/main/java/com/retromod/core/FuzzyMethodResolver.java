@@ -426,6 +426,37 @@ public class FuzzyMethodResolver {
     }
 
     /**
+     * Name-only method existence (hierarchy-aware), ignoring the descriptor. Used by the
+     * gap report to detect a signature change vs an outright removal (BAD_SIGNATURE vs
+     * MISSING_METHOD). Walks the same hierarchy as {@link #hasMethod} so an inherited
+     * member under the same name is treated consistently.
+     */
+    public boolean hasMethodName(String owner, String name) {
+        if (!indexed || owner == null) return false;
+        return hasMemberInHierarchy(owner, parent -> {
+            List<MethodInfo> methods = methodIndex.get(parent);
+            if (methods == null) return false;
+            for (MethodInfo m : methods) {
+                if (m.name().equals(name)) return true;
+            }
+            return false;
+        });
+    }
+
+    /** Name-only field existence (hierarchy-aware), ignoring the descriptor. See {@link #hasMethodName}. */
+    public boolean hasFieldName(String owner, String name) {
+        if (!indexed || owner == null) return false;
+        return hasMemberInHierarchy(owner, parent -> {
+            List<FieldInfo> fields = fieldIndex.get(parent);
+            if (fields == null) return false;
+            for (FieldInfo f : fields) {
+                if (f.name().equals(name)) return true;
+            }
+            return false;
+        });
+    }
+
+    /**
      * Walk the class hierarchy (including superclasses and interfaces) upward
      * from {@code start}, returning {@code true} as soon as {@code predicate}
      * matches any level in the hierarchy.

@@ -13,8 +13,8 @@ REM ============================================================================
 
 setlocal enabledelayedexpansion
 
-set VERSION=1.2.0-snapshot.2
-REM Only build for 1.20+ — older mods are translated BY Retromod, not hosted separately.
+set VERSION=1.2.0-snapshot.3
+REM Only build for 1.20+ - older mods are translated BY Retromod, not hosted separately.
 set MC_VERSIONS=1.20 1.20.1 1.20.2 1.20.3 1.20.4 1.20.5 1.20.6 1.21 1.21.1 1.21.2 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11 26.1 26.1.1 26.1.2
 set LOADERS=fabric forge neoforge
 
@@ -73,7 +73,7 @@ echo   Shaded JAR: %SHADED_JAR% (with bundled dependencies)
 
 REM Remove stale JARs from previous builds (e.g. retromod-1.0.0-beta.1+*.jar
 REM left behind after a version bump). Only deletes the retromod-* naming
-REM pattern — anything else in dist\ is preserved. See build-all.sh for the
+REM pattern - anything else in dist\ is preserved. See build-all.sh for the
 REM rationale.
 if exist dist (
     for /r dist %%f in (retromod-*.jar) do del /q "%%f" >nul 2>&1
@@ -141,7 +141,7 @@ if "%LOADER%"=="forge" set LOADER_DIR=Forge
 if "%LOADER%"=="neoforge" set LOADER_DIR=NeoForge
 
 REM Guard: never emit a dist\ artifact for a host MC below 1.20.
-REM Retromod requires Java 25 and MC 1.20+ to run as a mod — earlier versions
+REM Retromod requires Java 25 and MC 1.20+ to run as a mod - earlier versions
 REM are only relevant as translation SOURCES, not as host targets. This filter
 REM prevents accidental additions to MC_VERSIONS from producing broken builds.
 REM Allow-list: 1.20.x, 1.21.x, 26.x, 27.x, 28.x (forward-compat).

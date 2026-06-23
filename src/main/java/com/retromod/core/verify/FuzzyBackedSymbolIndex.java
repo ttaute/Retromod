@@ -70,6 +70,16 @@ public class FuzzyBackedSymbolIndex implements McSymbolIndex {
     }
 
     @Override
+    public boolean hasMethodName(String owner, String name) {
+        return resolver.hasMethodName(owner, name);
+    }
+
+    @Override
+    public boolean hasFieldName(String owner, String name) {
+        return resolver.hasFieldName(owner, name);
+    }
+
+    @Override
     public List<String> suggestClassAlternatives(String missingInternalName, int maxResults) {
         // Not using the fuzzy resolver's scoring for class suggestions -
         // its resolveMethod/resolveField operate at the member level, not the

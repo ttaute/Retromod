@@ -156,6 +156,85 @@ class ReferenceVerifierTest {
                 "Unindexed verifier should report nothing rather than false-positives");
     }
 
+    @Test
+    @DisplayName("Same name, different descriptor reports BAD_SIGNATURE (descriptor-aware, §A3)")
+    void signatureChangeReportsBadSignature() {
+        StubIndex index = new StubIndex();
+        index.classes.add("net/minecraft/world/level/Level");
+        // getBlockState EXISTS on the class, but only under a DIFFERENT descriptor than the
+        // mod uses (the signature changed) - the classic pre-26.1 pitfall-#17 shape.
+        index.methodSignatures.add("net/minecraft/world/level/Level#getBlockState "
+                + "(Lnet/minecraft/core/BlockPos;Z)Lnet/minecraft/world/level/block/state/BlockState;");
+
+        ReferenceVerifier verifier = new ReferenceVerifier(index, emptyLoaderRenames(), 3);
+        byte[] modClass = classThatReferences(
+                "net/minecraft/world/level/Level", "getBlockState",
+                "(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;");
+
+        VerificationReport report = new VerificationReport("testmod", "26.1", 1);
+        verifier.verify(modClass, Set.of("test/Mod"), report);
+
+        assertTrue(report.badSignatures().stream()
+                        .anyMatch(r -> r.name().equals("getBlockState")
+                                    && r.owner().equals("net/minecraft/world/level/Level")
+                                    && r.kind() == UnresolvedReference.Kind.BAD_SIGNATURE),
+                "A descriptor mismatch on an existing name must be BAD_SIGNATURE");
+        assertTrue(report.missingMethods().stream().noneMatch(r -> r.name().equals("getBlockState")),
+                "It must NOT also be MISSING_METHOD - the descriptor-aware verdict supersedes it");
+    }
+
+    @Test
+    @DisplayName("Name absent entirely stays MISSING_METHOD (no false BAD_SIGNATURE)")
+    void absentNameStaysMissingMethod() {
+        StubIndex index = new StubIndex();
+        index.classes.add("net/minecraft/world/level/Level"); // class exists, name does not
+
+        ReferenceVerifier verifier = new ReferenceVerifier(index, emptyLoaderRenames(), 3);
+        byte[] modClass = classThatReferences(
+                "net/minecraft/world/level/Level", "getBlockState",
+                "(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;");
+
+        VerificationReport report = new VerificationReport("testmod", "26.1", 1);
+        verifier.verify(modClass, Set.of("test/Mod"), report);
+
+        assertTrue(report.missingMethods().stream().anyMatch(r -> r.name().equals("getBlockState")),
+                "An absent name must remain MISSING_METHOD");
+        assertTrue(report.badSignatures().isEmpty(), "No BAD_SIGNATURE when the name is absent");
+    }
+
+    @Test
+    @DisplayName("Field type change reports BAD_SIGNATURE (descriptor-aware, §A3)")
+    void fieldTypeChangeReportsBadSignature() {
+        StubIndex index = new StubIndex();
+        index.classes.add("net/minecraft/world/InteractionResult");
+        // field SUCCESS exists, but its type changed (sealed-interface rebuild) - same name,
+        // different descriptor.
+        index.fieldSignatures.add("net/minecraft/world/InteractionResult#SUCCESS "
+                + "Lnet/minecraft/world/InteractionResult$Success;");
+
+        ReferenceVerifier verifier = new ReferenceVerifier(index, emptyLoaderRenames(), 3);
+        byte[] modClass = classThatReadsField(
+                "net/minecraft/world/InteractionResult", "SUCCESS",
+                "Lnet/minecraft/world/InteractionResult;");
+
+        VerificationReport report = new VerificationReport("testmod", "26.1", 1);
+        verifier.verify(modClass, Set.of("test/Mod"), report);
+
+        assertTrue(report.badSignatures().stream()
+                        .anyMatch(r -> r.name().equals("SUCCESS")
+                                    && r.kind() == UnresolvedReference.Kind.BAD_SIGNATURE),
+                "A field whose type changed must be BAD_SIGNATURE");
+        assertTrue(report.missingFields().stream().noneMatch(r -> r.name().equals("SUCCESS")),
+                "It must NOT also be MISSING_FIELD");
+
+        // A field BAD_SIGNATURE must render field-style (" : " before the type), not method-style
+        // (jammed name+descriptor). Regression for the prettyPrint fix.
+        UnresolvedReference fieldRef = report.badSignatures().stream()
+                .filter(r -> r.name().equals("SUCCESS")).findFirst().orElseThrow();
+        assertTrue(fieldRef.prettyPrint().contains("SUCCESS : L"),
+                "a field BAD_SIGNATURE must render with the ' : ' field separator: " + fieldRef.prettyPrint());
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════
@@ -197,6 +276,21 @@ class ReferenceVerifierTest {
         return cw.toByteArray();
     }
 
+    /** Generate a class whose {@code exec()} does {@code GETSTATIC owner.name : desc}. */
+    private static byte[] classThatReadsField(String owner, String name, String desc) {
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        cw.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, "test/Mod", null, "java/lang/Object", null);
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "exec", "()V", null, null);
+        mv.visitCode();
+        mv.visitFieldInsn(Opcodes.GETSTATIC, owner, name, desc);
+        mv.visitInsn(desc.equals("J") || desc.equals("D") ? Opcodes.POP2 : Opcodes.POP);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
     /**
      * Hand-built stub index for tests. {@code classes} and {@code methods} are
      * populated by tests to simulate a minimal MC API surface.
@@ -216,6 +310,12 @@ class ReferenceVerifierTest {
         }
         @Override public boolean hasField(String owner, String name, String descriptor) {
             return fieldSignatures.contains(owner + "#" + name + " " + descriptor);
+        }
+        @Override public boolean hasMethodName(String owner, String name) {
+            return methodSignatures.stream().anyMatch(s -> s.startsWith(owner + "#" + name + " "));
+        }
+        @Override public boolean hasFieldName(String owner, String name) {
+            return fieldSignatures.stream().anyMatch(s -> s.startsWith(owner + "#" + name + " "));
         }
         @Override public List<String> suggestClassAlternatives(String missing, int maxResults) {
             // Simple simple-name match against indexed classes

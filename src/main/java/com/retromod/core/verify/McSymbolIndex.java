@@ -93,6 +93,23 @@ public interface McSymbolIndex {
     boolean hasField(String owner, String name, String descriptor);
 
     /**
+     * Name-only method probe (hierarchy-aware), ignoring the descriptor. Lets the gap
+     * report distinguish a SIGNATURE change ({@code BAD_SIGNATURE} - the method name
+     * still exists on the owner, but under a different descriptor) from an outright
+     * rename/removal ({@code MISSING_METHOD}). This is precisely the pre-26.1 case from
+     * CLAUDE.md pitfall #17: across the 1.17 model rebuild and similar refactors the
+     * member names survive while their descriptors change, so a shim keyed on the old
+     * descriptor never fires.
+     *
+     * <p>Defaults to {@code false} so any index that can't answer this collapses cleanly
+     * back to {@code MISSING_METHOD} - never a worse classification than before.</p>
+     */
+    default boolean hasMethodName(String owner, String name) { return false; }
+
+    /** Name-only field probe (hierarchy-aware), ignoring the descriptor. See {@link #hasMethodName}. */
+    default boolean hasFieldName(String owner, String name) { return false; }
+
+    /**
      * Suggest up to {@code maxResults} alternative class names that exist in
      * the index and resemble the missing one. Used by the gap report to hint
      * at "did you mean…" replacements.

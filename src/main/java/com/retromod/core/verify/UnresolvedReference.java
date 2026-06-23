@@ -17,11 +17,11 @@ import java.util.Objects;
  *   <li>{@link Kind} - what kind of miss this is. {@code MISSING_CLASS} is the
  *       most severe because it implies every member reference against that
  *       class is also broken. {@code MISSING_METHOD} / {@code MISSING_FIELD}
- *       mean the owner class exists but the specific member didn't - a classic
- *       signature change or rename. {@code BAD_SIGNATURE} is reserved for
- *       future use (v1 emits it only if a method name exists but no descriptor
- *       variant matches; v1 just flags it as MISSING_METHOD with suggestions
- *       for now).</li>
+ *       mean the owner class exists but no member of that NAME was found - a
+ *       rename or removal. {@code BAD_SIGNATURE} is emitted when the member
+ *       name DOES exist on the owner but no descriptor variant matches - a
+ *       signature/type change a name-keyed shim won't bridge (the §A3
+ *       descriptor-aware classification; see {@code McSymbolIndex#hasMethodName}).</li>
  *   <li>{@code owner/name/descriptor} - the reference itself, in JVM internal
  *       form. {@code name}/{@code descriptor} are empty strings for
  *       {@code MISSING_CLASS} since only the owner class is the thing that's
@@ -55,11 +55,12 @@ public record UnresolvedReference(
     public enum Kind {
         /** The owner class itself doesn't exist in the target MC. */
         MISSING_CLASS,
-        /** The owner class exists but this method was not found. */
+        /** The owner class exists but no method of this name was found (rename/removal). */
         MISSING_METHOD,
-        /** The owner class exists but this field was not found. */
+        /** The owner class exists but no field of this name was found (rename/removal). */
         MISSING_FIELD,
-        /** A method of this name exists but none with this descriptor. */
+        /** A member (method or field) of this name exists, but none with this descriptor/type
+         *  - a signature change a name-keyed shim won't bridge. */
         BAD_SIGNATURE
     }
 
@@ -91,7 +92,12 @@ public record UnresolvedReference(
     public String prettyPrint() {
         return switch (kind) {
             case MISSING_CLASS -> owner;
-            case MISSING_METHOD, BAD_SIGNATURE -> owner + "#" + name + descriptor;
+            case MISSING_METHOD -> owner + "#" + name + descriptor;
+            // BAD_SIGNATURE covers methods AND fields; a field descriptor (no leading '(') takes
+            // the " : " field rendering so the name isn't jammed against the type.
+            case BAD_SIGNATURE -> descriptor.startsWith("(")
+                    ? owner + "#" + name + descriptor
+                    : owner + "#" + name + " : " + descriptor;
             case MISSING_FIELD -> owner + "#" + name + " : " + descriptor;
         };
     }

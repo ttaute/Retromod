@@ -11,7 +11,7 @@
 
 set -e
 
-VERSION="1.1.0-snapshot.2"
+VERSION="1.2.0-snapshot.3"
 
 echo "============================================"
 echo "  Retromod Build Script v${VERSION}"
@@ -106,10 +106,10 @@ jar xf "../retromod-${VERSION}-all.jar"
 rm -f fabric.mod.json 2>/dev/null || true
 
 # Update manifest for NeoForge
-cat > META-INF/MANIFEST.MF << 'EOF'
+cat > META-INF/MANIFEST.MF << EOF
 Manifest-Version: 1.0
 Implementation-Title: Retromod
-Implementation-Version: 1.0.0
+Implementation-Version: ${VERSION}
 Automatic-Module-Name: retromod
 EOF
 

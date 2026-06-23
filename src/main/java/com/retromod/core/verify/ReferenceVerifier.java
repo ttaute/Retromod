@@ -356,8 +356,16 @@ public final class ReferenceVerifier {
             }
 
             if (!index.hasMethod(owner, name, descriptor)) {
+                // Descriptor-aware classification: if the method NAME still exists on the
+                // owner but under a different descriptor, the SIGNATURE changed
+                // (BAD_SIGNATURE) - distinct from a rename/removal (MISSING_METHOD). This is
+                // the pre-26.1 pitfall-#17 case (names survive, descriptors change across the
+                // 1.17 model rebuild etc.), where a name-keyed shim won't actually fire.
+                UnresolvedReference.Kind kind = index.hasMethodName(owner, name)
+                        ? UnresolvedReference.Kind.BAD_SIGNATURE
+                        : UnresolvedReference.Kind.MISSING_METHOD;
                 report.add(new UnresolvedReference(
-                        UnresolvedReference.Kind.MISSING_METHOD,
+                        kind,
                         owner, name, descriptor,
                         srcClass, srcMethod, line,
                         toStringSuggestions(index.suggestMethodAlternatives(
@@ -372,8 +380,14 @@ public final class ReferenceVerifier {
             if (!index.hasClass(owner)) return; // covered by class-level report
 
             if (!index.hasField(owner, name, descriptor)) {
+                // Descriptor-aware: a same-named field whose TYPE changed is a BAD_SIGNATURE
+                // (the canonical case being class_1269.field_5811 after the 1.21.2 sealed-
+                // interface rebuild), distinct from an outright removal (MISSING_FIELD).
+                UnresolvedReference.Kind kind = index.hasFieldName(owner, name)
+                        ? UnresolvedReference.Kind.BAD_SIGNATURE
+                        : UnresolvedReference.Kind.MISSING_FIELD;
                 report.add(new UnresolvedReference(
-                        UnresolvedReference.Kind.MISSING_FIELD,
+                        kind,
                         owner, name, descriptor,
                         srcClass, srcMethod, line,
                         java.util.List.of()));

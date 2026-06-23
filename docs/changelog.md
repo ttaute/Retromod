@@ -8,6 +8,19 @@ description: "Release notes for every Retromod version."
 
 All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/). The 1.0.0 line ran `1.0.0-beta.N` → `1.0.0-rc.N` → stable `1.0.0`; from 1.1.0 on, minor/major releases use `snapshot.N` → `rc.N` → stable (patch releases ship directly).
 
+## [1.2.0-snapshot.3] - 2026-06-23
+
+More of the "general update": closes the constructor-reference gap snapshot.2 flagged, finishes the pre-26.1 Fabric model bridge, and makes the gap report descriptor-aware. See the [roadmap](ROADMAP.md#120--the-general-update).
+
+### Added
+- **Pre-1.17 Fabric model bridge: the removed abstract model bases (§A1).** The bridge that reconstructs Minecraft's pre-1.17 model system now also synthesizes the AgeableListModel-family abstract bases the 1.17 rewrite removed - `AnimalModel` (head + body parts), `CompositeEntityModel` (single parts list), and the tinted `AnimalModel` subclass - and class-redirects the dead intermediary names onto them. So a ≤1.16 custom-entity-model mod (the classic pre-26.1 Fabric break) whose model extends one of those now loads on a pre-26.1 host. Pre-26.1 Fabric only; the baby head-scale path is intentionally simplified (babies render at adult scale). Transform-tested (`Pre1_17AbstractBaseTest`, plus a composed end-to-end `Pre1_17ModelBridgeAcceptanceTest`).
+- **Descriptor-aware gap report (`retromod gaps`).** The gap report now emits a distinct `BAD_SIGNATURE` verdict when a referenced method/field still exists on the target by NAME but no descriptor variant matches - a signature/type change a name-keyed shim won't bridge - separate from an outright rename or removal. Backed by hierarchy-aware name probes on the MC symbol index, so "this API changed shape" reads distinctly from "this API is gone." Tested (`ReferenceVerifierTest`).
+- **Standalone `aot <mod>` now embeds the Forge→NeoForge deleted-class bridges.** The single-mod `aot` command registers and per-mod-embeds the `DeferredSpawnEggItem` / `FMLJavaModLoadingContext` synthetics, matching what `batch --aot` already did - so a one-off `aot` of a NeoForge mod that references them produces a working jar instead of a dangling reference.
+
+### Fixed
+- **Constructor references (`X::new`) are now rewritten (the gap snapshot.2 flagged).** A constructor-reference `invokedynamic` - e.g. `ChunkPos::new` captured in a codec lambda by Resourceful Lib, the blocker for Chipped/Handcrafted on 26.x - now has its bootstrap method-handle rewritten from the removed constructor to the redirected static factory (`ChunkPos.unpack`), so the lambda links at runtime. The direct `new X(...)` form was already handled; this covers the method-reference form. Also fixed a transform early-skip that bypassed mods whose only redirects were constructor- or field-accessor-based. Tested (`CtorReferenceRedirectTest`).
+- **`FMLEnvironment.dist` → `getDist()` on NeoForge 26.x.** 26.x removed the static `dist` field, so the near-universal `FMLEnvironment.dist` client/server check now rewrites to `INVOKESTATIC FMLEnvironment.getDist()` instead of throwing `NoSuchFieldError`. Tested (`FmlEnvironmentDistTest`).
+
 ## [1.2.0-snapshot.2] - 2026-06-21
 
 Continues the "general update": the deeper transform-engine fix and the rest of #78. See the [roadmap](ROADMAP.md#120--the-general-update).

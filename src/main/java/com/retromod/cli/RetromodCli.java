@@ -36,7 +36,7 @@ import java.util.*;
  */
 public class RetromodCli {
     
-    private static final String VERSION = "1.2.0-snapshot.2";
+    private static final String VERSION = "1.2.0-snapshot.3";
     // Default target; overridable per-invocation via `--target <mc-version>` so the
     // offline transform/batch/AOT can prep mods for a specific host (e.g. 26.2, whose
     // 26.1->26.2 shims - candle ColorCollection, advancements moves - only fire when
@@ -390,10 +390,36 @@ public class RetromodCli {
 
         System.out.println("Input:  " + modPath.getFileName());
 
+        // Register the Forge->NeoForge deleted-class bridges (#52 DeferredSpawnEggItem,
+        // #85 FMLJavaModLoadingContext) BEFORE compiling, so the AOT transform rewrites
+        // references to them; embedIntoJar (below) then places them per-mod. registerAll is
+        // unconditional/offline and reference-gated at embed, so this is a no-op for any mod
+        // (incl. every Fabric mod) that never touches net/neoforged classes. Mirrors
+        // transform's inline aux + the batch --aot post-branch embed; the standalone aot
+        // command was the one path missing it.
+        try {
+            com.retromod.shim.forge.ForgeNeoForgeSynthetics.registerAll(
+                    RetromodTransformer.getInstance());
+        } catch (Exception e) {
+            // Best-effort - AOT compilation continues without the bridges.
+        }
+
         long startTime = System.currentTimeMillis();
         Path result = compiler.compileModAot(modPath);
         long duration = System.currentTimeMillis() - startTime;
         
+        // Embed any referenced Forge->NeoForge synthetics into the AOT output (reference-gated,
+        // so a no-op unless the mod uses them). Only when a new jar was produced - never touch
+        // the user's input jar.
+        if (!result.equals(modPath)) {
+            try {
+                com.retromod.core.SyntheticEmbedder.embedIntoJar(
+                        result, modPath.getFileName().toString(), RetromodTransformer.getInstance());
+            } catch (Exception e) {
+                // Best-effort - the AOT jar is otherwise complete.
+            }
+        }
+
         System.out.println("Output: " + result.getFileName());
         System.out.printf("Time:   %d ms%n", duration);
         System.out.println();

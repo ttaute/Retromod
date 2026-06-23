@@ -89,6 +89,25 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
         );
 
         // ============================================================
+        // FMLEnvironment.dist FIELD → getDist() METHOD
+        // 26.x removed NeoForge's public static `FMLEnvironment.dist` field
+        // (verified absent in loader-11.0.13.jar; replaced by the static
+        // accessor `getDist()`). The ubiquitous client/server check
+        // `FMLEnvironment.dist` then NoSuchFieldErrors on 26.x. A field→method
+        // redirect (newDesc starts with '(') rewrites the GETSTATIC into
+        // INVOKESTATIC FMLEnvironment.getDist(); the return type matches, so no
+        // cast is emitted. NeoForge-only (net/neoforged package); gated to 26.1+
+        // by this shim's place in the chain. Found via Handcrafted, but hit by
+        // a large share of NeoForge/Forge mods (it's the standard side check).
+        // ============================================================
+        transformer.registerFieldRedirect(
+            "net/neoforged/fml/loading/FMLEnvironment", "dist",
+            "Lnet/neoforged/api/distmarker/Dist;",
+            "net/neoforged/fml/loading/FMLEnvironment", "getDist",
+            "()Lnet/neoforged/api/distmarker/Dist;"
+        );
+
+        // ============================================================
         // ABSTRACTWIDGET FIELD → ACCESSOR REDIRECTS
         // x/y/width/height became private in 26.1, now accessed via
         // getX()/setX(), getY()/setY(), getWidth()/setWidth(), getHeight()/setHeight()
