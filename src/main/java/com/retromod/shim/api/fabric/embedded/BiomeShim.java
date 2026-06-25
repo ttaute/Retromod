@@ -10,6 +10,6 @@ public class BiomeShim {
                     return;
                 }
             }
-        } catch (Exception e) { }
+        } catch (Exception ignored) { }
     }
 }

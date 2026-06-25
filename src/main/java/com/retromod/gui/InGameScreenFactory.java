@@ -59,7 +59,7 @@ public final class InGameScreenFactory {
             "net.minecraft.network.chat.Component"
         );
 
-        // The plain Yes/No ConfirmScreen - NOT ConfirmLinkScreen (that's the
+        // The plain Yes/No ConfirmScreen, NOT ConfirmLinkScreen (that's the
         // link-warning dialog with a different constructor). Its ctor is
         // ConfirmScreen(BooleanConsumer, Component title, Component message).
         confirmScreenClass = McReflect.findClass(
@@ -149,9 +149,7 @@ public final class InGameScreenFactory {
         }
     }
 
-    // =========================================================================
     // Public API: Show various screen types
-    // =========================================================================
 
     /**
      * Show a confirmation dialog in-game with Yes/No buttons.
@@ -231,7 +229,7 @@ public final class InGameScreenFactory {
     /**
      * Show a Yes/No confirmation over a known parent screen. Unlike
      * {@link #showConfirmScreen}, declining returns to {@code parentScreen}
-     * (e.g. the title screen) instead of clearing to a null screen - so this is
+     * (e.g. the title screen) instead of clearing to a null screen, so this is
      * safe to invoke from a title-screen init hook. Used by the restart prompt (#33).
      *
      * @param parentScreen the screen to return to if the user clicks No
@@ -339,7 +337,7 @@ public final class InGameScreenFactory {
             LOGGER.debug("NoticeScreen not available: {}", e.getMessage());
         }
 
-        // Last resort - log the message
+        // Last resort: log the message
         LOGGER.info("[Retromod Notification] {}", message);
     }
 

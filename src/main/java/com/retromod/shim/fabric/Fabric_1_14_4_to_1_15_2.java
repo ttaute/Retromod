@@ -7,9 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Fabric shim for 1.14.4 to 1.15.2. Rendering pipeline changes and some API additions.
- */
+/** Fabric shim for 1.14.4 to 1.15.2. */
 public class Fabric_1_14_4_to_1_15_2 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.14.4 to 1.15.2"; }
@@ -19,22 +17,18 @@ public class Fabric_1_14_4_to_1_15_2 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Rendering changes
         transformer.registerMethodRedirect(
             "net/minecraft/client/render/item/ItemRenderer", "renderGuiItemIcon",
             "(Lnet/minecraft/item/ItemStack;II)V",
             "com/retromod/shim/fabric/embedded/ItemRendererShim", "renderGuiItemIcon",
             "(Ljava/lang/Object;Ljava/lang/Object;II)V"
         );
-        // Screen rendering method changes
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/screen/Screen", "renderTooltip",
             "(Ljava/util/List;II)V",
             "com/retromod/shim/fabric/embedded/ScreenShim", "renderTooltip",
             "(Ljava/lang/Object;Ljava/util/List;II)V"
         );
-        // Bee entity added (no breaking changes, just additions)
-        // RenderLayer changes
         transformer.registerMethodRedirect(
             "net/minecraft/client/render/RenderLayer", "getEntityCutout",
             "(Lnet/minecraft/util/Identifier;)Lnet/minecraft/client/render/RenderLayer;",

@@ -52,7 +52,7 @@ public class FabricApiPolyfill implements PolyfillProvider {
             "net/fabricmc/fabric/api/renderer/v1/material/RenderMaterial",
             "net/fabricmc/fabric/api/loot/v2/LootTableLoadingCallback",
             "net/fabricmc/fabric/api/item/v1/FabricItemSettings",
-            // Removed in 26.1 - fabric-mining-level-api-v1 deprecated and removed
+            // Removed in 26.1: fabric-mining-level-api-v1 deprecated and removed
             "net/fabricmc/fabric/api/mininglevel/v1/FabricMineableTags"
         };
     }
@@ -84,7 +84,7 @@ public class FabricApiPolyfill implements PolyfillProvider {
 
         // FabricMineableTags: generate class with ASM (needs TagKey-typed fields
         // that can't be compiled from Java source since MC isn't on the classpath).
-        // NO class redirect needed - the synthetic class uses the original class name.
+        // NO class redirect needed: the synthetic class uses the original class name.
         byte[] mineableTagsBytes = generateFabricMineableTagsClass();
         transformer.registerSyntheticClass(
             "net/fabricmc/fabric/api/mininglevel/v1/FabricMineableTags",

@@ -1,22 +1,6 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
- *
- * Bridge for Font.draw/drawShadow methods removed in MC 26.1.
- *
- * Old mods call:
- *   Font.draw(PoseStack, String, float, float, int) -> int
- *   Font.draw(PoseStack, Component, float, float, int) -> int
- *   Font.drawShadow(PoseStack, String, float, float, int) -> int
- *   Font.drawShadow(PoseStack, FormattedCharSequence, float, float, int) -> int
- *
- * In 26.1, these are replaced by:
- *   Font.drawInBatch(String, float, float, int, boolean, Matrix4f,
- *                    MultiBufferSource, DisplayMode, int, int) -> int
- *
- * This bridge devirtualizes the old instance methods into static methods,
- * extracts the Matrix4f from PoseStack, obtains a MultiBufferSource from
- * the Minecraft client, and delegates to drawInBatch.
  */
 package com.retromod.shim.fabric.embedded;
 
@@ -27,29 +11,20 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
- * Bridge for Font text rendering methods removed in MC 26.1.
- *
- * ~70% of mods render text using the old Font.draw/drawShadow methods.
- * This bridge translates those calls to the new drawInBatch API.
- *
- * All methods are static (devirtualized): the Font instance is the first parameter.
- * PoseStack is accepted as Object and the Matrix4f is extracted via reflection.
- * Returns 0 as the int width (old mods rarely use the return value).
+ * Bridges the old Font.draw/drawShadow methods (removed in MC 26.1) onto drawInBatch.
+ * Devirtualized: the Font is the first parameter, PoseStack arrives as Object and the
+ * Matrix4f is pulled out via reflection. Returns 0 for the width.
  */
 public final class FontBridge {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-FontBridge");
 
-    // All MC method handles are resolved via reflection because MC classes aren't on
-    // Retromod's compile classpath. We use Double-Checked Locking (DCL) with volatile
-    // fields for thread-safe lazy initialization - text rendering can be called from
-    // the render thread at any point after mod init.
+    // MC handles resolved via reflection (MC isn't on the compile classpath). DCL with
+    // volatile: text rendering runs on the render thread after mod init.
     private static volatile boolean initialized = false;
     private static volatile boolean initFailed = false;
 
-    // PoseStack → Matrix4f extraction chain:
-    // Old mods pass a PoseStack, but drawInBatch needs the raw Matrix4f.
-    // We call poseStack.last().pose() to extract it.
+    // poseStack.last().pose() yields the Matrix4f drawInBatch wants.
     private static volatile Method poseStackLast;       // PoseStack.last() -> Pose
     private static volatile Method posePose;            // Pose.pose() -> Matrix4f
 
@@ -57,25 +32,20 @@ public final class FontBridge {
     private static volatile Method minecraftGetInstance;
     private static volatile Method renderBuffers;
     private static volatile Method bufferSource;
-    private static volatile Method bufferSourceEndBatch; // to flush after drawing
+    private static volatile Method bufferSourceEndBatch; // flush after drawing
 
-    // Font.drawInBatch (the new 26.1 method)
-    private static volatile Method drawInBatchString;   // String variant
-    private static volatile Method drawInBatchComponent; // Component variant
-    private static volatile Method drawInBatchFCSeq;    // FormattedCharSequence variant
+    private static volatile Method drawInBatchString;
+    private static volatile Method drawInBatchComponent;
+    private static volatile Method drawInBatchFCSeq;
 
-    // Font.DisplayMode enum constants
     private static volatile Object displayModeNormal;
     private static volatile Object displayModeSeeThrough;
 
-    // Component.getString() for Component→String fallback
     private static volatile Method componentGetString;
 
-    // FormattedCharSequence handling - we convert to String via reflection
     private static boolean hasFCSeqMethod = false;
 
     private FontBridge() {
-        // Utility class
     }
 
     private static void ensureInitialized() {
@@ -85,36 +55,30 @@ public final class FontBridge {
             try {
                 ClassLoader cl = Thread.currentThread().getContextClassLoader();
 
-                // PoseStack.last().pose() chain
                 Class<?> poseStackClass = cl.loadClass("com.mojang.blaze3d.vertex.PoseStack");
                 poseStackLast = poseStackClass.getMethod("last");
                 Class<?> poseClass = poseStackLast.getReturnType();
                 posePose = poseClass.getMethod("pose");
 
-                // Minecraft.getInstance()
                 Class<?> minecraftClass = cl.loadClass("net.minecraft.client.Minecraft");
                 minecraftGetInstance = minecraftClass.getMethod("getInstance");
 
-                // renderBuffers().bufferSource()
                 Object mc = minecraftGetInstance.invoke(null);
                 renderBuffers = minecraftClass.getMethod("renderBuffers");
                 Object rb = renderBuffers.invoke(mc);
                 bufferSource = rb.getClass().getMethod("bufferSource");
 
-                // Find endBatch() on the buffer source for flushing
                 Object bs = bufferSource.invoke(rb);
                 try {
                     bufferSourceEndBatch = bs.getClass().getMethod("endBatch");
                 } catch (NoSuchMethodException e) {
-                    // Try alternative name
                     try {
                         bufferSourceEndBatch = bs.getClass().getMethod("endLastBatch");
                     } catch (NoSuchMethodException e2) {
-                        // Non-fatal: text will still render, just may not flush immediately
+                        // no flush method; text still renders, just not flushed immediately
                     }
                 }
 
-                // Font class and drawInBatch method
                 Class<?> fontClass = cl.loadClass("net.minecraft.client.gui.Font");
                 Class<?> matrix4fClass = cl.loadClass("org.joml.Matrix4f");
                 Class<?> multiBufferSourceClass = cl.loadClass(
@@ -122,7 +86,6 @@ public final class FontBridge {
                 Class<?> displayModeClass = cl.loadClass(
                     "net.minecraft.client.gui.Font$DisplayMode");
 
-                // Get DisplayMode enum constants
                 Object[] displayModes = displayModeClass.getEnumConstants();
                 for (Object dm : displayModes) {
                     String name = ((Enum<?>) dm).name();
@@ -146,7 +109,6 @@ public final class FontBridge {
                     matrix4fClass, multiBufferSourceClass, displayModeClass,
                     int.class, int.class);
 
-                // Try Component variant
                 try {
                     Class<?> componentClass = cl.loadClass("net.minecraft.network.chat.Component");
                     drawInBatchComponent = fontClass.getMethod("drawInBatch",
@@ -158,7 +120,6 @@ public final class FontBridge {
                     LOGGER.debug("Font.drawInBatch(Component,...) not found, will use String fallback");
                 }
 
-                // Try FormattedCharSequence variant
                 try {
                     Class<?> fcsClass = cl.loadClass(
                         "net.minecraft.util.FormattedCharSequence");
@@ -182,97 +143,37 @@ public final class FontBridge {
         }
     }
 
-    // ================================================================
-    // Font.draw(PoseStack, String, float, float, int) -> int
-    // ================================================================
-
-    /**
-     * Bridge for Font.draw(PoseStack, String, float, float, int).
-     * Devirtualized: Font is the first parameter.
-     *
-     * @param font      the Font instance
-     * @param poseStack the PoseStack (Matrix4f extracted from it)
-     * @param text      the text to draw
-     * @param x         x position
-     * @param y         y position
-     * @param color     ARGB color
-     * @return 0 (old return was text width; rarely used)
-     */
+    /** Bridge for Font.draw(PoseStack, String, float, float, int). */
     public static int drawString(Object font, Object poseStack, String text,
                                   float x, float y, int color) {
         return drawInternal(font, poseStack, text, null, null, x, y, color, false);
     }
 
-    // ================================================================
-    // Font.draw(PoseStack, Component, float, float, int) -> int
-    // ================================================================
-
-    /**
-     * Bridge for Font.draw(PoseStack, Component, float, float, int).
-     * Devirtualized: Font is the first parameter.
-     */
+    /** Bridge for Font.draw(PoseStack, Component, float, float, int). */
     public static int drawComponent(Object font, Object poseStack, Object component,
                                      float x, float y, int color) {
         return drawInternal(font, poseStack, null, component, null, x, y, color, false);
     }
 
-    // ================================================================
-    // Font.drawShadow(PoseStack, String, float, float, int) -> int
-    // ================================================================
-
-    /**
-     * Bridge for Font.drawShadow(PoseStack, String, float, float, int).
-     * Devirtualized: Font is the first parameter.
-     */
+    /** Bridge for Font.drawShadow(PoseStack, String, float, float, int). */
     public static int drawShadowString(Object font, Object poseStack, String text,
                                         float x, float y, int color) {
         return drawInternal(font, poseStack, text, null, null, x, y, color, true);
     }
 
-    // ================================================================
-    // Font.drawShadow(PoseStack, Component, float, float, int) -> int
-    // ================================================================
-
-    /**
-     * Bridge for Font.drawShadow(PoseStack, Component, float, float, int).
-     * Devirtualized: Font is the first parameter.
-     */
+    /** Bridge for Font.drawShadow(PoseStack, Component, float, float, int). */
     public static int drawShadowComponent(Object font, Object poseStack, Object component,
                                            float x, float y, int color) {
         return drawInternal(font, poseStack, null, component, null, x, y, color, true);
     }
 
-    // ================================================================
-    // Font.drawShadow(PoseStack, FormattedCharSequence, float, float, int) -> int
-    // ================================================================
-
-    /**
-     * Bridge for Font.drawShadow(PoseStack, FormattedCharSequence, float, float, int).
-     * Devirtualized: Font is the first parameter.
-     */
+    /** Bridge for Font.drawShadow(PoseStack, FormattedCharSequence, float, float, int). */
     public static int drawShadowFCS(Object font, Object poseStack, Object formattedCharSeq,
                                      float x, float y, int color) {
         return drawInternal(font, poseStack, null, null, formattedCharSeq, x, y, color, true);
     }
 
-    // ================================================================
-    // Internal implementation
-    // ================================================================
-
-    /**
-     * Core implementation: delegates to Font.drawInBatch with appropriate parameters.
-     *
-     * @param font             Font instance
-     * @param poseStack        PoseStack (Matrix4f extracted via last().pose())
-     * @param text             String text (or null if component/FCS is used)
-     * @param component        Component (or null)
-     * @param formattedCharSeq FormattedCharSequence (or null)
-     * @param x                x position
-     * @param y                y position
-     * @param color            ARGB color
-     * @param shadow           true for drawShadow (uses SEE_THROUGH display mode)
-     * @return 0
-     */
+    /** shadow=true picks SEE_THROUGH; text/component/formattedCharSeq are mutually exclusive. */
     private static int drawInternal(Object font, Object poseStack,
                                      String text, Object component, Object formattedCharSeq,
                                      float x, float y, int color, boolean shadow) {
@@ -280,25 +181,19 @@ public final class FontBridge {
         if (initFailed) return 0;
 
         try {
-            // Extract Matrix4f from PoseStack
             Object pose = poseStackLast.invoke(poseStack);
             Object matrix4f = posePose.invoke(pose);
 
-            // Get MultiBufferSource from Minecraft client
             Object mc = minecraftGetInstance.invoke(null);
             Object rb = renderBuffers.invoke(mc);
             Object bs = bufferSource.invoke(rb);
 
-            // Select display mode
             Object displayMode = shadow ? displayModeSeeThrough : displayModeNormal;
             if (displayMode == null) displayMode = displayModeNormal;
 
-            // Light level: 15728880 = full brightness (LightTexture.FULL_BRIGHT)
-            int packedLight = 15728880;
-            // Background color: 0 = transparent
+            int packedLight = 15728880; // LightTexture.FULL_BRIGHT
             int backgroundColor = 0;
 
-            // Call drawInBatch
             if (text != null && drawInBatchString != null) {
                 drawInBatchString.invoke(font, text, x, y, color, shadow,
                     matrix4f, bs, displayMode, backgroundColor, packedLight);
@@ -306,7 +201,6 @@ public final class FontBridge {
                 drawInBatchComponent.invoke(font, component, x, y, color, shadow,
                     matrix4f, bs, displayMode, backgroundColor, packedLight);
             } else if (component != null && componentGetString != null) {
-                // Fallback: convert Component to String
                 String str = (String) componentGetString.invoke(component);
                 if (drawInBatchString != null) {
                     drawInBatchString.invoke(font, str, x, y, color, shadow,
@@ -316,42 +210,27 @@ public final class FontBridge {
                 drawInBatchFCSeq.invoke(font, formattedCharSeq, x, y, color, shadow,
                     matrix4f, bs, displayMode, backgroundColor, packedLight);
             } else if (formattedCharSeq != null && drawInBatchString != null) {
-                // Last resort: try toString on the FormattedCharSequence
                 String str = formattedCharSeq.toString();
                 drawInBatchString.invoke(font, str, x, y, color, shadow,
                     matrix4f, bs, displayMode, backgroundColor, packedLight);
             }
 
-            // Flush the buffer so text actually appears
             if (bufferSourceEndBatch != null) {
                 bufferSourceEndBatch.invoke(bs);
             }
 
         } catch (Exception e) {
-            // Log once and continue - better to silently skip text than crash
             LOGGER.debug("FontBridge.drawInternal failed: {}", e.getMessage());
         }
 
         return 0;
     }
 
-    // ================================================================
-    // RenderSystem no-ops for removed methods
-    // ================================================================
-
-    /**
-     * No-op replacement for RenderSystem.enableTexture().
-     * Removed in 26.1 (textures are always enabled in modern rendering pipeline).
-     */
+    /** No-op for RenderSystem.enableTexture(), removed in 26.1. */
     public static void noOpVoid() {
-        // Intentionally empty
     }
 
-    /**
-     * No-op replacement for RenderSystem.setShaderTexture(int, ResourceLocation).
-     * Removed in 26.1 (shader textures managed differently).
-     */
+    /** No-op for RenderSystem.setShaderTexture(int, ResourceLocation), removed in 26.1. */
     public static void noOpSetShaderTexture(int slot, Object resourceLocation) {
-        // Intentionally empty
     }
 }

@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests the mixin blocklist that turns fatal, unrepairable mixin handlers into
- * inert ones (issue #28 - a MixinExtras {@code @WrapOperation}/{@code @Local}
+ * inert ones (issue #28: a MixinExtras {@code @WrapOperation}/{@code @Local}
  * that crashes with a {@code VerifyError} on 26.1).
  */
 class MixinBlocklistTest {
@@ -64,7 +64,7 @@ class MixinBlocklistTest {
         inj.visitMaxs(0, 1);
         inj.visitEnd();
 
-        // A plain helper with no injector annotation - must always survive.
+        // A plain helper with no injector annotation must always survive.
         MethodVisitor keep = cw.visitMethod(Opcodes.ACC_PRIVATE, "plainHelper", "()V", null, null);
         keep.visitCode();
         keep.visitInsn(Opcodes.RETURN);
@@ -196,7 +196,6 @@ class MixinBlocklistTest {
         assertTrue(names.contains("onSomething"));
     }
 
-    // ── Whole-class strip ("strip": "class") - #68 / #69 ───────────────────────
 
     /** Build a @Mixin(value = {targetInternal.class}) class, for neutralization tests. */
     private static byte[] mixinClassWithTarget(String internalName, String targetInternal) {
@@ -216,7 +215,7 @@ class MixinBlocklistTest {
         ctor.visitInsn(Opcodes.RETURN);
         ctor.visitMaxs(1, 1);
         ctor.visitEnd();
-        // An @Inject handler - must NOT remain reachable once neutralized.
+        // An @Inject handler must NOT remain reachable once neutralized.
         MethodVisitor inj = cw.visitMethod(Opcodes.ACC_PRIVATE, "onRenderLevel", "()V", null, null);
         inj.visitAnnotation("Lorg/spongepowered/asm/mixin/injection/Inject;", false).visitEnd();
         inj.visitCode();

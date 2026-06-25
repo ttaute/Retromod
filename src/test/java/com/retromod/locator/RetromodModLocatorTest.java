@@ -2,9 +2,12 @@ package com.retromod.locator;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -13,6 +16,10 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import net.neoforged.neoforgespi.ILaunchContext;
 import net.neoforged.neoforgespi.locating.IDiscoveryPipeline;
@@ -82,6 +89,37 @@ class RetromodModLocatorTest {
 
         assertEquals(List.of(folder.resolve("alpha.jar"), folder.resolve("zeta.jar")),
                 RetromodModLocator.listJars(folder));
+    }
+
+    @Test
+    void doesNotDirectlyCallILaunchContextGameDirectory() throws IOException {
+        // #100: ILaunchContext.gameDirectory() exists only on loader 11.x (MC 26.x). A direct
+        // invokeinterface to it throws NoSuchMethodError on loader 4.x (MC 1.21.x) and crashes the
+        // server at mod discovery, before any mod loads. The game directory must be resolved
+        // reflectively with an FMLPaths fallback, so the compiled locator must carry NO direct
+        // reference to that method. This locks the fix host-independently (a real 1.21.x NeoForge
+        // server is needed to confirm boot, which is verified separately in-game).
+        boolean[] hasDirectCall = {false};
+        try (InputStream in = RetromodModLocator.class.getResourceAsStream("RetromodModLocator.class")) {
+            assertNotNull(in, "the compiled locator class must be readable from the test classpath");
+            new ClassReader(in).accept(new ClassVisitor(Opcodes.ASM9) {
+                @Override
+                public MethodVisitor visitMethod(int a, String n, String d, String s, String[] e) {
+                    return new MethodVisitor(Opcodes.ASM9) {
+                        @Override
+                        public void visitMethodInsn(int op, String owner, String name, String desc, boolean itf) {
+                            if ("net/neoforged/neoforgespi/ILaunchContext".equals(owner)
+                                    && "gameDirectory".equals(name)) {
+                                hasDirectCall[0] = true;
+                            }
+                        }
+                    };
+                }
+            }, 0);
+        }
+        assertFalse(hasDirectCall[0],
+                "RetromodModLocator must not directly call ILaunchContext.gameDirectory() (#100); "
+                        + "resolve the game dir reflectively with an FMLPaths fallback instead");
     }
 
     @Test

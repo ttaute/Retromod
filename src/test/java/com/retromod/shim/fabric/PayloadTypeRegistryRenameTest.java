@@ -11,13 +11,8 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression for #94 (CoroUtil / Watut, Fabric 26.1.2): fabric-api renamed the
- * static {@code PayloadTypeRegistry} accessors twice, and 26.1 ships only the
- * newest spelling. forge-config-api-port (JiJ'd by many mods) calls an older
- * name to register its config-sync payloads → {@code NoSuchMethodError} on
- * 26.1. The 26.1 Fabric shim must map every old generation to the 26.1 name:
- * gen-1 {@code configurationClientbound()} and gen-2 {@code configurationS2C()}
- * both → {@code clientboundConfiguration()} (S2C = server→client = clientbound).
+ * Regression for #94: PayloadTypeRegistry's static accessors were renamed twice and
+ * 26.1 ships only the newest spelling, so the shim must map both older generations to it.
  */
 class PayloadTypeRegistryRenameTest {
 
@@ -34,12 +29,12 @@ class PayloadTypeRegistryRenameTest {
             new Fabric_1_21_11_to_26_1().registerRedirects(t);
             var r = t.getMethodRedirects();
 
-            // gen-1 (configurationClientbound - the exact name in the #94 crash)
+            // gen-1
             assertTarget(r, "configurationClientbound", "clientboundConfiguration");
             assertTarget(r, "configurationServerbound", "serverboundConfiguration");
             assertTarget(r, "playClientbound", "clientboundPlay");
             assertTarget(r, "playServerbound", "serverboundPlay");
-            // gen-2 (configurationS2C - what current forge-config-api-port calls)
+            // gen-2
             assertTarget(r, "configurationS2C", "clientboundConfiguration");
             assertTarget(r, "configurationC2S", "serverboundConfiguration");
             assertTarget(r, "playS2C", "clientboundPlay");

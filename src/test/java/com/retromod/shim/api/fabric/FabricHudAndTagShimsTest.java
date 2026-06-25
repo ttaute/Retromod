@@ -19,9 +19,8 @@ import org.objectweb.asm.tree.MethodNode;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Structural checks for the two newest 26.1 compatibility shims:
- * {@link FabricHudRenderCallbackShim} (extends + default-bridge synthetic) and
- * {@link FabricConventionTagsShim} (v1 → v2 class + field-rename redirects).
+ * Structural checks for the {@link FabricHudRenderCallbackShim} synthetic and the
+ * {@link FabricConventionTagsShim} v1-to-v2 redirects on a 26.1 host.
  */
 class FabricHudAndTagShimsTest {
 
@@ -41,25 +40,25 @@ class FabricHudAndTagShimsTest {
 
         assertTrue((cn.access & Opcodes.ACC_INTERFACE) != 0);
         assertTrue(cn.interfaces.contains("net/fabricmc/fabric/api/client/rendering/v1/hud/HudElement"),
-                "must extend the new HudElement so listeners/invoker ARE HudElements");
+                "must extend HudElement");
 
         long abstracts = cn.methods.stream().filter(m -> (m.access & Opcodes.ACC_ABSTRACT) != 0).count();
-        assertEquals(1, abstracts, "exactly one abstract method - must stay a functional interface");
+        assertEquals(1, abstracts, "must stay a functional interface");
         MethodNode sam = cn.methods.stream().filter(m -> (m.access & Opcodes.ACC_ABSTRACT) != 0).findFirst().orElseThrow();
-        assertEquals("onHudRender", sam.name, "old SAM name so v1 lambdas keep linking");
+        assertEquals("onHudRender", sam.name, "old SAM name keeps v1 lambdas linking");
         assertEquals(SAM_DESC, sam.desc);
 
         MethodNode def = cn.methods.stream().filter(m -> m.name.equals("extractRenderState")).findFirst().orElse(null);
-        assertNotNull(def, "must bridge the new SAM with a default method");
-        assertEquals(0, def.access & Opcodes.ACC_ABSTRACT, "extractRenderState must be a DEFAULT method");
+        assertNotNull(def, "new SAM needs a default-method bridge");
+        assertEquals(0, def.access & Opcodes.ACC_ABSTRACT, "extractRenderState must be a default method");
         boolean forwards = false;
         for (AbstractInsnNode insn : def.instructions) {
             if (insn instanceof MethodInsnNode m && m.name.equals("onHudRender") && m.desc.equals(SAM_DESC)) {
                 forwards = true;
             }
         }
-        assertTrue(forwards, "the default method must forward to onHudRender");
-        assertTrue(cn.fields.stream().anyMatch(f -> f.name.equals("EVENT")), "mods read HudRenderCallback.EVENT");
+        assertTrue(forwards, "default method must forward to onHudRender");
+        assertTrue(cn.fields.stream().anyMatch(f -> f.name.equals("EVENT")), "EVENT field missing");
         assertTrue(cn.methods.stream().anyMatch(m -> m.name.equals("<clinit>")), "EVENT needs a static initializer");
     }
 
@@ -87,7 +86,7 @@ class FabricHudAndTagShimsTest {
                     holder + " v1 must redirect to v2");
         }
 
-        // Renamed fields are keyed on the V2 owner (post-ClassRemapper form).
+        // Field redirects are keyed on the v2 owner (ClassRemapper runs first).
         var fr = t.getFieldRedirects();
         String v2 = "net/fabricmc/fabric/api/tag/convention/v2/ConventionalItemTags";
         var shears = fr.get(new RetromodTransformer.FieldKey(v2, "SHEARS"));

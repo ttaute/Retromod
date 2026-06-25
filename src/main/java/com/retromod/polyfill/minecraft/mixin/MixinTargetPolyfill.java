@@ -15,7 +15,7 @@ import com.retromod.polyfill.PolyfillProvider;
  * This polyfill provides stub classes so the mixin system can find them.
  *
  * Known removed classes:
- * - class_5500 (ChatOptionsScreen) - removed/merged, broke No Chat Reports
+ * - class_5500 (ChatOptionsScreen): removed/merged, broke No Chat Reports
  */
 public class MixinTargetPolyfill implements PolyfillProvider {
 

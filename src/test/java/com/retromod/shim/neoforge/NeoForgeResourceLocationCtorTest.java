@@ -18,21 +18,13 @@ import org.objectweb.asm.tree.TypeInsnNode;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression for #92 (Rings of Ascension on NeoForge 1.21.1): a NeoForge mod
- * built for ≤1.20.6 compiles {@code new ResourceLocation(ns, path)} as
- * NEW + DUP + INVOKESPECIAL {@code <init>(String,String)V}. That ctor went
- * PRIVATE in 1.21, so on a 1.21+ host the call throws
- * {@code IllegalAccessError} ("tried to access private method
- * ResourceLocation.&lt;init&gt;(String,String)"). The NeoForge 1.20.6→1.21
- * shim must rewrite it to the static factory
- * {@code ResourceLocation.fromNamespaceAndPath} - the Fabric shim already did,
- * the NeoForge chain was missing it.
+ * Regression for #92: the 2-arg {@code ResourceLocation(String,String)} ctor went private in 1.21,
+ * so the shim rewrites the call to the {@code fromNamespaceAndPath} static factory.
  */
 class NeoForgeResourceLocationCtorTest {
 
     private static final String RL = "net/minecraft/resources/ResourceLocation";
 
-    /** static ResourceLocation make() { return new ResourceLocation("ns","path"); } */
     private static byte[] classConstructingResourceLocation() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "test/rl/Maker", null, "java/lang/Object", null);
@@ -78,9 +70,9 @@ class NeoForgeResourceLocationCtorTest {
                     newGone = false;
                 }
             }
-            assertTrue(privateCtorGone, "the private 2-arg <init> call must be gone (it's the IllegalAccessError)");
+            assertTrue(privateCtorGone, "private 2-arg <init> call must be gone");
             assertTrue(factoryPresent, "must call ResourceLocation.fromNamespaceAndPath instead");
-            assertTrue(newGone, "the NEW ResourceLocation must be removed (factory returns the instance)");
+            assertTrue(newGone, "NEW ResourceLocation must be removed");
         } finally {
             t.clearRedirectsForTesting();
         }

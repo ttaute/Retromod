@@ -18,8 +18,8 @@ public class JeiShim {
     }
     public static Object getCategoryUid(Object category) {
         try {
-            Method getRecipeType = category.getClass().getMethod("getRecipeType");
-            Object recipeType = getRecipeType.invoke(category);
+            Method m = category.getClass().getMethod("getRecipeType");
+            Object recipeType = m.invoke(category);
             return recipeType.getClass().getMethod("getUid").invoke(recipeType);
         } catch (Exception e) {
             try { return category.getClass().getMethod("getUid").invoke(category);

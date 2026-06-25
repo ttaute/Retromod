@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.fabric.embedded;
@@ -10,42 +10,25 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Method;
 
 /**
- * Safety shim for Item.getDefaultInstance() in MC 26.1+.
+ * Safety shims for MC 26.1+ APIs that old Fabric mods touch before they're ready, or that 26.1 removed.
  *
- * In MC 26.1, item components are data-driven and bound during data pack loading.
- * Before components are bound, calling Item.getDefaultInstance() triggers
- * ItemStack → Holder$Reference.components() → NullPointerException("Components not bound yet").
- *
- * Old mods that create ItemStacks during static initialization or early lifecycle
- * callbacks (e.g., CLIENT_STARTED) hit this crash because components aren't bound yet.
- *
- * This shim wraps getDefaultInstance() to catch the NPE and return ItemStack.EMPTY,
- * allowing the mod to continue loading. The affected code paths typically don't need
- * a real ItemStack at that point - they're registering handlers or building data structures
- * that will be populated later when items are actually available.
+ * 26.1 binds item components during data pack loading, so Item.getDefaultInstance() earlier throws
+ * NPE("Components not bound yet"). Mods that build ItemStacks in static init or early callbacks hit
+ * this; we hand back ItemStack.EMPTY so they keep loading.
  */
 public class ItemSafetyShim {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ItemSafety");
     private static volatile boolean warned = false;
 
-    // Cached reflection lookups (initialized lazily, thread-safe via volatile).
-    // We use reflection because MC classes aren't on the compile classpath - this
-    // shim is compiled as part of Retromod, not against a specific MC version.
+    // Reflection: MC isn't on the compile classpath. Resolved lazily.
     private static volatile Method getDefaultInstanceMethod;
     private static volatile Object itemStackEmpty;
     private static volatile boolean emptyResolved = false;
 
-    /**
-     * Safe wrapper for Item.getDefaultInstance().
-     * Devirtualized: the Item instance is passed as the first parameter.
-     *
-     * @param item the Item to get the default stack for
-     * @return the default ItemStack, or ItemStack.EMPTY if components aren't bound yet
-     */
+    /** Item.getDefaultInstance() that returns ItemStack.EMPTY instead of throwing when components aren't bound yet. */
     public static Object safeGetDefaultInstance(Object item) {
         try {
-            // Cache the Method object for performance (called frequently)
             Method m = getDefaultInstanceMethod;
             if (m == null || m.getDeclaringClass() != item.getClass()) {
                 m = item.getClass().getMethod("getDefaultInstance");
@@ -53,7 +36,6 @@ public class ItemSafetyShim {
             }
             return m.invoke(item);
         } catch (Exception e) {
-            // Check if it's the "Components not bound yet" error
             Throwable cause = e.getCause() != null ? e.getCause() : e;
             if (cause instanceof NullPointerException npe
                     && npe.getMessage() != null
@@ -65,7 +47,6 @@ public class ItemSafetyShim {
                 }
                 return getItemStackEmpty();
             }
-            // Not the expected error - rethrow
             if (e instanceof RuntimeException re) throw re;
             throw new RuntimeException(e);
         }
@@ -84,40 +65,24 @@ public class ItemSafetyShim {
         return itemStackEmpty;
     }
 
-    /**
-     * No-op method for redirecting removed void methods.
-     * Used for e.g. Listener.setGain(float) which was removed in 26.1.
-     * Devirtualized: the instance is passed as first parameter.
-     */
+    /** No-op for a removed instance void method like Listener.setGain(float). */
     public static void noOp(Object instance, float value) {
-        // Intentionally empty - method was removed in 26.1
     }
 
-    /**
-     * No-op for removed void methods with no params (devirtualized).
-     * Used for e.g. VertexConsumer.endVertex() which auto-ends in 26.1.
-     */
+    /** No-op for a removed no-arg instance void method like VertexConsumer.endVertex(). */
     public static void noOpVoid(Object instance) {
-        // Intentionally empty - method was removed in 26.1
     }
 
-    /** No-op for removed static void methods (e.g., RenderSystem.enableBlend). */
+    /** No-op for a removed static void method like RenderSystem.enableBlend(). */
     public static void noOpStatic() {
-        // Intentionally empty
     }
 
-    /**
-     * Bridge for Util.backgroundExecutor() which was removed in 26.1.
-     * Returns a simple cached thread pool so mods can still submit async tasks.
-     */
+    /** Bridge for Util.backgroundExecutor(), removed in 26.1. */
     public static java.util.concurrent.ExecutorService getBackgroundExecutor() {
         return java.util.concurrent.Executors.newCachedThreadPool();
     }
 
-    /**
-     * Bridge for TitleScreen.COPYRIGHT_TEXT which became private in 26.1.
-     * Uses reflection to access the private static final field.
-     */
+    /** Bridge for TitleScreen.COPYRIGHT_TEXT, which went private in 26.1. */
     public static Object getTitleScreenCopyright() {
         try {
             Class<?> titleScreenClass = Class.forName("net.minecraft.client.gui.screens.TitleScreen");
@@ -125,7 +90,6 @@ public class ItemSafetyShim {
             field.setAccessible(true);
             return field.get(null);
         } catch (Exception e) {
-            // Fallback: return empty component
             try {
                 Class<?> componentClass = Class.forName("net.minecraft.network.chat.Component");
                 return componentClass.getMethod("empty").invoke(null);
@@ -137,114 +101,73 @@ public class ItemSafetyShim {
 
     /** No-op for removed RenderSystem.setShaderColor(float, float, float, float). */
     public static void noOpColor(float r, float g, float b, float a) {
-        // Intentionally empty - rendering is now pipeline-based
     }
 
     /**
-     * Bridge for TranslatableText.getKey() / TranslatableContents.getKey().
-     * In old MC, TranslatableText was a Component with getKey().
-     * In 26.1, the key is inside TranslatableContents (accessed via getContents()).
-     * We redirect class_2588 → MutableComponent for instanceof to work,
-     * but MutableComponent doesn't have getKey(). This bridge extracts it.
-     * Devirtualized: the MutableComponent is passed as first arg.
+     * Translation key for a 26.1 MutableComponent. class_2588 (old TranslatableText) redirects to
+     * MutableComponent, but the key now lives in the component's TranslatableContents.
      */
     public static String getTranslationKey(Object component) {
         try {
-            // component.getContents() → ComponentContents
             Object contents = component.getClass().getMethod("getContents").invoke(component);
-            // contents.getKey() → String (if TranslatableContents)
             return (String) contents.getClass().getMethod("getKey").invoke(contents);
         } catch (Exception e) {
-            return ""; // Not a translatable component
+            return "";
         }
     }
 
-    // ================================================================
-    // CommandSourceStack.hasPermission(int) bridge for 26.1
-    // ================================================================
-
     /**
-     * Bridge for CommandSourceStack.hasPermission(int) removed in 26.1.
-     * The permission system changed from int-based to PermissionSet-based.
-     * Devirtualized: CommandSourceStack is passed as first arg.
-     *
-     * Maps old int levels to new PermissionLevel:
-     *   0 = ALL, 1 = MODERATORS, 2 = GAMEMASTERS, 3 = ADMINS, 4 = OWNERS
+     * Bridge for CommandSourceStack.hasPermission(int), removed in 26.1 when permissions went from
+     * int levels to a PermissionSet. Maps the old level via PermissionLevel.byId and asks the set.
      */
     public static boolean hasPermission(Object source, int level) {
         try {
-            // source.permissions().hasPermission(new HasCommandLevel(PermissionLevel.byId(level)))
             ClassLoader cl = source.getClass().getClassLoader();
 
-            // Get PermissionLevel.byId(level)
             Class<?> permLevelClass = cl.loadClass("net.minecraft.server.permissions.PermissionLevel");
             Object permLevel = permLevelClass.getMethod("byId", int.class).invoke(null, level);
 
-            // Create HasCommandLevel(permLevel)
             Class<?> hasCommandLevelClass = cl.loadClass("net.minecraft.server.permissions.Permission$HasCommandLevel");
             Object permission = hasCommandLevelClass.getConstructor(permLevelClass).newInstance(permLevel);
 
-            // source.permissions()
             Object permSet = source.getClass().getMethod("permissions").invoke(source);
 
-            // permSet.hasPermission(permission)
             Class<?> permClass = cl.loadClass("net.minecraft.server.permissions.Permission");
             return (boolean) permSet.getClass().getMethod("hasPermission", permClass).invoke(permSet, permission);
         } catch (Exception e) {
-            // Fallback: return true for level 0, false for higher
             return level <= 0;
         }
     }
 
-    // ================================================================
-    // Item tooltip dummy - prevents AbstractMethodError on hover
-    // ================================================================
-
     /**
-     * Returns a dummy Event for ItemTooltipCallback.
-     * Replaces GETSTATIC ItemTooltipCallback.EVENT via field-to-method redirect.
-     * The dummy event accepts .register() and .addPhaseOrdering() calls
-     * but never fires, so old mods with 3-param getTooltip lambdas don't crash.
+     * Dummy Event for ItemTooltipCallback (replaces the GETSTATIC of its EVENT field). Accepts
+     * register()/addPhaseOrdering() but never fires, so 3-param getTooltip lambdas don't crash.
      */
     public static Object getDummyTooltipEvent() {
         return getDummyEvent("net.fabricmc.fabric.api.client.item.v1.ItemTooltipCallback");
     }
 
-    // ================================================================
-    // Screen mouse event dummy - prevents AbstractMethodError on click
-    // ================================================================
-
-    // Cache of dummy Events per listener type (singleton, never fires).
-    // Old mods call EVENT.register(listener) - if the event interface changed signature,
-    // we give them a dummy Event that silently accepts registrations but never invokes
-    // the callback. This prevents AbstractMethodError at registration time.
+    // Dummy Events per listener type: accept register() but never fire, dodging the
+    // AbstractMethodError when an old mod registers against a changed-signature Fabric event.
     private static final java.util.concurrent.ConcurrentHashMap<String, Object> dummyEvents =
         new java.util.concurrent.ConcurrentHashMap<>();
 
-    /**
-     * Bridge for ScreenMouseEvents.allowMouseClick(Screen).
-     */
+    /** Bridge for ScreenMouseEvents.allowMouseClick(Screen). */
     public static Object dummyAllowMouseClick(Object screen) {
         return getDummyEvent("net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents$AllowMouseClick");
     }
 
-    /**
-     * Bridge for ScreenMouseEvents.allowMouseRelease(Screen).
-     */
+    /** Bridge for ScreenMouseEvents.allowMouseRelease(Screen). */
     public static Object dummyAllowMouseRelease(Object screen) {
         return getDummyEvent("net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents$AllowMouseRelease");
     }
 
-    /**
-     * Bridge for ScreenMouseEvents.afterMouseScroll(Screen).
-     */
+    /** Bridge for ScreenMouseEvents.afterMouseScroll(Screen). */
     public static Object dummyAfterMouseScroll(Object screen) {
         return getDummyEvent("net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents$AfterMouseScroll");
     }
 
-    /**
-     * Bridge for ScreenMouseEvents.beforeMouseScroll(Screen).
-     */
+    /** Bridge for ScreenMouseEvents.beforeMouseScroll(Screen). */
     public static Object dummyBeforeMouseScroll(Object screen) {
         return getDummyEvent("net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents$BeforeMouseScroll");
     }
@@ -253,15 +176,9 @@ public class ItemSafetyShim {
         return dummyEvents.computeIfAbsent(listenerClassName, ItemSafetyShim::createDummyEvent);
     }
 
-    // ================================================================
-    // Safe Event.register() - catches ArrayStoreException
-    // ================================================================
-
     /**
-     * Safe wrapper for Event.register(Object listener).
-     * Catches ArrayStoreException that occurs when old mods register callbacks
-     * with incompatible signatures on changed Fabric API events.
-     * Devirtualized: Event is passed as first arg.
+     * Event.register(listener) that swallows the ArrayStoreException thrown when an old mod registers
+     * an incompatible callback on a changed Fabric event.
      */
     public static void safeEventRegister(Object event, Object listener) {
         try {
@@ -276,10 +193,7 @@ public class ItemSafetyShim {
         }
     }
 
-    /**
-     * Safe wrapper for Event.register(Identifier phase, Object listener).
-     * Devirtualized: Event is passed as first arg.
-     */
+    /** Phased variant of {@link #safeEventRegister}: Event.register(phase, listener). */
     public static void safeEventRegisterPhased(Object event, Object phase, Object listener) {
         try {
             for (java.lang.reflect.Method m : event.getClass().getMethods()) {
@@ -289,7 +203,6 @@ public class ItemSafetyShim {
                     return;
                 }
             }
-            // Fallback: try 2-param register directly
             event.getClass().getMethod("register", phase.getClass(), Object.class).invoke(event, phase, listener);
         } catch (Exception e) {
             Throwable cause = e.getCause() != null ? e.getCause() : e;
@@ -301,36 +214,27 @@ public class ItemSafetyShim {
         }
     }
 
-    /**
-     * Create a Fabric Event instance that accepts registrations but never fires.
-     * Uses EventFactory.createArrayBacked(Class, Function) via reflection.
-     */
+    /** Builds a Fabric Event that accepts registrations but never fires, via EventFactory.createArrayBacked. */
     private static Object createDummyEvent(String listenerClassName) {
         try {
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
             Class<?> listenerClass = cl.loadClass(listenerClassName);
             Class<?> eventFactory = cl.loadClass("net.fabricmc.fabric.api.event.EventFactory");
 
-            // Find: EventFactory.createArrayBacked(Class, listeners -> invoker)
-            // The invoker is what gets called when the event fires.
-            // Since this is a dummy event that never fires, the invoker can be anything.
             for (Method m : eventFactory.getMethods()) {
                 if (m.getName().equals("createArrayBacked") && m.getParameterCount() == 2) {
                     Class<?>[] params = m.getParameterTypes();
                     if (params[0] == Class.class && params[1].getName().contains("Function")) {
-                        // Create a no-op invoker function via Proxy
+                        // listeners -> invoker, where the invoker is a listener proxy returning true/null for any call.
                         Object invokerFunction = java.lang.reflect.Proxy.newProxyInstance(
                             cl, new Class<?>[]{ params[1] },
-                            (proxy, method, args) -> {
-                                // The function receives T[] and returns T (the invoker)
-                                // Return a Proxy of the listener that returns true/null for any call
-                                return java.lang.reflect.Proxy.newProxyInstance(
+                            (proxy, method, args) ->
+                                java.lang.reflect.Proxy.newProxyInstance(
                                     cl, new Class<?>[]{ listenerClass },
                                     (p2, m2, a2) -> {
                                         if (m2.getReturnType() == boolean.class) return true;
                                         return null;
-                                    });
-                            });
+                                    }));
 
                         return m.invoke(null, listenerClass, invokerFunction);
                     }
@@ -339,6 +243,6 @@ public class ItemSafetyShim {
         } catch (Exception e) {
             LOGGER.warn("Failed to create dummy mouse event: {}", e.getMessage());
         }
-        return null; // Fallback: will cause NPE on .register() - better than AbstractMethodError spam
+        return null;
     }
 }

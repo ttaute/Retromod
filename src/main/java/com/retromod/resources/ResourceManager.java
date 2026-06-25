@@ -267,7 +267,6 @@ public class ResourceManager {
         Files.writeString(processedMarker, "Processed by Retromod");
     }
     
-    // ========== Helper Methods ==========
     
     private boolean isResourcePack(Path path) {
         return ResourcePackTransformer.isResourcePack(path);

@@ -162,7 +162,7 @@ class ReferenceVerifierTest {
         StubIndex index = new StubIndex();
         index.classes.add("net/minecraft/world/level/Level");
         // getBlockState EXISTS on the class, but only under a DIFFERENT descriptor than the
-        // mod uses (the signature changed) - the classic pre-26.1 pitfall-#17 shape.
+        // mod uses (the signature changed): the classic pre-26.1 pitfall-#17 shape.
         index.methodSignatures.add("net/minecraft/world/level/Level#getBlockState "
                 + "(Lnet/minecraft/core/BlockPos;Z)Lnet/minecraft/world/level/block/state/BlockState;");
 
@@ -207,7 +207,7 @@ class ReferenceVerifierTest {
     void fieldTypeChangeReportsBadSignature() {
         StubIndex index = new StubIndex();
         index.classes.add("net/minecraft/world/InteractionResult");
-        // field SUCCESS exists, but its type changed (sealed-interface rebuild) - same name,
+        // field SUCCESS exists, but its type changed (sealed-interface rebuild): same name,
         // different descriptor.
         index.fieldSignatures.add("net/minecraft/world/InteractionResult#SUCCESS "
                 + "Lnet/minecraft/world/InteractionResult$Success;");

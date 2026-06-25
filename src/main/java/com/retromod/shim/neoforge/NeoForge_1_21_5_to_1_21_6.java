@@ -7,9 +7,7 @@ package com.retromod.shim.neoforge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Shim for NeoForge 1.21.5 to 1.21.6.
- */
+/** NeoForge 1.21.5 to 1.21.6. */
 public class NeoForge_1_21_5_to_1_21_6 implements VersionShim {
     @Override public String getShimName() { return "NeoForge 1.21.5 to 1.21.6"; }
     @Override public String getSourceVersion() { return "1.21.5"; }
@@ -18,17 +16,13 @@ public class NeoForge_1_21_5_to_1_21_6 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Block model lighting pipeline changes
-        // HUD API changes parallel to Fabric
-
-        // INBTSerializable renamed to ValueIOSerializable in NeoForge 1.21.6
+        // INBTSerializable was renamed in 1.21.6
         transformer.registerClassRedirect(
             "net/neoforged/neoforge/common/util/INBTSerializable",
             "net/neoforged/neoforge/common/util/ValueIOSerializable"
         );
 
-        // LayeredDraw removed in 1.21.6 - redirect to base GuiComponent
-        // (mods using LayeredDraw need polyfill for full compat, but class refs can be redirected)
+        // LayeredDraw was removed in 1.21.6; point refs at GuiComponent (a polyfill is needed for full compat)
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/LayeredDraw",
             "net/minecraft/client/gui/GuiComponent"

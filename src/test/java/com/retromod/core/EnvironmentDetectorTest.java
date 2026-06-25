@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.core;
@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression tests for {@link EnvironmentDetector#classExists(String)} - the
+ * Regression tests for {@link EnvironmentDetector#classExists(String)}: the
  * environment probe must report a class's presence <em>without initializing it</em>.
  *
  * <p>Issue #46: {@code detectDedicatedServer()} used the single-arg

@@ -7,11 +7,7 @@ package com.retromod.shim.neoforge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * NeoForge 1.20.3 to 1.20.4 shim - Minor tick changes.
- * Minor adjustments to tick scheduling internals; no significant
- * API breaks requiring bytecode-level redirects.
- */
+/** NeoForge 1.20.3 to 1.20.4: tick scheduling internals changed, no API breaks, so no redirects. */
 public class NeoForge_1_20_3_to_1_20_4 implements VersionShim {
 
     @Override public String getShimName() { return "NeoForge 1.20.3 to 1.20.4"; }
@@ -21,7 +17,6 @@ public class NeoForge_1_20_3_to_1_20_4 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Minor tick scheduling changes with no significant API breaks requiring redirects
     }
 
     @Override

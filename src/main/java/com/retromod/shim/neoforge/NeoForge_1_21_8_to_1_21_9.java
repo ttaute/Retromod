@@ -2,7 +2,7 @@
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
- * Based on actual NeoForge changes documented at:
+ * NeoForge 1.21.9 changes:
  * https://neoforged.net/news/21.9release/
  * https://neoforged.net/news/21.9-transfer-rework/
  */
@@ -12,14 +12,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Compatibility shim for NeoForge mods built for 1.21.8 to run on 1.21.9+.
- * 
- * Major breaking changes addressed:
- * - MASSIVE Transfer API rework (IItemHandler, IFluidHandler, IEnergyStorage)
- * - FML refactored (class loading, state access)
- * - Key mapping categories now records
- * - Level rendering events migrated to extraction/render separation
- * - RenderHighlightEvent removed
+ * Shim for NeoForge 1.21.8 mods on 1.21.9+: Transfer API rework, FML state access,
+ * KeyMapping category records, and the RenderHighlightEvent removal.
  */
 public class NeoForge_1_21_8_to_1_21_9 implements VersionShim {
     
@@ -45,18 +39,9 @@ public class NeoForge_1_21_8_to_1_21_9 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        
-        // ============================================================
-        // TRANSFER API REWORK - HUGE CHANGE
-        // IItemHandler -> ResourceHandler<ItemResource>
-        // IFluidHandler -> ResourceHandler<FluidResource>  
-        // IEnergyStorage -> EnergyHandler
-        // ============================================================
-        
-        // The old interfaces are deprecated but not removed in 21.9
-        // Wrappers are provided: IItemHandler.of(handler)
-        
-        // For mods using IItemHandler directly, provide compatibility
+
+        // Transfer API rework: route deprecated IItemHandler calls through the shim
+        // (IItemHandler -> ResourceHandler<ItemResource>).
         transformer.registerMethodRedirect(
             "net/neoforged/neoforge/items/IItemHandler", "getSlots", "()I",
             "com/retromod/shim/neoforge/embedded/IItemHandlerShim", "getSlots",
@@ -84,67 +69,45 @@ public class NeoForge_1_21_8_to_1_21_9 implements VersionShim {
             "(Ljava/lang/Object;IIZ)Lnet/minecraft/world/item/ItemStack;"
         );
         
-        // ItemStackHandler -> ItemAccessItemHandler
         transformer.registerClassRedirect(
             "net/neoforged/neoforge/items/ItemStackHandler",
             "com/retromod/shim/neoforge/embedded/ItemStackHandlerShim"
         );
-        
-        // ComponentItemHandler -> ItemAccessItemHandler
+
         transformer.registerClassRedirect(
             "net/neoforged/neoforge/items/ComponentItemHandler",
             "com/retromod/shim/neoforge/embedded/ComponentItemHandlerShim"
         );
-        
-        // ============================================================
-        // FML STATE ACCESS
-        // FMLLoader methods changed
-        // ============================================================
-        
-        // FML state now accessed via FMLLoader.getCurrent()
+
+        // FML state moved behind FMLLoader.getCurrent().
         transformer.registerMethodRedirect(
             "net/neoforged/fml/loading/FMLLoader", "getLoadingModList",
             "()Lnet/neoforged/fml/loading/LoadingModList;",
             "com/retromod/shim/neoforge/embedded/FMLLoaderShim", "getLoadingModList",
             "()Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // KEY MAPPING CHANGES
-        // String category -> KeyMapping.Category record
-        // ============================================================
-        
-        // Old: new KeyMapping(name, type, key, categoryString)
-        // New: new KeyMapping(name, type, key, categoryRecord)
-        
-        // The old constructor is removed - must create Category first
+
+        // KeyMapping dropped its String-category constructor for a Category record;
+        // the shim builds the record from the old string.
         transformer.registerMethodRedirect(
             "net/minecraft/client/KeyMapping", "<init>",
             "(Ljava/lang/String;Lcom/mojang/blaze3d/platform/InputConstants$Type;ILjava/lang/String;)V",
             "com/retromod/shim/neoforge/embedded/KeyMappingShim", "create",
             "(Ljava/lang/String;Ljava/lang/Object;ILjava/lang/String;)Lnet/minecraft/client/KeyMapping;"
         );
-        
-        // ============================================================
-        // RENDER HIGHLIGHT EVENT REMOVED
-        // -> ExtractBlockOutlineRenderStateEvent
-        // ============================================================
-        
+
+        // RenderHighlightEvent was replaced by ExtractBlockOutlineRenderStateEvent.
         transformer.registerClassRedirect(
             "net/neoforged/neoforge/client/event/RenderHighlightEvent",
             "com/retromod/shim/neoforge/embedded/RenderHighlightEventShim"
         );
-        
+
         transformer.registerClassRedirect(
             "net/neoforged/neoforge/client/event/RenderHighlightEvent$Block",
             "com/retromod/shim/neoforge/embedded/RenderHighlightEventShim$Block"
         );
-        
-        // ============================================================
-        // ENTITY.getWorld() -> ENTITY.getEntityWorld()
-        // Same change as Fabric - Minecraft core change
-        // ============================================================
-        
+
+        // Entity.getWorld() -> getEntityWorld().
         transformer.registerMethodRedirect(
             "net/minecraft/world/entity/Entity", "getWorld", "()Lnet/minecraft/world/level/Level;",
             "net/minecraft/world/entity/Entity", "getEntityWorld", "()Lnet/minecraft/world/level/Level;"

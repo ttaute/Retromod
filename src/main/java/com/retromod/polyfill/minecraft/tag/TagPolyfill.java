@@ -58,18 +58,16 @@ public class TagPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - class redirects handle relocations,
+        // No embedded stubs needed; class redirects handle relocations,
         // and the removed management classes have no direct equivalent.
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // Tag -> TagKey migration (1.18.2)
         // The Tag interface was replaced by TagKey<T> which is a lightweight
         // registry key reference rather than a holder of tag entries.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/tag/Tag",
@@ -83,10 +81,8 @@ public class TagPolyfill implements PolyfillProvider {
             "net/minecraft/tag/Tag$Named",
             "net/minecraft/tags/TagKey");
 
-        // =====================================================================
         // Tag collection classes: net.minecraft.tag.* -> net.minecraft.tags.*
         // These classes were relocated but kept similar structure.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/tag/BlockTags",
@@ -104,14 +100,12 @@ public class TagPolyfill implements PolyfillProvider {
             "net/minecraft/tag/EntityTypeTags",
             "net/minecraft/tags/EntityTypeTags");
 
-        // =====================================================================
         // Removed tag management classes
         // TagGroup, TagManager, and ServerTagManagerHolder were removed when
         // tags became part of the registry system. There are no direct
-        // replacements - mods need to use Registry.getOrCreateTag() or
+        // replacements. Mods need to use Registry.getOrCreateTag() or
         // BuiltInRegistries to look up tags. We redirect to TagKey as a
         // best-effort to prevent ClassNotFoundException.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/tag/TagGroup",
@@ -125,11 +119,9 @@ public class TagPolyfill implements PolyfillProvider {
             "net/minecraft/tag/ServerTagManagerHolder",
             "net/minecraft/tags/TagKey");
 
-        // =====================================================================
         // Method redirects for common tag usage patterns
         // Old: Tag.contains(entry) -> TagKey is just a key, need registry lookup
         // Old: BlockTags.getTagGroup() -> removed, use registry
-        // =====================================================================
 
         // Tag.contains(T) was a direct membership check. In the new system,
         // you check via Holder#is(TagKey). This method redirect catches the

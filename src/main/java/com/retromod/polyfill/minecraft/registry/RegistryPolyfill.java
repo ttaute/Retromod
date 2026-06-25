@@ -74,15 +74,13 @@ public class RegistryPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class and method redirects
+        // No embedded stubs needed; pure class and method redirects
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // Enum/utility renames (The Flattening, 1.13+)
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/util/EnumFacing",
@@ -100,9 +98,7 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/util/ResourceLocation",
             "net/minecraft/resources/ResourceLocation");
 
-        // =====================================================================
         // Math class renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/util/math/BlockPos",
@@ -132,9 +128,7 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/util/math/EntityRayTraceResult",
             "net/minecraft/world/phys/EntityHitResult");
 
-        // =====================================================================
         // Misc utility renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/util/DamageSource",
@@ -152,9 +146,7 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/util/SoundCategory",
             "net/minecraft/sounds/SoundSource");
 
-        // =====================================================================
         // World/dimension renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/world/WorldServer",
@@ -168,9 +160,7 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/world/WorldProvider",
             "net/minecraft/world/level/dimension/DimensionType");
 
-        // =====================================================================
         // Biome/chunk renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/world/biome/Biome",
@@ -180,9 +170,7 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/world/chunk/Chunk",
             "net/minecraft/world/level/chunk/LevelChunk");
 
-        // =====================================================================
         // Inventory renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/inventory/Container",
@@ -196,9 +184,7 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/inventory/Slot",
             "net/minecraft/world/inventory/Slot");
 
-        // =====================================================================
         // GUI renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/GuiScreen",
@@ -208,10 +194,8 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/client/gui/inventory/GuiContainer",
             "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen");
 
-        // =====================================================================
         // Registry package move (1.19.3)
         // net.minecraft.util.registry -> net.minecraft.core / net.minecraft.resources
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/util/registry/Registry",
@@ -221,11 +205,9 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/util/registry/RegistryKey",
             "net/minecraft/resources/ResourceKey");
 
-        // =====================================================================
         // ResourceLocation constructor -> factory method redirects (1.20.5+)
         // new ResourceLocation(namespace, path) -> ResourceLocation.fromNamespaceAndPath(namespace, path)
         // new ResourceLocation(location) -> ResourceLocation.parse(location)
-        // =====================================================================
 
         // Constructor with two String args: ResourceLocation(String, String)
         // In bytecode, constructors are <init> calls. We redirect to static factory.

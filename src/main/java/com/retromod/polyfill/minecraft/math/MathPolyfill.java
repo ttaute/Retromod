@@ -44,7 +44,7 @@ public class MathPolyfill implements PolyfillProvider {
     @Override
     public String[] getRemovedClasses() {
         return new String[]{
-            // JOML migration (1.19.3) - custom MC math classes removed
+            // JOML migration (1.19.3): custom MC math classes removed
             "net/minecraft/util/math/Vec3f",
             "net/minecraft/util/math/Matrix4f",
             "net/minecraft/util/math/Matrix3f",
@@ -62,18 +62,16 @@ public class MathPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class redirects to JOML and Mojang names
+        // No embedded stubs needed; pure class redirects to JOML and Mojang names
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // JOML migration (1.19.3)
         // Minecraft replaced its custom math classes with JOML equivalents.
         // JOML is bundled with Minecraft since 1.19.3, so these classes are
         // available at runtime.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/util/math/Vec3f",
@@ -99,10 +97,8 @@ public class MathPolyfill implements PolyfillProvider {
             "net/minecraft/util/math/Vec2f",
             "net/minecraft/world/phys/Vec2");
 
-        // =====================================================================
         // Vec3f method redirects
         // The old Vec3f had MC-specific methods that differ from JOML's API.
-        // =====================================================================
 
         // Vec3f.getX/Y/Z() -> Vector3f.x/y/z (fields, not methods in JOML)
         // But JOML also has x(), y(), z() accessor methods
@@ -124,10 +120,8 @@ public class MathPolyfill implements PolyfillProvider {
             "org/joml/Vector3f", "z",
             "()F");
 
-        // =====================================================================
         // Quaternion method redirects
         // MC's Quaternion had different method names than JOML's Quaternionf.
-        // =====================================================================
 
         transformer.registerMethodRedirect(
             "net/minecraft/util/math/Quaternion", "getX",
@@ -160,11 +154,9 @@ public class MathPolyfill implements PolyfillProvider {
             "org/joml/Quaternionf", "mul",
             "(Lorg/joml/Quaternionfc;)Lorg/joml/Quaternionf;");
 
-        // =====================================================================
         // MathHelper -> Mth (Mojang mapping rename)
         // The class was renamed from the intermediary name MathHelper to the
         // Mojang official name Mth.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/util/math/MathHelper",
@@ -212,10 +204,8 @@ public class MathPolyfill implements PolyfillProvider {
             "net/minecraft/util/Mth", "clamp",
             "(III)I");
 
-        // =====================================================================
         // MutableBoundingBox -> BoundingBox (structure package relocation)
         // Used in world generation / structure code.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/util/math/MutableBoundingBox",

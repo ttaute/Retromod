@@ -26,10 +26,10 @@ import java.util.regex.Pattern;
  *
  * <h3>The problem this solves</h3>
  * <p>Retromod's main transformer uses ASM's {@code ClassRemapper} to rewrite
- * every class reference in bytecode - type descriptors, method signatures,
+ * every class reference in bytecode: type descriptors, method signatures,
  * {@code NEW}/{@code CHECKCAST}/{@code INSTANCEOF} opcodes, annotations, etc.
  * But it <b>cannot</b> rewrite class names that appear as {@link String}
- * constants, because strings are opaque data - there's no type information
+ * constants, because strings are opaque data. There's no type information
  * telling ASM "this particular string is an MC class name."</p>
  *
  * <p>Mods that look up MC APIs via {@code Class.forName("net.minecraft...")}
@@ -40,8 +40,8 @@ import java.util.regex.Pattern;
  * <h3>Detection strategy</h3>
  * <p>For each method in the class, we walk its instructions maintaining a tiny
  * sliding window of recent {@code LDC} (load-constant) nodes. When we see an
- * invocation of a known <i>reflection sink</i> - a method in the JDK or a
- * mod-loader library that takes a class/method/field name as a string - we
+ * invocation of a known <i>reflection sink</i> (a method in the JDK or a
+ * mod-loader library that takes a class/method/field name as a string) we
  * look back in the window for string constants that match MC-typed patterns
  * and rewrite them.</p>
  *
@@ -63,7 +63,7 @@ import java.util.regex.Pattern;
  *   <li>Have a known remap target in the supplied redirect tables.</li>
  * </ul>
  * If any condition fails, the string is left alone. False negatives are
- * preferred over false positives - a missed rewrite produces a runtime
+ * preferred over false positives. A missed rewrite produces a runtime
  * exception we can diagnose; an incorrect rewrite silently corrupts behavior.</p>
  *
  * <h3>Known limitations (documented for honest expectations)</h3>
@@ -77,14 +77,14 @@ import java.util.regex.Pattern;
  *   <li><b>Member strings:</b> rewriting {@code "oldMethodName"} inside
  *       {@code getMethod()} requires knowing the class the lookup is against.
  *       We only attempt this when the preceding LDC was a class FQN we successfully
- *       rewrote - so we know both ends of the lookup.</li>
+ *       rewrote, so we know both ends of the lookup.</li>
  *   <li><b>Reflection through wrappers:</b> libraries that wrap {@code Class.forName}
  *       in their own utility method ({@code MyUtil.classByName}) are invisible to
- *       us - the sink is the utility method, not a recognizable reflection API.</li>
+ *       us: the sink is the utility method, not a recognizable reflection API.</li>
  * </ul>
  *
  * <h3>Thread safety</h3>
- * <p>Stateless apart from its final configuration - one instance can process
+ * <p>Stateless apart from its final configuration, so one instance can process
  * classes concurrently. Metric counters are atomic.</p>
  */
 public final class ReflectionStringRemapper {
@@ -92,7 +92,7 @@ public final class ReflectionStringRemapper {
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-ReflectionRemapper");
 
     /**
-     * Instruction window size - how far back to look for an LDC when we hit a
+     * Instruction window size: how far back to look for an LDC when we hit a
      * reflection sink. 8 is enough for realistic bytecode patterns (LDC name,
      * LDC class, dup, store, invoke) without risking false positives across
      * unrelated call sites.
@@ -106,8 +106,8 @@ public final class ReflectionStringRemapper {
      * and {@code net.neoforged.X} at reflection sinks.
      *
      * <p>The prefix alternation is ordered most-specific-first so anchoring
-     * matches greedily on the longer prefix - {@code net.minecraftforge}
-     * matches before {@code net.minecraft} would. All prefixes end at a package
+     * matches greedily on the longer prefix ({@code net.minecraftforge}
+     * matches before {@code net.minecraft} would). All prefixes end at a package
      * boundary (the next character must be {@code .} or a sub-identifier),
      * which the {@code \\.} in the pattern enforces.</p>
      */
@@ -124,7 +124,7 @@ public final class ReflectionStringRemapper {
     /**
      * Reflection sinks: {@code "owner#name"} pairs whose first or only
      * {@link String} argument is a class/member name the runtime will look up.
-     * The set is intentionally narrow - adding a sink that isn't actually a
+     * The set is intentionally narrow: adding a sink that isn't actually a
      * name-lookup (e.g., {@code String.format}) would cause us to rewrite
      * ordinary data strings.
      */
@@ -185,7 +185,7 @@ public final class ReflectionStringRemapper {
                                     Map<String, String> intermediaryMethodNames,
                                     Map<String, String> intermediaryFieldNames,
                                     LoaderApiRenames loaderRenames) {
-        // Loader-API renames are NOT merged into classRedirectsDotted - instead
+        // Loader-API renames are NOT merged into classRedirectsDotted. Instead
         // they're looked up per-call in tryRewriteClassFqn. This lets the
         // curated table stay in its native slash form (as bundled in the JSON)
         // while the dotted-form map carries only shim-registered renames.
@@ -226,18 +226,18 @@ public final class ReflectionStringRemapper {
      * @param classBytes the bytecode to scan
      * @return rewritten bytes if any remapping occurred; if nothing matched
      *         (the common case for non-reflection-using classes), returns the
-     *         input bytes unchanged - no new ClassWriter allocation
+     *         input bytes unchanged, with no new ClassWriter allocation
      */
     public byte[] remap(byte[] classBytes) {
         if (classBytes == null || classBytes.length == 0) return classBytes;
 
-        // Parse into the tree API - we need random-access instruction walking
+        // Parse into the tree API: we need random-access instruction walking
         // with a lookback window, which is awkward with the streaming visitor API.
         ClassNode classNode = new ClassNode();
         try {
             new ClassReader(classBytes).accept(classNode, 0);
         } catch (Exception e) {
-            // Malformed class - leave it alone, the main transformer's error
+            // Malformed class: leave it alone, the main transformer's error
             // handling already dealt with this kind of thing upstream.
             LOGGER.debug("Skipping reflection remap: class unparseable ({})", e.getMessage());
             return classBytes;
@@ -259,7 +259,7 @@ public final class ReflectionStringRemapper {
         }
 
         // Serialize the modified class tree back to bytes.
-        // COMPUTE_MAXS is enough - we only changed LDC constants, not stack shape.
+        // COMPUTE_MAXS is enough: we only changed LDC constants, not stack shape.
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         classNode.accept(writer);
 
@@ -284,7 +284,7 @@ public final class ReflectionStringRemapper {
         LdcInsnNode[] window = new LdcInsnNode[LOOKBACK_WINDOW];
         int windowEnd = 0; // points at the slot for the NEXT insert
 
-        // Also track "did we just rewrite a class FQN?" - if so, the next
+        // Also track "did we just rewrite a class FQN?": if so, the next
         // member-name LDC we encounter could be remapped using intermediary
         // name tables. Not implemented yet (simple path for v1), but the hook
         // point is clear.
@@ -340,7 +340,7 @@ public final class ReflectionStringRemapper {
                                 modified = true;
                             }
                         }
-                        // Non-intermediary member names are left alone - we
+                        // Non-intermediary member names are left alone. We
                         // can't remap them without knowing the exact class
                         // the lookup is on, which would require a more
                         // sophisticated data-flow analysis.
@@ -439,7 +439,7 @@ public final class ReflectionStringRemapper {
 
     /**
      * Strings that looked like MC references and were near a reflection sink,
-     * but had no mapping - these indicate missing entries in the class-redirect
+     * but had no mapping. These indicate missing entries in the class-redirect
      * table and feed into the gap report.
      */
     public int getSuspiciousUnmapped() {
@@ -455,7 +455,7 @@ public final class ReflectionStringRemapper {
         return dynamicStringsSkipped.get();
     }
 
-    /** Reset all counters - useful for per-mod reports. */
+    /** Reset all counters, useful for per-mod reports. */
     public void resetMetrics() {
         stringsRemapped.set(0);
         suspiciousUnmapped.set(0);

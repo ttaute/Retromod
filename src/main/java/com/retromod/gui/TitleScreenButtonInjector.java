@@ -42,7 +42,7 @@ public final class TitleScreenButtonInjector {
     /**
      * Register the title screen button injector.
      * Auto-detects the mod loader and uses the appropriate event system.
-     * Safe to call multiple times - only registers once.
+     * Safe to call multiple times; only registers once.
      */
     public static synchronized void register() {
         if (registered) return;
@@ -76,9 +76,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // =====================================================================
     // MC Class Resolution
-    // =====================================================================
 
     /**
      * Pre-resolve the Minecraft classes needed for button creation.
@@ -119,9 +117,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // =====================================================================
     // Fabric: ScreenEvents.AFTER_INIT
-    // =====================================================================
 
     /**
      * Register via Fabric API's ScreenEvents.AFTER_INIT.
@@ -167,8 +163,8 @@ public final class TitleScreenButtonInjector {
             // ArrayBackedEvent, which lives in the non-exported impl package
             // net.fabricmc.fabric.impl.base.event. Java 25's strict module
             // access blocks reflective invocation on members of that class
-            // even though the method itself is public - setAccessible can't
-            // override module boundaries. We saw this as:
+            // even though the method itself is public (setAccessible can't
+            // override module boundaries). We saw this as:
             //   "class ... cannot access a member of class
             //    net.fabricmc.fabric.impl.base.event.ArrayBackedEvent
             //    with modifiers 'public'"
@@ -177,7 +173,7 @@ public final class TitleScreenButtonInjector {
             // net.fabricmc.fabric.api.event.Event instead. Reflection then
             // binds the Method to the public-module declaring class, and
             // invoke() dispatches virtually to ArrayBackedEvent's impl at
-            // runtime - exactly how normal Java calls work. No module-boundary
+            // runtime, exactly how normal Java calls work. No module-boundary
             // violation because we never reference the impl class directly.
             Class<?> eventApiClass;
             try {
@@ -217,9 +213,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // =====================================================================
     // NeoForge: NeoForge.EVENT_BUS + ScreenEvent.Init.Post
-    // =====================================================================
 
     /**
      * Register via NeoForge's event bus.
@@ -266,9 +260,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // =====================================================================
     // Forge: MinecraftForge.EVENT_BUS + ScreenEvent.Init.Post
-    // =====================================================================
 
     /**
      * Register via Forge's event bus (legacy Forge, pre-NeoForge).
@@ -325,9 +317,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // =====================================================================
     // Shared Event Handler (NeoForge / Forge)
-    // =====================================================================
 
     /**
      * Handle a Forge/NeoForge ScreenEvent.Init.Post event.
@@ -347,9 +337,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // =====================================================================
     // Button Injection (shared across all loaders)
-    // =====================================================================
 
     /**
      * Add the Retromod button to the title screen.
@@ -362,7 +350,7 @@ public final class TitleScreenButtonInjector {
             // Get screen dimensions
             int width = McReflect.getIntField(screen, screenClass, 854, "width");
 
-            // Position: top-right corner, 80x20 - out of the way of vanilla
+            // Position: top-right corner, 80x20, out of the way of vanilla
             // title-screen buttons and language selector. Two-pixel margin so
             // it doesn't touch the screen edge.
             int buttonX = width - 82;
@@ -382,7 +370,7 @@ public final class TitleScreenButtonInjector {
                 new Class<?>[]{pressActionClass},
                 (proxy, method, args) -> {
                     if (method.getDeclaringClass() != Object.class) {
-                        // INFO so it shows in default logs - easy to confirm
+                        // INFO so it shows in default logs, easy to confirm
                         // the click actually fired. If this line is missing
                         // when the user clicks, the click never reached us.
                         LOGGER.info("[Retromod] Title-screen button clicked");
@@ -431,7 +419,7 @@ public final class TitleScreenButtonInjector {
 
     /**
      * Build a wide ButtonWidget with the text "Retromod". This is the
-     * known-working fallback - uses the same Button.builder() API that
+     * known-working fallback. It uses the same Button.builder() API that
      * vanilla MC uses for its own buttons, so click events are wired
      * correctly by the framework.
      */
@@ -507,7 +495,7 @@ public final class TitleScreenButtonInjector {
 
     /**
      * Try to construct an icon-only button using MC's SpriteIconButton API.
-     * Returns null if the API isn't available - caller falls back to a text button.
+     * Returns null if the API isn't available; caller falls back to a text button.
      */
     private static Object trySpriteIconButton(int x, int y, Object pressAction,
                                                 Class<?> pressActionClass) {
@@ -591,7 +579,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // (Old helper kept around but unused - settings now reached via the
+    // (Old helper kept around but unused; settings now reached via the
     // Retromod logo button itself.)
     @SuppressWarnings("unused")
     private static void addSettingsButton(Object screen, int x, int y,
@@ -670,9 +658,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // =====================================================================
     // Helpers
-    // =====================================================================
 
     /**
      * Find the PressAction / OnPress inner class of ButtonWidget / Button.
@@ -689,7 +675,7 @@ public final class TitleScreenButtonInjector {
         if (buttonWidgetClass != null) {
             for (Class<?> inner : buttonWidgetClass.getDeclaredClasses()) {
                 if (inner.isInterface() && inner.getDeclaredMethods().length == 1) {
-                    // Single abstract method interface - likely the press action
+                    // Single abstract method interface, likely the press action
                     return inner;
                 }
             }

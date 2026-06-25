@@ -11,17 +11,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Compatibility shim for Fabric mods built for 1.21.10 to run on 1.21.11.
- * 
- * 1.21.11 is the LAST obfuscated Minecraft version!
- * After this, Minecraft will be unobfuscated (starting with 26.1).
- * 
- * Major changes addressed:
- * - Mojang renamed ResourceLocation to Identifier in vanilla
- * - World Render Events reintroduced
- * - Biome Modification API updated for Environment Attributes
- * - APIs renamed to match Mojang's naming
- * - Yarn mappings discontinued after this version
+ * Fabric shim for 1.21.10 mods on 1.21.11, the last obfuscated MC version
+ * (Yarn mappings stop here). Handles the ResourceLocation to Identifier rename.
  */
 public class Fabric_1_21_10_to_1_21_11 implements VersionShim {
     
@@ -47,71 +38,15 @@ public class Fabric_1_21_10_to_1_21_11 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        
-        // ============================================================
-        // API NAMING CHANGES
-        // Fabric API renamed many things to match Mojang's naming
-        // ============================================================
-        
-        // Example renames from #5060:
-        // These are mostly internal but may affect some mods
-        
-        // ============================================================
-        // WORLD RENDER EVENTS REINTRODUCED
-        // New implementation matches recent Minecraft changes
-        // ============================================================
-        
-        // The new World Render Events separate extraction from rendering
-        // Mods using the old (pre-1.21.9) API need updates
-        
-        // If mod was built for 1.21.9/1.21.10 (no events), they're fine
-        // If mod was built for pre-1.21.9 and already shimmed, they're fine
-        
-        // ============================================================
-        // BIOME MODIFICATION API
-        // Updated for Environment Attributes system
-        // ============================================================
-        
-        // BiomeModificationContext now has getAttributes() method
-        // Old API still works, just expanded
-        
-        // ============================================================
-        // RESOURCE LOADER
-        // "v1" removed from impl, mixin, test packages
-        // ============================================================
-        
-        // This is an internal change, shouldn't affect mod code
-        // But some mods might have been accessing internals
-        
-        // ============================================================
-        // NOTE: Preparing for 26.1 (Unobfuscated)
-        // ============================================================
-        
-        // After 1.21.11:
-        // - Yarn mappings discontinued
-        // - Intermediary no longer needed
-        // - All mods need recompilation anyway
-        
-        // This shim primarily helps bridge the final obfuscated version
-        // to prepare for the transition
+        // Other 1.21.11 changes are additive or internal-only and need no redirect.
 
-        // ============================================================
-        // RESOURCE LOCATION -> IDENTIFIER RENAME
-        // Mojang renamed ResourceLocation to Identifier in vanilla 1.21.11.
-        // All references to the old class name must be updated.
-        // ============================================================
-
+        // ResourceLocation renamed to Identifier in vanilla 1.21.11.
         transformer.registerClassRedirect(
             "net/minecraft/resources/ResourceLocation",
             "net/minecraft/resources/Identifier"
         );
 
-        // ============================================================
-        // RENDER TYPE METHOD REORGANIZATION
-        // Some static methods from RenderType moved to RenderTypes (plural).
-        // Both classes still exist, but factory methods were split out.
-        // ============================================================
-
+        // RenderType factory methods split out into RenderTypes.
         transformer.registerClassRedirect(
             "net/minecraft/client/renderer/RenderType",
             "net/minecraft/client/renderer/RenderTypes"
@@ -120,8 +55,6 @@ public class Fabric_1_21_10_to_1_21_11 implements VersionShim {
     
     @Override
     public String[] getShimClasses() {
-        return new String[] {
-            // Minimal shims needed - most changes are expansions not removals
-        };
+        return new String[] {};
     }
 }

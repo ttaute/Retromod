@@ -17,9 +17,8 @@ import org.objectweb.asm.tree.MethodNode;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Structural checks for {@link FabricServerWorldEventsShim} (the 21-mod
- * {@code ServerWorldEvents$Load} bridge). Verifies the synthetic holder/SAM bytecode
- * and the redirects; the reflective wiring needs a 26.1 launch.
+ * Structural checks for {@link FabricServerWorldEventsShim}: the synthetic holder/SAM
+ * bytecode and the redirects. The reflective wiring needs a 26.1 launch.
  */
 class FabricServerWorldEventsShimTest {
 
@@ -28,8 +27,7 @@ class FabricServerWorldEventsShimTest {
 
     @BeforeAll
     static void pinHostTo26_1() {
-        // The shim self-gates to 26.1+ hosts (pre-26.1, ServerWorldEvents is still
-        // alive) - pin the detected host so registerRedirects runs in tests.
+        // shim only fires on 26.1+
         RetromodVersion.TARGET_MC_VERSION = "26.1";
     }
 
@@ -64,7 +62,7 @@ class FabricServerWorldEventsShimTest {
                 .filter(m -> (m.access & Opcodes.ACC_ABSTRACT) != 0).findFirst().orElse(null);
         assertNotNull(sam);
         assertEquals(name, sam.name, "SAM name must stay " + name + " so the lambda links");
-        assertEquals(SAM_DESC, sam.desc, "(MinecraftServer, ServerLevel) - World→Level handled by the harvest");
+        assertEquals(SAM_DESC, sam.desc, "(MinecraftServer, ServerLevel); World->Level handled by the harvest");
     }
 
     @Test

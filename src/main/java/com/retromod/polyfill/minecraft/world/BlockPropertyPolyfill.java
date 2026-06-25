@@ -5,23 +5,33 @@
 package com.retromod.polyfill.minecraft.world;
 
 import com.retromod.core.RetromodTransformer;
+import com.retromod.core.RetromodVersion;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
  * Polyfill for removed block-state property classes.
  *
- * <p><b>DirectionProperty</b> - In MC 26.1 the dedicated
+ * <p><b>DirectionProperty</b>: In MC 26.1 the dedicated
  * {@code net.minecraft.world.level.block.state.properties.DirectionProperty}
  * class was removed. It used to be a thin subclass of
  * {@code EnumProperty<Direction>}; now {@code EnumProperty} is {@code final}
  * and code constructs direction properties directly with
  * {@code EnumProperty.create(name, Direction.class, ...)}.
  *
+ * <p><b>Host-gated to 26.1+.</b> {@code DirectionProperty} still EXISTS on a
+ * pre-26.1 host, so the type redirect would rewrite a still-present, working
+ * class. This was harmless on the Fabric runtime (distributed Fabric mods carry
+ * intermediary names, so the Mojang-keyed redirect no-ops, CLAUDE.md #17), but
+ * NeoForge mods ARE Mojang-named, so on a pre-26.1 NeoForge host an
+ * un-gated redirect would fire and hijack live code. The gate keys on
+ * {@link RetromodVersion#TARGET_MC_VERSION} (set by every runtime entry point),
+ * matching {@code Minecraft26_2RemovedPolyfill}.
+ *
  * <p>Mods built for older MC reference {@code DirectionProperty} both as a type
  * (fields, method signatures) and via its {@code create(...)} factories. A bare
- * type reference crashes the game with {@code NoClassDefFoundError} - issue #24,
+ * type reference crashes the game with {@code NoClassDefFoundError} (issue #24,
  * where a mod's mixin pulled the type into {@code Blocks.<clinit>} and killed
- * bootstrap on NeoForge.
+ * bootstrap on NeoForge).
  *
  * <p>Fix:
  * <ul>
@@ -48,6 +58,12 @@ public class BlockPropertyPolyfill implements PolyfillProvider {
     private static final String LOOKUP =
             "com/retromod/polyfill/registry/DirectionPropertyLookup";
 
+    /** True only when the host MC is 26.1 or newer (where DirectionProperty is gone). */
+    private static boolean active() {
+        // host >= 26.1  <=>  "26.1" is NOT strictly greater than the target.
+        return !RetromodVersion.mcVersionExceeds("26.1", RetromodVersion.TARGET_MC_VERSION);
+    }
+
     @Override
     public String getName() {
         return "Block-State Property Removals (DirectionProperty)";
@@ -60,6 +76,7 @@ public class BlockPropertyPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getRemovedClasses() {
+        if (!active()) return new String[0];
         return new String[]{ DIRECTION_PROPERTY };
     }
 
@@ -73,6 +90,9 @@ public class BlockPropertyPolyfill implements PolyfillProvider {
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
+        if (!active()) {
+            return; // DirectionProperty still exists pre-26.1. Do not hijack it.
+        }
         // Type DirectionProperty -> EnumProperty (its surviving superclass).
         transformer.registerClassRedirect(DIRECTION_PROPERTY, ENUM_PROPERTY);
 
@@ -97,7 +117,7 @@ public class BlockPropertyPolyfill implements PolyfillProvider {
                 LOOKUP, "create",
                 "(Ljava/lang/String;Ljava/util/function/Predicate;)Ljava/lang/Object;");
 
-        // create(String, Direction...) - varargs erases to a Direction[] param
+        // create(String, Direction...): varargs erases to a Direction[] param
         transformer.registerMethodRedirect(
                 ENUM_PROPERTY, "create",
                 "(Ljava/lang/String;[Lnet/minecraft/core/Direction;)" + ENUM_PROPERTY_DESC,

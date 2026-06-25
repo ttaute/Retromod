@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
@@ -8,10 +8,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Forge 1.18.2 to 1.19 shim - Text/Component API overhaul.
- * TextComponent and TranslatableComponent were removed in favor of
- * static factory methods on Component (Component.literal and Component.translatable).
- * Player message sending was also restructured.
+ * Forge 1.18.2 to 1.19: TextComponent/TranslatableComponent became the
+ * Component.literal/Component.translatable factories, plus a message-send change.
  */
 public class Forge_1_18_2_to_1_19 implements VersionShim {
 
@@ -42,7 +40,6 @@ public class Forge_1_18_2_to_1_19 implements VersionShim {
             "net/minecraft/network/chat/TranslatableComponent",
             "net/minecraft/network/chat/Component"
         );
-        // Forge events still stable
         transformer.registerMethodRedirect(
             "net/minecraft/server/level/ServerPlayer", "sendMessage",
             "(Lnet/minecraft/network/chat/Component;Z)V",

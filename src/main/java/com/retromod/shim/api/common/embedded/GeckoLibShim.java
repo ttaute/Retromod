@@ -7,12 +7,7 @@ package com.retromod.shim.api.common.embedded;
 import java.lang.reflect.Method;
 import java.lang.reflect.Constructor;
 
-/**
- * Stub implementations for cross-loader API embedded shims.
- * These work for both Fabric and Forge/NeoForge mods.
- */
-
-// GeckoLib shim
+/** Routes legacy GeckoLib v3 calls to whatever GeckoLib version is present at runtime. */
 public class GeckoLibShim {
     
     public static void initialize() {

@@ -82,13 +82,13 @@ public class OreDictionaryShim {
         return ORE_TO_TAG.get(oreName);
     }
 
-    // Old API methods - these are intercepted at bytecode level
+    // Old API methods, intercepted at bytecode level
     public static void registerOre(String name, Object ore) {
-        // No-op in modern MC - tags are data-driven
+        // No-op in modern MC: tags are data-driven
     }
 
     public static List<Object> getOres(String name) {
-        // Return empty list - tag queries need to go through the registry
+        // Return empty list; tag queries need to go through the registry
         return Collections.emptyList();
     }
 

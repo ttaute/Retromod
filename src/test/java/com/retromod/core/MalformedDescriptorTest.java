@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
  * <p>Several parsers advanced with {@code i = desc.indexOf(';', i) + 1}. On a
  * malformed descriptor whose L-type never closes with {@code ';'} (corrupted
  * or hand-crafted jar), {@code indexOf} returns -1, {@code i} resets to 0 and
- * the parse loop spins forever - hanging the game mid-transform. In
+ * the parse loop spins forever, hanging the game mid-transform. In
  * {@code FuzzyMethodResolver} the "guard" was a {@code break} inside a switch
  * arrow-rule, which exits the <i>switch</i>, not the loop, so it spun too.
  *

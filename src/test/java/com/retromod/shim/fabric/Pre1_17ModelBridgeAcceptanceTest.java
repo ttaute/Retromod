@@ -21,25 +21,14 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * §A4: end-to-end ACCEPTANCE test for the pre-26.1 Fabric model bridge.
+ * Acceptance test for the pre-26.1 Fabric model bridge: drives intermediary-named Fabric model
+ * mods through {@code Pre1_17ModelBridge.register()} + {@code transformClass()} and checks
+ * synthetics are registered, abstract bases redirected, {@code extends}/{@code super(...)}
+ * rebased onto the synthetic, abstract getters left untouched, and legacy
+ * {@code new ModelPart(...)} rewritten onto the synthetic factory/statics.
  *
- * <p>The sibling tests pin pieces in isolation ({@link Pre1_17ModelBridgeTest} the
- * {@code LegacyModelPart} synthetic; {@link Pre1_17AbstractBaseTest} the §A1 abstract-base
- * generators). This test drives representative, real-shaped <b>intermediary-named</b> Fabric
- * model mods through {@code Pre1_17ModelBridge.register()} + {@code transformClass()} and
- * asserts the WHOLE bridge composes at once: the synthetics are registered, the abstract
- * bases are class-redirected, a mod's {@code extends}/{@code super(...)} rebases onto the
- * synthetic, its inherited abstract getters survive untouched, the legacy
- * {@code new ModelPart(...)} construction + transform chain is rewritten onto the synthetic
- * factory/statics, and every transformed class is structurally valid bytecode.</p>
- *
- * <p>Host is pinned to a PRE-26.1 version so the intermediary&rarr;Mojang remap stays OFF -
- * this exercises the model-bridge layer only, in the namespace a real distributed Fabric mod
- * actually ships. Validity is checked with {@code CheckClassAdapter(checkDataFlow=false)}
- * because the MC superclasses ({@code class_630}/{@code class_583}) aren't on the test
- * classpath; full data-flow checks would spuriously throw. The pre-26.1 host <i>gate</i>
- * (register-nothing on a 26.1+ host) is a caller responsibility, covered separately - this
- * test asserts composition once {@code register()} has been invoked.</p>
+ * <p>Host is pinned pre-26.1 so the intermediary-&gt;Mojang remap stays off, matching the
+ * namespace a distributed Fabric mod ships in.
  */
 class Pre1_17ModelBridgeAcceptanceTest {
 
@@ -59,14 +48,14 @@ class Pre1_17ModelBridgeAcceptanceTest {
     void registerPre26() {
         t = RetromodTransformer.getInstance();
         t.clearRedirectsForTesting();
-        RetromodVersion.TARGET_MC_VERSION = "1.21.11"; // pre-26.1 => intermediary remap OFF
+        RetromodVersion.TARGET_MC_VERSION = "1.21.11"; // pre-26.1: intermediary remap off
         Pre1_17ModelBridge.register(t);
     }
 
     @AfterEach
     void restore() {
         t.clearRedirectsForTesting();
-        RetromodVersion.TARGET_MC_VERSION = "26.1"; // restore ambient other shim tests expect
+        RetromodVersion.TARGET_MC_VERSION = "26.1"; // restore default
     }
 
     @Test
@@ -141,9 +130,9 @@ class Pre1_17ModelBridgeAcceptanceTest {
         assertStructurallyValid(tinted, "MyTinted");
     }
 
-    // ── fixtures (raw intermediary names; never JVM-loaded, so no MC classpath needed) ──
+    // Fixtures use raw intermediary names and are never JVM-loaded, so no MC classpath is needed.
 
-    /** {@code class MyDeerModel extends class_4592} with super(false,0,0) + the abstract getters. */
+    /** {@code class MyDeerModel extends class_4592} with super(false,0,0) plus the abstract getters. */
     private static byte[] animalModelMod() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "test/MyDeerModel", null, ANIMAL, null);
@@ -214,7 +203,7 @@ class Pre1_17ModelBridgeAcceptanceTest {
         return cw.toByteArray();
     }
 
-    // ── inspection helpers ──
+    // inspection helpers
 
     private static final class Info extends ClassVisitor {
         String superName;
@@ -267,11 +256,9 @@ class Pre1_17ModelBridgeAcceptanceTest {
     }
 
     /**
-     * Structural-only validity (checkDataFlow=false): catches malformed descriptors / constant
-     * pool, NOT stack/dataflow bugs - those need the MC superclasses on the classpath (absent
-     * here). Stack correctness for the synthetics is enforced by the transform's COMPUTE_FRAMES
-     * pass and, ultimately, in-game launch (CLAUDE.md pitfall #17). The redirect/superName
-     * assertions above are what carry these tests; this is a cheap extra guard, not the proof.
+     * Structure-only check (checkDataFlow=false): catches malformed descriptors / constant pool.
+     * Stack/dataflow needs the MC superclasses on the classpath, absent here; the transform's
+     * COMPUTE_FRAMES pass and in-game launch cover that.
      */
     private static void assertStructurallyValid(byte[] clazz, String label) {
         try {

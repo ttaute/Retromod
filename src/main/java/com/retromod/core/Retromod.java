@@ -19,31 +19,22 @@ import java.util.List;
 import java.util.ServiceLoader;
 
 /**
- * Main entry point for Retromod.
- * 
- * Retromod allows older Minecraft mods to run on newer versions by:
- * 1. Transforming bytecode to redirect renamed/moved methods
- * 2. Embedding removed APIs directly into mod JARs
- * 3. Providing shim implementations for deleted functionalty
+ * Fabric entry point. Transforms older mod bytecode, embeds removed APIs into
+ * mod JARs, and registers shims for deleted functionality.
  */
 public class Retromod implements ModInitializer {
-    
+
     public static final String MOD_ID = "retromod";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
-    
-    // Current target Minecraft version - auto-detected at runtime
+
+    // Auto-detected at runtime from the loader.
     public static String TARGET_MC_VERSION = "1.21.4";
 
-    // Initialize target version from mod loader.
-    // Also mirrors to RetromodVersion.TARGET_MC_VERSION so loader-side
-    // entry points (RetromodForge / RetromodNeoForge) can read the value
-    // without triggering Retromod's class linkage - Retromod implements
-    // Fabric's ModInitializer, which doesn't exist on Forge/NeoForge
-    // classpaths and would NoClassDefFoundError if those entry points
-    // tried to read Retromod.TARGET_MC_VERSION directly.
+    // Mirror to RetromodVersion so the Forge/NeoForge entry points can read the
+    // version without linking Retromod (it implements Fabric's ModInitializer,
+    // absent on those classpaths -> NoClassDefFoundError).
     static {
         try {
-            // Try Fabric Loader first
             String mcVersion = net.fabricmc.loader.api.FabricLoader.getInstance()
                 .getModContainer("minecraft")
                 .map(c -> c.getMetadata().getVersion().getFriendlyString())
@@ -53,7 +44,7 @@ public class Retromod implements ModInitializer {
                 RetromodVersion.TARGET_MC_VERSION = mcVersion;
             }
         } catch (Exception e) {
-            // Not Fabric - try NeoForge via reflection
+            // Not Fabric; try NeoForge via reflection
             try {
                 Class<?> fmlLoader = Class.forName("net.neoforged.fml.loading.FMLLoader");
                 Object versionInfo = fmlLoader.getMethod("versionInfo").invoke(null);
@@ -63,7 +54,7 @@ public class Retromod implements ModInitializer {
                     RetromodVersion.TARGET_MC_VERSION = mcVersion;
                 }
             } catch (Exception e2) {
-                // Not NeoForge - try Forge via reflection
+                // Not NeoForge; try Forge via reflection
                 try {
                     Class<?> mcpVersion = Class.forName("net.minecraftforge.versions.mcp.MCPVersion");
                     String mcVersion = (String) mcpVersion.getMethod("getMCVersion").invoke(null);
@@ -72,15 +63,14 @@ public class Retromod implements ModInitializer {
                         RetromodVersion.TARGET_MC_VERSION = mcVersion;
                     }
                 } catch (Exception e3) {
-                    // Fallback to default 1.21.4
+                    // keep the default
                 }
             }
         }
     }
-    
-    // Supported source versions (mods built for these can be transformed)
+
+    // Mods built for these versions can be transformed.
     public static final String[] SUPPORTED_SOURCE_VERSIONS = {
-        // Fabric 1.14+ (when Fabric was created)
         "1.14", "1.14.1", "1.14.2", "1.14.3", "1.14.4",
         "1.15", "1.15.1", "1.15.2",
         "1.16", "1.16.1", "1.16.2", "1.16.3", "1.16.4", "1.16.5",
@@ -88,35 +78,30 @@ public class Retromod implements ModInitializer {
         "1.18", "1.18.1", "1.18.2",
         "1.19", "1.19.1", "1.19.2", "1.19.3", "1.19.4",
         "1.20", "1.20.1", "1.20.2", "1.20.3", "1.20.4", "1.20.5", "1.20.6",
-        // 1.21.x versions
         "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4",
         "1.21.5", "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10"
     };
-    
-    // Backup folder for original mods
+
     public static final Path BACKUP_FOLDER = Path.of("mods/retromod-backups");
-    
+
     private static Retromod instance;
     private ShimRegistry shimRegistry;
     private ApiEmbedder apiEmbedder;
     private ModVersionDetector versionDetector;
     private AotCompiler aotCompiler;
     private MixinCompatibilityTransformer mixinTransformer;
-    
-    // Configuration
+
     private boolean useAotCompilation = true;
     private boolean transformMixins = true;
-    private boolean passNativeModsThrough = true; // Don't transform mods already for current version
-    private boolean polyfillsEnabled = true;      // Enable re-implemented removed APIs
-    
-    // Supported target versions (add new MC versions here)
+    private boolean passNativeModsThrough = true; // pass mods already on the current version through untouched
+    private boolean polyfillsEnabled = true;
+
     public static final String[] SUPPORTED_TARGET_VERSIONS = {
         "1.21", "1.21.1", "1.21.2", "1.21.3", "1.21.4", "1.21.5",
         "1.21.6", "1.21.7", "1.21.8", "1.21.9", "1.21.10", "1.21.11",
-        // 26.1 - first unobfuscated MC version
+        // 26.1: first unobfuscated MC version
         "26.1", "26.1-pre.1", "26.1-pre.2", "26.1-pre-1", "26.1-pre-2",
         "26.1.0", "26.1.1", "26.1.2",
-        // Future versions
         "26.2", "26.2.0", "26.2.1"
     };
     
@@ -126,17 +111,13 @@ public class Retromod implements ModInitializer {
         RetromodVersion.logPresenceBanner(LOGGER);
         LOGGER.info("Retromod initializing - Target MC version: {}", TARGET_MC_VERSION);
 
-        // Log the full environment (OS, CPU arch, rendering backend)
         EnvironmentDetector.logEnvironment();
 
-        // Verify authenticity of this Retromod build - informational only,
-        // never blocks. A modified or forked build still runs fine.
+        // Informational only; a modified or forked build still runs fine.
         com.retromod.security.SignatureVerifier.verifyAndLog();
 
-        // Load configuration
         loadConfig();
 
-        // ALWAYS create folders (every launch, not just first)
         Path gameDir;
         try {
             gameDir = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir();
@@ -149,7 +130,7 @@ public class Retromod implements ModInitializer {
             gameDir = Path.of(".");
         }
 
-        // Each component is isolated so a failure in one doesn't crash the whole mod
+        // Each component is isolated so one failure doesn't crash the mod.
         try {
             com.retromod.legacy.LegacyVersionSupport legacySupport =
                 new com.retromod.legacy.LegacyVersionSupport();
@@ -176,7 +157,6 @@ public class Retromod implements ModInitializer {
             LOGGER.warn("Could not initialize resource manager", e);
         }
 
-        // Initialize core components
         try {
             shimRegistry = new ShimRegistry();
         } catch (Exception e) {
@@ -192,26 +172,21 @@ public class Retromod implements ModInitializer {
 
         versionDetector = new ModVersionDetector();
 
-        // Register all known shims
         try {
             registerShims();
         } catch (Exception e) {
             LOGGER.warn("Could not register shims", e);
         }
 
-        // Register polyfills (re-implemented removed APIs)
         try {
             registerPolyfills();
         } catch (Exception e) {
             LOGGER.warn("Could not register polyfills", e);
         }
 
-        // Register Forge SRG → Mojang member-name mappings.
-        // Primary value is on Forge runtimes (where reobf'd Forge mods carry
-        // SRG names), but cross-loader scenarios - e.g. running a Forge SRG-baked
-        // mod through Fabric's loader via a translator chain - benefit too.
-        // Loading on every loader keeps the dictionary available regardless of
-        // how the input bytecode arrived.
+        // Forge SRG -> Mojang member names. Mainly for Forge runtimes, but
+        // loaded everywhere so the dictionary is there however the bytecode
+        // arrived (e.g. a Forge SRG mod fed through Fabric's loader).
         try {
             int srgEntries = com.retromod.mapping.SrgToMojangMapper.getInstance()
                     .applyTo(RetromodTransformer.getInstance());
@@ -222,19 +197,10 @@ public class Retromod implements ModInitializer {
             LOGGER.warn("Could not register SRG mappings", e);
         }
 
-        // Load auto-fix fixes from previous launch BEFORE transformation.
-        // These are fixes that the AutoFixEngine discovered by analyzing crash logs
-        // from a prior launch. They register redirects/patches so the next transform
-        // incorporates the fixes automatically.
-        //
-        // SECURITY: loadAndApplySavedFixes READS entries from
-        // config/retromod/auto-fixes.json and applies them unconditionally.
-        // The file itself was written by an earlier run of AutoFixEngine.
-        // If a malicious mod previously managed to get a redirect persisted
-        // (back when AutoFix was always-on), disabling AutoFix today would
-        // not remove those persisted entries - they'd still reload every
-        // launch. Gate the READ on the same -Dretromod.autoFix opt-in flag
-        // so that turning off AutoFix actually turns it all the way off.
+        // Apply fixes the AutoFixEngine persisted from a prior launch, before
+        // transformation. Gated on the -Dretromod.autoFix opt-in so turning
+        // AutoFix off also stops reloading config/retromod/auto-fixes.json
+        // (a mod could otherwise leave poisoned redirects persisted).
         boolean autoFixEnabled = Boolean.parseBoolean(
                 System.getProperty("retromod.autoFix", "false"));
         if (autoFixEnabled) {
@@ -249,21 +215,18 @@ public class Retromod implements ModInitializer {
             }
         }
 
-        // Initialize AOT compiler
         try {
             aotCompiler = new AotCompiler(shimRegistry, TARGET_MC_VERSION);
         } catch (Exception e) {
             LOGGER.warn("Could not initialize AOT compiler", e);
         }
 
-        // Initialize Mixin transformer (for mods with mixins)
         try {
             mixinTransformer = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
         } catch (Exception e) {
             LOGGER.warn("Could not initialize Mixin transformer", e);
         }
 
-        // Scan mods folder for legacy mods
         try {
             if (useAotCompilation && aotCompiler != null) {
                 performAotCompilation();
@@ -274,16 +237,14 @@ public class Retromod implements ModInitializer {
             LOGGER.warn("Could not scan/compile mods", e);
         }
 
-        // Bridge old HUD callbacks to new HudElementRegistry API (26.1+)
+        // Bridge old HUD callbacks to the new HudElementRegistry API (26.1+).
         try {
             com.retromod.shim.fabric.embedded.HudRenderCallbackShim.bridgeToNewApi();
         } catch (Throwable e) {
-            // Catch Throwable - ExceptionInInitializerError from IdentifierShim
-            // is an Error, not Exception. Non-critical, don't crash Retromod.
+            // Throwable: IdentifierShim can throw ExceptionInInitializerError.
             LOGGER.warn("Could not bridge HUD callbacks: {}", e.getMessage());
         }
 
-        // Show in-game restart screen if mods were transformed during pre-launch
         try {
             if (RetromodPreLaunch.hasPendingRestart()) {
                 scheduleRestartScreen();
@@ -292,24 +253,13 @@ public class Retromod implements ModInitializer {
             LOGGER.warn("Could not show restart screen: {}", e.getMessage());
         }
 
-        // Auto-fix: analyze the PREVIOUS launch's log for errors and prepare fixes.
-        // Scans latest.log for known crash patterns (NoSuchMethodError, VerifyError,
-        // mixin failures, etc.) and registers redirects so the NEXT retransformation
-        // incorporates them.
-        //
-        // SECURITY: latest.log is a shared file that *any* mod can write to via
-        // its own logger. A crafted log line that matches AutoFixEngine's
-        // error-pattern regex can cause Retromod to register attacker-chosen
-        // method/field redirects into the shared transformer. The poisoned
-        // redirects are constrained to real MC methods (fuzzy resolver requires
-        // ≥85 match score against the indexed JAR), so this is not RCE - but
-        // one mod could deliberately mis-route another mod's bytecode rewrites.
-        //
-        // Mitigation: auto-fix is OPT-IN via -Dretromod.autoFix=true. Off by
-        // default. Users who want the convenience of auto-fix can enable it
-        // knowing the tradeoff. Each registered redirect is also logged at
-        // WARN so anomalies are visible even with the feature on.
-        // (autoFixEnabled was resolved once at the top of this method; reuse it.)
+        // Scan the previous launch's latest.log for known crash patterns and
+        // register redirects so the next retransformation picks them up.
+        // Opt-in (autoFixEnabled, resolved above): latest.log is mod-writable,
+        // so a crafted log line could register attacker-chosen redirects. They
+        // are constrained to real MC methods (fuzzy resolver needs a >=85 match
+        // against the indexed JAR), so not RCE, but one mod could mis-route
+        // another's rewrites. Each redirect is logged at WARN.
         if (autoFixEnabled) {
             try {
                 Path logFile = gameDir.resolve("logs/latest.log");
@@ -340,59 +290,43 @@ public class Retromod implements ModInitializer {
                 RetromodTransformer.getInstance().getClassRedirectCount());
     }
 
-    /**
-     * Schedule the in-game restart screen to appear once the MC client is ready.
-     * Deferred so the title screen has time to initialize first.
-     */
+    // Log-only; we don't pop an in-game screen (Fabric's screen API churns
+    // across versions). The log already prints the transformed-mod list.
     private void scheduleRestartScreen() {
-        // No in-game popup - just log the restart message.
-        // The log already shows RESTART REQUIRED with the list of transformed mods.
-        // In-game screens cause issues with Fabric's screen API changes in newer versions.
         List<String> mods = RetromodPreLaunch.getTransformedMods();
         if (!mods.isEmpty()) {
             LOGGER.info("Transformed {} mod(s) - restart to load them", mods.size());
         }
     }
-    
-    /**
-     * Ensure Retromod folders exist - called EVERY launch.
-     */
+
     private void ensureRetromodFolders(Path gameDir) {
         try {
-            // Create retromod-input folder
             Path inputFolder = gameDir.resolve("retromod-input");
             if (!java.nio.file.Files.exists(inputFolder)) {
                 java.nio.file.Files.createDirectories(inputFolder);
                 LOGGER.info("Created retromod-input/ folder");
-                
-                // Create README
+
                 Path readme = inputFolder.resolve("README.txt");
                 java.nio.file.Files.writeString(readme, getReadmeContent());
             }
-            
-            // Create processed subfolder
+
             Path processedFolder = inputFolder.resolve("processed");
             if (!java.nio.file.Files.exists(processedFolder)) {
                 java.nio.file.Files.createDirectories(processedFolder);
             }
-            
-            // Create backups folder
+
             Path backupFolder = gameDir.resolve("retromod-backups");
             if (!java.nio.file.Files.exists(backupFolder)) {
                 java.nio.file.Files.createDirectories(backupFolder);
             }
-            
-            // Also call ModHealthChecker for extra safety
+
             ModHealthChecker.ensureFoldersExist(gameDir);
-            
+
         } catch (Exception e) {
             LOGGER.warn("Could not create folders: {}", e.getMessage());
         }
     }
-    
-    /**
-     * Get README content for retromod-input folder.
-     */
+
     private String getReadmeContent() {
         return """
             ═══════════════════════════════════════════════════════════════
@@ -423,13 +357,12 @@ public class Retromod implements ModInitializer {
     }
     
     /**
-     * Check if a mod is for the native/current Minecraft version.
-     * Native mods should NOT be transformed - they pass through untouched.
+     * Whether a mod already targets the current MC version, so it passes
+     * through untransformed.
      */
     public boolean isNativeVersionMod(String modMinecraftVersion) {
         if (modMinecraftVersion == null) return false;
-        
-        // Clean up version string
+
         String cleanVersion = modMinecraftVersion
             .replace(">=", "")
             .replace("<=", "")
@@ -438,32 +371,31 @@ public class Retromod implements ModInitializer {
             .replace("~", "")
             .replace("^", "")
             .trim();
-        
-        // Check if it matches current target version
+
         if (cleanVersion.equals(TARGET_MC_VERSION)) {
             return true;
         }
-        
-        // Check if it's a range that includes current version
+
+        // A range that spans the current version.
         if (modMinecraftVersion.contains(TARGET_MC_VERSION)) {
             return true;
         }
-        
-        // Check for wildcard versions like "1.21.x" or "1.21.*"
+
+        // Wildcards like "1.21.x" / "1.21.*".
         if (cleanVersion.endsWith(".x") || cleanVersion.endsWith(".*")) {
             String base = cleanVersion.substring(0, cleanVersion.length() - 2);
             if (TARGET_MC_VERSION.startsWith(base)) {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /**
-     * Load configuration from JSON file, generating the default if missing.
-     * Delegates to the loader-agnostic {@link RetromodConfig} so the Fabric,
-     * Forge, and NeoForge entry points all write the identical default (#74).
+     * Loads config from JSON, generating the default if absent. Delegates to
+     * {@link RetromodConfig} so every loader entry point writes the same
+     * default (#74).
      */
     private void loadConfig() {
         var config = RetromodConfig.loadOrNull();
@@ -478,30 +410,25 @@ public class Retromod implements ModInitializer {
         }
     }
     
-    /**
-     * Perform AOT compilation of all mods on first launch.
-     * Creates backups before transforming.
-     */
+    // AOT-compiles every mod, backing up originals first.
     private void performAotCompilation() {
         Path modsFolder = Path.of("mods");
         if (!modsFolder.toFile().exists()) {
             return;
         }
-        
-        // Create backup folder
+
         createBackupFolder();
-        
+
         LOGGER.info("Starting AOT compilation of legacy mods...");
         LOGGER.info("Backups will be stored in: {}", BACKUP_FOLDER);
-        
+
         List<AotCompiler.AotResult> results = aotCompiler.compileAllModsSync(
             modsFolder,
             (current, total, name) -> {
                 LOGGER.info("AOT compiling [{}/{}]: {}", current, total, name);
             }
         );
-        
-        // Summarize results
+
         int success = 0, cached = 0, skipped = 0, failed = 0;
         for (var result : results) {
             switch (result.status()) {
@@ -511,14 +438,11 @@ public class Retromod implements ModInitializer {
                 case FAILED -> failed++;
             }
         }
-        
+
         LOGGER.info("AOT compilation complete: {} compiled, {} cached, {} skipped, {} failed",
                 success, cached, skipped, failed);
     }
-    
-    /**
-     * Create backup folder for original mod JARs.
-     */
+
     private void createBackupFolder() {
         try {
             if (!java.nio.file.Files.exists(BACKUP_FOLDER)) {
@@ -530,19 +454,15 @@ public class Retromod implements ModInitializer {
         }
     }
     
-    /**
-     * Backup a mod JAR before transformation.
-     * @param modFile The mod file to backup
-     * @return true if backup was successful
-     */
+    /** Backs up a mod JAR before transformation. Returns false on failure. */
     public boolean backupMod(Path modFile) {
         try {
             createBackupFolder();
-            
+
             String fileName = modFile.getFileName().toString();
             Path backupPath = BACKUP_FOLDER.resolve(fileName);
-            
-            // Add timestamp if backup already exists
+
+            // Timestamp the name if a backup already exists.
             if (java.nio.file.Files.exists(backupPath)) {
                 String timestamp = java.time.LocalDateTime.now()
                     .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
@@ -550,28 +470,23 @@ public class Retromod implements ModInitializer {
                 String extension = fileName.substring(fileName.lastIndexOf('.'));
                 backupPath = BACKUP_FOLDER.resolve(baseName + "-" + timestamp + extension);
             }
-            
+
             java.nio.file.Files.copy(modFile, backupPath);
             LOGGER.info("Backed up {} to {}", fileName, backupPath);
             return true;
-            
+
         } catch (Exception e) {
             LOGGER.error("Failed to backup mod: {}", modFile, e);
             return false;
         }
     }
-    
-    /**
-     * Restore a mod from backup.
-     * @param modName The name of the mod file to restore
-     * @return true if restore was successful
-     */
+
+    /** Restores a mod from backup. Returns false on failure. */
     public boolean restoreMod(String modName) {
         try {
             Path backupPath = BACKUP_FOLDER.resolve(modName);
-            // Resolve mods folder from the Fabric game directory when available,
-            // not CWD - this is more robust if Retromod is launched from a
-            // different working directory (e.g. CLI mode).
+            // Prefer the Fabric game dir over CWD (Retromod may run from a
+            // different working directory, e.g. CLI mode).
             Path modsFolder;
             try {
                 modsFolder = net.fabricmc.loader.api.FabricLoader.getInstance()
@@ -580,29 +495,27 @@ public class Retromod implements ModInitializer {
                 modsFolder = Path.of("mods");
             }
             Path targetPath = modsFolder.resolve(modName);
-            
+
             if (!java.nio.file.Files.exists(backupPath)) {
                 LOGGER.error("No backup found for: {}", modName);
                 return false;
             }
-            
-            // Delete the transformed version if it exists
+
             java.nio.file.Files.deleteIfExists(targetPath);
-            
-            // Also delete any -retromod version
+
+            // Drop any -retromod variant too.
             String baseName = modName.substring(0, modName.lastIndexOf('.'));
             java.nio.file.Files.list(modsFolder)
                 .filter(p -> p.getFileName().toString().startsWith(baseName + "-retromod"))
                 .forEach(p -> {
-                    try { java.nio.file.Files.delete(p); } 
+                    try { java.nio.file.Files.delete(p); }
                     catch (Exception e) { /* ignore */ }
                 });
-            
-            // Copy backup back
+
             java.nio.file.Files.copy(backupPath, targetPath);
             LOGGER.info("Restored {} from backup", modName);
             return true;
-            
+
         } catch (Exception e) {
             LOGGER.error("Failed to restore mod: {}", modName, e);
             return false;
@@ -610,45 +523,29 @@ public class Retromod implements ModInitializer {
     }
     
     /**
-     * Register all version-specific shims that target the Fabric loader.
-     *
-     * <p>Filtering by {@link VersionShim#getModLoaderType()} matters: shim
-     * classes register their redirects on the global {@code RetromodTransformer}
-     * map, so a Forge-only shim's redirects would also affect Fabric mods
-     * if applied here. We saw exactly this bug - the Forge_1_19_2_to_1_19_3
-     * shim had a {@code Registry → BuiltInRegistries} class redirect that
-     * was wrong even for Forge but additionally poisoned Fabric runs (Test
-     * 14 in retromod-test-mod's RegistryTests). The Forge entry point
-     * ({@code RetromodForge.loadForgeShims}) already filters this way.
-     *
-     * <p>Accepts {@code "fabric"} (Fabric-specific) and {@code "common"}
-     * (loader-agnostic). Forge / NeoForge shims are skipped - they're loaded
-     * by their own respective entry points.
+     * Registers Fabric and loader-agnostic ("common") shims. Forge/NeoForge
+     * shims are skipped here so their redirects don't leak into the shared
+     * RetromodTransformer map and corrupt Fabric mods; those load via their own
+     * entry points.
      */
     private void registerShims() {
-        // Load shims via ServiceLoader (allows external shim packs)
         ServiceLoader<VersionShim> shims = ServiceLoader.load(VersionShim.class);
 
         int loaded = 0;
         int skippedNonFabric = 0;
-        // Use iterator with error handling to support lite builds where some
-        // shim classes may be excluded from the JAR
+        // Iterate defensively: lite builds exclude some shim classes.
         java.util.Iterator<VersionShim> it = shims.iterator();
         while (it.hasNext()) {
             VersionShim shim;
             try {
                 shim = it.next();
             } catch (java.util.ServiceConfigurationError e) {
-                // Class not found - expected in lite builds
                 LOGGER.debug("Skipping unavailable shim: {}", e.getMessage());
                 continue;
             }
 
             String loaderType = shim.getModLoaderType();
             if (!"fabric".equals(loaderType) && !"common".equals(loaderType)) {
-                // Forge / NeoForge / other shims - not relevant on Fabric.
-                // Skipping them prevents their redirects from leaking into
-                // the Fabric transformer's global redirect map.
                 skippedNonFabric++;
                 continue;
             }
@@ -661,46 +558,32 @@ public class Retromod implements ModInitializer {
         }
         LOGGER.info("Loaded {} Fabric/common shims (skipped {} non-Fabric shims)",
                 loaded, skippedNonFabric);
-        
-        // Also register built-in shims
+
         registerBuiltInShims();
     }
-    
-    /**
-     * Built-in shims for common version transitions.
-     */
+
     private void registerBuiltInShims() {
         RetromodTransformer transformer = RetromodTransformer.getInstance();
-        
-        // === 1.21.9 -> 1.21.10 Compatibility ===
-        // Example: Entity.getWorld() was renamed to Entity.getEntityWorld() in 1.21.9+
-        // (This is a hypothetical example - real changes would be documented)
-        
-        // Method rename example
+
+        // Worked examples of the two redirect shapes (rename vs. removed-to-shim).
         transformer.registerMethodRedirect(
             "net/minecraft/entity/Entity", "getWorld", "()Lnet/minecraft/world/World;",
             "net/minecraft/entity/Entity", "getEntityWorld", "()Lnet/minecraft/world/World;"
         );
-        
-        // If the above method was REMOVED entirely, redirect to our embedded shim:
+
         transformer.registerMethodRedirect(
             "net/minecraft/entity/Entity", "method_removed_example", "()V",
             "com/retromod/shim/embedded/EntityShim", "method_removed_example", "(Lnet/minecraft/entity/Entity;)V"
         );
-        
-        // === Fabric API Changes ===
-        // When Fabric API removes/renames events or utilities, redirect to embedded versions
-        
-        // Example: If FabricLoader.getModContainer changed signature
+
         transformer.registerMethodRedirect(
-            "net/fabricmc/loader/api/FabricLoader", "getModContainer", 
+            "net/fabricmc/loader/api/FabricLoader", "getModContainer",
             "(Ljava/lang/String;)Ljava/util/Optional;",
             "com/retromod/shim/fabric/FabricLoaderShim", "getModContainer",
             "(Ljava/lang/String;)Ljava/util/Optional;"
         );
-        
-        // === Rendering Backend Compatibility ===
-        // Handles OpenGL → Vulkan / Metal transitions
+
+        // OpenGL -> Vulkan / Metal.
         try {
             com.retromod.shim.api.fabric.RenderingBackendShim renderShim =
                 new com.retromod.shim.api.fabric.RenderingBackendShim();
@@ -713,11 +596,8 @@ public class Retromod implements ModInitializer {
         LOGGER.info("Registered built-in shims for 1.21.x compatibility");
     }
 
-    /**
-     * Register polyfills (re-implemented removed APIs).
-     * Polyfills provide stub classes for APIs that were completely removed,
-     * preventing ClassNotFoundException and mixin hierarchy failures.
-     */
+    // Stub classes for removed APIs, to head off ClassNotFoundException and
+    // mixin hierarchy failures.
     private void registerPolyfills() {
         com.retromod.polyfill.PolyfillRegistry polyfillRegistry =
             new com.retromod.polyfill.PolyfillRegistry();
@@ -725,34 +605,29 @@ public class Retromod implements ModInitializer {
         polyfillRegistry.loadAndRegister(RetromodTransformer.getInstance());
     }
 
-    /**
-     * Scan mods folder and prepare any legacy mods.
-     */
     private void scanAndPrepare() {
         Path modsFolder = Path.of("mods");
         if (!modsFolder.toFile().exists()) {
             return;
         }
-        
-        File[] modFiles = modsFolder.toFile().listFiles((dir, name) -> 
+
+        File[] modFiles = modsFolder.toFile().listFiles((dir, name) ->
                 name.endsWith(".jar") && !name.contains("-retromod"));
-        
+
         if (modFiles == null) return;
-        
+
         for (File modFile : modFiles) {
             try {
                 ModVersionInfo info = versionDetector.detectVersion(modFile.toPath());
-                
+
                 if (info != null && info.needsTransformation(TARGET_MC_VERSION)) {
                     LOGGER.info("Found legacy mod: {} (built for {}, current: {})",
                             info.modId(), info.targetMcVersion(), TARGET_MC_VERSION);
-                    
-                    // Register the mod's packages for transformation
+
                     for (String pkg : info.modPackages()) {
                         RetromodTransformer.getInstance().addTransformablePackage(pkg);
                     }
-                    
-                    // Check if we need to embed any removed APIs
+
                     if (info.usesRemovedApis()) {
                         LOGGER.info("Mod {} uses removed APIs - embedding shims", info.modId());
                         apiEmbedder.embedRequiredShims(modFile.toPath(), info);

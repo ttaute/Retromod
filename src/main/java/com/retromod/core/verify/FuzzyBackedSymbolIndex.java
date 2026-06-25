@@ -11,7 +11,7 @@ import java.util.List;
 
 /**
  * Production {@link McSymbolIndex} implementation that delegates to
- * {@link FuzzyMethodResolver} - reusing the existing MC-JAR index rather than
+ * {@link FuzzyMethodResolver}, reusing the existing MC-JAR index rather than
  * building a second copy.
  *
  * <h3>Why delegate?</h3>
@@ -25,7 +25,7 @@ import java.util.List;
  * <p>{@code FuzzyMethodResolver} may not be initialized in some contexts
  * (standalone CLI runs, tests, environments where the MC JAR path is unknown).
  * We detect this via {@link FuzzyMethodResolver#isIndexed()} and degrade to
- * {@code isAvailable() == false} - callers then treat every lookup as "unknown"
+ * {@code isAvailable() == false}, so callers then treat every lookup as "unknown"
  * rather than "missing," which keeps them from generating false-positive
  * unresolved-reference reports.</p>
  */
@@ -81,7 +81,7 @@ public class FuzzyBackedSymbolIndex implements McSymbolIndex {
 
     @Override
     public List<String> suggestClassAlternatives(String missingInternalName, int maxResults) {
-        // Not using the fuzzy resolver's scoring for class suggestions -
+        // Not using the fuzzy resolver's scoring for class suggestions:
         // its resolveMethod/resolveField operate at the member level, not the
         // class level. Instead we do a simple simple-name match: take the last
         // path component of the missing name (e.g., "BlockPos") and find any
@@ -122,7 +122,7 @@ public class FuzzyBackedSymbolIndex implements McSymbolIndex {
 
         // Delegate to the fuzzy resolver, which already does sophisticated
         // scoring (class-hierarchy awareness, descriptor-distance, name-similarity).
-        // We lower its auto-apply threshold for suggestions - we want to SHOW the
+        // We lower its auto-apply threshold for suggestions: we want to SHOW the
         // top candidates even if the confidence is too low to auto-rewrite.
         FuzzyMethodResolver.MethodInfo best = resolver.resolveMethod(owner, name, descriptor);
         List<MemberSignature> results = new ArrayList<>();

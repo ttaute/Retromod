@@ -1,22 +1,14 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
- * 
- * ENTITY SHIM
- * 
- * Provides compatibility for Entity API changes between versions.
- * Uses reflection to work without Minecraft compile-time dependency.
  */
 package com.retromod.shim.fabric.embedded;
 
 import java.lang.reflect.*;
 
 /**
- * Shim for Entity class changes across Minecraft versions.
- * 
- * Key changes handled:
- * - 1.21.9+: Entity.getWorld() renamed to Entity.getEntityWorld()
- * - Various method signature changes across versions
+ * Reflective Entity accessors that ride out MC API drift (e.g. the 1.21.9
+ * getWorld -> getEntityWorld rename) without a compile-time MC dependency.
  */
 public class EntityShim {
     
@@ -25,21 +17,17 @@ public class EntityShim {
     private static Method getBlockPosMethod = null;
     private static boolean methodsInitialized = false;
     
-    /**
-     * Gets the block position of an entity.
-     * Works across versions by trying both getBlockPos() and getPosition().
-     */
+    /** Entity block position, trying getBlockPos / getPosition across versions. */
     public static Object getBlockPos(Object entity) {
         if (entity == null) return null;
-        
+
         try {
             initMethods(entity.getClass());
-            
+
             if (getBlockPosMethod != null) {
                 return getBlockPosMethod.invoke(entity);
             }
-            
-            // Try alternative method names
+
             for (String methodName : new String[]{"getBlockPos", "getPosition", "blockPosition"}) {
                 try {
                     Method m = entity.getClass().getMethod(methodName);
@@ -52,27 +40,21 @@ public class EntityShim {
         return null;
     }
     
-    /**
-     * Gets the world from an entity.
-     * Handles the 1.21.9+ rename from getWorld() to getEntityWorld().
-     */
+    /** Entity world, handling the 1.21.9 getWorld -> getEntityWorld rename. */
     public static Object getWorld(Object entity) {
         if (entity == null) return null;
-        
+
         try {
             initMethods(entity.getClass());
-            
-            // Try getEntityWorld first (1.21.9+)
+
             if (getEntityWorldMethod != null) {
                 return getEntityWorldMethod.invoke(entity);
             }
-            
-            // Fallback to getWorld (pre-1.21.9)
+
             if (getWorldMethod != null) {
                 return getWorldMethod.invoke(entity);
             }
-            
-            // Try other method names
+
             for (String methodName : new String[]{"getEntityWorld", "getWorld", "level", "getLevel"}) {
                 try {
                     Method m = entity.getClass().getMethod(methodName);
@@ -85,81 +67,54 @@ public class EntityShim {
         return null;
     }
     
-    /**
-     * Gets the entity's X position.
-     */
     public static double getX(Object entity) {
         return getDoubleField(entity, "getX", "getPosX", "posX");
     }
-    
-    /**
-     * Gets the entity's Y position.
-     */
+
     public static double getY(Object entity) {
         return getDoubleField(entity, "getY", "getPosY", "posY");
     }
-    
-    /**
-     * Gets the entity's Z position.
-     */
+
     public static double getZ(Object entity) {
         return getDoubleField(entity, "getZ", "getPosZ", "posZ");
     }
-    
-    /**
-     * Gets the entity's yaw rotation.
-     */
+
     public static float getYaw(Object entity) {
         return getFloatField(entity, "getYaw", "getRotationYaw", "rotationYaw");
     }
-    
-    /**
-     * Gets the entity's pitch rotation.
-     */
+
     public static float getPitch(Object entity) {
         return getFloatField(entity, "getPitch", "getRotationPitch", "rotationPitch");
     }
-    
-    /**
-     * Checks if entity is on ground.
-     */
+
     public static boolean isOnGround(Object entity) {
         return getBooleanField(entity, "isOnGround", "onGround");
     }
-    
-    /**
-     * Gets the entity's UUID.
-     */
+
     public static Object getUUID(Object entity) {
         return invokeMethod(entity, "getUuid", "getUniqueID", "getUUID");
     }
-    
-    /**
-     * Gets entity's display name.
-     */
+
     public static Object getDisplayName(Object entity) {
         return invokeMethod(entity, "getDisplayName", "getName", "getCustomName");
     }
-    
+
     private static void initMethods(Class<?> entityClass) {
         if (methodsInitialized) return;
-        
+
         try {
-            // Try to find getEntityWorld (1.21.9+)
             try {
                 getEntityWorldMethod = entityClass.getMethod("getEntityWorld");
             } catch (NoSuchMethodException ignored) {}
-            
-            // Try to find getWorld (pre-1.21.9)
+
             try {
                 getWorldMethod = entityClass.getMethod("getWorld");
             } catch (NoSuchMethodException ignored) {}
-            
-            // Try to find getBlockPos
+
             try {
                 getBlockPosMethod = entityClass.getMethod("getBlockPos");
             } catch (NoSuchMethodException ignored) {}
-            
+
             methodsInitialized = true;
         } catch (Exception e) {
             System.err.println("Retromod: EntityShim init error: " + e.getMessage());
@@ -172,8 +127,7 @@ public class EntityShim {
                 Method m = obj.getClass().getMethod(name);
                 return (double) m.invoke(obj);
             } catch (Exception ignored) {}
-            
-            // Try as field
+
             try {
                 Field f = obj.getClass().getField(name);
                 return f.getDouble(obj);

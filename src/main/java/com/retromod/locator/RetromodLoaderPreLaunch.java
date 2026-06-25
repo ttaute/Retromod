@@ -25,7 +25,7 @@ import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
  * jar (#78).
  *
  * <p><b>What the stub is.</b> CurseForge rejects modpack <em>exports</em> that contain
- * jars not hosted on CurseForge - and Retromod (on Modrinth and CurseForge) and the mods it
+ * jars not hosted on CurseForge, and Retromod (on Modrinth and CurseForge) and the mods it
  * transforms are exactly that. The stub is a tiny CF-hosted jar that is the <em>only</em>
  * CF-project jar a pack places in {@code mods/}; the real Retromod and the transformed
  * {@code *-retromod.jar} outputs ride in {@code mods/Retromod/}, shipped as pack
@@ -34,10 +34,10 @@ import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
  * <p><b>What this class does (Fabric only).</b> Fabric has no mod-file locator SPI and
  * pre-launch runs <em>after</em> Knot's mod scan, so jars in {@code mods/Retromod/}
  * can't be loaded in place. Instead this moves the loader-ready jars from
- * {@code mods/Retromod/} into {@code mods/} and relies on a one-time restart - after
+ * {@code mods/Retromod/} into {@code mods/} and relies on a one-time restart, after
  * which the real Retromod (now in {@code mods/}) takes over. This mirrors
  * {@code RetromodPreLaunch.drainReadyModsFolder}, but is duplicated here so the stub
- * jar stays self-contained (JDK + SLF4J + Fabric API only - no transform engine).
+ * jar stays self-contained (JDK + SLF4J + Fabric API only, no transform engine).
  *
  * <p>On NeoForge the stub uses {@link RetromodModLocator} instead, which loads
  * {@code mods/Retromod/} in place with no restart. Both ship in the one stub jar.
@@ -60,7 +60,7 @@ public final class RetromodLoaderPreLaunch implements PreLaunchEntrypoint {
                 return;
             }
             // If -Dfabric.addMods already points here, Fabric loaded the jars in place
-            // this launch - don't move loaded files.
+            // this launch, so don't move loaded files.
             if (addModsCovers(gameDir, folder)) {
                 LOGGER.info("[Retromod-Loader] mods/Retromod/ is on -Dfabric.addMods - loaded in place; nothing to drain");
                 return;
@@ -112,7 +112,7 @@ public final class RetromodLoaderPreLaunch implements PreLaunchEntrypoint {
                     return true;
                 }
             } catch (Exception ignored) {
-                // malformed entry - ignore
+                // malformed entry: ignore
             }
         }
         return false;

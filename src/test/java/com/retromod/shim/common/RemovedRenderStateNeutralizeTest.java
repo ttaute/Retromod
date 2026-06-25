@@ -19,25 +19,16 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.objectweb.asm.Opcodes.*;
 
 /**
- * Tier-2 render-state soft-fail (Vulkan/26.x): the imperative {@code RenderSystem}
- * state setters were deleted in the blaze3d GpuDevice/RenderPipeline refactor, so
- * an old mod that calls {@code RenderSystem.enableBlend()} etc. dies with
- * {@code NoSuchMethodError} on a modern host - and there's no surviving method to
- * redirect to. {@link RemovedRenderStateNeutralize} registers them for
- * neutralization: the call is dropped (args + receiver popped, default return
- * pushed) so the mod LOADS and runs.
- *
- * <p>The strong assertion here is that a class which <i>only</i> calls neutralized
- * methods both (a) loses every {@code RenderSystem} reference and (b) still
- * <b>verifies and runs</b> with {@code RenderSystem} entirely absent from the
- * classpath - proving the pop/push sequence is stack-balanced, not just that the
- * call name is gone.
+ * The blaze3d refactor (26.x) deleted the imperative {@code RenderSystem} state setters,
+ * leaving nothing to redirect old {@code RenderSystem.enableBlend()} calls to.
+ * {@link RemovedRenderStateNeutralize} drops the call (pops args + receiver, pushes a
+ * default return) so the mod still loads.
  */
 class RemovedRenderStateNeutralizeTest {
 
     private static final String RS = "com/mojang/blaze3d/systems/RenderSystem";
 
-    /** A class whose render() calls ONLY removed state setters (void, primitive args). */
+    /** render() calls only removed state setters (void, primitive args). */
     private static byte[] classOnlyNeutralizedCalls() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
         cw.visit(V17, ACC_PUBLIC, "test/render/OnlyDead", null, "java/lang/Object", null);
@@ -51,13 +42,13 @@ class RemovedRenderStateNeutralizeTest {
 
         MethodVisitor m = cw.visitMethod(ACC_PUBLIC, "render", "()V", null, null);
         m.visitCode();
-        m.visitMethodInsn(INVOKESTATIC, RS, "enableBlend", "()V", false);     // no args
+        m.visitMethodInsn(INVOKESTATIC, RS, "enableBlend", "()V", false);
         m.visitInsn(ICONST_1); m.visitInsn(ICONST_0);
-        m.visitMethodInsn(INVOKESTATIC, RS, "blendFunc", "(II)V", false);     // 2 ints
+        m.visitMethodInsn(INVOKESTATIC, RS, "blendFunc", "(II)V", false);
         m.visitInsn(ICONST_1);
-        m.visitMethodInsn(INVOKESTATIC, RS, "depthMask", "(Z)V", false);      // 1 bool
+        m.visitMethodInsn(INVOKESTATIC, RS, "depthMask", "(Z)V", false);
         m.visitInsn(ICONST_1); m.visitInsn(ICONST_1); m.visitInsn(ICONST_1); m.visitInsn(ICONST_0);
-        m.visitMethodInsn(INVOKESTATIC, RS, "colorMask", "(ZZZZ)V", false);   // 4 bools
+        m.visitMethodInsn(INVOKESTATIC, RS, "colorMask", "(ZZZZ)V", false);
         m.visitInsn(RETURN);
         m.visitMaxs(4, 1);
         m.visitEnd();
@@ -88,32 +79,28 @@ class RemovedRenderStateNeutralizeTest {
             RemovedRenderStateNeutralize.register(t);
             byte[] out = t.transformClass(classOnlyNeutralizedCalls(), "test/render/OnlyDead");
 
-            // (a) every RenderSystem reference is gone from the bytecode
             assertEquals(0, renderSystemCalls(parse(out)),
                     "all removed RenderSystem state calls must be neutralized away");
 
-            // (b) the class verifies and the popped/pushed sequence is balanced:
-            // define it in a loader that has NO RenderSystem on its classpath and
-            // actually invoke render() - a NoSuchMethodError or a VerifyError here
-            // would mean a call survived or the stack was left unbalanced.
+            // run render() with no RenderSystem on the classpath; a NoSuchMethodError
+            // or VerifyError means a call survived or the pop/push unbalanced the stack.
             DefiningLoader dl = new DefiningLoader(getClass().getClassLoader());
             Class<?> defined = dl.define(out);
             Object inst = defined.getDeclaredConstructor().newInstance();
-            defined.getMethod("render").invoke(inst); // must not throw
+            defined.getMethod("render").invoke(inst);
         } finally {
             t.clearRedirectsForTesting();
         }
     }
 
     @Test
-    @DisplayName("non-registered RenderSystem methods are NOT neutralized")
+    @DisplayName("non-registered RenderSystem methods are not neutralized")
     void liveMethodsArePreserved() {
         RetromodTransformer t = RetromodTransformer.getInstance();
         t.clearRedirectsForTesting();
         try {
             RemovedRenderStateNeutralize.register(t);
-            // A class calling getBackendDescription() - a method that DOES survive
-            // and is not in the neutralize set - must keep its call intact.
+            // getBackendDescription survives the refactor, so it's not in the neutralize set.
             ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
             cw.visit(V17, ACC_PUBLIC, "test/render/Live", null, "java/lang/Object", null);
             MethodVisitor m = cw.visitMethod(ACC_PUBLIC | ACC_STATIC, "f", "()V", null, null);
@@ -135,7 +122,7 @@ class RemovedRenderStateNeutralizeTest {
         }
     }
 
-    /** Loader with no MC on its classpath, used to prove the transformed class verifies standalone. */
+    /** Loader with no MC on its classpath, so the transformed class verifies standalone. */
     private static final class DefiningLoader extends ClassLoader {
         DefiningLoader(ClassLoader parent) { super(parent); }
         Class<?> define(byte[] b) { return defineClass("test.render.OnlyDead", b, 0, b.length); }

@@ -23,7 +23,6 @@
       "net/minecraftforge/eventbus/api/Event": "net/neoforged/bus/api/Event",
       "net/minecraftforge/registries/DeferredRegister": "net/neoforged/neoforge/registries/DeferredRegister",
       "net/minecraftforge/registries/RegistryObject": "net/neoforged/neoforge/registries/DeferredHolder",
-      "net/minecraftforge/registries/ForgeRegistries": "net/neoforged/neoforge/registries/NeoForgeRegistries",
       "net/minecraftforge/common/MinecraftForge": "net/neoforged/neoforge/common/NeoForge",
       "net/minecraftforge/common/ForgeConfigSpec": "net/neoforged/neoforge/common/ModConfigSpec",
       "net/minecraftforge/common/capabilities/Capability": "net/neoforged/neoforge/capabilities/Capabilities",
@@ -40,10 +39,12 @@
     },
     "renamed_methods": {
     },
+    "_comment_removed": "ForgeRegistries is deleted, NOT renamed: NeoForgeRegistries has none of its BLOCKS/ITEMS/... fields. Retromod field-redirects ForgeRegistries.<field> reads to vanilla Registries ResourceKeys (see ForgeRegistryApiShim). Listed as removed so the gap report won't suggest a wrong class rename and ReflectionStringRemapper won't mis-rewrite a reflective lookup.",
     "removed_classes": [
       "net/minecraftforge/common/capabilities/CapabilityManager",
       "net/minecraftforge/common/capabilities/CapabilityInject",
-      "net/minecraftforge/common/capabilities/CapabilityProvider"
+      "net/minecraftforge/common/capabilities/CapabilityProvider",
+      "net/minecraftforge/registries/ForgeRegistries"
     ]
   },
 

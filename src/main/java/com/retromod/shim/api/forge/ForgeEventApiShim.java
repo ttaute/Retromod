@@ -6,22 +6,24 @@
  */
 package com.retromod.shim.api.forge;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 import com.retromod.util.McReflect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+
 /**
- * Forge Event System API compatibility shim.
- * 
- * Handles changes in Forge's event system between Forge and NeoForge.
- * This is critical for mod compatibility as most mods use events.
- * 
- * API changes:
- * - Event class package changes
- * - Event bus registration changes
- * - Event result/outcome changes
+ * Maps Forge event-system classes to their NeoForge equivalents (package moves, bus
+ * registration, event result types).
  */
 public class ForgeEventApiShim implements VersionShim {
 
@@ -49,25 +51,19 @@ public class ForgeEventApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Despite the file name, every redirect in here maps Forge package
-        // names to their NeoForge equivalents. That's a *cross-loader*
-        // migration - only correct when the runtime is NeoForge. On a Forge
-        // runtime these rewrite Forge mods to reference NeoForge classes
-        // that don't exist, causing every transformed mod to die at
-        // constructor time with NoClassDefFoundError on
-        // net/neoforged/neoforge/common/NeoForge or similar.
-        //
-        // Same gating pattern as Forge_1_20_to_NeoForge_1_21 and the JSON
-        // loader-api-renames "forge" section.
+        // These redirects map Forge names to NeoForge ones, so they only apply on a NeoForge
+        // runtime; on Forge they'd rewrite mods to reference NeoForge classes that don't exist.
         if (!McReflect.isNeoForge()) {
             LOGGER.debug("Skipping Forge → NeoForge event API migration (runtime is not NeoForge)");
             return;
         }
 
-        // ============================================================
-        // EVENT BUS CHANGES
-        // ============================================================
-        
+        // Bulk package renames first; the hand-listed special cases below run after, so a rename
+        // (LivingHurtEvent -> LivingDamageEvent, world/* -> level/*) wins over a same-name bulk entry.
+        loadBulkEventRenames(transformer);
+        loadBulkFmlRenames(transformer);
+
+        // event bus
         transformer.registerClassRedirect(
             "net/minecraftforge/eventbus/api/IEventBus",
             "net/neoforged/bus/api/IEventBus"
@@ -93,12 +89,8 @@ public class ForgeEventApiShim implements VersionShim {
             "net/minecraftforge/eventbus/api/Event$Result",
             "net/neoforged/bus/api/EventResult"
         );
-        
-        // ============================================================
-        // COMMON EVENTS PACKAGE CHANGES
-        // ============================================================
-        
-        // Forge common events -> NeoForge
+
+        // common events
         transformer.registerClassRedirect(
             "net/minecraftforge/event/TickEvent",
             "net/neoforged/neoforge/event/tick/TickEvent"
@@ -124,10 +116,7 @@ public class ForgeEventApiShim implements VersionShim {
             "net/neoforged/neoforge/event/tick/PlayerTickEvent"
         );
         
-        // ============================================================
-        // ENTITY EVENTS
-        // ============================================================
-        
+        // entity events
         transformer.registerClassRedirect(
             "net/minecraftforge/event/entity/EntityEvent",
             "net/neoforged/neoforge/event/entity/EntityEvent"
@@ -168,10 +157,7 @@ public class ForgeEventApiShim implements VersionShim {
             "net/neoforged/neoforge/event/entity/living/LivingDropsEvent"
         );
         
-        // ============================================================
-        // PLAYER EVENTS
-        // ============================================================
-        
+        // player events
         transformer.registerClassRedirect(
             "net/minecraftforge/event/entity/player/PlayerEvent",
             "net/neoforged/neoforge/event/entity/player/PlayerEvent"
@@ -202,10 +188,7 @@ public class ForgeEventApiShim implements VersionShim {
             "net/neoforged/neoforge/event/entity/player/ItemTooltipEvent"
         );
         
-        // ============================================================
-        // WORLD/LEVEL EVENTS
-        // ============================================================
-        
+        // world/level events
         transformer.registerClassRedirect(
             "net/minecraftforge/event/world/WorldEvent",
             "net/neoforged/neoforge/event/level/LevelEvent"
@@ -231,10 +214,7 @@ public class ForgeEventApiShim implements VersionShim {
             "net/neoforged/neoforge/event/level/ChunkEvent"
         );
         
-        // ============================================================
-        // CLIENT EVENTS
-        // ============================================================
-        
+        // client events
         transformer.registerClassRedirect(
             "net/minecraftforge/client/event/RenderGuiOverlayEvent",
             "net/neoforged/neoforge/client/event/RenderGuiLayerEvent"
@@ -265,10 +245,7 @@ public class ForgeEventApiShim implements VersionShim {
             "net/neoforged/neoforge/client/event/RenderPlayerEvent"
         );
         
-        // ============================================================
-        // REGISTRATION EVENTS
-        // ============================================================
-        
+        // registration events
         transformer.registerClassRedirect(
             "net/minecraftforge/event/RegistryEvent",
             "net/neoforged/neoforge/registries/RegisterEvent"
@@ -279,10 +256,7 @@ public class ForgeEventApiShim implements VersionShim {
             "net/neoforged/neoforge/registries/RegisterEvent"
         );
         
-        // ============================================================
-        // FORGE BUS -> NEOFORGE BUS
-        // ============================================================
-        
+        // Forge bus -> NeoForge bus
         transformer.registerClassRedirect(
             "net/minecraftforge/common/MinecraftForge",
             "net/neoforged/neoforge/common/NeoForge"
@@ -297,7 +271,53 @@ public class ForgeEventApiShim implements VersionShim {
             "Lnet/neoforged/bus/api/IEventBus;"
         );
     }
-    
+
+    static final String EVENT_RENAMES_RESOURCE = "/retromod/forge-event-renames.json";
+
+    static final String FML_RENAMES_RESOURCE = "/retromod/forge-fml-renames.json";
+
+    /**
+     * Forge event-package classes NeoForge kept under the same simple name. The hand-listed renames
+     * in {@link #registerRedirects} run after this and override same-name entries. Package-private so
+     * tests can drive it without a NeoForge runtime.
+     */
+    void loadBulkEventRenames(RetromodTransformer transformer) {
+        loadRenameTable(transformer, EVENT_RENAMES_RESOURCE, "event");
+    }
+
+    /**
+     * Forge {@code fml/**} classes NeoForge kept under the same name in {@code net/neoforged/fml/**}
+     * (the {@code @Mod} lifecycle: FMLCommonSetupEvent, ModConfigEvent, ...). Classes handled in
+     * {@code Forge_1_20_to_NeoForge_1_21} and the FMLJavaModLoadingContext synthetic are excluded.
+     */
+    void loadBulkFmlRenames(RetromodTransformer transformer) {
+        loadRenameTable(transformer, FML_RENAMES_RESOURCE, "FML");
+    }
+
+    /**
+     * Load a {@code {oldInternalName: newInternalName}} JSON table and register each as a class
+     * redirect. On a load failure it logs and registers nothing rather than aborting the shim.
+     */
+    private void loadRenameTable(RetromodTransformer transformer, String resource, String label) {
+        int count = 0;
+        try (InputStream in = ForgeEventApiShim.class.getResourceAsStream(resource)) {
+            if (in == null) {
+                LOGGER.warn("Rename table {} not found - bulk {} renames disabled", resource, label);
+                return;
+            }
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+                for (Map.Entry<String, JsonElement> e : root.entrySet()) {
+                    transformer.registerClassRedirect(e.getKey(), e.getValue().getAsString());
+                    count++;
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to load bulk Forge → NeoForge {} renames: {}", label, e.toString());
+        }
+        LOGGER.info("Loaded {} bulk Forge → NeoForge {} class renames", count, label);
+    }
+
     @Override
     public String[] getShimClasses() {
         return new String[] {};

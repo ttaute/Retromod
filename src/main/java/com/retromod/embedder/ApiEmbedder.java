@@ -17,7 +17,7 @@ import java.util.jar.*;
 import java.util.zip.*;
 
 /**
- * ApiEmbedder - The core innovation of Retromod.
+ * ApiEmbedder: the core innovation of Retromod.
  * 
  * When a mod depends on APIs that have been removed from the current mod loader version,
  * this class extracts the old API implementation from archived mod loader sources
@@ -220,7 +220,7 @@ public class ApiEmbedder {
                      new FileOutputStream(outputPath.toFile()))) {
             
             // Copy all original entries.
-            // Validate every entry name against zip-slip - input is an arbitrary
+            // Validate every entry name against zip-slip: input is an arbitrary
             // user-supplied JAR, and writing entry.getName() verbatim into the
             // output would propagate any traversal payload to downstream
             // consumers (mod scanners, archive viewers).
@@ -426,7 +426,7 @@ public class ApiEmbedder {
     }
     
     private String relocateDescriptor(String descriptor, String prefix) {
-        // Simple descriptor relocation - in practice you'd use a proper parser
+        // Simple descriptor relocation; in practice you'd use a proper parser
         return descriptor
             .replace("Lnet/fabricmc/", "L" + prefix + "net/fabricmc/")
             .replace("Lnet/minecraftforge/", "L" + prefix + "net/minecraftforge/")

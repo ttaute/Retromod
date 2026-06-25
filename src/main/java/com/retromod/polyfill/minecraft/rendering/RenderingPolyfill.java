@@ -5,6 +5,7 @@
 package com.retromod.polyfill.minecraft.rendering;
 
 import com.retromod.core.RetromodTransformer;
+import com.retromod.core.RetromodVersion;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -56,9 +57,7 @@ public class RenderingPolyfill implements PolyfillProvider {
             transformer.registerEmbeddedShim(cls);
         }
 
-        // =====================================================================
         // GlStateManager → RenderSystem redirects (1.17+)
-        // =====================================================================
 
         // Color state: delegates to RenderSystem.setShaderColor
         transformer.registerMethodRedirect(
@@ -138,9 +137,7 @@ public class RenderingPolyfill implements PolyfillProvider {
             "com/retromod/polyfill/minecraft/rendering/embedded/GlStateManagerShim", "scale", "(DDD)V"
         );
 
-        // =====================================================================
         // GuiComponent → GuiGraphics redirects (1.20+)
-        // =====================================================================
 
         // GuiComponent.fill(PoseStack, int, int, int, int, int) → shim that delegates to GuiGraphics
         transformer.registerMethodRedirect(
@@ -166,25 +163,33 @@ public class RenderingPolyfill implements PolyfillProvider {
             "(Ljava/lang/Object;IIIIII)V"
         );
 
-        // =====================================================================
         // RenderType → RenderTypes redirects (26.1)
-        // =====================================================================
+        //
+        // Host-gated to 26.1+: unlike the GlStateManager (1.17) and GuiComponent
+        // (1.20) blocks above, whose target METHODS were removed long ago (so the
+        // redirect no-ops on any modern mod that doesn't call them), RenderType.solid()
+        // and friends STILL EXIST below 26.1. A NeoForge mod (Mojang-named) built for
+        // 1.21.x calls RenderType.solid() directly; redirecting that call to the shim
+        // on a pre-26.1 host would replace a working call with one routed through the
+        // 26.1 RenderTypes API that isn't there yet. Gate it.
 
-        transformer.registerMethodRedirect(
-            "net/minecraft/client/renderer/RenderType", "solid", "()Lnet/minecraft/client/renderer/RenderType;",
-            "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "solid", "()Ljava/lang/Object;"
-        );
-        transformer.registerMethodRedirect(
-            "net/minecraft/client/renderer/RenderType", "cutout", "()Lnet/minecraft/client/renderer/RenderType;",
-            "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "cutout", "()Ljava/lang/Object;"
-        );
-        transformer.registerMethodRedirect(
-            "net/minecraft/client/renderer/RenderType", "cutoutMipped", "()Lnet/minecraft/client/renderer/RenderType;",
-            "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "cutoutMipped", "()Ljava/lang/Object;"
-        );
-        transformer.registerMethodRedirect(
-            "net/minecraft/client/renderer/RenderType", "translucent", "()Lnet/minecraft/client/renderer/RenderType;",
-            "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "translucent", "()Ljava/lang/Object;"
-        );
+        if (!RetromodVersion.mcVersionExceeds("26.1", RetromodVersion.TARGET_MC_VERSION)) {
+            transformer.registerMethodRedirect(
+                "net/minecraft/client/renderer/RenderType", "solid", "()Lnet/minecraft/client/renderer/RenderType;",
+                "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "solid", "()Ljava/lang/Object;"
+            );
+            transformer.registerMethodRedirect(
+                "net/minecraft/client/renderer/RenderType", "cutout", "()Lnet/minecraft/client/renderer/RenderType;",
+                "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "cutout", "()Ljava/lang/Object;"
+            );
+            transformer.registerMethodRedirect(
+                "net/minecraft/client/renderer/RenderType", "cutoutMipped", "()Lnet/minecraft/client/renderer/RenderType;",
+                "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "cutoutMipped", "()Ljava/lang/Object;"
+            );
+            transformer.registerMethodRedirect(
+                "net/minecraft/client/renderer/RenderType", "translucent", "()Lnet/minecraft/client/renderer/RenderType;",
+                "com/retromod/polyfill/minecraft/rendering/embedded/RenderTypeShim", "translucent", "()Ljava/lang/Object;"
+            );
+        }
     }
 }

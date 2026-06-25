@@ -8,47 +8,35 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Deduplicated error handler for non-fatal mod errors.
- *
- * When Retromod wraps entrypoints and callbacks in try-catch, the catch block
- * calls this handler. It deduplicates errors so that recurring failures
- * (e.g., NPE in a tick callback 20x/sec) only log once instead of spamming
- * STDERR with thousands of stack traces that freeze the game.
+ * Deduplicating handler for non-fatal mod errors. Recurring failures (an NPE in a tick
+ * callback firing 20x/sec) would otherwise flood stderr with stack traces and freeze the game,
+ * so each distinct error is logged only once.
  */
 public class RetromodErrorHandler {
 
-    // Track which error messages we've already logged (capped at 500 to prevent memory leak)
     private static final int MAX_SEEN_ERRORS = 500;
     private static final Set<String> seenErrors = ConcurrentHashMap.newKeySet();
 
     /**
-     * Handle a non-fatal error from a wrapped entrypoint or callback.
-     * Only logs the full stack trace for the first occurrence of each unique error.
-     * Subsequent identical errors are silently suppressed.
+     * Log a caught non-fatal error, but only the first time each distinct error is seen.
      *
      * @param className the class where the error occurred
      * @param t the throwable that was caught
      */
     public static void handleNonFatal(String className, Throwable t) {
-        // Create a dedup key from class + exception type + message
         String key = className + "|" + t.getClass().getName() + "|" + t.getMessage();
 
-        // Cap the set to prevent unbounded memory growth
+        // stop logging once the set is full, rather than let it grow without bound
         if (seenErrors.size() >= MAX_SEEN_ERRORS) {
-            return; // After 500 unique errors, stop logging entirely
+            return;
         }
 
         if (seenErrors.add(key)) {
-            // First time seeing this error - log it fully
             System.err.println("[Retromod] Non-fatal: entrypoint failed in " + className + ": " + t);
             t.printStackTrace();
         }
-        // Subsequent occurrences are silently suppressed
     }
 
-    /**
-     * Clear the dedup cache (e.g., on reload).
-     */
     public static void reset() {
         seenErrors.clear();
     }

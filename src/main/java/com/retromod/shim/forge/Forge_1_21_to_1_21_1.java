@@ -7,9 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Forge 1.21 to 1.21.1 compatibility shim.
- */
+/** Forge 1.21 to 1.21.1 shim. */
 public class Forge_1_21_to_1_21_1 implements VersionShim {
     
     @Override
@@ -34,7 +32,7 @@ public class Forge_1_21_to_1_21_1 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Minor version - minimal changes
+        // patch-level bump, no API changes
     }
     
     @Override

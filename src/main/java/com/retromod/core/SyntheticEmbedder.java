@@ -24,27 +24,24 @@ import java.util.Set;
 
 /**
  * Embeds Retromod's registered synthetic classes (ASM-generated polyfills for deleted MC or
- * loader classes - e.g. a {@code DeferredSpawnEggItem} or {@code FMLJavaModLoadingContext}
- * bridge) into the NeoForge/Forge mods that actually REFERENCE them, under a unique-per-mod
- * package, and rewrites the mod's references to point at the embedded copy.
+ * loader classes, such as a {@code DeferredSpawnEggItem} or {@code FMLJavaModLoadingContext}
+ * bridge) into the NeoForge/Forge mods that reference them, under a unique-per-mod package,
+ * and rewrites the mod's references to the embedded copy.
  *
- * <p><b>Why not embed at the original name</b> (CLAUDE.md #13's first sketch). NeoForge loads
- * each mod as a JPMS module, and the deleted classes live in packages the loader/neoforge
- * modules STILL own - verified on 26.2: {@code net/neoforged/neoforge/common/} has 63 classes,
- * {@code net/neoforged/fml/javafmlmod/} holds {@code FMLModContainer} etc. So embedding the
- * synthetic at its original name into a mod module split-packages with the loader module (a
- * hard JPMS crash), and two mods both embedding it split-package with each other. Instead we
- * embed under {@code com/retromod/embedded/<mod-key>/} - a Retromod package, unique per mod -
- * and redirect the mod's references there. Split-package-safe by construction: no two modules
- * ever share an embedded package, and it never collides with a loader/MC package.
+ * <p>We can't embed at the original name: the deleted classes live in packages the
+ * loader/neoforge modules still own, so embedding a synthetic at its original name into a mod
+ * module split-packages with the loader (a JPMS crash), and two mods embedding it split-package
+ * with each other. Instead we put each copy under {@code com/retromod/embedded/<mod-key>/},
+ * unique per mod, so no two modules share an embedded package and none collides with a
+ * loader/MC package.
  *
- * <p>No-op when no synthetics are registered or the mod references none, so it is harmless to
- * call on every mod. Soft-fails (returns 0, leaves the mod untouched) on any error.
+ * <p>No-op when no synthetics are registered or the mod references none. Soft-fails (returns 0,
+ * leaves the mod untouched) on any error.
  */
 public final class SyntheticEmbedder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
-    /** Retromod-owned package root for embedded synthetics; never a loader/MC package. */
+    /** Retromod-owned package root for embedded synthetics. */
     public static final String PREFIX = "com/retromod/embedded/";
 
     private SyntheticEmbedder() {}
@@ -75,7 +72,7 @@ public final class SyntheticEmbedder {
                 try {
                     referenced.addAll(referencedClasses(Files.readAllBytes(cf)));
                 } catch (IOException ignored) {
-                    // unreadable class - skip it
+                    // unreadable class; skip it
                 }
             }
             referenced.retainAll(synthetics.keySet());
@@ -164,7 +161,7 @@ public final class SyntheticEmbedder {
         }
     }
 
-    /** Internal class names referenced by a class (comprehensive - drives the ASM remapper). */
+    /** Internal class names referenced by a class (comprehensive, drives the ASM remapper). */
     static Set<String> referencedClasses(byte[] classBytes) {
         Set<String> refs = new HashSet<>();
         try {
@@ -177,7 +174,7 @@ public final class SyntheticEmbedder {
                         }
                     }), ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
         } catch (Exception ignored) {
-            // malformed class - contributes no references
+            // malformed class; contributes no references
         }
         return refs;
     }

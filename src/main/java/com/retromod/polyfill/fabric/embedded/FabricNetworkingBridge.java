@@ -43,7 +43,7 @@ public class FabricNetworkingBridge {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-NetworkBridge");
 
-    // Cached reflection lookups - initialized once on first use.
+    // Cached reflection lookups, initialized once on first use.
     // We use reflection because the Fabric API classes aren't on Retromod's
     // compile classpath (Retromod is loader-agnostic at compile time).
     private static volatile boolean initialized = false;
@@ -407,7 +407,7 @@ public class FabricNetworkingBridge {
                     return m.invoke(payload);
                 } catch (NoSuchMethodException ignored) {}
             }
-            // Try fields - only access ByteBuf-typed fields to limit reflection scope
+            // Try fields, but only access ByteBuf-typed fields to limit reflection scope
             for (var field : payload.getClass().getDeclaredFields()) {
                 if (field.getType().getSimpleName().contains("ByteBuf")
                         || field.getType().getSimpleName().contains("FriendlyByte")) {

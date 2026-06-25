@@ -242,7 +242,7 @@ public class DataPackTransformer {
             }
             
             // Update item IDs if needed (pre-1.13 packs)
-            // This is simplified - real implementation would need full ID mapping
+            // This is simplified. A real implementation would need full ID mapping.
             
             Files.writeString(recipeFile, content);
         } catch (Exception e) {
@@ -279,7 +279,6 @@ public class DataPackTransformer {
         }
     }
     
-    // ========== Helper Methods ==========
     
     private String readPackMcmeta(Path packPath) throws IOException {
         if (Files.isDirectory(packPath)) {

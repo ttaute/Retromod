@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.core;
@@ -95,7 +95,7 @@ class CtorReferenceRedirectTest {
                 "net/minecraft/world/level/ChunkPos", "unpack",
                 "(J)Lnet/minecraft/world/level/ChunkPos;");
 
-        // StringBuilder::new has no redirect - must stay a ctor reference.
+        // StringBuilder::new has no redirect, so it must stay a ctor reference.
         byte[] fixture = withCtorRef("test/Other", "java/lang/StringBuilder", "()V",
                 "()Ljava/lang/Object;", "java/util/function/Supplier", "()Ljava/lang/StringBuilder;");
         Handle after = implHandle(t.transformClass(fixture, "test/Other"));

@@ -2,28 +2,12 @@
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
- * Forge 1.21.11 → 26.1 shim
- *
- * MC 26.1 removed ALL code obfuscation - Mojang official names used directly.
- * Forge mods built for 1.21.11 already use Mojang names (via MCP/official mappings),
- * so this shim handles vanilla MC API changes, not remapping.
- *
- * Note: Most Forge mods targeting 1.21+ are actually NeoForge mods. This shim
- * exists for the few mods that still target Lexforge (the original Forge fork
- * that continued separately from NeoForge).
- *
- * Vanilla MC changes are the same as the NeoForge shim:
- * - EntityType.BOAT/CHEST_BOAT split into per-wood types
- * - AbstractWidget x/y/width/height fields became private
- * - Listener.setGain(float) removed
- * - Item.getDefaultInstance() needs safe wrapper
- * - Window.getWindow() → handle()
- * - KeyMapping.boundKey → key
- * - AbstractContainerScreen.findSlot → getHoveredSlot
- * - DFU DataResult.get() removed
- *
- * Forge-specific API changes (capabilities, registries, etc.) are handled
- * by ForgeCapabilitiesShim and ForgeRegistryApiShim.
+ * Forge 1.21.11 to 26.1 shim. MC 26.1 uses Mojang official names directly, and
+ * Forge mods built for 1.21.11 already use Mojang names, so this handles vanilla
+ * MC API changes rather than remapping. Most Forge-on-1.21+ mods are really
+ * NeoForge; this covers the few that still target Lexforge. Forge-specific
+ * changes (capabilities, registries) live in ForgeCapabilitiesShim and
+ * ForgeRegistryApiShim.
  */
 package com.retromod.shim.forge;
 
@@ -32,10 +16,8 @@ import com.retromod.core.VersionShim;
 
 /**
  * Compatibility shim for Forge mods built for 1.21.11 to run on 26.1+.
- *
- * Covers vanilla MC API changes that affect Forge mods in the 26.1 update.
- * Forge-specific API redirects (MinecraftForge event bus, capabilities, etc.)
- * are handled by dedicated API shims in the shim.api.forge package.
+ * Covers vanilla MC API changes; Forge-specific redirects live in the
+ * shim.api.forge package.
  */
 public class Forge_1_21_11_to_26_1 implements VersionShim {
 
@@ -62,54 +44,24 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
 
-        // Tier-2 render-state soft-fail: neutralize the imperative RenderSystem
-        // state setters deleted in the blaze3d refactor (gone by 1.21.11). Forge
-        // doesn't share the Common_1_21_11_to_26_1_ClassMoves path, so it's wired
-        // here directly. See RemovedRenderStateNeutralize for the rationale.
+        // Neutralize the imperative RenderSystem state setters deleted in the
+        // blaze3d refactor. Forge doesn't share the Common class-moves path, so
+        // wire it here directly.
         com.retromod.shim.common.RemovedRenderStateNeutralize.register(transformer);
 
-        // ============================================================
-        // RESOURCELOCATION CLASS RENAME
-        // Forge 64.x for MC 26.1 uses the hybrid name
-        // net.minecraft.resources.Identifier (yarn class name in the
-        // mojang package) instead of the historical
-        // net.minecraft.resources.ResourceLocation. Mods compiled
-        // against pre-26.1 Forge reference the old name and crash with:
-        //
-        //   NoClassDefFoundError: net/minecraft/resources/ResourceLocation
-        //
-        // Surfaced by retromod-test-mod-forge's Test 3 (ResourceLocation
-        // 2-arg ctor); also affects any mod that constructs a
-        // ResourceLocation directly (Jade's CommonProxy.<clinit>, etc.).
-        //
-        // The class redirect remaps the type reference; the constructor
-        // signature itself is also gone in newer MC (replaced by
-        // ResourceLocation.fromNamespaceAndPath / Identifier.of), but
-        // that's a separate constructor→factory redirect handled below.
-        // ============================================================
-
+        // Forge 64.x for MC 26.1 renamed net.minecraft.resources.ResourceLocation
+        // to .Identifier; pre-26.1 mods reference the old name and crash with
+        // NoClassDefFoundError. The constructor became private too, handled below.
         transformer.registerClassRedirect(
             "net/minecraft/resources/ResourceLocation",
             "net/minecraft/resources/Identifier"
         );
 
-        // The 2-arg constructor became private in newer MC; redirect to
-        // the static factory of(String, String) on the renamed class.
-        // Constructor → factory uses the dedicated registerConstructorRedirect
-        // path, which catches the NEW + DUP + INVOKESPECIAL <init> sequence
-        // and rewrites it to a single INVOKESTATIC factory call.
-        //
-        // Lookup key uses the POST-CLASS-REMAP owner (Identifier, not
-        // ResourceLocation). The ClassRemapper rewrites class names before
-        // visitMethodInsn sees the bytecode, so the constructor lookup
-        // matches against `Identifier.<init>` at the time it actually
-        // happens. Targeting `ResourceLocation.<init>` would never match
-        // because that class has already been renamed by then.
-        // Forge 64.x for MC 26.1 uses a hybrid: the yarn class name
-        // `Identifier` paired with the Mojang-style factory method name
-        // `fromNamespaceAndPath` (instead of yarn's `of`). Confirmed by
-        // a NoSuchMethodError: 'Identifier Identifier.of(String, String)'
-        // when we tried the yarn name. Use fromNamespaceAndPath here.
+        // 2-arg constructor became private; redirect to the static factory.
+        // The lookup key uses the post-class-remap owner (Identifier), since
+        // ClassRemapper renames class names before the constructor lookup runs.
+        // Forge 64.x pairs the yarn class name with the Mojang factory name
+        // fromNamespaceAndPath, not yarn's of (which gives NoSuchMethodError).
         transformer.registerConstructorRedirect(
             "net/minecraft/resources/Identifier",
             "(Ljava/lang/String;Ljava/lang/String;)V",
@@ -117,9 +69,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "fromNamespaceAndPath",
             "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
         );
-        // 1-arg colon-separated form too: new ResourceLocation("ns:path") /
-        // new Identifier("ns:path") - same private-constructor issue.
-        // The 1-arg factory is `parse(String)` on Mojang-mapped MC 26.1.
+        // 1-arg colon-separated form: new Identifier("ns:path"), factory parse(String).
         transformer.registerConstructorRedirect(
             "net/minecraft/resources/Identifier",
             "(Ljava/lang/String;)V",
@@ -128,12 +78,8 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
         );
 
-        // ============================================================
-        // ENTITY TYPE SPLITS
-        // EntityType.BOAT/CHEST_BOAT split into per-wood types in 26.1
-        // OAK is the most common default for old mods
-        // ============================================================
-
+        // EntityType.BOAT/CHEST_BOAT split into per-wood types in 26.1; OAK is
+        // the common default for old mods.
         transformer.registerFieldRedirect(
             "net/minecraft/world/entity/EntityType", "BOAT",
             "Lnet/minecraft/world/entity/EntityType;",
@@ -147,12 +93,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "Lnet/minecraft/world/entity/EntityType;"
         );
 
-        // ============================================================
-        // ABSTRACTWIDGET FIELD → ACCESSOR REDIRECTS
-        // x/y/width/height became private in 26.1, now accessed via
-        // getX()/setX(), getY()/setY(), getWidth()/setWidth(), getHeight()/setHeight()
-        // ============================================================
-
+        // AbstractWidget x/y/width/height became private in 26.1, now via getters/setters.
         transformer.registerFieldAccessorRedirect(
             "net/minecraft/client/gui/components/AbstractWidget", "x",
             "getX", "()I", "setX", "(I)V"
@@ -170,48 +111,35 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "getHeight", "()I", "setHeight", "(I)V"
         );
 
-        // ============================================================
-        // LISTENER.setGain(float) REMOVED
-        // Volume control moved to per-source in 26.1.
-        // Mods like Dynamic FPS call this to mute/unmute - no-op redirect.
-        // ============================================================
-
-        // CommandSourceStack.hasPermission(int) → bridge to new PermissionSet system
+        // CommandSourceStack.hasPermission(int) bridges to the new PermissionSet system.
         transformer.registerMethodRedirect(
             "net/minecraft/commands/CommandSourceStack", "hasPermission",
             "(I)Z",
             "com/retromod/shim/fabric/embedded/ItemSafetyShim", "hasPermission",
             "(Ljava/lang/Object;I)Z",
-            true  // devirtualize
+            true
         );
 
+        // Listener.setGain(float) removed (volume moved per-source); no-op it.
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/audio/Listener", "setGain",
             "(F)V",
             "com/retromod/shim/fabric/embedded/ItemSafetyShim", "noOp",
             "(Ljava/lang/Object;F)V",
-            true  // devirtualize: instance method → static method
+            true
         );
 
-        // ============================================================
-        // ITEM.getDefaultInstance() SAFE WRAPPER
-        // In 26.1, item components are data-driven and bound during data pack
-        // loading. Calling getDefaultInstance() before binding causes NPE.
-        // ============================================================
-
+        // Item components are data-driven in 26.1; getDefaultInstance() before
+        // binding NPEs, so route through a safe wrapper.
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/Item", "getDefaultInstance",
             "()Lnet/minecraft/world/item/ItemStack;",
             "com/retromod/shim/fabric/embedded/ItemSafetyShim", "safeGetDefaultInstance",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
-            true  // devirtualize: instance method → static method
+            true
         );
 
-        // ============================================================
-        // WINDOW.getWindow() → handle()
-        // MC 26.1 renamed getter methods to record-style accessors
-        // ============================================================
-
+        // Window.getWindow() renamed to record-style accessor handle().
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/platform/Window", "getWindow",
             "()J",
@@ -219,11 +147,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "()J"
         );
 
-        // ============================================================
-        // KEYMAPPING.boundKey → key
-        // Field renamed in 26.1
-        // ============================================================
-
+        // KeyMapping.boundKey renamed to key.
         transformer.registerFieldRedirect(
             "net/minecraft/client/KeyMapping", "boundKey",
             "Lcom/mojang/blaze3d/platform/InputConstants$Key;",
@@ -231,11 +155,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "Lcom/mojang/blaze3d/platform/InputConstants$Key;"
         );
 
-        // ============================================================
-        // ABSTRACTCONTAINERSCREEN.findSlot → getHoveredSlot
-        // Method renamed in 26.1
-        // ============================================================
-
+        // AbstractContainerScreen.findSlot renamed to getHoveredSlot.
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen", "findSlot",
             "(DD)Lnet/minecraft/world/inventory/Slot;",
@@ -243,32 +163,21 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "(DD)Lnet/minecraft/world/inventory/Slot;"
         );
 
-        // ============================================================
-        // DFU (DataFixerUpper) API CHANGES
-        // DataResult changed from class to interface in DFU 9.x
-        // DataResult.get() removed - redirect to polyfill
-        // ============================================================
-
+        // DataResult became an interface in DFU 9.x and dropped get(); use the polyfill.
         transformer.registerMethodRedirect(
             "com/mojang/serialization/DataResult", "get",
             "()Lcom/mojang/datafixers/util/Either;",
             "com/retromod/polyfill/minecraft/DataResultPolyfill", "get",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
-            true  // devirtualize: instance method → static method
+            true
         );
 
-        // ============================================================
-        // FORGE-SPECIFIC CHANGES
-        // Forge API renames/removals in the 26.1 update
-        // ============================================================
+        // ForgeRegistries is NOT class-redirected here. Its field reads are migrated to
+        // vanilla Registries ResourceKeys by ForgeRegistryApiShim via field redirects;
+        // a class redirect would rewrite the GETSTATIC owner first (ClassRemapper runs
+        // before field redirects) and re-break them.
 
-        // ForgeRegistries → BuiltInRegistries (Forge finally aligned with vanilla)
-        transformer.registerClassRedirect(
-            "net/minecraftforge/registries/ForgeRegistries",
-            "net/minecraft/core/registries/BuiltInRegistries"
-        );
-
-        // IForgeItem → ForgeItem (Forge dropped "I" prefix convention)
+        // Forge dropped the "I" prefix: IForgeItem -> ForgeItem, etc.
         transformer.registerClassRedirect(
             "net/minecraftforge/common/extensions/IForgeItem",
             "net/minecraftforge/common/extensions/ForgeItem"
@@ -286,12 +195,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "net/minecraftforge/common/extensions/ForgeBlockEntity"
         );
 
-        // ============================================================
-        // JSPECIFY ANNOTATIONS
-        // Ensure javax.annotation references are caught for mods
-        // that skip intermediate shims via direct BFS path
-        // ============================================================
-
+        // Catch javax.annotation refs for mods that skip intermediate shims via direct BFS.
         transformer.registerClassRedirect(
             "javax/annotation/Nullable",
             "org/jspecify/annotations/Nullable"
@@ -305,8 +209,7 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
     @Override
     public String[] getShimClasses() {
         return new String[] {
-            // Reuses Fabric's ItemSafetyShim for safe Item.getDefaultInstance()
-            // and Listener.setGain() no-op - these are loader-agnostic utilities
+            // Loader-agnostic; reused from Fabric for the safe Item/Listener redirects.
             "com.retromod.shim.fabric.embedded.ItemSafetyShim"
         };
     }

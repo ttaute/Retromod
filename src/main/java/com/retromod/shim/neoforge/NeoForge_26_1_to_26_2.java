@@ -8,14 +8,7 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 import com.retromod.shim.common.Mc26_1To26_2CoreMoves;
 
-/**
- * NeoForge 26.1 → 26.2 shim - the shared Mojang-name class moves.
- *
- * <p>Registered ahead of a NeoForge 26.2 release (NeoForge doesn't ship
- * snapshot builds); the host-version gate keeps it inert until a 26.2 host
- * actually exists. NeoForge-API-level renames get added once that release
- * is out.
- */
+/** NeoForge 26.1 to 26.2 shim: shared Mojang-name class moves only (no NeoForge-API renames yet). */
 public class NeoForge_26_1_to_26_2 implements VersionShim {
 
     @Override

@@ -13,25 +13,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Bridges the removed Fabric <b>{@code ServerWorldEvents}</b> lifecycle API
- * (server level load/unload) onto the surviving {@code ServerLevelEvents}. Audit
- * gap: ~21 mods sole-blocked on {@code ServerWorldEvents$Load}.
+ * Bridges the removed Fabric {@code ServerWorldEvents} lifecycle API onto {@code ServerLevelEvents}.
  *
- * <p>26.1 renamed the holder ({@code ServerWorldEvents} → {@code ServerLevelEvents})
- * and the SAM methods ({@code onWorldLoad}/{@code onWorldUnload} →
- * {@code onLevelLoad}/{@code onLevelUnload}). The SAM-name change makes a class
- * redirect a lambda trap, so we keep the old SAM names on synthetic interfaces and
- * a synthetic holder, wired to the live {@code ServerLevelEvents} fields by
- * reflection ({@link com.retromod.shim.api.fabric.embedded.ServerWorldEventsBridge}).
- * The only parameter change is {@code ServerWorld → ServerLevel}, which the harvest
- * already remaps in the lambda - so unlike the item-group bridge there are no
- * parameter-object method renames.</p>
- *
- * <p>Replaces the previous {@code ServerWorldEvents → ServerLevelEvents} class
- * redirect (a latent lambda trap) that lived in {@code Fabric_1_21_11_to_26_1}.</p>
- *
- * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
- * {@code fabric-api-0.141.1} / {@code 0.145.4+26.1.2}. A 26.1 launch is still required.</p>
+ * <p>26.1 renamed the holder and the SAM methods ({@code onWorldLoad}/{@code onWorldUnload} to
+ * {@code onLevelLoad}/{@code onLevelUnload}). The SAM rename makes a plain class redirect emit a
+ * lambda against the wrong method, so we keep the old SAM names on synthetic interfaces plus a
+ * synthetic holder, wired to the live {@code ServerLevelEvents} fields by reflection
+ * ({@link com.retromod.shim.api.fabric.embedded.ServerWorldEventsBridge}). The {@code ServerWorld}
+ * to {@code ServerLevel} param change is handled by the harvest.</p>
  */
 public class FabricServerWorldEventsShim implements VersionShim {
 
@@ -47,7 +36,7 @@ public class FabricServerWorldEventsShim implements VersionShim {
 
     private static final String EVENT   = "net/fabricmc/fabric/api/event/Event";
     private static final String L_EVENT = "L" + EVENT + ";";
-    // SAM: (MinecraftServer, ServerLevel) - MinecraftServer is stable, ServerLevel is the harvested param.
+    // ServerLevel is the harvested param.
     private static final String SAM_DESC =
             "(Lnet/minecraft/server/MinecraftServer;Lnet/minecraft/server/level/ServerLevel;)V";
 
@@ -58,10 +47,8 @@ public class FabricServerWorldEventsShim implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // 26.1+ hosts ONLY (pitfall #9). Pre-26.1, ServerWorldEvents is still ALIVE in
-        // the Fabric API - redirecting it would hijack a working API and wire it to
-        // ServerLevelEvents, which doesn't exist there. The synthetic SAM also declares
-        // the Mojang-named ServerLevel, unresolvable on an intermediary runtime.
+        // 26.1+ only (#9): pre-26.1 still ships ServerWorldEvents, and the synthetic
+        // SAM's Mojang-named ServerLevel won't resolve on an intermediary runtime.
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
             LOGGER.debug("[Retromod] ServerWorldEvents bridge skipped (host {} < 26.1 - old API still present)",
@@ -84,7 +71,7 @@ public class FabricServerWorldEventsShim implements VersionShim {
                 + "(STATUS: needs in-game verification)");
     }
 
-    /** Holder class with the {@code LOAD}/{@code UNLOAD} fields wired in {@code <clinit>}. */
+    /** Holder with {@code LOAD}/{@code UNLOAD} fields wired in {@code <clinit>}. */
     static byte[] generateHolder() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,

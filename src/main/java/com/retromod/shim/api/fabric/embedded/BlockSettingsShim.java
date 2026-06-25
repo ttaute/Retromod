@@ -9,21 +9,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Shim for Block Settings changes.
- * 
- * Major change in 1.20: Material system was completely removed.
- * Old: FabricBlockSettings.of(Material.STONE)
- * New: AbstractBlock.Settings.create() with individual property setters
- * 
- * This shim maps old Material-based calls to appropriate property configurations.
+ * Maps old {@code FabricBlockSettings.of(Material)} onto 1.20's
+ * {@code AbstractBlock.Settings.create()} plus property setters, since 1.20 removed the Material system.
  */
 public class BlockSettingsShim {
-    
-    // Map of material names to their typical properties
+
     private static final Map<String, MaterialProperties> MATERIAL_DEFAULTS = new HashMap<>();
-    
+
     static {
-        // Define default properties for common materials
         MATERIAL_DEFAULTS.put("STONE", new MaterialProperties(true, false, false, 1.5f, 6.0f));
         MATERIAL_DEFAULTS.put("WOOD", new MaterialProperties(true, true, false, 2.0f, 3.0f));
         MATERIAL_DEFAULTS.put("METAL", new MaterialProperties(true, false, false, 5.0f, 6.0f));
@@ -50,61 +43,47 @@ public class BlockSettingsShim {
         MATERIAL_DEFAULTS.put("NETHER_WOOD", new MaterialProperties(true, false, false, 2.0f, 3.0f));
     }
     
-    /**
-     * Convert old FabricBlockSettings.of(material) to new AbstractBlock.Settings.create()
-     */
+    /** Translate {@code FabricBlockSettings.of(material)} to {@code AbstractBlock.Settings.create()}. */
     public static Object of(Object material) {
         try {
-            // Get the new Settings.create() method
             Class<?> settingsClass = Class.forName("net.minecraft.block.AbstractBlock$Settings");
-            Method createMethod = settingsClass.getMethod("create");
-            Object settings = createMethod.invoke(null);
-            
-            // Try to determine material type and apply properties
+            Object settings = settingsClass.getMethod("create").invoke(null);
+
             if (material != null) {
-                String materialName = getMaterialName(material);
-                MaterialProperties props = MATERIAL_DEFAULTS.getOrDefault(materialName, 
+                MaterialProperties props = MATERIAL_DEFAULTS.getOrDefault(getMaterialName(material),
                     new MaterialProperties(true, false, false, 1.0f, 1.0f));
-                
-                // Apply strength
-                Method strengthMethod = settingsClass.getMethod("strength", float.class, float.class);
-                settings = strengthMethod.invoke(settings, props.hardness, props.resistance);
-                
-                // Apply solid/non-solid
+
+                Method strength = settingsClass.getMethod("strength", float.class, float.class);
+                settings = strength.invoke(settings, props.hardness, props.resistance);
+
                 if (!props.solid) {
                     try {
-                        Method noCollisionMethod = settingsClass.getMethod("noCollision");
-                        settings = noCollisionMethod.invoke(settings);
+                        settings = settingsClass.getMethod("noCollision").invoke(settings);
                     } catch (NoSuchMethodException e) {
-                        // Method might not exist in this version
+                        // setter absent on this version
                     }
                 }
-                
-                // Apply burnable
+
                 if (props.burnable) {
                     try {
-                        Method burnableMethod = settingsClass.getMethod("burnable");
-                        settings = burnableMethod.invoke(settings);
+                        settings = settingsClass.getMethod("burnable").invoke(settings);
                     } catch (NoSuchMethodException e) {
-                        // Older versions might not have this
+                        // setter absent on this version
                     }
                 }
-                
-                // Apply replaceable
+
                 if (props.replaceable) {
                     try {
-                        Method replaceableMethod = settingsClass.getMethod("replaceable");
-                        settings = replaceableMethod.invoke(settings);
+                        settings = settingsClass.getMethod("replaceable").invoke(settings);
                     } catch (NoSuchMethodException e) {
-                        // Method might not exist
+                        // setter absent on this version
                     }
                 }
             }
-            
+
             return settings;
-            
+
         } catch (Exception e) {
-            // Fallback: try to create basic settings
             try {
                 Class<?> settingsClass = Class.forName("net.minecraft.block.AbstractBlock$Settings");
                 return settingsClass.getMethod("create").invoke(null);
@@ -113,29 +92,21 @@ public class BlockSettingsShim {
             }
         }
     }
-    
-    /**
-     * Get material name from material object via reflection.
-     */
+
     private static String getMaterialName(Object material) {
         try {
-            // Try to get the name field or toString
             String str = material.toString().toUpperCase();
-            // Extract material name from various formats
             for (String key : MATERIAL_DEFAULTS.keySet()) {
                 if (str.contains(key)) {
                     return key;
                 }
             }
-            return "STONE"; // Default fallback
+            return "STONE";
         } catch (Exception e) {
             return "STONE";
         }
     }
-    
-    /**
-     * Simple class to hold material properties.
-     */
+
     private static class MaterialProperties {
         final boolean solid;
         final boolean burnable;

@@ -1,24 +1,13 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Mod Menu API Compatibility Shim
  */
 package com.retromod.shim.api.fabric;
 
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Mod Menu API compatibility shim.
- * 
- * Mod Menu is the de-facto standard for config screen integration on Fabric.
- * API changes between major versions:
- * - v1.x -> v2.x: ModMenuApi interface changes
- * - v2.x -> v3.x: ConfigScreenFactory signature changes
- * - v3.x -> v4.x: Badge system changes
- * - v4.x -> v7.x: Further ConfigScreen changes
- */
+/** Bridges Mod Menu API changes (interface/factory/badge) across v1 through v7. */
 public class ModMenuApiShim implements VersionShim {
     
     @Override
@@ -43,12 +32,7 @@ public class ModMenuApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // MOD MENU API v1 -> v2+ CHANGES
-        // ============================================================
-        
-        // Old: ModMenuApi.getModConfigScreenFactory()
-        // New: ModMenuApi.getConfigScreenFactory()
+        // getModConfigScreenFactory() was renamed to getConfigScreenFactory() in v2
         transformer.registerMethodRedirect(
             "com/terraformersmc/modmenu/api/ModMenuApi",
             "getModConfigScreenFactory",
@@ -58,23 +42,17 @@ public class ModMenuApiShim implements VersionShim {
             "()Lcom/terraformersmc/modmenu/api/ConfigScreenFactory;"
         );
         
-        // Old ConfigScreenFactory interface location
+        // io.github.prospector package moved to com.terraformersmc
         transformer.registerClassRedirect(
             "io/github/prospector/modmenu/api/ConfigScreenFactory",
             "com/terraformersmc/modmenu/api/ConfigScreenFactory"
         );
-        
-        // Old ModMenuApi interface location (pre-rename)
         transformer.registerClassRedirect(
             "io/github/prospector/modmenu/api/ModMenuApi",
             "com/terraformersmc/modmenu/api/ModMenuApi"
         );
-        
-        // ============================================================
-        // BADGE SYSTEM CHANGES
-        // ============================================================
-        
-        // Old badge methods
+
+        // getModBadge was removed; route it through the embedded shim
         transformer.registerMethodRedirect(
             "com/terraformersmc/modmenu/api/ModMenuApi",
             "getModBadge",
@@ -83,13 +61,8 @@ public class ModMenuApiShim implements VersionShim {
             "getModBadge",
             "()Ljava/util/Optional;"
         );
-        
-        // ============================================================
-        // CONFIG SCREEN FACTORY CHANGES
-        // ============================================================
-        
-        // Old: ConfigScreenFactory<Screen> (generic)
-        // New: ConfigScreenFactory (non-generic in some versions)
+
+        // ConfigScreenFactory.create lost its generic type parameter; bridge the old signature
         transformer.registerMethodRedirect(
             "com/terraformersmc/modmenu/api/ConfigScreenFactory",
             "create",

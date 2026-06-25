@@ -10,7 +10,7 @@ package com.retromod.polyfill.fabric.embedded;
  * The original interface (removed in Fabric API 0.100+) had:
  *   void receive(MinecraftClient, ClientPlayNetworkHandler, FriendlyByteBuf, PacketSender)
  *
- * Uses Object parameters - see ServerPlayChannelHandler for rationale.
+ * Uses Object parameters. See ServerPlayChannelHandler for rationale.
  */
 @FunctionalInterface
 public interface ClientPlayChannelHandler {

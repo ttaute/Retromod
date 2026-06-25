@@ -59,24 +59,20 @@ public class NetworkPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // Pure class redirects - no stub implementations needed.
+        // Pure class redirects, no stub implementations needed.
         // All old packet classes map directly to modern Mojang-named equivalents.
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // Core networking
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/network/PacketBuffer",
             "net/minecraft/network/FriendlyByteBuf");
 
-        // =====================================================================
         // Client → Server packets (CPacket* → Serverbound*Packet)
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/network/play/client/CPacketPlayer",
@@ -85,9 +81,7 @@ public class NetworkPolyfill implements PolyfillProvider {
             "net/minecraft/network/play/client/CPacketChatMessage",
             "net/minecraft/network/protocol/game/ServerboundChatPacket");
 
-        // =====================================================================
         // Server → Client packets (SPacket* → Clientbound*Packet)
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/network/play/server/SPacketChat",

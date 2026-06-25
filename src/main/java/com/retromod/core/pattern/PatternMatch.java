@@ -14,20 +14,20 @@ import java.util.Objects;
  *
  * <h3>What lives here</h3>
  * <ul>
- *   <li>{@code patternName} - the identifier of the {@link ClassPattern} that
+ *   <li>{@code patternName}: the identifier of the {@link ClassPattern} that
  *       fired. Matches {@link ClassPattern#name()}.</li>
- *   <li>{@code className} - JVM internal name of the mod class that matched.</li>
- *   <li>{@code confidence} - 0.0 to 1.0. 1.0 means "100% certain" (e.g., the
+ *   <li>{@code className}: JVM internal name of the mod class that matched.</li>
+ *   <li>{@code confidence}: 0.0 to 1.0. 1.0 means "100% certain" (e.g., the
  *       class has an unambiguous signal like an annotation); lower values mean
  *       the match is based on heuristic signals (method-name patterns,
  *       structural shape).</li>
- *   <li>{@code metadata} - pattern-specific extra info, captured as an ordered
+ *   <li>{@code metadata}: pattern-specific extra info, captured as an ordered
  *       key-value map so the gap report can print it without knowing the pattern.
  *       Examples: {@code handlerCount=3}, {@code superclass=net/minecraft/world/level/block/entity/BlockEntity}.</li>
  * </ul>
  *
  * <h3>Why a generic map for metadata?</h3>
- * <p>Each pattern extracts different info - a forge-event-listener pattern cares
+ * <p>Each pattern extracts different info: a forge-event-listener pattern cares
  * about handler method signatures, a registry-holder pattern cares about the
  * list of registered items. Typed metadata classes would mean a hierarchy of
  * {@code PatternMatch} subclasses. For the initial feature the expressiveness

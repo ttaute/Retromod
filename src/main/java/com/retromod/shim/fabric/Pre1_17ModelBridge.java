@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.shim.fabric;
@@ -13,42 +13,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Pre-1.17 entity-model bridge (Fabric, pre-26.1 hosts, intermediary namespace).
+ * Pre-1.17 entity-model bridge for Fabric mods on pre-26.1 (intermediary) hosts.
  *
- * <h2>The problem</h2>
- * Minecraft rebuilt the entity-model system in 1.17. A Fabric mod built for ≤1.16
- * constructs its models with the OLD <i>mutable, self-building</i> idiom:
- * <pre>
- *   ModelPart head = new ModelPart(this, texU, texV);  // class_630.&lt;init&gt;(class_3879,II)V
- *   head.setTextureOffset(u, v);                        // method_2850 texOffs
- *   head.addBox(x,y,z,w,h,d, delta);                    // method_2856 addBox
- *   head.setRotationPoint(x,y,z);                       // method_2851 setPos
- * </pre>
- * In 1.17+, {@code ModelPart} ({@code class_630}) no longer self-constructs - its only
- * ctor is {@code (List<Cube>, Map<String,ModelPart>)} and box-building moved to
- * {@code CubeListBuilder}. The names all still exist; the signatures/owners changed.
+ * <p>1.17 rebuilt the entity-model system. A &le;1.16 mod builds models with the old mutable
+ * idiom (new ModelPart(model, u, v); addBox; setRotationPoint), but in 1.17+ ModelPart's only
+ * ctor is (List&lt;Cube&gt;, Map&lt;String,ModelPart&gt;) and box-building moved to
+ * CubeListBuilder. Intermediary names survive; the signatures and owners changed.
  *
- * <h2>The bridge (layers 1+3+2)</h2>
- * Synthetic {@code LegacyModelPart extends class_630} (layer 1), injected per-mod. The
- * old construction calls are de-virtualized to its static methods. Recorders now
- * <b>actually store</b> cubes/transforms (layer 2 - this build), and the synthetic
- * <b>overrides {@code method_22699}</b> (the int-color {@code render}) to draw the
- * recorded cubes via the {@code VertexConsumer} chain. Per-base {@code LegacyModelBase_*}
- * synthetics (layer 3) bridge each vanilla model base's {@code super()} call onto its
- * modern {@code (ModelPart)} ctor with a forgiving {@code EMPTY_ROOT}.
+ * <p>We inject a synthetic LegacyModelPart extends class_630 and de-virtualize the old
+ * construction calls to its static recorders (which store cubes/transforms); the synthetic
+ * overrides method_22699 (int-color render) to draw the recorded cubes through the
+ * VertexConsumer chain. Per-base LegacyModelBase_* synthetics bridge each vanilla base's
+ * super() onto its modern (ModelPart) ctor with EMPTY_ROOT.
  *
- * <h2>ASM constraints</h2>
- * Retromod doesn't compile against Minecraft, so any class extending {@code class_630}
- * is ASM-emitted and injected. The render override has loops (over boxes and children),
- * so the writer uses {@code COMPUTE_FRAMES} - with a {@code getCommonSuperClass}
- * override that falls back to {@code Object} for unresolvable types so the generator
- * still runs in unit tests without Minecraft on the classpath.
+ * <p>Retromod doesn't compile against Minecraft, so every class extending class_630 is
+ * ASM-emitted, using COMPUTE_FRAMES with a getCommonSuperClass override that falls back to
+ * Object for unresolvable types (so the generator runs in unit tests without MC on the
+ * classpath).
  *
- * <h2>Gating</h2>
- * Registered only from the Fabric pre-launch path when the host is <b>pre-26.1</b>
- * (intermediary runtime). On a 26.x host the runtime is Mojang-named, {@code class_630}
- * doesn't exist, and the intermediary→Mojang remap renames these calls first - so the
- * Mojang-namespace variant is a separate (future) registration.
+ * <p>Registered only from the Fabric pre-launch path on a pre-26.1 host. On 26.x the runtime
+ * is Mojang-named, class_630 is gone, and the intermediary remap rewrites these calls first;
+ * a Mojang-namespace variant is future work.
  */
 public final class Pre1_17ModelBridge {
 
@@ -56,7 +41,7 @@ public final class Pre1_17ModelBridge {
 
     private Pre1_17ModelBridge() {}
 
-    // ── Intermediary names (1.21.x-stable) ──────────────────────────────────
+    // Intermediary names (1.21.x-stable).
     static final String MODEL_PART = "net/minecraft/class_630";
     static final String MODEL = "net/minecraft/class_3879";
     static final String POSE_STACK = "net/minecraft/class_4587";
@@ -94,14 +79,12 @@ public final class Pre1_17ModelBridge {
     private static final String M_SET_LIGHT   = "method_22922"; // setLight(I)VC
     private static final String M_SET_NORMAL  = "method_22914"; // setNormal(FFF)VC
 
-    // ── §A1: AgeableListModel-family abstract bases (ABSENT on 26.1 - synthetic reimpls) ──
-    // Structures recovered by remapping the 1.16.5 client jar to intermediary (see the probe
-    // note at PROBE_CLASSES). Each is rebuilt as an ABSTRACT synthetic that renders its
-    // abstract part-iterable(s) through the shared LegacyModelPart RGBA bridge.
+    // AgeableListModel-family abstract bases, absent on 26.1, rebuilt as abstract synthetics
+    // that render their part-iterable(s) through the LegacyModelPart RGBA bridge.
     static final String ANIMAL_MODEL      = "net/minecraft/class_4592"; // AnimalModel (head + body)
     static final String TINTED_MODEL      = "net/minecraft/class_4593"; // tint subclass of AnimalModel
     static final String COMPOSITE_MODEL   = "net/minecraft/class_4595"; // CompositeEntityModel (single parts list)
-    static final String ENTITY_MODEL_BASE = "net/minecraft/class_583";  // shared super - PRESENT on host
+    static final String ENTITY_MODEL_BASE = "net/minecraft/class_583";  // shared super, PRESENT on host
     static final String GEN_ANIMAL    = "com/retromod/generated/LegacyAnimalModel";
     static final String GEN_TINTED    = "com/retromod/generated/LegacyTintedAnimalModel";
     static final String GEN_COMPOSITE = "com/retromod/generated/LegacyCompositeModel";
@@ -116,10 +99,9 @@ public final class Pre1_17ModelBridge {
     private static final String MODEL_RENDER_DESC = "(" + L_POSE + L_VC + "IIFFFF)V";
 
     /**
-     * Concrete vanilla model bases the mod's models extend, with the OLD (1.16-era)
-     * {@code super()} ctor descriptor each one is called with. Each base's modern host
-     * ctor is the uniform {@code (ModelPart)} (confirmed by the probe). Row format:
-     * {@code {baseInternalName, oldSuperDesc...}}.
+     * Concrete vanilla model bases a mod extends, paired with the old (1.16-era) super() ctor
+     * descriptor(s) each is called with. The modern host ctor is uniformly (ModelPart). Row
+     * format: {baseInternalName, oldSuperDesc...}.
      */
     private static final String[][] CONCRETE_BASES = {
         {"net/minecraft/class_560", "()V"},          // CowModel
@@ -130,20 +112,17 @@ public final class Pre1_17ModelBridge {
         {"net/minecraft/class_623", "(FFII)V"},      // ZombieModel
     };
 
-    /**
-     * Register the bridge: inject the synthetic and rewrite the old construction
-     * call sites to it. Call only on a pre-26.1 Fabric host.
-     */
+    /** Inject the synthetics and rewrite the old construction call sites. Pre-26.1 Fabric only. */
     public static void register(RetromodTransformer transformer) {
         transformer.registerSyntheticClass(SELF, generateLegacyModelPart());
 
-        // ── Constructors: new class_630(...) → LegacyModelPart.create(...) ──
+        // new class_630(...) -> LegacyModelPart.create(...)
         transformer.registerConstructorRedirect(MODEL_PART, "(" + L_MODEL + "II)V",
                 SELF, "create", "(" + L_MODEL + "II)" + L_MP);
         transformer.registerConstructorRedirect(MODEL_PART, "(" + L_MODEL + ")V",
                 SELF, "create", "(" + L_MODEL + ")" + L_MP);
 
-        // ── Build/transform/render call sites → static targets on the synthetic ──
+        // Build/transform/render call sites -> static targets on the synthetic.
         // addBox family
         devirtual(transformer, "method_2856", "(FFFFFFF)V",  "addBox",        "(" + L_MP + "FFFFFFF)V");
         devirtual(transformer, "method_2849", "(FFFFFFFZ)V", "addBoxMirror",  "(" + L_MP + "FFFFFFFZ)V");
@@ -155,13 +134,13 @@ public final class Pre1_17ModelBridge {
         // transform setters / child wiring
         devirtual(transformer, "method_2851", "(FFF)V",       "setPos",   "(" + L_MP + "FFF)V");
         devirtual(transformer, "method_2845", "(" + L_MP + ")V", "addChild", "(" + L_MP + L_MP + ")V");
-        // old RGBA-float render (pre-1.21.2 signature) - delegates to the int-color override
+        // old RGBA-float render (pre-1.21.2 signature), delegates to the int-color override
         devirtual(transformer, "method_22699",
                 "(" + L_POSE + L_VC + "IIFFFF)V",
                 "render",
                 "(" + L_MP + L_POSE + L_VC + "IIFFFF)V");
 
-        // ── Layer 3: base-model super() bridges (concrete vanilla bases) ──
+        // Layer 3: super() bridges for concrete vanilla bases.
         for (String[] spec : CONCRETE_BASES) {
             String base = spec[0];
             String[] oldDescs = new String[spec.length - 1];
@@ -169,22 +148,18 @@ public final class Pre1_17ModelBridge {
             String legacy = "com/retromod/generated/LegacyModelBase_"
                     + base.substring(base.lastIndexOf('_') + 1);
             transformer.registerSyntheticClass(legacy, generateLegacyBase(legacy, base, oldDescs));
-            // #70: rebase the EXTENDS + super(...) only - NOT a global class redirect.
-            // A plain class redirect rewrote EVERY reference to the base, including a
-            // modern (1.20.1) mod's mixin @Inject handler that merely captures it as a
-            // parameter (Arcanus: "Expected (class_583) but found (LegacyModelBase_583)").
-            // The rebase touches only the inheritance edge; LegacyModelBase_<N> is a
-            // subtype of the base, so untouched references stay valid.
+            // #70: rebase the extends + super(...) edge only, not a global class redirect. A
+            // class redirect would rewrite every reference to the base, including a modern mod's
+            // mixin @Inject handler that captures it as a parameter (Arcanus: "Expected
+            // (class_583) but found (LegacyModelBase_583)"). LegacyModelBase_<N> is a subtype
+            // of the base, so untouched references stay valid.
             transformer.registerSuperclassRebase(base, legacy);
         }
 
-        // ── Layer 4 (§A1): AgeableListModel-family abstract bases (ABSENT on host) ──
-        // class_4592/4595 extend the present class_583; class_4593 extends class_4592.
-        // These are GONE on 26.1 (restructured to new intermediaries), so unlike the
-        // concrete Layer-3 bases a superclass-REBASE is not enough: every reference
-        // (field types, casts, params) would dangle on a missing class. A full class
-        // REDIRECT is correct and safe here precisely because there is no surviving real
-        // class to mismatch against (the Arcanus #70 trap only bites still-present bases).
+        // Layer 4: AgeableListModel-family abstract bases, absent on the host. These classes are
+        // gone (not just renamed), so a superclass rebase would leave every field type/cast/param
+        // dangling on a missing class; here a full class redirect works since there's no
+        // surviving class to mismatch against.
         transformer.registerSyntheticClass(GEN_ANIMAL, generateAgeableBase(GEN_ANIMAL,
                 new String[]{"()V", "(ZFF)V", "(ZFFFFF)V", "(" + FUNCTION_DESC + "ZFFFFF)V"},
                 new String[]{M_HEAD_PARTS, M_BODY_PARTS}, Opcodes.ACC_PROTECTED));
@@ -204,46 +179,27 @@ public final class Pre1_17ModelBridge {
         t.registerMethodRedirect(MODEL_PART, oldName, oldDesc, SELF, newName, newDesc, true);
     }
 
-    // ── Layer-3 host-API probe (diagnostic) ─────────────────────────────────
-    //
-    // ── PROBE RESULTS - host MC 1.21.11 (captured from a live run) ──────────
-    // class_630 (ModelPart):
-    //   <init>(Ljava/util/List;Ljava/util/Map;)V          ← layer-1 super() call
-    //   getChild  = method_32086(Ljava/lang/String;)Lclass_630;
-    //   hasChild  = method_41919(Ljava/lang/String;)Z
-    //   render    = method_22699(Lclass_4587;Lclass_4588;III)V    ← layer-2 override target
-    // class_3879 (Model): <init>(Lclass_630;Ljava/util/function/Function;)V
-    // Concrete bases: <init>(Lclass_630;)V uniformly (class_560/597/601/620/623); class_583 also has (Lclass_630;Function)V.
-    // ABSENT on 1.21.11: class_4592/4593/4595 (abstract bases - need synthetic reimpls).
-    //   §A1 structures recovered by remapping the 1.16.5 client jar to intermediary (the
-    //   host can't be probed - they're gone). Reconstruct as ABSTRACT synthetics extending
-    //   their (present) super, ctors -> super(EMPTY_ROOT) like generateLegacyBase, abstract
-    //   part getters kept abstract, render method_2828(class_4587,class_4588,II,FFFF) emitted.
-    //   Modern part render = class_630.method_22699(class_4587,class_4588,III) (light, overlay,
-    //   packed-ARGB) - pack (r,g,b,a) floats into the int.
-    //   - class_4592 (AnimalModel) extends class_583; abstract method_22946()=headParts,
-    //     method_22948()=bodyParts (both ()Ljava/lang/Iterable;); ctors ()V,(ZFF)V,(ZFFFFF)V,
-    //     (Ljava/util/function/Function;ZFFFFF)V. render: if young (field_3448) pushPose, optional
-    //     head scale (field_20915 -> 1.5f/field_20918), translate(0, field_20916/16, field_20917/16),
-    //     render headParts, popPose, render bodyParts; else render both directly. MINIMAL-SAFE
-    //     version: iterate headParts+bodyParts and render each, skip the baby scale/translate
-    //     (babies render adult-scale - a minor visual nuance, much lower bytecode risk).
-    //   - class_4595 (CompositeEntityModel) extends class_583; abstract method_22960()=parts
-    //     (()Ljava/lang/Iterable;); ctors ()V,(Ljava/util/function/Function;)V. render = iterate
-    //     method_22960() and render each (1.16 uses Iterable.forEach + a lambda; an explicit
-    //     Iterator loop is equivalent and avoids generating an invokedynamic).
-    //   - class_4593 extends class_4592; method_22955(FFF) stores tint into field_20923/24/25;
-    //     render multiplies r/g/b by them, then super.method_2828.
-    // Render API (layer 2):
-    //   PoseStack class_4587: push=method_22903, pop=method_22909, translate(FFF)=method_46416,
-    //     scale(FFF)=method_22905, mulPose(Quaternionfc)=method_22907, last()=method_23760 -> Lclass_4587$class_4665;
-    //   VertexConsumer class_4588 (chainable -> class_4588):
-    //     addVertex(Pose,FFF)=method_56824, setColor(argb I)=method_39415,
-    //     setUv(FF)=method_22913, setOverlay(I)=method_60803, setLight(I)=method_22922,
-    //     setNormal(FFF)=method_22914
-    // ─────────────────────────────────────────────────────────────────────────
+    // Probe results, host MC 1.21.11, that the synthetics above are built against:
+    //   class_630 (ModelPart): <init>(List,Map)V; getChild=method_32086(String)class_630;
+    //     hasChild=method_41919(String)Z; render=method_22699(class_4587,class_4588,III)V.
+    //   class_3879 (Model): <init>(class_630,Function)V.
+    //   Concrete bases: <init>(class_630)V uniformly; class_583 also (class_630,Function)V.
+    //   class_4592/4593/4595 absent on 1.21.11 (abstract bases, synthetic reimpls; structures
+    //     recovered from the remapped 1.16.5 client jar). Each part renders via
+    //     class_630.method_22699(pose,vc,light,overlay,packedARGB) with (r,g,b,a) packed into
+    //     the int; the 1.16 baby head-scale path is dropped (babies render adult-scale):
+    //     - class_4592 (AnimalModel) extends class_583; method_22946()=headParts,
+    //       method_22948()=bodyParts (both ()Iterable); ctors ()V,(ZFF)V,(ZFFFFF)V,(Function,ZFFFFF)V.
+    //     - class_4595 (CompositeEntityModel) extends class_583; method_22960()=parts (()Iterable);
+    //       ctors ()V,(Function)V. Explicit Iterator loop, not the 1.16 forEach+lambda.
+    //     - class_4593 extends class_4592; method_22955(FFF) stores tint into field_20923/24/25;
+    //       render multiplies r/g/b by them then super.method_2828.
+    //   Render API: PoseStack class_4587 push=method_22903 pop=method_22909
+    //     translate=method_46416 mulPose=method_22907 last=method_23760. VertexConsumer
+    //     class_4588 (chainable) addVertex=method_56824 setColor=method_39415 setUv=method_22913
+    //     setOverlay=method_60803 setLight=method_22922 setNormal=method_22914.
 
-    /** Vanilla model classes seen as `super()` targets in real pre-1.17 mods. */
+    /** Vanilla model classes seen as super() targets in pre-1.17 mods. */
     private static final String[] PROBE_CLASSES = {
         MODEL_PART,
         MODEL,
@@ -304,12 +260,10 @@ public final class Pre1_17ModelBridge {
                 LOGGER.info("    {} - NOT PRESENT ({})", internal, t.getClass().getSimpleName());
             }
         }
-        // InteractionResult restructure probe - `class_1269.field_5811` (= old enum constant
-        // PASS) is gone on 1.21.11, breaking any pre-1.17 mod that returns InteractionResult
-        // values from interaction handlers (AutoConfig hit it on Earth2Java). Dump the
-        // current shape - superclass/interfaces + every public field/method - so the bridge
-        // can be built against the real form (enum → sealed/interface? PASS → static field
-        // on a nested class? a factory method?).
+        // InteractionResult restructure probe: class_1269.field_5811 (old enum constant PASS)
+        // is gone on 1.21.11, breaking pre-1.17 mods that return InteractionResult from
+        // interaction handlers (AutoConfig hit it on Earth2Java). Dump the current shape so a
+        // bridge can be built against it.
         try {
             Class<?> c = Class.forName("net.minecraft.class_1269", false, cl);
             LOGGER.info("    net/minecraft/class_1269 ({}) - InteractionResult shape probe:",
@@ -341,7 +295,6 @@ public final class Pre1_17ModelBridge {
                             descriptorOf(m.getParameterTypes(), m.getReturnType()));
                 }
             }
-            // Nested classes - if PASS moved to a nested sealed type, list them.
             Class<?>[] nested = c.getDeclaredClasses();
             if (nested.length > 0) {
                 StringBuilder sb = new StringBuilder();
@@ -379,17 +332,7 @@ public final class Pre1_17ModelBridge {
         return "L" + c.getName().replace('.', '/') + ";";
     }
 
-    // ── Synthetic class generation ──────────────────────────────────────────
-
-    /**
-     * Generate {@code com/retromod/generated/LegacyModelPart extends class_630}.
-     *
-     * <p>The render override has loops so we use {@code COMPUTE_FRAMES}; with a
-     * {@code getCommonSuperClass} override that returns {@code Object} for any class we
-     * can't resolve, the generator still runs without Minecraft on the classpath (so
-     * unit tests work). In-game where {@code class_630} exists, the standard resolution
-     * is used.
-     */
+    /** Generate com/retromod/generated/LegacyModelPart extends class_630. */
     static byte[] generateLegacyModelPart() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override
@@ -404,7 +347,7 @@ public final class Pre1_17ModelBridge {
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
                 SELF, null, MODEL_PART, null);
 
-        // ── Instance fields owning the model's mutable state ──
+        // Instance fields holding the model's mutable state.
         cw.visitField(Opcodes.ACC_PUBLIC, "boxes",       "Ljava/util/List;", null, null).visitEnd();
         cw.visitField(Opcodes.ACC_PUBLIC, "children",    "Ljava/util/List;", null, null).visitEnd();
         cw.visitField(Opcodes.ACC_PUBLIC, "currentTexU", "I", null, null).visitEnd();
@@ -415,7 +358,7 @@ public final class Pre1_17ModelBridge {
         cw.visitField(Opcodes.ACC_PUBLIC, "posY",        "F", null, null).visitEnd();
         cw.visitField(Opcodes.ACC_PUBLIC, "posZ",        "F", null, null).visitEnd();
 
-        // Constructors - super(empty,empty) + init our own fields.
+        // Constructors: super(empty,empty) + init our own fields.
         emitBridgingCtor(cw, "(" + L_MODEL + "II)V");
         emitBridgingCtor(cw, "(" + L_MODEL + ")V");
         emitBridgingCtor(cw, "()V");
@@ -431,7 +374,7 @@ public final class Pre1_17ModelBridge {
         emitFactory(cw, "(" + L_MODEL + "II)" + L_MP, "(" + L_MODEL + "II)V");
         emitFactory(cw, "(" + L_MODEL + ")" + L_MP, "(" + L_MODEL + ")V");
 
-        // ── Recorders (layer 2): de-virtualized statics that capture cube + transform state ──
+        // Layer-2 recorders: de-virtualized statics that capture cube + transform state.
         emitAddBox(cw, "addBox",        "(" + L_MP + "FFFFFFF)V",   /*numFloats*/7, /*hasMirror*/false, /*returnsSelf*/false);
         emitAddBox(cw, "addBoxMirror",  "(" + L_MP + "FFFFFFFZ)V",  7, true,  false);
         emitAddBox(cw, "addBoxR",       "(" + L_MP + "FFFFFF)" + L_MP,  6, false, true);
@@ -441,10 +384,10 @@ public final class Pre1_17ModelBridge {
         emitSetPos(cw);
         emitAddChild(cw);
 
-        // Old RGBA-float render bridge → delegates to the int-color instance override.
+        // Old RGBA-float render bridge delegates to the int-color instance override.
         emitStaticRenderBridge(cw);
 
-        // Instance render override (method_22699 int-color) - draws recorded cubes.
+        // Instance render override (method_22699 int-color), draws recorded cubes.
         emitInstanceRender(cw);
 
         // Per-cube + per-vertex helpers used by the instance render.
@@ -455,10 +398,7 @@ public final class Pre1_17ModelBridge {
         return cw.toByteArray();
     }
 
-    /**
-     * {@code <init>(args...) { super(emptyList, emptyMap); boxes = new ArrayList; children = new ArrayList;
-     *  texW = 64; texH = 32; }}
-     */
+    /** super(emptyList, emptyMap); init boxes/children to ArrayList; texW=64; texH=32. */
     private static void emitBridgingCtor(ClassWriter cw, String desc) {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", desc, null, null);
         mv.visitCode();
@@ -525,7 +465,7 @@ public final class Pre1_17ModelBridge {
         mv.visitEnd();
     }
 
-    /** {@code public class_630 getChild(String) { return new LegacyModelPart(); }} */
+    /** getChild(String) returns a fresh LegacyModelPart instead of throwing. */
     private static void emitForgivingGetChild(ClassWriter cw) {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "method_32086",
                 "(Ljava/lang/String;)" + L_MP, null, null);
@@ -538,7 +478,7 @@ public final class Pre1_17ModelBridge {
         mv.visitEnd();
     }
 
-    /** {@code public boolean hasChild(String) { return true; }} */
+    /** hasChild(String) always returns true. */
     private static void emitForgivingHasChild(ClassWriter cw) {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "method_41919",
                 "(Ljava/lang/String;)Z", null, null);
@@ -549,16 +489,13 @@ public final class Pre1_17ModelBridge {
         mv.visitEnd();
     }
 
-    // ── Layer-2 recorders ───────────────────────────────────────────────────
-
     /**
-     * Emit an addBox-family recorder. Appends a 10-float spec {@code [x,y,z,w,h,d,delta,
-     * mirror, texU, texV]} to {@code self.boxes}, using the current {@code texU/texV} from
-     * the receiver.
+     * Emit an addBox-family recorder. Appends a 10-float spec
+     * [x,y,z,w,h,d,delta,mirror,texU,texV] to self.boxes, reading texU/texV off the receiver.
      *
-     * @param numFloats 6 (no delta) or 7 (with delta).
-     * @param hasMirror whether an extra {@code Z} arg trails (true → mirror).
-     * @param returnsSelf whether the method returns the receiver (chained variants).
+     * @param numFloats 6 (no delta) or 7 (with delta)
+     * @param hasMirror whether a trailing Z (mirror) arg is present
+     * @param returnsSelf whether the method returns the receiver (chained variants)
      */
     private static void emitAddBox(ClassWriter cw, String name, String desc,
                                    int numFloats, boolean hasMirror, boolean returnsSelf) {
@@ -679,9 +616,8 @@ public final class Pre1_17ModelBridge {
     }
 
     /**
-     * Old RGBA-float render call sites → delegate to the int-color instance override
-     * with a neutral white color (most legacy callers pass 1,1,1,1; an exact RGBA-to-int
-     * conversion is unnecessary for the common case and avoids extra bytecode here).
+     * Old RGBA-float render call sites delegate to the int-color instance override with white
+     * (0xFFFFFFFF). Legacy callers pass 1,1,1,1, so the RGBA-to-int conversion is skipped.
      */
     private static void emitStaticRenderBridge(ClassWriter cw) {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
@@ -701,10 +637,9 @@ public final class Pre1_17ModelBridge {
     }
 
     /**
-     * Instance override of {@code class_630.method_22699(class_4587, class_4588, int, int, int)V}
-     * (the 1.21.2+ int-color render). Pushes the pose, applies translate + ZYX rotation
-     * from this part's pos and inherited rotation fields, iterates {@code boxes} calling
-     * {@code drawBox}, iterates {@code children} recursing, then pops.
+     * Instance override of class_630.method_22699 (the 1.21.2+ int-color render). Pushes the
+     * pose, applies translate + ZYX rotation from this part's pos and inherited rotation fields,
+     * draws each box via drawBox, recurses into children, then pops.
      */
     private static void emitInstanceRender(ClassWriter cw) {
         // Local layout (instance method, slot 0 = this):
@@ -728,8 +663,8 @@ public final class Pre1_17ModelBridge {
         }
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, POSE_STACK, M_TRANSLATE, "(FFF)V", false);
 
-        // pose.mulPose(new Quaternionf().rotationZYX(zRot, yRot, xRot))
-        // (rotation fields are inherited from real class_630; the mod sets them via PUTFIELD.)
+        // pose.mulPose(new Quaternionf().rotationZYX(zRot, yRot, xRot)); rotation fields are
+        // inherited from class_630, set by the mod via PUTFIELD.
         mv.visitVarInsn(Opcodes.ALOAD, 1);
         mv.visitTypeInsn(Opcodes.NEW, "org/joml/Quaternionf");
         mv.visitInsn(Opcodes.DUP);
@@ -750,7 +685,7 @@ public final class Pre1_17ModelBridge {
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, POSE_STACK, M_LAST, "()" + L_POSE_INNER, false);
         mv.visitVarInsn(Opcodes.ASTORE, 6);
 
-        // Loop over boxes - for (i=0; i<boxes.size(); i++) drawBox(innerPose, vc, boxes.get(i), texW, texH, color, light, overlay)
+        // Loop over boxes: for (i=0; i<boxes.size(); i++) drawBox(innerPose, vc, boxes.get(i), texW, texH, color, light, overlay)
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitFieldInsn(Opcodes.GETFIELD, SELF, "boxes", "Ljava/util/List;");
         mv.visitVarInsn(Opcodes.ASTORE, 7);
@@ -783,7 +718,7 @@ public final class Pre1_17ModelBridge {
         mv.visitJumpInsn(Opcodes.GOTO, boxLoopStart);
         mv.visitLabel(boxLoopEnd);
 
-        // Loop over children - for (j=0; j<children.size(); j++) ((class_630)children.get(j)).method_22699(pose, vc, light, overlay, color)
+        // Loop over children: for (j=0; j<children.size(); j++) ((class_630)children.get(j)).method_22699(pose, vc, light, overlay, color)
         mv.visitVarInsn(Opcodes.ALOAD, 0);
         mv.visitFieldInsn(Opcodes.GETFIELD, SELF, "children", "Ljava/util/List;");
         mv.visitVarInsn(Opcodes.ASTORE, 9);
@@ -820,42 +755,31 @@ public final class Pre1_17ModelBridge {
     }
 
     /**
-     * {@code static drawBox(innerPose, vc, box[10], texW, texH, color, light, overlay)} -
-     * emit 6 face × 4 vertex calls for a single cube. The 8 corner positions are
-     * pre-computed into locals so each face just reloads the 4 corners it needs.
+     * drawBox(innerPose, vc, box[10], texW, texH, color, light, overlay): emit 6 faces x 4
+     * vertices for one cube. The 8 corner positions are precomputed into locals so each face
+     * reloads only the 4 corners it needs.
      *
-     * <p>UV mapping uses placeholder {@code (0,0)-(1,1)} per face for round 1 - positions
-     * + normals are correct so cubes are shaped and lit right; textures will look wrong
-     * until the proper old-ModelRenderer T-layout is encoded in a follow-up.
-     *
-     * <p>Args: {@code (Pose pose, VertexConsumer vc, float[] box, int texW, int texH,
-     *          int color, int light, int overlay)}.
+     * <p>UVs are placeholder (0,0)-(1,1) per face; positions and normals are correct, so cubes
+     * are shaped and lit right but textured wrong until the old-ModelRenderer T-layout is encoded.
      */
     private static void emitDrawBox(ClassWriter cw) {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
                 "drawBox",
                 "(" + L_POSE_INNER + L_VC + "[FIIIII)V", null, null);
         mv.visitCode();
-        // Load box[6] = delta into local 8
+        // delta = box[6] into local 8, then the 8 corner extents (low/high per axis, /16)
+        // into locals 9..14: x0,x1,y0,y1,z0,z1.
         mv.visitVarInsn(Opcodes.ALOAD, 2); pushInt(mv, 6); mv.visitInsn(Opcodes.FALOAD);
         mv.visitVarInsn(Opcodes.FSTORE, 8);
-        // x0 = (box[0] - delta) / 16  → local 9
         loadCornerLow(mv, 0, 8); mv.visitVarInsn(Opcodes.FSTORE, 9);
-        // x1 = (box[0] + box[3] + delta) / 16  → local 10
         loadCornerHigh(mv, 0, 3, 8); mv.visitVarInsn(Opcodes.FSTORE, 10);
-        // y0 = (box[1] - delta) / 16  → local 11
         loadCornerLow(mv, 1, 8); mv.visitVarInsn(Opcodes.FSTORE, 11);
-        // y1 = (box[1] + box[4] + delta) / 16 → local 12
         loadCornerHigh(mv, 1, 4, 8); mv.visitVarInsn(Opcodes.FSTORE, 12);
-        // z0 = (box[2] - delta) / 16  → local 13
         loadCornerLow(mv, 2, 8); mv.visitVarInsn(Opcodes.FSTORE, 13);
-        // z1 = (box[2] + box[5] + delta) / 16 → local 14
         loadCornerHigh(mv, 2, 5, 8); mv.visitVarInsn(Opcodes.FSTORE, 14);
 
-        // Local indices: 9=x0, 10=x1, 11=y0, 12=y1, 13=z0, 14=z1.
-        // Face order: DOWN(-Y), UP(+Y), NORTH(-Z), SOUTH(+Z), WEST(-X), EAST(+X).
-        // Vertices CCW when viewed from along the face normal (from outside).
-        // Round-1 UVs: 0/0, 1/0, 1/1, 0/1 cycling - placeholder.
+        // Locals: 9=x0 10=x1 11=y0 12=y1 13=z0 14=z1. Faces in order DOWN/UP/NORTH/SOUTH/
+        // WEST/EAST, vertices CCW from outside, placeholder UVs cycling 0/0,1/0,1/1,0/1.
 
         // DOWN (-Y, normal 0,-1,0): vertices (x0,y0,z0), (x0,y0,z1), (x1,y0,z1), (x1,y0,z0)
         emitFace(mv,  9,11,13,  9,11,14,  10,11,14,  10,11,13,   0f,-1f,0f);
@@ -896,9 +820,8 @@ public final class Pre1_17ModelBridge {
     }
 
     /**
-     * Emit one face = 4 vertices (CCW from outside). Each vertex takes its (x,y,z)
-     * position from the named locals; UVs are placeholder (0,0)/(1,0)/(1,1)/(0,1)
-     * and the face normal is applied to all 4.
+     * Emit one face as 4 vertices (CCW from outside), each taking its (x,y,z) from the named
+     * locals, with placeholder UVs (0,0)/(1,0)/(1,1)/(0,1) and the face normal on all 4.
      */
     private static void emitFace(MethodVisitor mv,
             int ax, int ay, int az,
@@ -935,10 +858,8 @@ public final class Pre1_17ModelBridge {
     }
 
     /**
-     * {@code static emitVertex(pose, vc, x, y, z, color, u, v, light, overlay, nx, ny, nz)} -
-     * the modern VertexConsumer chain: addVertex → setColor → setUv → setOverlay →
-     * setLight → setNormal. The chain returns VertexConsumer at each step; the final
-     * one is discarded with POP.
+     * emitVertex via the modern VertexConsumer chain: addVertex, setColor, setUv, setOverlay,
+     * setLight, setNormal. Each step returns VertexConsumer; the final one is POPped.
      */
     private static void emitEmitVertex(ClassWriter cw) {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
@@ -996,11 +917,10 @@ public final class Pre1_17ModelBridge {
     }
 
     /**
-     * Generate {@code Legacy<base> extends <base>} for a vanilla model base class whose
-     * 1.16-era ctor(s) the mod's models call via {@code super()}. Each old ctor descriptor
-     * gets a ctor that ignores its args and calls the host's modern {@code (ModelPart)} ctor
-     * with the forgiving {@code EMPTY_ROOT}. A modern {@code (ModelPart)} ctor is also added
-     * so a mod constructing the base the new way still works after the class redirect.
+     * Generate Legacy&lt;base&gt; extends &lt;base&gt; for a vanilla model base whose 1.16-era
+     * ctor(s) the mod calls via super(). Each old ctor descriptor gets a ctor that ignores its
+     * args and calls the host's modern (ModelPart) ctor with EMPTY_ROOT. A modern (ModelPart)
+     * ctor is also added so a mod constructing the base the new way still works.
      */
     static byte[] generateLegacyBase(String legacyName, String baseInternal, String[] oldDescs) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
@@ -1049,12 +969,10 @@ public final class Pre1_17ModelBridge {
     }
 
     /**
-     * Generate an abstract AgeableListModel-family base (class_4592 AnimalModel /
-     * class_4595 CompositeEntityModel). Extends the present {@link #ENTITY_MODEL_BASE},
-     * keeps the part-iterable getter(s) abstract (the mod overrides them), and renders
-     * every part through the shared {@code LegacyModelPart.render} RGBA bridge. The 1.16
-     * baby head-scale path is intentionally dropped (a minor visual nuance - babies render
-     * at adult scale; see the §A1 note above), which keeps the bytecode low-risk.
+     * Generate an abstract AgeableListModel-family base (class_4592 AnimalModel / class_4595
+     * CompositeEntityModel). Extends {@link #ENTITY_MODEL_BASE}, keeps the part-iterable
+     * getter(s) abstract for the mod to override, and renders every part through
+     * LegacyModelPart.render. The 1.16 baby head-scale path is dropped (babies render adult-scale).
      */
     static byte[] generateAgeableBase(String genName, String[] ctorDescs,
                                       String[] getterNames, int getterAccess) {
@@ -1062,9 +980,9 @@ public final class Pre1_17ModelBridge {
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_SUPER,
                 genName, null, ENTITY_MODEL_BASE, null);
 
-        // Constructors mirror the 1.16 signatures; each forwards to class_583's modern
-        // (ModelPart) ctor with the forgiving EMPTY_ROOT (the Function-taking forms keep
-        // their render-layer Function so the host picks the right RenderType).
+        // Constructors mirror the 1.16 signatures, each forwarding to class_583's modern
+        // (ModelPart) ctor with EMPTY_ROOT. Function-taking forms keep their render-layer
+        // Function so the host picks the right RenderType.
         for (String desc : ctorDescs) {
             MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", desc, null, null);
             mv.visitCode();
@@ -1083,7 +1001,7 @@ public final class Pre1_17ModelBridge {
             mv.visitEnd();
         }
 
-        // Abstract part getters - the mod implements these (it may widen the access).
+        // Abstract part getters; the mod implements these and may widen the access.
         for (String getter : getterNames) {
             cw.visitMethod(getterAccess | Opcodes.ACC_ABSTRACT, getter, ITERABLE_DESC, null, null).visitEnd();
         }
@@ -1104,8 +1022,8 @@ public final class Pre1_17ModelBridge {
 
     /**
      * Generate the abstract tint subclass (class_4593): extends the synthetic AnimalModel,
-     * stores a 3-float tint via {@code method_22955(FFF)} (default 1,1,1 = untinted), and
-     * multiplies the render colour by it before delegating to {@code super.render}.
+     * stores a 3-float tint via method_22955(FFF) (default 1,1,1), and multiplies the render
+     * color by it before delegating to super.render.
      */
     static byte[] generateTintedBase(String genName, String animalGenName) {
         ClassWriter cw = framedWriter();
@@ -1117,7 +1035,7 @@ public final class Pre1_17ModelBridge {
             cw.visitField(Opcodes.ACC_PROTECTED, f, "F", null, null).visitEnd();
         }
 
-        // ctor ()V: super() then default each tint to 1.0f.
+        // super() then default each tint to 1.0f.
         MethodVisitor c = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         c.visitCode();
         c.visitVarInsn(Opcodes.ALOAD, 0);
@@ -1131,7 +1049,7 @@ public final class Pre1_17ModelBridge {
         c.visitMaxs(0, 0);
         c.visitEnd();
 
-        // method_22955(FFF): store the tint.
+        // method_22955(FFF) stores the tint.
         MethodVisitor s = cw.visitMethod(Opcodes.ACC_PUBLIC, M_TINT_SET, "(FFF)V", null, null);
         s.visitCode();
         for (int i = 0; i < 3; i++) {

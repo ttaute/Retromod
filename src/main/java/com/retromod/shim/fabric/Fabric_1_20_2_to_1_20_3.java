@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.20.2 to run on 1.20.3.
- * Minor release with no significant API changes.
- */
+/** Shim for Fabric mods built for 1.20.2 running on 1.20.3. */
 public class Fabric_1_20_2_to_1_20_3 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.20.2 to 1.20.3"; }
@@ -20,8 +17,6 @@ public class Fabric_1_20_2_to_1_20_3 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Minor bugfix release - minimal API changes
-
         // GravelBlock merged into ColoredFallingBlock
         transformer.registerClassRedirect(
             "net/minecraft/world/level/block/GravelBlock",

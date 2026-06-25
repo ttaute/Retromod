@@ -32,7 +32,7 @@ import java.util.Map;
  * }
  * </pre>
  * <p>If MC renames {@code Player} or the {@code tick} method, nothing at
- * compile time flags the mismatch - Mixins resolve targets <i>at runtime</i>
+ * compile time flags the mismatch: Mixins resolve targets <i>at runtime</i>
  * when the Mixin framework applies them. The result is "mod loads but does
  * nothing" bugs that are nearly impossible to diagnose without reading
  * obscure log lines.</p>
@@ -43,29 +43,29 @@ import java.util.Map;
  * renamed or removed types.</p>
  *
  * <h3>Match behaviour</h3>
- * <p>Confidence 1.0 when the class has a {@code @Mixin} annotation - the
+ * <p>Confidence 1.0 when the class has a {@code @Mixin} annotation: the
  * annotation is an unambiguous declaration by the mod author.</p>
  *
  * <h3>Metadata captured</h3>
  * <ul>
- *   <li>{@code targetClasses} - comma-separated list of mixin targets
+ *   <li>{@code targetClasses}: comma-separated list of mixin targets
  *       extracted from the {@code @Mixin} annotation's {@code value} array</li>
- *   <li>{@code targetsResolved} - how many of those targets actually exist
+ *   <li>{@code targetsResolved}: how many of those targets actually exist
  *       in the target MC index</li>
- *   <li>{@code targetsMissing} - how many targets are NOT found in MC -
+ *   <li>{@code targetsMissing}: how many targets are NOT found in MC,
  *       the actionable number for mod authors to investigate</li>
  * </ul>
  *
  * <h3>Known limitations</h3>
  * <p>Only the {@code value} array of {@code @Mixin} is read. The
  * {@code targets} string-array form ({@code @Mixin(targets = {"net.minecraft.X"})})
- * is less common but out of v1 scope - would require string-form class-name
+ * is less common but out of v1 scope. It would require string-form class-name
  * resolution logic we don't have factored out. Added in a follow-up if the
  * gap report shows we need it.</p>
  */
 public final class MixinTargetPattern implements ClassPattern {
 
-    /** Mixin annotation descriptor - the SpongePowered FQN is the de-facto standard. */
+    /** Mixin annotation descriptor: the SpongePowered FQN is the de-facto standard. */
     private static final String MIXIN_ANNOTATION_DESC =
             "Lorg/spongepowered/asm/mixin/Mixin;";
 
@@ -135,7 +135,7 @@ public final class MixinTargetPattern implements ClassPattern {
      * element is an ASM {@link Type} object whose internal name we want.
      *
      * <p>Returns empty list if no {@code value} attribute present or if its
-     * shape doesn't match what we expect. Graceful by design - a malformed
+     * shape doesn't match what we expect. Graceful by design: a malformed
      * annotation shouldn't crash the matcher.</p>
      */
     private static List<String> extractMixinValueArray(AnnotationNode ann) {
@@ -150,7 +150,7 @@ public final class MixinTargetPattern implements ClassPattern {
                 for (Object item : list) {
                     if (item instanceof Type t) {
                         // Internal name for Type.OBJECT is "net/minecraft/Foo".
-                        // We don't worry about array element types - @Mixin values
+                        // We don't worry about array element types; @Mixin values
                         // don't take arrays.
                         if (t.getSort() == Type.OBJECT) {
                             out.add(t.getInternalName());

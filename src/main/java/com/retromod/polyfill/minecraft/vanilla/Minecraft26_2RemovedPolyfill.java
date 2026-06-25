@@ -12,19 +12,19 @@ import com.retromod.polyfill.PolyfillProvider;
  * Polyfills for vanilla MC classes removed in <b>26.2</b>.
  *
  * <p><b>Host-gated to 26.2+.</b> Unlike the 26.1-era removals, these classes
- * still EXIST on a 26.1 host - redirecting them there would point live code at
+ * still EXIST on a 26.1 host. Redirecting them there would point live code at
  * a stub (broken {@code instanceof}/casts against the real class). So both
  * {@link #getRemovedClasses()} and {@link #registerPolyfills} no-op below 26.2.
  *
  * <p>Covered:
  * <ul>
- *   <li>{@code net/minecraft/util/Tuple} (intermediary {@code class_3545}) - a
+ *   <li>{@code net/minecraft/util/Tuple} (intermediary {@code class_3545}): a
  *       trivial mutable pair, reimplemented by
  *       {@link com.retromod.polyfill.minecraft.embedded.Tuple}. Widely used by
  *       older mods; one of the bigger 26.2 removals after the render layer.</li>
  * </ul>
  *
- * <p>Future 26.2 removals that need <i>adapter</i> polyfills (the render API -
+ * <p>Future 26.2 removals that need <i>adapter</i> polyfills (the render API:
  * {@code MultiBufferSource}, the {@code Tesselator}/{@code VertexFormat} vertex
  * layer) are out of scope here: they're reshaped APIs, not trivial reimplements,
  * and are tracked for 1.3.0 in the roadmap.
@@ -67,7 +67,7 @@ public class Minecraft26_2RemovedPolyfill implements PolyfillProvider {
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
         if (!active()) {
-            return; // Tuple still exists on 26.1 and earlier - do not hijack it.
+            return; // Tuple still exists on 26.1 and earlier. Do not hijack it.
         }
         // Register BOTH the Mojang name and the intermediary name: the ASM
         // remapper is single-pass, so class_3545→Tuple wouldn't chain into

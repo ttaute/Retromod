@@ -1,26 +1,13 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Patchouli (Guidebook) API Compatibility Shim
  */
 package com.retromod.shim.api.common;
 
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Patchouli API compatibility shim.
- * 
- * Patchouli provides an in-game documentation/guidebook system.
- * Used by many mods for tutorials and documentation.
- * Works on both Fabric and Forge/NeoForge.
- * 
- * API changes:
- * - v1.x -> v2.x: Book registration changes
- * - Page component changes across versions
- * - Template system changes
- */
+/** Patchouli (in-game guidebook) API shim: bridges book/template/multiblock API changes. */
 public class PatchouliApiShim implements VersionShim {
     
     @Override
@@ -45,11 +32,6 @@ public class PatchouliApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PATCHOULI API CHANGES
-        // ============================================================
-        
-        // PatchouliAPI.get() -> PatchouliAPI.get()
         transformer.registerMethodRedirect(
             "vazkii/patchouli/api/PatchouliAPI",
             "instance",
@@ -58,13 +40,8 @@ public class PatchouliApiShim implements VersionShim {
             "get",
             "()Lvazkii/patchouli/api/PatchouliAPI$IPatchouliAPI;"
         );
-        
-        // ============================================================
-        // BOOK OPENING CHANGES
-        // ============================================================
-        
-        // Old: openBookGUI(player, book)
-        // New: openBookGUI(book) - client-side only
+
+        // openBookGUI dropped its player arg and became client-side only
         transformer.registerMethodRedirect(
             "vazkii/patchouli/api/PatchouliAPI$IPatchouliAPI",
             "openBookGUI",
@@ -73,12 +50,7 @@ public class PatchouliApiShim implements VersionShim {
             "openBookGUI",
             "(Ljava/lang/Object;Ljava/lang/Object;)V"
         );
-        
-        // ============================================================
-        // MULTIBLOCK CHANGES
-        // ============================================================
-        
-        // IMultiblock registration
+
         transformer.registerMethodRedirect(
             "vazkii/patchouli/api/PatchouliAPI$IPatchouliAPI",
             "registerMultiblock",
@@ -87,8 +59,7 @@ public class PatchouliApiShim implements VersionShim {
             "registerMultiblock",
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        
-        // Multiblock builder changes
+
         transformer.registerMethodRedirect(
             "vazkii/patchouli/api/PatchouliAPI$IPatchouliAPI",
             "makeMultiblock",
@@ -97,12 +68,7 @@ public class PatchouliApiShim implements VersionShim {
             "makeMultiblock",
             "(Ljava/lang/Object;[Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // TEMPLATE REGISTRATION
-        // ============================================================
-        
-        // Custom page types
+
         transformer.registerMethodRedirect(
             "vazkii/patchouli/api/PatchouliAPI$IPatchouliAPI",
             "registerTemplateAsBuiltin",
@@ -111,12 +77,7 @@ public class PatchouliApiShim implements VersionShim {
             "registerTemplate",
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/util/function/Supplier;)V"
         );
-        
-        // ============================================================
-        // BOOK REGISTRY CHANGES
-        // ============================================================
-        
-        // Get book by ID
+
         transformer.registerMethodRedirect(
             "vazkii/patchouli/api/PatchouliAPI$IPatchouliAPI",
             "getBook",
@@ -125,16 +86,12 @@ public class PatchouliApiShim implements VersionShim {
             "getBook",
             "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // STACK INGREDIENT CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "vazkii/patchouli/api/IStateMatcher",
             "vazkii/patchouli/api/IStateMatcher"
         );
-        
+
         transformer.registerMethodRedirect(
             "vazkii/patchouli/api/PatchouliAPI$IPatchouliAPI",
             "predicateMatcher",

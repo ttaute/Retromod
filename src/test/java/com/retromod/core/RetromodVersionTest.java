@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.core;
@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests {@link RetromodVersion#sameMinorVersion} - the guard that stops the automatic
+ * Tests {@link RetromodVersion#sameMinorVersion}: the guard that stops the automatic
  * in-place mod scan from re-transforming mods that differ from the host only by a patch
  * (#60: a "1.21" mod on a "1.21.1" host was being needlessly transformed, which then
  * broke it via API shims it never needed).

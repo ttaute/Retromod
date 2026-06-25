@@ -49,17 +49,15 @@ public class TrinketsBridgePolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class redirects to Trinkets 3.x
+        // No embedded stubs needed; pure class redirects to Trinkets 3.x
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // Trinkets 2.x -> 3.x class renames.
         // The package stays dev.emi.trinkets.api but class names changed.
         // Only REMOVED/RENAMED classes are redirected here.
-        // =====================================================================
 
         // TrinketSlot -> SlotType (slot definition, defines what can go in a slot)
         transformer.registerClassRedirect(

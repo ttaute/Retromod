@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.prefs.Preferences;
 
 /**
- * GUI for Retromod - allows users to select and transform mods without CLI.
+ * GUI for Retromod, allowing users to select and transform mods without CLI.
  * 
  * Features:
  * - File picker to select mod JARs (opens Finder on Mac, Explorer on Windows)
@@ -271,7 +271,7 @@ public class RetromodGui {
                 }
             }
             
-            // Done - show result
+            // Done, show result
             SwingUtilities.invokeLater(() -> {
                 progressBar.setValue(modFiles.length);
                 statusLabel.setText("Complete!");

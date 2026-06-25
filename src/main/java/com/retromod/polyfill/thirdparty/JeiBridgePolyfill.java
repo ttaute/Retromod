@@ -53,17 +53,15 @@ public class JeiBridgePolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class redirects to current JEI
+        // No embedded stubs needed: pure class redirects to current JEI
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // JEI API sub-package reorganization (JEI 9-11+).
         // Classes moved to more specific sub-packages under mezz.jei.api.
         // Only MOVED/RENAMED classes are redirected here.
-        // =====================================================================
 
         // IRecipeCategory moved to recipe.category sub-package (JEI 9+)
         transformer.registerClassRedirect(

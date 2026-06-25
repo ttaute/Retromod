@@ -6,11 +6,9 @@ package com.retromod.shim.api.common.embedded;
 
 import java.lang.reflect.Method;
 
-/**
- * Architectury API compatibility shim.
- */
+/** Architectury API compatibility shim. */
 public class ArchitecturyShim {
-    
+
     public static Object getRegistries(String modId) {
         try {
             Class<?> registriesClass = Class.forName("dev.architectury.registry.registries.Registries");
@@ -35,7 +33,7 @@ public class ArchitecturyShim {
                 }
             }
         } catch (Exception e) {
-            // Ignore
+            // try the static create path
         }
         try {
             Class<?> deferredClass = Class.forName("dev.architectury.registry.registries.DeferredRegister");
@@ -109,7 +107,6 @@ public class ArchitecturyShim {
                 if ((Boolean) isFabric.invoke(null)) return "fabric";
                 return "forge";
             } catch (Exception e2) {
-                // Ignore
             }
         }
         return "unknown";

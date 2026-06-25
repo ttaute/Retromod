@@ -7,12 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Forge 1.19.4 to 1.20 shim - Material removal and sign changes.
- * The Material class was completely removed; BlockBehaviour.Properties.of()
- * no longer takes a Material parameter. MaterialColor was replaced by
- * NoteBlockInstrument. Sign block entities also changed their API.
- */
+/** Forge 1.19.4 to 1.20: Material removed, MaterialColor renamed to NoteBlockInstrument, sign API changed. */
 public class Forge_1_19_4_to_1_20 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.19.4 to 1.20"; }
@@ -36,7 +31,6 @@ public class Forge_1_19_4_to_1_20 implements VersionShim {
             "net/minecraft/world/level/material/MaterialColor",
             "net/minecraft/world/level/block/state/properties/NoteBlockInstrument"
         );
-        // Sign changes
         transformer.registerMethodRedirect(
             "net/minecraft/world/level/block/entity/SignBlockEntity", "getMessage",
             "(I)Lnet/minecraft/network/chat/Component;",

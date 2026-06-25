@@ -4,7 +4,7 @@
  *
  * NeoForge 1.21.11 → 26.1 shim
  *
- * MC 26.1 removed ALL code obfuscation - Mojang official names used directly.
+ * MC 26.1 removed ALL code obfuscation; Mojang official names used directly.
  * NeoForge already uses Mojang names since 1.17, so NeoForge mods mainly need
  * metadata patching (handled by ForgeModTransformer) rather than full remapping.
  *
@@ -33,7 +33,7 @@ import com.retromod.core.VersionShim;
  *
  * Since NeoForge already uses Mojang names, this shim only needs to handle
  * vanilla MC API changes (renamed/removed methods, field visibility changes,
- * split entity types, etc.) - NOT intermediary→Mojang remapping.
+ * split entity types, etc.), NOT intermediary→Mojang remapping.
  */
 public class NeoForge_1_21_11_to_26_1 implements VersionShim {
 
@@ -65,15 +65,13 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
         // BlockAndTintGetter relocation. These also live in mojang-class-moves-26.1.tsv
         // (applied at runtime via IntermediaryToMojangMapper.applyTo), but registering
         // them in the shim chain too guarantees they apply in BOTH the CLI/audit path
-        // and the runtime regardless of whether the mapper is loaded. Idempotent -
+        // and the runtime regardless of whether the mapper is loaded. Idempotent:
         // double-registration with the same target is a harmless Map.put. (#64)
         com.retromod.shim.common.Common_1_21_11_to_26_1_ClassMoves.register(transformer);
 
-        // ============================================================
         // ENTITY TYPE SPLITS
         // EntityType.BOAT/CHEST_BOAT split into per-wood types in 26.1
         // OAK is the most common default for old mods
-        // ============================================================
 
         transformer.registerFieldRedirect(
             "net/minecraft/world/entity/EntityType", "BOAT",
@@ -88,7 +86,6 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "Lnet/minecraft/world/entity/EntityType;"
         );
 
-        // ============================================================
         // FMLEnvironment.dist FIELD → getDist() METHOD
         // 26.x removed NeoForge's public static `FMLEnvironment.dist` field
         // (verified absent in loader-11.0.13.jar; replaced by the static
@@ -99,7 +96,6 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
         // cast is emitted. NeoForge-only (net/neoforged package); gated to 26.1+
         // by this shim's place in the chain. Found via Handcrafted, but hit by
         // a large share of NeoForge/Forge mods (it's the standard side check).
-        // ============================================================
         transformer.registerFieldRedirect(
             "net/neoforged/fml/loading/FMLEnvironment", "dist",
             "Lnet/neoforged/api/distmarker/Dist;",
@@ -107,11 +103,9 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "()Lnet/neoforged/api/distmarker/Dist;"
         );
 
-        // ============================================================
         // ABSTRACTWIDGET FIELD → ACCESSOR REDIRECTS
         // x/y/width/height became private in 26.1, now accessed via
         // getX()/setX(), getY()/setY(), getWidth()/setWidth(), getHeight()/setHeight()
-        // ============================================================
 
         transformer.registerFieldAccessorRedirect(
             "net/minecraft/client/gui/components/AbstractWidget", "x",
@@ -130,11 +124,9 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "getHeight", "()I", "setHeight", "(I)V"
         );
 
-        // ============================================================
         // LISTENER.setGain(float) REMOVED
         // Volume control moved to per-source in 26.1.
-        // Mods like Dynamic FPS call this to mute/unmute - no-op redirect.
-        // ============================================================
+        // Mods like Dynamic FPS call this to mute/unmute (no-op redirect).
 
         // CommandSourceStack.hasPermission(int) → bridge to new PermissionSet system
         transformer.registerMethodRedirect(
@@ -153,11 +145,9 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize: instance method → static method
         );
 
-        // ============================================================
         // ITEM.getDefaultInstance() SAFE WRAPPER
         // In 26.1, item components are data-driven and bound during data pack
         // loading. Calling getDefaultInstance() before binding causes NPE.
-        // ============================================================
 
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/Item", "getDefaultInstance",
@@ -167,10 +157,8 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize: instance method → static method
         );
 
-        // ============================================================
         // WINDOW.getWindow() → handle()
         // MC 26.1 renamed getter methods to record-style accessors
-        // ============================================================
 
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/platform/Window", "getWindow",
@@ -179,10 +167,8 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "()J"
         );
 
-        // ============================================================
         // KEYMAPPING.boundKey → key
         // Field renamed in 26.1
-        // ============================================================
 
         transformer.registerFieldRedirect(
             "net/minecraft/client/KeyMapping", "boundKey",
@@ -191,10 +177,8 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "Lcom/mojang/blaze3d/platform/InputConstants$Key;"
         );
 
-        // ============================================================
         // ABSTRACTCONTAINERSCREEN.findSlot → getHoveredSlot
         // Method renamed in 26.1
-        // ============================================================
 
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen", "findSlot",
@@ -203,11 +187,9 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "(DD)Lnet/minecraft/world/inventory/Slot;"
         );
 
-        // ============================================================
         // DFU (DataFixerUpper) API CHANGES
         // DataResult changed from class to interface in DFU 9.x
-        // DataResult.get() removed - redirect to polyfill
-        // ============================================================
+        // DataResult.get() removed, redirect to polyfill
 
         transformer.registerMethodRedirect(
             "com/mojang/serialization/DataResult", "get",
@@ -217,10 +199,8 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize: instance method → static method
         );
 
-        // ============================================================
         // NEOFORGE-SPECIFIC CHANGES
         // NeoForge API renames/deprecations in the 26.1 update
-        // ============================================================
 
         // NO handler-interface redirects: the old capability interfaces SURVIVE in
         // 26.1 (verified against neoforge-26.1.2.60-beta-universal.jar) -
@@ -230,14 +210,14 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
         // previous "dropped-I-prefix" redirects here pointed at classes that DON'T
         // EXIST (items/ItemHandler, fluids/FluidHandler) or at the wrong thing
         // entirely (energy/EnergyStorage is the concrete impl class, not a renamed
-        // interface - redirecting the interface onto it corrupts `implements`
+        // interface; redirecting the interface onto it corrupts `implements`
         // clauses), so they broke every item/fluid/energy-handler mod they touched.
         // (ForgeSpawnEggItem also dropped: neither it nor NeoForgeSpawnEggItem
-        // exists in 26.1 - spawn eggs went data-driven - so that redirect just
+        // exists in 26.1 (spawn eggs went data-driven), so that redirect just
         // swapped one missing class for another.)
 
         // BlockEvent$BreakEvent → level/block/BreakBlockEvent (26.1 moved block
-        // events into their own subpackage; same ctor shape, still cancellable -
+        // events into their own subpackage; same ctor shape, still cancellable,
         // verified in the 26.1.2 universal jar). Block-break listeners are one of
         // the most common event subscriptions in content mods.
         transformer.registerClassRedirect(
@@ -248,10 +228,10 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
         // RenderLevelStageEvent stage-inner renames (26.1 render-pipeline pass
         // split; verified in the 26.1.2 universal jar). $AfterEntities → the opaque
         // feature pass (where entities render); $AfterParticles → translucent
-        // particles. ($AfterTripwireBlocks was removed with no successor - left
+        // particles. ($AfterTripwireBlocks was removed with no successor, left
         // unmapped on purpose.) NeoForge events are classes dispatched by exact
         // type, so a class redirect retargets both the listener's parameter and
-        // the subscription - no SAM/lambda hazard.
+        // the subscription, no SAM/lambda hazard.
         transformer.registerClassRedirect(
             "net/neoforged/neoforge/client/event/RenderLevelStageEvent$AfterEntities",
             "net/neoforged/neoforge/client/event/RenderLevelStageEvent$AfterOpaqueFeatures"
@@ -270,11 +250,9 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "net/neoforged/neoforge/client/event/RecipesReceivedEvent"
         );
 
-        // ============================================================
         // JSPECIFY ANNOTATIONS (if not already handled by 1.21.10→1.21.11)
         // Ensure javax.annotation references are caught for mods
         // that skip intermediate shims via direct BFS path
-        // ============================================================
 
         transformer.registerClassRedirect(
             "javax/annotation/Nullable",
@@ -290,7 +268,7 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
     public String[] getShimClasses() {
         return new String[] {
             // Reuses Fabric's ItemSafetyShim for safe Item.getDefaultInstance()
-            // and Listener.setGain() no-op - these are loader-agnostic utilities
+            // and Listener.setGain() no-op. These are loader-agnostic utilities
             "com.retromod.shim.fabric.embedded.ItemSafetyShim"
         };
     }

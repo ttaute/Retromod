@@ -20,24 +20,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Performance monitor for Retromod.
- * 
- * Tracks:
- * - Memory usage
- * - CPU load (transformation time)
- * - TPS (ticks per second) if available
- * - Per-mod resource usage (to identify heavy mods)
- * 
- * Shows friendly errors suggesting which mods to remove.
+ * Tracks memory, CPU, TPS, and per-mod transform cost, and warns the user
+ * which mods are heaviest when performance degrades.
  */
 public class MemorySafetyMonitor {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Performance");
-    
-    // Singleton instance
+
     private static MemorySafetyMonitor instance;
-    
-    // Thresholds
+
     private static final double MEMORY_CRITICAL_PERCENT = 0.90;
     private static final double MEMORY_WARNING_PERCENT = 0.80;
     private static final double CPU_CRITICAL_PERCENT = 0.95;
@@ -45,25 +36,20 @@ public class MemorySafetyMonitor {
     private static final int TPS_CRITICAL = 5;
     private static final int TPS_WARNING = 10;
     private static final int NORMAL_TPS = 20;
-    
-    // System monitoring
+
     private final MemoryMXBean memoryBean;
     private final OperatingSystemMXBean osBean;
-    
-    // Per-mod tracking
+
     private final Map<String, ModPerformanceData> modPerformance = new ConcurrentHashMap<>();
-    
-    // Current state
+
     private final AtomicInteger activeTransforms = new AtomicInteger(0);
     private final AtomicLong totalTransformTimeNs = new AtomicLong(0);
     private final AtomicInteger totalTransformed = new AtomicInteger(0);
-    
-    // TPS tracking
+
     private volatile int currentTps = NORMAL_TPS;
     private long lastTickTime = System.currentTimeMillis();
     private int tickCount = 0;
-    
-    // State flags
+
     private volatile boolean shutdownRequested = false;
     private volatile boolean warningShown = false;
     private volatile PerformanceIssue lastIssue = null;
@@ -78,9 +64,6 @@ public class MemorySafetyMonitor {
         TPS_CRITICAL
     }
     
-    /**
-     * Tracks performance data for a single mod.
-     */
     public static class ModPerformanceData {
         public final String modId;
         public final String modName;
@@ -107,8 +90,7 @@ public class MemorySafetyMonitor {
     private MemorySafetyMonitor() {
         this.memoryBean = ManagementFactory.getMemoryMXBean();
         this.osBean = ManagementFactory.getOperatingSystemMXBean();
-        
-        // Start background monitoring thread
+
         Thread monitor = new Thread(this::monitorLoop, "Retromod-PerformanceMonitor");
         monitor.setDaemon(true);
         monitor.start();
@@ -121,20 +103,17 @@ public class MemorySafetyMonitor {
         return instance;
     }
     
-    /**
-     * Called by Minecraft's tick loop to track TPS.
-     */
+    /** Called by Minecraft's tick loop to track TPS. */
     public void onServerTick() {
         tickCount++;
         long now = System.currentTimeMillis();
         long elapsed = now - lastTickTime;
-        
+
         if (elapsed >= 1000) {
             currentTps = (int) (tickCount * 1000.0 / elapsed);
             tickCount = 0;
             lastTickTime = now;
-            
-            // Check for TPS issues
+
             if (currentTps <= TPS_CRITICAL && !warningShown) {
                 lastIssue = PerformanceIssue.TPS_CRITICAL;
                 showPerformanceError();
@@ -144,22 +123,19 @@ public class MemorySafetyMonitor {
         }
     }
     
-    /**
-     * Call before starting to transform a class.
-     */
+    /** Call before starting to transform a class. */
     public TransformContext beginTransform(String className, String modId) {
         if (shutdownRequested) {
             return null;
         }
-        
+
         activeTransforms.incrementAndGet();
-        
-        // Check current performance
+
         PerformanceIssue issue = checkPerformance();
-        if (issue == PerformanceIssue.MEMORY_CRITICAL || 
+        if (issue == PerformanceIssue.MEMORY_CRITICAL ||
             issue == PerformanceIssue.CPU_CRITICAL ||
             issue == PerformanceIssue.TPS_CRITICAL) {
-            
+
             activeTransforms.decrementAndGet();
             if (!warningShown) {
                 lastIssue = issue;
@@ -171,21 +147,18 @@ public class MemorySafetyMonitor {
         return new TransformContext(className, modId, System.nanoTime());
     }
     
-    /**
-     * Call after finishing transformation.
-     */
+    /** Call after finishing transformation. */
     public void endTransform(TransformContext ctx, boolean success, long memoryUsed) {
         if (ctx == null) return;
-        
+
         activeTransforms.decrementAndGet();
         long elapsed = System.nanoTime() - ctx.startTimeNs;
         totalTransformTimeNs.addAndGet(elapsed);
-        
+
         if (success) {
             totalTransformed.incrementAndGet();
         }
-        
-        // Track per-mod data
+
         if (ctx.modId != null) {
             ModPerformanceData data = modPerformance.computeIfAbsent(
                 ctx.modId, 
@@ -200,11 +173,7 @@ public class MemorySafetyMonitor {
         }
     }
     
-    /**
-     * Check current system performance.
-     */
     public PerformanceIssue checkPerformance() {
-        // Check memory
         double memPercent = getMemoryUsagePercent();
         if (memPercent > MEMORY_CRITICAL_PERCENT) {
             return PerformanceIssue.MEMORY_CRITICAL;
@@ -212,8 +181,7 @@ public class MemorySafetyMonitor {
         if (memPercent > MEMORY_WARNING_PERCENT) {
             return PerformanceIssue.MEMORY_WARNING;
         }
-        
-        // Check CPU
+
         double cpuPercent = getCpuUsagePercent();
         if (cpuPercent > CPU_CRITICAL_PERCENT) {
             return PerformanceIssue.CPU_CRITICAL;
@@ -221,47 +189,37 @@ public class MemorySafetyMonitor {
         if (cpuPercent > CPU_WARNING_PERCENT) {
             return PerformanceIssue.CPU_WARNING;
         }
-        
-        // Check TPS
+
         if (currentTps <= TPS_CRITICAL) {
             return PerformanceIssue.TPS_CRITICAL;
         }
         if (currentTps <= TPS_WARNING) {
             return PerformanceIssue.TPS_WARNING;
         }
-        
+
         return PerformanceIssue.NONE;
     }
-    
-    /**
-     * Get memory usage as percentage (0.0 to 1.0).
-     */
+
+    /** Heap usage as a fraction from 0.0 to 1.0. */
     public double getMemoryUsagePercent() {
         MemoryUsage heap = memoryBean.getHeapMemoryUsage();
         return (double) heap.getUsed() / heap.getMax();
     }
-    
-    /**
-     * Get CPU usage as percentage (0.0 to 1.0).
-     */
+
+    /** Process CPU load as a fraction from 0.0 to 1.0. */
     public double getCpuUsagePercent() {
         if (osBean instanceof com.sun.management.OperatingSystemMXBean sunBean) {
             double load = sunBean.getProcessCpuLoad();
-            return load >= 0 ? load : 0.5; // Default to 50% if unavailable
+            return load >= 0 ? load : 0.5; // fall back to 50% when unavailable
         }
         return osBean.getSystemLoadAverage() / osBean.getAvailableProcessors();
     }
-    
-    /**
-     * Get current TPS.
-     */
+
     public int getCurrentTps() {
         return currentTps;
     }
-    
-    /**
-     * Get the heaviest mods by transform time.
-     */
+
+    /** Mods sorted by total transform time, heaviest first. */
     public List<ModPerformanceData> getHeaviestMods(int limit) {
         return modPerformance.values().stream()
             .sorted((a, b) -> Long.compare(b.totalTransformTimeNs, a.totalTransformTimeNs))
@@ -269,24 +227,20 @@ public class MemorySafetyMonitor {
             .toList();
     }
     
-    /**
-     * Background monitoring loop.
-     */
     private void monitorLoop() {
         while (!shutdownRequested) {
             try {
-                Thread.sleep(500); // Check every 500ms
-                
+                Thread.sleep(500);
+
                 PerformanceIssue issue = checkPerformance();
-                
+
                 if (issue != PerformanceIssue.NONE && !warningShown) {
-                    // Log performance status periodically
                     LOGGER.debug("Performance: Memory={}%, CPU={}%, TPS={}",
                         String.format("%.1f", getMemoryUsagePercent() * 100),
                         String.format("%.1f", getCpuUsagePercent() * 100),
                         currentTps);
                 }
-                
+
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -296,18 +250,13 @@ public class MemorySafetyMonitor {
         }
     }
     
-    /**
-     * Show performance error with specific cause and heavy mod suggestions.
-     * On servers, logs to console instead of showing GUI.
-     */
+    /** Reports the cause and heaviest mods, via GUI on a client or console on a server. */
     private void showPerformanceError() {
         warningShown = true;
-        
-        // Build the message
+
         StringBuilder message = new StringBuilder();
         message.append("Retromod Performance Issue Detected!\n\n");
-        
-        // Explain the specific problem
+
         switch (lastIssue) {
             case MEMORY_CRITICAL, MEMORY_WARNING -> {
                 message.append("Problem: OUT OF MEMORY\n");
@@ -328,8 +277,7 @@ public class MemorySafetyMonitor {
                 message.append("Problem: Performance degradation detected.\n\n");
             }
         }
-        
-        // Show heaviest mods
+
         List<ModPerformanceData> heavyMods = getHeaviestMods(5);
         if (!heavyMods.isEmpty()) {
             message.append("═══════════════════════════════════════\n");
@@ -347,8 +295,7 @@ public class MemorySafetyMonitor {
                 message.append("\n");
             }
         }
-        
-        // Solutions
+
         message.append("═══════════════════════════════════════\n");
         message.append("SOLUTIONS:\n");
         message.append("═══════════════════════════════════════\n\n");
@@ -379,26 +326,20 @@ public class MemorySafetyMonitor {
         boolean isCritical = lastIssue == PerformanceIssue.MEMORY_CRITICAL ||
                              lastIssue == PerformanceIssue.CPU_CRITICAL ||
                              lastIssue == PerformanceIssue.TPS_CRITICAL;
-        
-        // Check if we can show GUI
+
         if (EnvironmentDetector.canShowGui()) {
-            // Show GUI dialog
             showGuiPerformanceError(message.toString(), isCritical);
         } else {
-            // Server mode - log to console
             showConsolePerformanceError(message.toString(), isCritical);
         }
     }
-    
-    /**
-     * Show GUI performance error dialog (client only).
-     */
+
     private void showGuiPerformanceError(String message, boolean isCritical) {
         SwingUtilities.invokeLater(() -> {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception ignored) {}
-            
+
             if (isCritical) {
                 int choice = JOptionPane.showOptionDialog(
                     null,
@@ -417,7 +358,7 @@ public class MemorySafetyMonitor {
                 } else {
                     LOGGER.warn("User chose to continue despite performance issues");
                     shutdownRequested = false;
-                    warningShown = false;
+                    warningShown = false; // let a later issue re-prompt
                 }
             } else {
                 JOptionPane.showMessageDialog(
@@ -431,9 +372,6 @@ public class MemorySafetyMonitor {
         });
     }
     
-    /**
-     * Show console performance error (server mode).
-     */
     private void showConsolePerformanceError(String message, boolean isCritical) {
         if (isCritical) {
             LOGGER.error("═══════════════════════════════════════════════════════════");
@@ -455,14 +393,10 @@ public class MemorySafetyMonitor {
             }
             LOGGER.warn("═══════════════════════════════════════════════════════════");
         }
-        
-        // Don't exit on server - just warn
-        warningShown = false;
+
+        warningShown = false; // never exit a server, just warn
     }
-    
-    /**
-     * Force garbage collection.
-     */
+
     public void requestGarbageCollection() {
         double before = getMemoryUsagePercent();
         System.gc();
@@ -471,9 +405,7 @@ public class MemorySafetyMonitor {
         LOGGER.info("GC: {}% -> {}%", String.format("%.1f", before * 100), String.format("%.1f", after * 100));
     }
     
-    /**
-     * Context object for tracking a single transformation.
-     */
+    /** Tracks one in-flight class transformation. */
     public static class TransformContext {
         public final String className;
         public final String modId;

@@ -32,19 +32,19 @@ import java.util.function.Function;
  *
  * <h3>Sizing</h3>
  * <p>Default: {@code Runtime.getRuntime().availableProcessors()}, i.e. every
- * logical core on the machine. The typical use case - running {@code retromod
- * gaps ./mods} or a pre-launch transform - is a batch burst where the user
+ * logical core on the machine. The typical use case (running {@code retromod
+ * gaps ./mods} or a pre-launch transform) is a batch burst where the user
  * wants the work finished as fast as possible, then all cores return to idle.
  * That's exactly the "opening a cold desktop app" behaviour (spike to 100%
  * briefly, done) the project aims for.</p>
  *
  * <p>Override the size via {@code -Dretromod.parallelism=N}:</p>
  * <ul>
- *   <li>{@code N=1} - serial execution. Escape hatch for low-memory machines
+ *   <li>{@code N=1}: serial execution. Escape hatch for low-memory machines
  *       where multiple concurrent class transforms would OOM, or for
  *       deterministic debugging where interleaved logs get in the way.</li>
- *   <li>{@code N=0} - alias for "default = all cores."</li>
- *   <li>{@code N>=2} - explicit cap. Useful in CI where the machine is shared
+ *   <li>{@code N=0}: alias for "default = all cores."</li>
+ *   <li>{@code N>=2}: explicit cap. Useful in CI where the machine is shared
  *       with other jobs.</li>
  * </ul>
  *
@@ -52,7 +52,7 @@ import java.util.function.Function;
  * <p>The JVM's per-class {@code ClassFileTransformer} path (our agent's
  * runtime JIT transformation) is inherently single-class: the JVM asks for
  * one class, we return one class. There's nothing to parallelize <i>against</i>
- * - other classes aren't loaded yet. This executor helps only the batch
+ * because other classes aren't loaded yet. This executor helps only the batch
  * flows: CLI commands, Fabric pre-launch, Forge/NeoForge constructor.</p>
  *
  * <h3>Thread safety</h3>
@@ -66,7 +66,7 @@ public final class RetromodExecutors {
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Parallel");
 
     /**
-     * Configured parallelism - available cores unless overridden.
+     * Configured parallelism: available cores unless overridden.
      * Resolved once, at class init, so subsequent property changes don't
      * mysteriously change pool behaviour mid-session.
      */
@@ -139,12 +139,12 @@ public final class RetromodExecutors {
         }
 
         // Use invokeAll so we block until every task completes. Without that,
-        // the caller could proceed while tasks are still running - correctness
-        // bugs for code assuming "loop done means all work done."
+        // the caller could proceed while tasks are still running, a correctness
+        // bug for code assuming "loop done means all work done."
         List<ForEachTask<T>> tasks = new ArrayList<>(items.size());
         for (T item : items) tasks.add(new ForEachTask<>(item, action));
         // sharedPool() returns a ForkJoinPool, whose invokeAll(Collection) is
-        // overridden to NOT declare InterruptedException - so we can't wrap an
+        // overridden to NOT declare InterruptedException, so we can't wrap an
         // outer try/catch for InterruptedException (Java 21+ rejects "exception
         // never thrown"). The inner lambda catches InterruptedException from
         // future.get(), which is the actual throw site, so that case is covered.
@@ -185,7 +185,7 @@ public final class RetromodExecutors {
      *
      * <p>Results for failed tasks are {@code null}; callers can filter or
      * treat null as "skip." This is deliberately simpler than checked-exception
-     * propagation - Retromod's use cases treat per-class failures as "skip
+     * propagation. Retromod's use cases treat per-class failures as "skip
      * that class, keep going" rather than "abort the whole batch."</p>
      */
     public static <T, R> List<R> parallelMap(List<T> inputs, Function<T, R> fn) {
@@ -212,7 +212,7 @@ public final class RetromodExecutors {
             tasks.add(new IndexedMapTask<>(i, inputs.get(i), fn, results, failed));
         }
         // sharedPool() returns a ForkJoinPool, whose invokeAll(Collection) is
-        // overridden to NOT declare InterruptedException - so we can't wrap an
+        // overridden to NOT declare InterruptedException, so we can't wrap an
         // outer try/catch for it (Java 21+ rejects "exception never thrown").
         // The inner lambda catches InterruptedException from future.get(),
         // which is the actual throw site, so we're already covered.
@@ -222,7 +222,7 @@ public final class RetromodExecutors {
         if (failed.get() > 0) {
             LOGGER.debug("parallelMap: {} of {} tasks failed", failed.get(), inputs.size());
         }
-        // IMPORTANT: Arrays.asList, not List.of - List.of rejects nulls with NPE,
+        // IMPORTANT: Arrays.asList, not List.of, because List.of rejects nulls with NPE,
         // and we deliberately write null for failed tasks (see IndexedMapTask.call).
         // Arrays.asList preserves nulls, then new ArrayList<>(...) gives a mutable copy.
         return new ArrayList<>(Arrays.asList(results));
@@ -252,7 +252,7 @@ public final class RetromodExecutors {
 
     /**
      * Thread factory that names workers predictably and sets them as daemons.
-     * Predictable naming is useful for debugging - profilers and thread dumps
+     * Predictable naming is useful for debugging: profilers and thread dumps
      * show which threads are Retromod's.
      */
     private static final class NamedDaemonForkJoinWorkerThreadFactory
@@ -276,7 +276,7 @@ public final class RetromodExecutors {
 
     /**
      * RecursiveAction that runs a single consumer call. Used by
-     * {@link #parallelForEach} - one task per input item.
+     * {@link #parallelForEach}, one task per input item.
      */
     private static final class ForEachTask<T> extends RecursiveAction
             implements java.util.concurrent.Callable<Void> {

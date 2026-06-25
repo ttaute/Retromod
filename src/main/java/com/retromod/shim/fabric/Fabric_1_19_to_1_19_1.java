@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.19 to run on 1.19.1.
- * Minor release with chat signing changes but no significant API breaks.
- */
+/** No API changed between 1.19 and 1.19.1; this shim just keeps the chain connected. */
 public class Fabric_1_19_to_1_19_1 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.19 to 1.19.1"; }
@@ -20,10 +17,6 @@ public class Fabric_1_19_to_1_19_1 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // No redirects needed - 1.19.1 added chat signing (new classes) but
-        // removed nothing. No API renames, removals, or signature changes.
-        // This shim exists solely for BFS chain continuity (ShimRegistry needs
-        // a connected path from any version to 26.1).
     }
 
     @Override

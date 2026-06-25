@@ -3,20 +3,12 @@
  * Copyright (c) 2026 Bownlux
  *
  * Pattern-based heuristics for resolving unknown API changes between MC versions.
+ * Each rule encodes a documented, repeatable naming-convention shift observed
+ * across version transitions.
  *
- * These rules encode deterministic naming conventions discovered by analyzing
- * Minecraft version transitions. They are NOT guesses - each rule represents a
- * documented, repeatable API change pattern (e.g., "all render* methods in the
- * GUI package became extract* methods in 26.1").
- *
- * This sits between the hardcoded shim redirect tables and the fuzzy resolver:
- *   1. Shim redirect tables (exact match - highest confidence)
- *   2. PatternHeuristics (pattern-based - medium-high confidence)
- *   3. FuzzyMethodResolver (similarity search - lower confidence)
- *
- * Pattern rules are checked BEFORE fuzzy resolution because they are faster
- * (simple string comparisons vs. JAR scanning) and more reliable (deterministic
- * rules vs. probabilistic matching).
+ * Resolution order: shim redirect tables (exact match), then these patterns,
+ * then FuzzyMethodResolver (similarity search). Patterns run before fuzzy
+ * resolution because string comparisons are cheaper and deterministic.
  */
 package com.retromod.core;
 
@@ -27,38 +19,23 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Applies known naming pattern transformations to resolve method, class, and field
- * references that are not covered by hardcoded shim redirect tables.
+ * Resolves method, class, and field references not covered by the shim redirect
+ * tables, using known naming-pattern transformations.
  *
- * <h2>Design</h2>
- * Rules are stored in fixed-size arrays (not growable lists) because the rule set
- * is fully defined at construction time and never modified afterward. Each rule is
- * a functional interface that returns a {@link PatternResult} on match or null on
- * miss. Rules are checked in registration order; the first match wins.
+ * <p>Rules live in immutable arrays built at construction and are checked in
+ * registration order; the first match wins. Each carries a confidence score
+ * (0.0-1.0): roughly 0.95-0.99 for exact verified renames, 0.85-0.90 for broad
+ * patterns with known exceptions, and 0.60-0.70 for heuristic guesses.</p>
  *
- * <h2>Confidence Scores</h2>
- * Each rule carries a confidence score from 0.0 to 1.0:
- * <ul>
- *   <li><b>0.95-0.99:</b> Exact naming convention shifts verified across multiple versions</li>
- *   <li><b>0.85-0.90:</b> Broad patterns with known exceptions (e.g., NoCull suffix removal)</li>
- *   <li><b>0.60-0.70:</b> Heuristic guesses that work most of the time (e.g., getX to x accessor)</li>
- * </ul>
+ * <p>Thread-safe: the rule arrays never change after construction, and match
+ * counters are {@link AtomicInteger}s.</p>
  *
- * <h2>Thread Safety</h2>
- * This class is thread-safe. Rule arrays are immutable after construction, and
- * match counters use {@link AtomicInteger} for lock-free concurrent updates.
- *
- * <p><b>IMPORTANT:</b> This class must NOT reference {@code Retromod} directly
- * because the transformer is also used by the standalone CLI where Fabric classes
- * are not on the classpath.</p>
+ * <p>Must not reference {@code Retromod} directly: the standalone CLI uses this
+ * without Fabric on the classpath.</p>
  */
 public class PatternHeuristics {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Patterns");
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // PATTERN RESULT - immutable record returned when a rule matches
-    // ═══════════════════════════════════════════════════════════════════════
 
     /**
      * Result of a successful pattern match.
@@ -79,29 +56,18 @@ public class PatternHeuristics {
         String explanation
     ) {}
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // RULE STORAGE - immutable arrays populated at construction time
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Using arrays instead of Lists because the rule set is fixed after construction.
-    // This eliminates ArrayList overhead and iterator allocation on every resolve call.
+    // Arrays, not Lists: the rule set is fixed after construction.
     private final PatternRule[] methodRules;
     private final ClassPatternRule[] classRules;
     private final PatternRule[] fieldRules;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // STATISTICS - atomic counters for thread-safe concurrent access
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * Safely rename GuiGraphics→GuiGraphicsExtractor without double-applying.
-     * Plain String.replace("GuiGraphics","GuiGraphicsExtractor") will match the
-     * prefix of an already-renamed "GuiGraphicsExtractor", producing the broken
-     * "GuiGraphicsExtractorExtractor". This method avoids that.
+     * Renames GuiGraphics to GuiGraphicsExtractor without double-applying it: a
+     * plain replace would also match the prefix of an already-renamed
+     * GuiGraphicsExtractor and produce GuiGraphicsExtractorExtractor.
      */
     private static String renameGuiGraphics(String s) {
         if (s == null || !s.contains("GuiGraphics")) return s;
-        // Already renamed - don't touch
         if (s.contains("GuiGraphicsExtractor")) return s;
         return s.replace("GuiGraphics", "GuiGraphicsExtractor");
     }
@@ -111,12 +77,7 @@ public class PatternHeuristics {
     private final AtomicInteger fieldMatches = new AtomicInteger(0);
     private final AtomicInteger totalAttempts = new AtomicInteger(0);
 
-    /**
-     * Constructs a new PatternHeuristics engine with all known rules pre-registered.
-     * Rules are built once and stored in immutable arrays for fast iteration.
-     */
     public PatternHeuristics() {
-        // Build rules into temporary lists, then freeze into arrays
         List<PatternRule> methods = new ArrayList<>();
         List<ClassPatternRule> classes = new ArrayList<>();
         List<PatternRule> fields = new ArrayList<>();
@@ -133,20 +94,13 @@ public class PatternHeuristics {
             methodRules.length, classRules.length, fieldRules.length);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PUBLIC API
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * Try to resolve an unknown method reference using pattern heuristics.
-     *
-     * <p>Rules are checked in registration order. The first matching rule wins.
-     * If no rule matches, returns null - the caller should fall through to
-     * {@link FuzzyMethodResolver} as a last resort.</p>
+     * Resolves an unknown method reference. Returns null if no pattern applies,
+     * in which case the caller falls through to {@link FuzzyMethodResolver}.
      *
      * @param owner      the class containing the method (JVM internal name)
      * @param name       the method name
-     * @param descriptor the method descriptor (e.g., "(DDI)Z")
+     * @param descriptor the method descriptor
      * @return the pattern match result, or null if no pattern applies
      */
     public PatternResult resolveMethod(String owner, String name, String descriptor) {
@@ -166,10 +120,7 @@ public class PatternHeuristics {
     }
 
     /**
-     * Try to resolve an unknown class reference using pattern heuristics.
-     *
-     * <p>Handles package relocations (e.g., GeckoLib moving from software.bernie to
-     * com.geckolib) and class renames (e.g., GuiGraphics to GuiGraphicsExtractor).</p>
+     * Resolves an unknown class reference: package relocations and class renames.
      *
      * @param className the class to resolve (JVM internal name with '/')
      * @return the pattern match result, or null if no pattern applies
@@ -210,34 +161,19 @@ public class PatternHeuristics {
         return null;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // STATISTICS ACCESSORS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /** Number of successful method pattern matches. */
     public int getMethodMatches() { return methodMatches.get(); }
-    /** Number of successful class pattern matches. */
     public int getClassMatches() { return classMatches.get(); }
-    /** Number of successful field pattern matches. */
     public int getFieldMatches() { return fieldMatches.get(); }
-    /** Total number of resolve attempts (methods + classes + fields). */
     public int getTotalAttempts() { return totalAttempts.get(); }
-    /** Total number of successful matches across all categories. */
     public int getTotalMatches() { return methodMatches.get() + classMatches.get() + fieldMatches.get(); }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // METHOD PATTERN RULES
-    // Each rule encodes a specific MC version API change pattern.
-    // ═══════════════════════════════════════════════════════════════════════
 
     private void registerMethodPatterns(List<PatternRule> rules) {
 
-        // ── 26.1 Render Verb Migration ─────────────────────────────────
-        // MC 26.1 redesigned the rendering pipeline to use an "extract-then-submit"
-        // model. All render*() methods in GUI classes became extract*RenderState()
-        // methods, and GuiGraphics was renamed to GuiGraphicsExtractor.
+        // 26.1 reworked rendering into an extract-then-submit model: render*()
+        // methods on GUI classes became extract*RenderState(), and GuiGraphics
+        // became GuiGraphicsExtractor.
 
-        // Screen.render(GuiGraphics,...) -> Screen.extractRenderState(GuiGraphicsExtractor,...)
+        // Screen.render -> Screen.extractRenderState
         rules.add((owner, name, desc) -> {
             if (name.equals("render") && isScreenClass(owner) && desc.contains("GuiGraphics")) {
                 return new PatternResult(owner, "extractRenderState",
@@ -248,7 +184,7 @@ public class PatternHeuristics {
             return null;
         });
 
-        // renderWidget(GuiGraphics,...) -> extractWidgetRenderState(GuiGraphicsExtractor,...)
+        // renderWidget -> extractWidgetRenderState
         rules.add((owner, name, desc) -> {
             if (name.equals("renderWidget") && desc.contains("GuiGraphics")) {
                 return new PatternResult(owner, "extractWidgetRenderState",
@@ -259,15 +195,13 @@ public class PatternHeuristics {
             return null;
         });
 
-        // Generic render*() -> extract*() pattern for GUI classes.
-        // This catches inventory rendering, entity rendering, tooltip rendering, etc.
-        // Lower confidence (0.7) because not ALL render* methods follow this pattern -
-        // only those in the gui/ package hierarchy.
+        // Generic render*() -> extract*() for GUI classes (tooltips, backgrounds,
+        // etc). Scoped to the gui/ hierarchy, so confidence is only 0.7.
         rules.add((owner, name, desc) -> {
             if (name.startsWith("render") && name.length() > 6
                 && Character.isUpperCase(name.charAt(6))
                 && owner.startsWith("net/minecraft/client/gui/")) {
-                String suffix = name.substring(6); // e.g., "Tooltip", "Background"
+                String suffix = name.substring(6);
                 String newName = "extract" + suffix;
                 return new PatternResult(owner, newName,
                     renameGuiGraphics(desc),
@@ -277,9 +211,8 @@ public class PatternHeuristics {
             return null;
         });
 
-        // ── GuiGraphicsExtractor Method Renames ────────────────────────
-        // When GuiGraphics became GuiGraphicsExtractor, several drawing methods
-        // were also simplified to shorter names.
+        // The GuiGraphics -> GuiGraphicsExtractor rename also shortened several
+        // drawing method names.
 
         // drawString -> text
         rules.add((owner, name, desc) -> {
@@ -325,12 +258,7 @@ public class PatternHeuristics {
             return null;
         });
 
-        // ── Level/World API Renames ────────────────────────────────────
-        // MC has progressively renamed "World" concepts to "Level", and 26.1
-        // renamed specific time-related methods.
-
-        // getDayTime() -> getOverworldClockTime()
-        // Only matches on Level classes with the exact ()J descriptor (returns long)
+        // getDayTime() -> getOverworldClockTime(), Level classes, ()J only.
         rules.add((owner, name, desc) -> {
             if (name.equals("getDayTime") && desc.equals("()J")
                 && (owner.contains("Level") || owner.contains("level"))) {
@@ -341,11 +269,9 @@ public class PatternHeuristics {
             return null;
         });
 
-        // ── Player API Changes ─────────────────────────────────────────
-        // displayClientMessage(Component, boolean) was split into two separate methods:
-        // sendSystemMessage(Component) for chat messages and sendOverlayMessage(Component)
-        // for action bar messages. We default to sendSystemMessage since that's the
-        // more common usage. Confidence is 0.8 because the overlay case exists.
+        // displayClientMessage(Component, boolean) split into sendSystemMessage
+        // (chat) and sendOverlayMessage (action bar). Default to sendSystemMessage
+        // as the common case; 0.8 because the overlay case also exists.
         rules.add((owner, name, desc) -> {
             if (name.equals("displayClientMessage") && owner.contains("player/Player")) {
                 return new PatternResult(owner, "sendSystemMessage",
@@ -356,10 +282,9 @@ public class PatternHeuristics {
             return null;
         });
 
-        // ── RenderType Changes ─────────────────────────────────────────
-        // 26.1 made no-cull the default for all render types, so the *NoCull
-        // suffix was removed (e.g., entityCutoutNoCull -> entityCutout).
-        // The RenderType class also moved to a rendertype/ subpackage.
+        // 26.1 made no-cull the default, dropping the *NoCull suffix
+        // (entityCutoutNoCull -> entityCutout), and moved RenderType into a
+        // rendertype/ subpackage.
         rules.add((owner, name, desc) -> {
             if (name.endsWith("NoCull") && owner.contains("RenderType")) {
                 String newName = name.substring(0, name.length() - 6);
@@ -372,11 +297,8 @@ public class PatternHeuristics {
             return null;
         });
 
-        // ── Fabric API Renames ─────────────────────────────────────────
-        // The keybinding API module was renamed to keymapping to match MC's
-        // internal terminology shift from "key bindings" to "key mappings".
-
-        // registerKeyBinding -> registerKeyMapping
+        // Fabric's keybinding module became keymapping, matching MC's shift from
+        // "key bindings" to "key mappings".
         rules.add((owner, name, desc) -> {
             if (name.equals("registerKeyBinding") && owner.contains("keybinding")) {
                 return new PatternResult(
@@ -389,18 +311,14 @@ public class PatternHeuristics {
             return null;
         });
 
-        // ── Generic Getter -> Record Accessor Pattern ───────────────────
-        // MC 26.1 converted some Blaze3D utility classes to records, which
-        // means getX() methods become just x() (record accessor pattern).
-        // Lower confidence (0.6) because only specific classes were converted;
-        // this rule is a catch-all for the Blaze3D package.
+        // 26.1 turned some Blaze3D classes into records, so getX() becomes x().
+        // Catch-all for the Blaze3D package, so confidence is only 0.6.
         rules.add((owner, name, desc) -> {
             if (name.startsWith("get") && name.length() > 3
                 && Character.isUpperCase(name.charAt(3))
                 && desc.startsWith("()") && !desc.equals("()V")
                 && owner.startsWith("net/minecraft/")
                 && owner.contains("blaze3d")) {
-                // getWindow -> window, getHandle -> handle, etc.
                 String fieldName = Character.toLowerCase(name.charAt(3)) + name.substring(4);
                 return new PatternResult(owner, fieldName, desc,
                     0.6, "getX->x (record accessor)",
@@ -409,10 +327,8 @@ public class PatternHeuristics {
             return null;
         });
 
-        // ── Networking: S2C -> Clientbound, C2S -> Serverbound ──────────
-        // Fabric API 26.1 standardized networking method names to use the
-        // Mojang naming convention (Clientbound/Serverbound) instead of the
-        // Fabric-specific S2C/C2S abbreviations.
+        // Fabric API 26.1 switched networking names from S2C/C2S to Mojang's
+        // Clientbound/Serverbound.
         rules.add((owner, name, desc) -> {
             if (owner.contains("networking") && name.contains("S2C")) {
                 return new PatternResult(owner, name.replace("S2C", "Clientbound"), desc,
@@ -428,15 +344,10 @@ public class PatternHeuristics {
         });
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CLASS PATTERN RULES
-    // Handle package relocations and class renames between MC versions.
-    // ═══════════════════════════════════════════════════════════════════════
-
     private void registerClassPatterns(List<ClassPatternRule> rules) {
 
-        // GeckoLib 5.5 package rename: software.bernie.geckolib -> com.geckolib
-        // This is a third-party library, not MC itself, but many mods depend on it.
+        // GeckoLib 5.5 package rename (third-party, but widely depended on):
+        // software.bernie.geckolib -> com.geckolib
         rules.add(className -> {
             if (className.startsWith("software/bernie/geckolib")) {
                 return new PatternResult(
@@ -459,8 +370,7 @@ public class PatternHeuristics {
             return null;
         });
 
-        // GuiGraphics -> GuiGraphicsExtractor (core 26.1 rendering rename)
-        // Very high confidence (0.99) because this is a documented, exact rename.
+        // GuiGraphics -> GuiGraphicsExtractor (26.1 rendering rename)
         rules.add(className -> {
             if (className.equals("net/minecraft/client/gui/GuiGraphics")) {
                 return new PatternResult(
@@ -471,7 +381,7 @@ public class PatternHeuristics {
             return null;
         });
 
-        // PlayerFaceRenderer -> PlayerFaceExtractor (follows the extract pattern)
+        // PlayerFaceRenderer -> PlayerFaceExtractor
         rules.add(className -> {
             if (className.equals("net/minecraft/client/gui/components/PlayerFaceRenderer")) {
                 return new PatternResult(
@@ -494,8 +404,7 @@ public class PatternHeuristics {
             return null;
         });
 
-        // Fabric WorldRenderEvents -> LevelRenderEvents
-        // Part of the World->Level terminology migration in Fabric API.
+        // Fabric WorldRenderEvents -> LevelRenderEvents (World->Level migration).
         rules.add(className -> {
             if (className.contains("rendering/v1/world/WorldRenderEvents")) {
                 return new PatternResult(
@@ -506,9 +415,8 @@ public class PatternHeuristics {
             return null;
         });
 
-        // Generic World -> Level pattern in Fabric API class names.
-        // Lower confidence (0.7) because not all World-containing class names
-        // were renamed - some are kept for backwards compatibility.
+        // Generic World -> Level in Fabric API class names. Not all were renamed,
+        // so confidence is only 0.7.
         rules.add(className -> {
             if (className.contains("fabricmc/fabric/") && className.contains("World")
                 && !className.contains("Level")) {
@@ -521,7 +429,6 @@ public class PatternHeuristics {
         });
 
         // LivingEntityFeatureRendererRegistrationCallback -> LivingEntityRenderLayerRegistrationCallback
-        // Exact rename with very high confidence.
         rules.add(className -> {
             if (className.contains("LivingEntityFeatureRendererRegistrationCallback")) {
                 return new PatternResult(
@@ -534,15 +441,9 @@ public class PatternHeuristics {
         });
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // FIELD PATTERN RULES
-    // Handle field renames between MC versions.
-    // ═══════════════════════════════════════════════════════════════════════
-
     private void registerFieldPatterns(List<PatternRule> rules) {
 
-        // Window.window -> Window.handle
-        // The GLFW window handle field was renamed for clarity.
+        // Window.window -> Window.handle (GLFW window handle field).
         rules.add((owner, name, desc) -> {
             if (name.equals("window") && owner.contains("blaze3d/platform/Window")) {
                 return new PatternResult(owner, "handle", desc, 0.95,
@@ -553,7 +454,6 @@ public class PatternHeuristics {
         });
 
         // KeyMapping.boundKey -> KeyMapping.key
-        // Simplified field name.
         rules.add((owner, name, desc) -> {
             if (name.equals("boundKey") && owner.contains("KeyMapping")) {
                 return new PatternResult(owner, "key", desc, 0.95,
@@ -563,9 +463,7 @@ public class PatternHeuristics {
             return null;
         });
 
-        // EntityType.BOAT -> EntityType.OAK_BOAT
-        // 26.1 split the generic BOAT entity type into per-wood-type variants.
-        // We default to OAK_BOAT as the most common/default wood type.
+        // 26.1 split EntityType.BOAT into per-wood variants; default to OAK_BOAT.
         rules.add((owner, name, desc) -> {
             if (name.equals("BOAT") && owner.contains("EntityType")) {
                 return new PatternResult(owner, "OAK_BOAT", desc, 0.85,
@@ -575,8 +473,7 @@ public class PatternHeuristics {
             return null;
         });
 
-        // EntityType.CHEST_BOAT -> EntityType.OAK_CHEST_BOAT
-        // Same per-wood-type split as above.
+        // Same per-wood split: CHEST_BOAT -> OAK_CHEST_BOAT.
         rules.add((owner, name, desc) -> {
             if (name.equals("CHEST_BOAT") && owner.contains("EntityType")) {
                 return new PatternResult(owner, "OAK_CHEST_BOAT", desc, 0.85,
@@ -587,43 +484,22 @@ public class PatternHeuristics {
         });
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // HELPER METHODS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Check if a class is a Screen subclass based on its package or name.
-     * Used to scope the render->extractRenderState rule to GUI screen classes.
-     */
     private static boolean isScreenClass(String owner) {
         return owner.contains("gui/screens/") || owner.endsWith("Screen");
     }
 
-    /**
-     * Check if a class is GuiGraphics (pre-26.1 name) or GuiGraphicsExtractor (26.1 name).
-     * Used to scope drawing method renames to the correct class.
-     */
+    /** True for GuiGraphics (pre-26.1) and GuiGraphicsExtractor (26.1). */
     private static boolean isGuiGraphics(String owner) {
         return owner.contains("GuiGraphics");
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PATTERN RULE INTERFACES
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Functional interface for method and field pattern rules.
-     * Returns a {@link PatternResult} if the rule matches, or null if it does not.
-     */
+    /** Method and field pattern rule; returns a match or null. */
     @FunctionalInterface
     interface PatternRule {
         PatternResult tryMatch(String owner, String name, String descriptor);
     }
 
-    /**
-     * Functional interface for class pattern rules.
-     * Returns a {@link PatternResult} if the rule matches, or null if it does not.
-     */
+    /** Class pattern rule; returns a match or null. */
     @FunctionalInterface
     interface ClassPatternRule {
         PatternResult tryMatch(String className);

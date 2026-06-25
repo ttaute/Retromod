@@ -28,10 +28,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * <h3>Why one matcher for all patterns?</h3>
  * <p>Patterns are cheap (one ASM tree-walk per class). Running them together
  * means we pay the {@code ClassReader.accept()} cost once per class rather
- * than once per pattern - a clear win when there are many patterns.</p>
+ * than once per pattern, a clear win when there are many patterns.</p>
  *
  * <h3>Pattern ordering</h3>
- * <p>Patterns don't depend on each other - a class can match multiple, and
+ * <p>Patterns don't depend on each other: a class can match multiple, and
  * we report every match. The iteration order in {@link #defaultLibrary()}
  * is just for human readability in the gap report (most-confident patterns
  * first).</p>
@@ -53,7 +53,7 @@ public final class ClassShapeMatcher {
 
     /**
      * The default pattern library: every pattern Retromod ships out of the
-     * box. Each is added in a deliberate order - most-confident first so
+     * box. Each is added in a deliberate order, most-confident first, so
      * the gap report's ordering is stable and obvious.
      */
     public static ClassShapeMatcher defaultLibrary() {
@@ -81,11 +81,11 @@ public final class ClassShapeMatcher {
 
         ClassNode cls = new ClassNode();
         try {
-            // NOTE: we intentionally do NOT pass SKIP_CODE - the
+            // NOTE: we intentionally do NOT pass SKIP_CODE, because the
             // ApiUsageFingerprintPattern (and any future pattern that
             // inspects method bodies) needs the instruction stream.
             // SKIP_DEBUG + SKIP_FRAMES are still set because patterns don't
-            // care about line numbers or stack maps - just structural shape.
+            // care about line numbers or stack maps, just structural shape.
             new ClassReader(classBytes).accept(cls, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
         } catch (Exception e) {
             LOGGER.debug("Skipping pattern match: class unparseable ({})", e.getMessage());
@@ -98,7 +98,7 @@ public final class ClassShapeMatcher {
                 PatternMatch match = pattern.match(cls, ctx);
                 if (match != null) matches.add(match);
             } catch (Exception e) {
-                // A buggy pattern should never break the verifier loop - log
+                // A buggy pattern should never break the verifier loop. Log
                 // and move on. Patterns are designed to be read-only, so a
                 // failure here can't corrupt state.
                 LOGGER.warn("Pattern {} threw for class {}: {}",
@@ -109,7 +109,7 @@ public final class ClassShapeMatcher {
     }
 
     /**
-     * Convenience - scan a batch of classes and aggregate every match. Used
+     * Convenience method to scan a batch of classes and aggregate every match. Used
      * by the CLI's gap report to build a per-mod rollup.
      *
      * <h3>Parallelization</h3>
@@ -118,7 +118,7 @@ public final class ClassShapeMatcher {
      * and stateless, so sharing them across threads is safe. Results
      * accumulate into a thread-safe queue and are copied to a list at the end.</p>
      *
-     * <p>Output order is non-deterministic in parallel mode - mod authors
+     * <p>Output order is non-deterministic in parallel mode, so mod authors
      * who diff reports across runs should sort by {@code PatternMatch.className()}
      * before comparing. The {@link com.retromod.core.verify.VerificationReport}
      * does this automatically in {@code writeTo}.</p>

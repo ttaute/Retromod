@@ -23,7 +23,7 @@ import org.objectweb.asm.ClassWriter;
  *       background thread), MC's classloader isn't reachable. Any reference
  *       to a {@code net.minecraft.*} class throws
  *       {@link ClassNotFoundException}, which ASM wraps in
- *       {@link TypeNotPresentException} and re-throws - aborting the whole
+ *       {@link TypeNotPresentException} and re-throws, aborting the whole
  *       compilation.</li>
  *   <li><b>Intermediary names remapped to Mojang names not on the classpath.</b>
  *       Retromod rewrites class names mid-transform; the resulting bytecode
@@ -33,7 +33,7 @@ import org.objectweb.asm.ClassWriter;
  *
  * <h3>The fix</h3>
  * <p>Catch any throwable from the superclass call and return
- * {@code "java/lang/Object"} - the universal common-superclass answer.
+ * {@code "java/lang/Object"}, the universal common-superclass answer.
  * This is occasionally less optimal than the "real" answer (the resulting
  * stack-map frames are wider than they could be), but it's always
  * <em>correct</em> from a bytecode-verifier standpoint, and the size

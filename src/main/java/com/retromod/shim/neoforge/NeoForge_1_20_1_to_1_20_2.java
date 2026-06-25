@@ -7,11 +7,7 @@ package com.retromod.shim.neoforge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * NeoForge 1.20.1 to 1.20.2 shim - Networking overhaul.
- * The networking system was completely reworked in 1.20.2, replacing
- * SimpleChannel/NetworkRegistry with the new PayloadRegistrar system.
- */
+/** Maps the SimpleChannel/NetworkRegistry networking removed in 1.20.2 onto PayloadRegistrar. */
 public class NeoForge_1_20_1_to_1_20_2 implements VersionShim {
 
     @Override public String getShimName() { return "NeoForge 1.20.1 to 1.20.2"; }

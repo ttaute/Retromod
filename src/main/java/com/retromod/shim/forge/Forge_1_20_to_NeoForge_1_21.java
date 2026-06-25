@@ -11,22 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Transformation shim for Forge 1.20.x → NeoForge 1.21.x migration.
- *
- * <p>The redirects this shim registers (Forge package names → NeoForge
- * package names, including {@code @Mod} annotation) are <strong>only correct
- * when the actual runtime is NeoForge</strong>. On a Forge runtime they're
- * actively harmful: they rewrite a Forge mod's
- * {@code @net.minecraftforge.fml.common.Mod} annotation to the NeoForge
- * equivalent, after which Forge can't find {@code @Mod} on any class in
- * the transformed mod and dies with:
- *
- * <pre>
- *   The Mod File &lt;jar&gt; has mods that were not found
- * </pre>
- *
- * <p>So {@link #registerRedirects(RetromodTransformer)} short-circuits unless
- * we're running on NeoForge.
+ * Forge 1.20.x to NeoForge 1.21.x migration shim. The redirects are only valid on a NeoForge
+ * runtime: on Forge they rewrite a mod's {@code @Mod} annotation to the NeoForge one, after which
+ * Forge can't find {@code @Mod} and reports "has mods that were not found", so
+ * {@link #registerRedirects(RetromodTransformer)} returns early off NeoForge.
  */
 public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
 
@@ -54,15 +42,12 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Cross-loader migration redirects ONLY make sense when the runtime
-        // is NeoForge. On a Forge runtime they break @Mod annotation lookup
-        // for every transformed mod (see class-level javadoc).
+        // These only apply on a NeoForge runtime; on Forge they break @Mod lookup (see class javadoc).
         if (!McReflect.isNeoForge()) {
             LOGGER.debug("Skipping Forge → NeoForge migration redirects (runtime is not NeoForge)");
             return;
         }
 
-        // Core package renames
         transformer.registerClassRedirect(
             "net/minecraftforge/common/MinecraftForge",
             "net/neoforged/neoforge/common/NeoForge"
@@ -84,11 +69,10 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "net/neoforged/bus/api/Event"
         );
         
-        // Registry classes
-        transformer.registerClassRedirect(
-            "net/minecraftforge/registries/ForgeRegistries",
-            "net/neoforged/neoforge/registries/NeoForgeRegistries"
-        );
+        // ForgeRegistries and IForgeRegistry are handled by ForgeRegistryApiShim (field redirects to
+        // vanilla Registries ResourceKeys), not class-redirected here: a class redirect would rewrite
+        // the GETSTATIC owner before those field redirects could match, and NeoForgeRegistries lacks
+        // the BLOCKS/ITEMS/... fields anyway (NoSuchFieldError).
         transformer.registerClassRedirect(
             "net/minecraftforge/registries/DeferredRegister",
             "net/neoforged/neoforge/registries/DeferredRegister"
@@ -97,12 +81,25 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "net/minecraftforge/registries/RegistryObject",
             "net/neoforged/neoforge/registries/DeferredHolder"
         );
+
+        // Dist markers: the Dist enum moved from the Forge package to NeoForge. AnnotationPolyfill
+        // maps these but doesn't run on the NeoForge path (Fabric + CLI only), so without this a Forge
+        // mod using Dist in code hits NoClassDefFoundError. @OnlyIn was deleted; map it to a no-op
+        // annotation (metadata only). DistExecutor is supplied as a synthetic by ForgeNeoForgeSynthetics.
         transformer.registerClassRedirect(
-            "net/minecraftforge/registries/IForgeRegistry",
-            "net/minecraft/core/Registry"
+            "net/minecraftforge/api/distmarker/Dist",
+            "net/neoforged/api/distmarker/Dist"
         );
-        
-        // Capability system
+        transformer.registerClassRedirect(
+            "net/minecraftforge/api/distmarker/OnlyIn",
+            "java/lang/annotation/Retention"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/api/distmarker/OnlyIns",
+            "java/lang/annotation/Retention"
+        );
+
+        // capabilities
         transformer.registerClassRedirect(
             "net/minecraftforge/common/capabilities/Capability",
             "net/neoforged/neoforge/capabilities/BlockCapability"
@@ -116,7 +113,7 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "java/util/Optional"
         );
         
-        // Config system: ForgeConfigSpec → ModConfigSpec (NeoForge config system rename)
+        // ForgeConfigSpec renamed to ModConfigSpec
         transformer.registerClassRedirect(
             "net/minecraftforge/common/ForgeConfigSpec",
             "net/neoforged/neoforge/common/ModConfigSpec"
@@ -150,7 +147,7 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "net/neoforged/neoforge/common/ModConfigSpec$EnumValue"
         );
 
-        // FML class renames
+        // FML
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/ModLoadingContext",
             "net/neoforged/fml/ModLoadingContext"
@@ -160,7 +157,7 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "net/neoforged/fml/loading/FMLPaths"
         );
         
-        // Network
+        // network
         transformer.registerClassRedirect(
             "net/minecraftforge/network/NetworkRegistry",
             "net/neoforged/neoforge/network/registration/PayloadRegistrar"
@@ -170,7 +167,7 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "net/neoforged/neoforge/network/handling/IPayloadHandler"
         );
         
-        // Client events
+        // client events
         transformer.registerClassRedirect(
             "net/minecraftforge/client/event/RenderGuiOverlayEvent",
             "net/neoforged/neoforge/client/event/RenderGuiLayerEvent"
@@ -180,13 +177,12 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "net/neoforged/neoforge/client/event/EntityRenderersEvent"
         );
         
-        // Data generation
+        // data generation
         transformer.registerClassRedirect(
             "net/minecraftforge/data/event/GatherDataEvent",
             "net/neoforged/neoforge/data/event/GatherDataEvent"
         );
         
-        // Field redirects for EVENT_BUS
         transformer.registerFieldRedirect(
             "net/minecraftforge/common/MinecraftForge",
             "EVENT_BUS",

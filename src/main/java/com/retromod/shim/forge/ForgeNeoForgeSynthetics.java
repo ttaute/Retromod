@@ -1,5 +1,5 @@
 /*
- * Retromod - ASM synthetics for classes NeoForge deleted that old mods still reference.
+ * Retromod: ASM synthetics for classes NeoForge deleted that old mods still reference.
  * Copyright (c) 2026 Bownlux. MIT License.
  */
 package com.retromod.shim.forge;
@@ -17,26 +17,31 @@ import com.retromod.core.RetromodTransformer;
 import static org.objectweb.asm.Opcodes.*;
 
 /**
- * ASM-generated bridges for classes NeoForge DELETED that 1.20.1-1.21.x Forge/NeoForge mods
- * still reference. Each is registered with {@link RetromodTransformer#registerSyntheticClass}
- * and embedded per-mod, under a unique {@code com/retromod/embedded/<mod>/} package, by
- * {@link com.retromod.core.SyntheticEmbedder} (split-package-safe; see CLAUDE.md #13).
+ * ASM bridges for classes NeoForge deleted that 1.20.1-1.21.x Forge/NeoForge mods still
+ * reference (#85). Each is registered with {@link RetromodTransformer#registerSyntheticClass} and
+ * embedded per-mod, under a unique {@code com/retromod/embedded/<mod>/} package, by
+ * {@link com.retromod.core.SyntheticEmbedder} (split-package-safe; CLAUDE.md #13).
  *
  * <ul>
- *   <li><b>FMLJavaModLoadingContext (#85)</b> - deleted in the Forge→NeoForge split.
- *       {@code get().getModEventBus()} bridges to
- *       {@code ModLoadingContext.get().getActiveContainer().getEventBus()} (verified against
- *       NeoForge {@code loader-11.0.13.jar}).</li>
- *   <li><b>DeferredSpawnEggItem (#52)</b> - deleted in 26.x; 26.2's {@code SpawnEggItem} takes
- *       only {@code Item.Properties} (the entity type moved to a data component). The bridge
- *       extends {@code SpawnEggItem} and its old {@code (Supplier,int,int,Item.Properties)}
- *       ctor best-effort sets the type via {@code Item.Properties.spawnEgg(EntityType)} (the
- *       supplier is resolved in a try/catch, so registration-ordering can't crash construct)
- *       then calls super.</li>
+ *   <li>FMLJavaModLoadingContext: {@code get().getModEventBus()} bridges to
+ *       {@code ModLoadingContext.get().getActiveContainer().getEventBus()}.</li>
+ *   <li>DeferredSpawnEggItem: 26.2's {@code SpawnEggItem} takes only {@code Item.Properties}
+ *       (entity type moved to a data component). The bridge's old
+ *       {@code (Supplier,int,int,Item.Properties)} ctor sets the type via
+ *       {@code Item.Properties.spawnEgg(EntityType)} (supplier resolved in a try/catch so
+ *       registration ordering can't crash construct) then calls super.</li>
+ *   <li>IForgeRegistry: empty marker interface for the rarer cases where the type lingers as a
+ *       standalone reference (a method parameter, a field declaration). The common uses are
+ *       re-pointed by {@link com.retromod.shim.api.forge.ForgeRegistryApiShim}; it carries no
+ *       members, so invoking IForgeRegistry methods through such a variable is out of v1 scope.</li>
+ *   <li>DistExecutor: all-static helper for client/server-split execution. Each method delegates
+ *       to {@code FMLEnvironment.getDist()} and runs the action only on a matching dist; the
+ *       {@code safe*} variants' serializable SAMs are companion marker interfaces. The migration
+ *       shim package-renames {@code Dist} to NeoForge's before this applies.</li>
  * </ul>
  *
- * <p>Each synthetic is registered ONLY when its original class is absent on the host - on an
- * older host where the class still exists, embedding the bridge would shadow the real one.
+ * <p>Each synthetic is registered only when its original class is absent on the host; otherwise
+ * embedding the bridge would shadow the real one.
  */
 public final class ForgeNeoForgeSynthetics {
 
@@ -50,29 +55,48 @@ public final class ForgeNeoForgeSynthetics {
     private static final String PROPS = "net/minecraft/world/item/Item$Properties";
     private static final String L_PROPS = "Lnet/minecraft/world/item/Item$Properties;";
     private static final String ENTITY_TYPE = "net/minecraft/world/entity/EntityType";
+    private static final String IFORGE_REGISTRY = "net/minecraftforge/registries/IForgeRegistry";
+    private static final String DIST_EXECUTOR = "net/minecraftforge/fml/DistExecutor";
+    private static final String DE_SAFE_RUNNABLE = DIST_EXECUTOR + "$SafeRunnable";
+    private static final String DE_SAFE_CALLABLE = DIST_EXECUTOR + "$SafeCallable";
+    private static final String DE_SAFE_SUPPLIER = DIST_EXECUTOR + "$SafeSupplier";
+    private static final String DIST = "net/neoforged/api/distmarker/Dist";
+    private static final String L_DIST = "L" + DIST + ";";
+    private static final String FMLENV = "net/neoforged/fml/loading/FMLEnvironment";
+    private static final String SUPPLIER = "java/util/function/Supplier";
 
     /** Register the bridges whose original class is absent on the host (runtime entry points). */
     public static void register(RetromodTransformer t) {
         registerIfAbsent(t, FMLJMLC, ForgeNeoForgeSynthetics::generateFmlJavaModLoadingContext);
         registerIfAbsent(t, DSEI, ForgeNeoForgeSynthetics::generateDeferredSpawnEggItem);
+        registerIfAbsent(t, IFORGE_REGISTRY, ForgeNeoForgeSynthetics::generateIForgeRegistry);
+        registerIfAbsent(t, DIST_EXECUTOR, ForgeNeoForgeSynthetics::generateDistExecutor);
+        registerIfAbsent(t, DE_SAFE_RUNNABLE, () -> markerInterface(DE_SAFE_RUNNABLE, "java/lang/Runnable"));
+        registerIfAbsent(t, DE_SAFE_CALLABLE, () -> markerInterface(DE_SAFE_CALLABLE, "java/util/concurrent/Callable"));
+        registerIfAbsent(t, DE_SAFE_SUPPLIER, () -> markerInterface(DE_SAFE_SUPPLIER, SUPPLIER));
     }
 
     /**
-     * Register both bridges unconditionally - for the OFFLINE CLI/AOT path, where the host MC
-     * isn't on the classpath so the absence check can't run. The caller version-gates (only
-     * targets where the originals are gone, i.e. 26.1+) and loader-gates (NeoForge mods).
+     * Register all bridges unconditionally, for the offline CLI/AOT path where the host MC isn't
+     * on the classpath so the absence check can't run. The caller version-gates (26.1+ targets,
+     * where the originals are gone) and loader-gates (NeoForge mods).
      */
     public static void registerAll(RetromodTransformer t) {
         try {
             t.registerSyntheticClass(FMLJMLC, generateFmlJavaModLoadingContext());
             t.registerSyntheticClass(DSEI, generateDeferredSpawnEggItem());
+            t.registerSyntheticClass(IFORGE_REGISTRY, generateIForgeRegistry());
+            t.registerSyntheticClass(DIST_EXECUTOR, generateDistExecutor());
+            t.registerSyntheticClass(DE_SAFE_RUNNABLE, markerInterface(DE_SAFE_RUNNABLE, "java/lang/Runnable"));
+            t.registerSyntheticClass(DE_SAFE_CALLABLE, markerInterface(DE_SAFE_CALLABLE, "java/util/concurrent/Callable"));
+            t.registerSyntheticClass(DE_SAFE_SUPPLIER, markerInterface(DE_SAFE_SUPPLIER, SUPPLIER));
         } catch (Throwable e) {
             LOGGER.warn("Could not register Forge/NeoForge synthetics (offline): {}", e.toString());
         }
     }
 
     private static void registerIfAbsent(RetromodTransformer t, String internalName, Supplier<byte[]> gen) {
-        if (classExists(internalName)) return; // original still present - don't shadow it
+        if (classExists(internalName)) return; // original still present, don't shadow it
         try {
             t.registerSyntheticClass(internalName, gen.get());
             LOGGER.info("Registered synthetic bridge for deleted class {}", internalName);
@@ -101,7 +125,6 @@ public final class ForgeNeoForgeSynthetics {
         };
     }
 
-    // ── #85: FMLJavaModLoadingContext.get().getModEventBus() ────────────────────────────────
     static byte[] generateFmlJavaModLoadingContext() {
         ClassWriter cw = newWriter();
         cw.visit(V17, ACC_PUBLIC | ACC_FINAL, FMLJMLC, null, "java/lang/Object", null);
@@ -150,13 +173,11 @@ public final class ForgeNeoForgeSynthetics {
         return cw.toByteArray();
     }
 
-    // ── #52: DeferredSpawnEggItem extends SpawnEggItem ──────────────────────────────────────
     static byte[] generateDeferredSpawnEggItem() {
         ClassWriter cw = newWriter();
         cw.visit(V17, ACC_PUBLIC, DSEI, null, SPAWN_EGG, null);
 
-        // private static Item.Properties retromod$resolve(Item.Properties props, Supplier type):
-        //   try { return props.spawnEgg((EntityType) type.get()); } catch (Throwable t) { return props; }
+        // retromod$resolve(props, type): try { props.spawnEgg((EntityType) type.get()); } catch (Throwable) { props; }
         MethodVisitor r = cw.visitMethod(ACC_PRIVATE | ACC_STATIC, "retromod$resolve",
                 "(" + L_PROPS + "Ljava/util/function/Supplier;)" + L_PROPS, null, null);
         r.visitCode();
@@ -179,8 +200,7 @@ public final class ForgeNeoForgeSynthetics {
         r.visitMaxs(0, 0);
         r.visitEnd();
 
-        // public <init>(Supplier type, int bg, int hl, Item.Properties props):
-        //   super(retromod$resolve(props, type));
+        // <init>(Supplier type, int bg, int hl, Item.Properties props): super(retromod$resolve(props, type));
         MethodVisitor c = cw.visitMethod(ACC_PUBLIC, "<init>",
                 "(Ljava/util/function/Supplier;II" + L_PROPS + ")V", null, null);
         c.visitCode();
@@ -194,6 +214,111 @@ public final class ForgeNeoForgeSynthetics {
         c.visitMaxs(0, 0);
         c.visitEnd();
 
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    // Marker interface (Forge's IForgeRegistry was an interface; a mod may implement it or use it
+    // as a generic bound). No members: it only needs to exist for type resolution.
+    static byte[] generateIForgeRegistry() {
+        ClassWriter cw = newWriter();
+        cw.visit(V17, ACC_PUBLIC | ACC_ABSTRACT | ACC_INTERFACE, IFORGE_REGISTRY, null,
+                "java/lang/Object", null);
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    // Nine methods reduce to three bodies: run* (Supplier<Runnable>), call* (Supplier<Callable>),
+    // and *ForDist (pick the client/server Supplier<Supplier>). The safe* variants take serializable
+    // SAMs that extend the plain JDK type, so each cast is identical and shares the body.
+    static byte[] generateDistExecutor() {
+        ClassWriter cw = newWriter();
+        cw.visit(V17, ACC_PUBLIC | ACC_FINAL, DIST_EXECUTOR, null, "java/lang/Object", null);
+
+        MethodVisitor c = cw.visitMethod(ACC_PRIVATE, "<init>", "()V", null, null);
+        c.visitCode();
+        c.visitVarInsn(ALOAD, 0);
+        c.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        c.visitInsn(RETURN);
+        c.visitMaxs(0, 0);
+        c.visitEnd();
+
+        for (String n : new String[]{"runWhenOn", "unsafeRunWhenOn", "safeRunWhenOn"}) emitRunWhenOn(cw, n);
+        for (String n : new String[]{"callWhenOn", "unsafeCallWhenOn", "safeCallWhenOn"}) emitCallWhenOn(cw, n);
+        for (String n : new String[]{"runForDist", "unsafeRunForDist", "safeRunForDist"}) emitRunForDist(cw, n);
+
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    /** {@code static void name(Dist, Supplier)}: if getDist()==dist, ((Runnable) supplier.get()).run(). */
+    private static void emitRunWhenOn(ClassWriter cw, String name) {
+        MethodVisitor m = cw.visitMethod(ACC_PUBLIC | ACC_STATIC, name,
+                "(" + L_DIST + "L" + SUPPLIER + ";)V", null, null);
+        m.visitCode();
+        m.visitMethodInsn(INVOKESTATIC, FMLENV, "getDist", "()" + L_DIST, false);
+        m.visitVarInsn(ALOAD, 0);
+        Label end = new Label();
+        m.visitJumpInsn(IF_ACMPNE, end);
+        m.visitVarInsn(ALOAD, 1);
+        m.visitMethodInsn(INVOKEINTERFACE, SUPPLIER, "get", "()Ljava/lang/Object;", true);
+        m.visitTypeInsn(CHECKCAST, "java/lang/Runnable");
+        m.visitMethodInsn(INVOKEINTERFACE, "java/lang/Runnable", "run", "()V", true);
+        m.visitLabel(end);
+        m.visitInsn(RETURN);
+        m.visitMaxs(0, 0);
+        m.visitEnd();
+    }
+
+    /** {@code static Object name(Dist, Supplier)}: if getDist()==dist, return ((Callable) supplier.get()).call(); else null. */
+    private static void emitCallWhenOn(ClassWriter cw, String name) {
+        MethodVisitor m = cw.visitMethod(ACC_PUBLIC | ACC_STATIC, name,
+                "(" + L_DIST + "L" + SUPPLIER + ";)Ljava/lang/Object;", null,
+                new String[]{"java/lang/Exception"});
+        m.visitCode();
+        m.visitMethodInsn(INVOKESTATIC, FMLENV, "getDist", "()" + L_DIST, false);
+        m.visitVarInsn(ALOAD, 0);
+        Label els = new Label();
+        m.visitJumpInsn(IF_ACMPNE, els);
+        m.visitVarInsn(ALOAD, 1);
+        m.visitMethodInsn(INVOKEINTERFACE, SUPPLIER, "get", "()Ljava/lang/Object;", true);
+        m.visitTypeInsn(CHECKCAST, "java/util/concurrent/Callable");
+        m.visitMethodInsn(INVOKEINTERFACE, "java/util/concurrent/Callable", "call", "()Ljava/lang/Object;", true);
+        m.visitInsn(ARETURN);
+        m.visitLabel(els);
+        m.visitInsn(ACONST_NULL);
+        m.visitInsn(ARETURN);
+        m.visitMaxs(0, 0);
+        m.visitEnd();
+    }
+
+    /** {@code static Object name(Supplier client, Supplier server)}: pick by Dist.CLIENT, then .get().get(). */
+    private static void emitRunForDist(ClassWriter cw, String name) {
+        MethodVisitor m = cw.visitMethod(ACC_PUBLIC | ACC_STATIC, name,
+                "(L" + SUPPLIER + ";L" + SUPPLIER + ";)Ljava/lang/Object;", null, null);
+        m.visitCode();
+        m.visitMethodInsn(INVOKESTATIC, FMLENV, "getDist", "()" + L_DIST, false);
+        m.visitFieldInsn(GETSTATIC, DIST, "CLIENT", L_DIST);
+        Label server = new Label(), run = new Label();
+        m.visitJumpInsn(IF_ACMPNE, server);
+        m.visitVarInsn(ALOAD, 0); // client side supplier
+        m.visitJumpInsn(GOTO, run);
+        m.visitLabel(server);
+        m.visitVarInsn(ALOAD, 1); // server side supplier
+        m.visitLabel(run);
+        m.visitMethodInsn(INVOKEINTERFACE, SUPPLIER, "get", "()Ljava/lang/Object;", true);
+        m.visitTypeInsn(CHECKCAST, SUPPLIER);
+        m.visitMethodInsn(INVOKEINTERFACE, SUPPLIER, "get", "()Ljava/lang/Object;", true);
+        m.visitInsn(ARETURN);
+        m.visitMaxs(0, 0);
+        m.visitEnd();
+    }
+
+    /** An empty {@code interface name extends superIface, java.io.Serializable} (a serializable SAM). */
+    static byte[] markerInterface(String name, String superIface) {
+        ClassWriter cw = newWriter();
+        cw.visit(V17, ACC_PUBLIC | ACC_ABSTRACT | ACC_INTERFACE, name, null,
+                "java/lang/Object", new String[]{superIface, "java/io/Serializable"});
         cw.visitEnd();
         return cw.toByteArray();
     }

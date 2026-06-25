@@ -7,12 +7,7 @@ package com.retromod.shim.neoforge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * NeoForge 1.21.1 to 1.21.2 shim - Major API renames.
- * Significant changes: ShaderInstance renamed to CompiledShaderProgram,
- * InteractionResult types consolidated, Registry method renames,
- * Attribute field prefix removals (GENERIC_ dropped).
- */
+/** NeoForge 1.21.1 to 1.21.2: shader rename, InteractionResult merge, Registry renames, Attribute GENERIC_ drop. */
 public class NeoForge_1_21_1_to_1_21_2 implements VersionShim {
     @Override public String getShimName() { return "NeoForge 1.21.1 to 1.21.2"; }
     @Override public String getSourceVersion() { return "1.21.1"; }
@@ -21,40 +16,28 @@ public class NeoForge_1_21_1_to_1_21_2 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-
-        // ============================================================
-        // PATHFINDING ENUM RENAMES (PathType, the 1.21.2 mob-pathfinding
-        // refactor). 1.20.x's standing/adjacent pair DAMAGE_X / DANGER_X
-        // became X / X_IN_NEIGHBOR; the "OTHER" family became DAMAGING.
-        // Verified against the 26.1.2 jar (constants present there); caught
-        // live by the bridge-verification run (NoSuchFieldError DAMAGE_OTHER
-        // from a real 1.20.1 mod's LandPathNodeTypesRegistry.register call).
-        // Post-remap Mojang names (ClassRemapper runs first).
-        // ============================================================
+        // 1.21.2 pathfinding refactor renamed the PathType constants.
         String pathType = "net/minecraft/world/level/pathfinder/PathType";
         transformer.registerFieldRedirect(pathType, "DAMAGE_FIRE", pathType, "FIRE");
         transformer.registerFieldRedirect(pathType, "DANGER_FIRE", pathType, "FIRE_IN_NEIGHBOR");
         transformer.registerFieldRedirect(pathType, "DAMAGE_OTHER", pathType, "DAMAGING");
         transformer.registerFieldRedirect(pathType, "DANGER_OTHER", pathType, "DAMAGING_IN_NEIGHBOR");
-        // ShaderInstance renamed to CompiledShaderProgram in 1.21.2
+
         transformer.registerClassRedirect(
             "net/minecraft/client/renderer/ShaderInstance",
             "net/minecraft/client/renderer/CompiledShaderProgram"
         );
 
-        // InteractionResultHolder merged into InteractionResult
+        // InteractionResultHolder and ItemInteractionResult folded into InteractionResult
         transformer.registerClassRedirect(
             "net/minecraft/world/InteractionResultHolder",
             "net/minecraft/world/InteractionResult"
         );
-
-        // ItemInteractionResult merged into InteractionResult
         transformer.registerClassRedirect(
             "net/minecraft/world/ItemInteractionResult",
             "net/minecraft/world/InteractionResult"
         );
 
-        // RegistryAccess.registryOrThrow renamed to lookupOrThrow
         transformer.registerMethodRedirect(
             "net/minecraft/core/RegistryAccess", "registryOrThrow",
             "(Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/core/Registry;",
@@ -62,7 +45,6 @@ public class NeoForge_1_21_1_to_1_21_2 implements VersionShim {
             "(Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/core/Registry;"
         );
 
-        // Registry.getHolderOrThrow renamed to getOrThrow
         transformer.registerMethodRedirect(
             "net/minecraft/core/Registry", "getHolderOrThrow",
             "(Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/core/Holder$Reference;",
@@ -70,7 +52,6 @@ public class NeoForge_1_21_1_to_1_21_2 implements VersionShim {
             "(Lnet/minecraft/resources/ResourceKey;)Lnet/minecraft/core/Holder$Reference;"
         );
 
-        // Registry.getOptional renamed to getOptionalValue
         transformer.registerMethodRedirect(
             "net/minecraft/core/Registry", "getOptional",
             "(Lnet/minecraft/resources/ResourceLocation;)Ljava/util/Optional;",
@@ -78,7 +59,6 @@ public class NeoForge_1_21_1_to_1_21_2 implements VersionShim {
             "(Lnet/minecraft/resources/ResourceLocation;)Ljava/util/Optional;"
         );
 
-        // Item.getDescription renamed to getName
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/Item", "getDescription",
             "()Lnet/minecraft/network/chat/Component;",
@@ -86,7 +66,6 @@ public class NeoForge_1_21_1_to_1_21_2 implements VersionShim {
             "()Lnet/minecraft/network/chat/Component;"
         );
 
-        // Item.getCraftingRemainingItem renamed to getCraftingRemainder
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/Item", "getCraftingRemainingItem",
             "()Lnet/minecraft/world/item/Item;",
@@ -94,7 +73,7 @@ public class NeoForge_1_21_1_to_1_21_2 implements VersionShim {
             "()Lnet/minecraft/world/item/Item;"
         );
 
-        // Attributes: GENERIC_ prefix removed in 1.21.2
+        // GENERIC_ prefix dropped from Attributes in 1.21.2
         transformer.registerFieldRedirect(
             "net/minecraft/world/entity/ai/attributes/Attributes", "GENERIC_MAX_HEALTH",
             "Lnet/minecraft/core/Holder;",

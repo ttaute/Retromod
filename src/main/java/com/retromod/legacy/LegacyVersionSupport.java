@@ -14,7 +14,7 @@ import java.util.jar.*;
 import java.util.regex.*;
 
 /**
- * Legacy Version Support - detects mod eras and manages compatibility config.
+ * Legacy Version Support: detects mod eras and manages compatibility config.
  * 
  * Support Levels:
  * - FULL: Fabric 1.14+, Forge 1.13+, NeoForge 1.20.2+
@@ -27,15 +27,15 @@ public class LegacyVersionSupport {
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
     
     public enum ModLoaderEra {
-        CLASSIC_FORGE(false),    // 1.1-1.5.2 - NOT supported
-        LEGACY_FORGE(true),      // 1.6-1.7.10 - limited
-        OLD_FORGE(true),         // 1.8-1.12.2 - experimental
-        MODERN_FORGE(true),      // 1.13-1.20.x - full
-        CURRENT_FORGE(true),     // 1.21+ - native
-        LEGACY_FABRIC_OLD(true), // 1.3.2-1.7.10 - limited
-        LEGACY_FABRIC(true),     // 1.8-1.13.2 - experimental
-        MODERN_FABRIC(true),     // 1.14+ - full
-        NEOFORGE(true);          // 1.20.2+ - full
+        CLASSIC_FORGE(false),    // 1.1-1.5.2: NOT supported
+        LEGACY_FORGE(true),      // 1.6-1.7.10: limited
+        OLD_FORGE(true),         // 1.8-1.12.2: experimental
+        MODERN_FORGE(true),      // 1.13-1.20.x: full
+        CURRENT_FORGE(true),     // 1.21+: native
+        LEGACY_FABRIC_OLD(true), // 1.3.2-1.7.10: limited
+        LEGACY_FABRIC(true),     // 1.8-1.13.2: experimental
+        MODERN_FABRIC(true),     // 1.14+: full
+        NEOFORGE(true);          // 1.20.2+: full
         
         public final boolean canSupport;
         ModLoaderEra(boolean canSupport) { this.canSupport = canSupport; }

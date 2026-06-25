@@ -1,8 +1,6 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Curios API Compatibility Shim
  */
 package com.retromod.shim.api.forge;
 
@@ -10,16 +8,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Curios API compatibility shim.
- * 
- * Curios provides accessory slots for Forge/NeoForge mods.
- * Equivalent to Trinkets on Fabric.
- * 
- * API changes:
- * - v1.x -> v2.x: ICurio interface changes
- * - v2.x -> v3.x: Slot context changes
- * - v3.x -> v4.x: Registration API changes
- * - v4.x -> v5.x: NeoForge adaptation, capability changes
+ * Curios API shim (accessory slots on Forge/NeoForge). Bridges the v1 to v5 breaks:
+ * ICurio signatures, slot context, registration, capabilities.
  */
 public class CuriosApiShim implements VersionShim {
     
@@ -40,27 +30,17 @@ public class CuriosApiShim implements VersionShim {
     
     @Override
     public String getModLoaderType() {
-        return "forge"; // Also applies to neoforge
+        return "forge"; // applies to neoforge too
     }
-    
+
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PACKAGE CHANGES
-        // ============================================================
-        
-        // Some packages moved between versions
         transformer.registerClassRedirect(
             "top/theillusivec4/curios/api/CuriosApi",
             "top/theillusivec4/curios/api/CuriosApi"
         );
-        
-        // ============================================================
-        // ICURIO INTERFACE CHANGES
-        // ============================================================
-        
-        // Old: ICurio.onEquip(slot, entity)
-        // New: ICurio.onEquip(SlotContext, previousStack)
+
+        // ICurio.onEquip(slot, entity) -> onEquip(SlotContext, previousStack)
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/type/capability/ICurio",
             "onEquip",
@@ -69,8 +49,7 @@ public class CuriosApiShim implements VersionShim {
             "onEquip",
             "(Ljava/lang/Object;Ljava/lang/String;Lnet/minecraft/world/entity/LivingEntity;)V"
         );
-        
-        // Old: ICurio.onUnequip(slot, entity)
+
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/type/capability/ICurio",
             "onUnequip",
@@ -79,9 +58,8 @@ public class CuriosApiShim implements VersionShim {
             "onUnequip",
             "(Ljava/lang/Object;Ljava/lang/String;Lnet/minecraft/world/entity/LivingEntity;)V"
         );
-        
-        // Old: ICurio.curioTick(slot, entity)
-        // New: ICurio.curioTick(SlotContext)
+
+        // ICurio.curioTick(slot, entity) -> curioTick(SlotContext)
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/type/capability/ICurio",
             "curioTick",
@@ -90,23 +68,12 @@ public class CuriosApiShim implements VersionShim {
             "curioTick",
             "(Ljava/lang/Object;Ljava/lang/String;Lnet/minecraft/world/entity/LivingEntity;)V"
         );
-        
-        // ============================================================
-        // SLOT CONTEXT CHANGES
-        // ============================================================
-        
-        // Old direct slot string -> SlotContext object
+
         transformer.registerClassRedirect(
             "top/theillusivec4/curios/api/type/capability/ICurio$DropRule",
             "top/theillusivec4/curios/api/type/capability/ICurio$DropRule"
         );
-        
-        // ============================================================
-        // CAPABILITY ACCESS CHANGES
-        // ============================================================
-        
-        // Old: CuriosApi.getCuriosHelper().getCuriosHandler(entity)
-        // New: CuriosApi.getCuriosInventory(entity)
+
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/CuriosApi",
             "getCuriosHelper",
@@ -124,12 +91,7 @@ public class CuriosApiShim implements VersionShim {
             "getCuriosHandler",
             "(Lnet/minecraft/world/entity/LivingEntity;)Ljava/util/Optional;"
         );
-        
-        // ============================================================
-        // SLOT TYPE REGISTRATION CHANGES
-        // ============================================================
-        
-        // Old: SlotTypePreset
+
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/SlotTypePreset",
             "getIdentifier",
@@ -138,8 +100,7 @@ public class CuriosApiShim implements VersionShim {
             "getSlotIdentifier",
             "(Ljava/lang/Object;)Ljava/lang/String;"
         );
-        
-        // Registration changes
+
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/CuriosApi",
             "enqueueSlotType",
@@ -148,13 +109,8 @@ public class CuriosApiShim implements VersionShim {
             "registerSlotType",
             "(Ljava/lang/String;Ljava/lang/Object;)V"
         );
-        
-        // ============================================================
-        // ATTRIBUTE MODIFIER CHANGES
-        // ============================================================
-        
-        // Old: ICurio.getAttributeModifiers(slot)
-        // New: ICurio.getAttributeModifiers(SlotContext, uuid)
+
+        // ICurio.getAttributeModifiers(slot) -> getAttributeModifiers(SlotContext, uuid)
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/type/capability/ICurio",
             "getAttributeModifiers",
@@ -163,13 +119,8 @@ public class CuriosApiShim implements VersionShim {
             "getAttributeModifiers",
             "(Ljava/lang/Object;Ljava/lang/String;)Lcom/google/common/collect/Multimap;"
         );
-        
-        // ============================================================
-        // RENDER CHANGES
-        // ============================================================
-        
-        // Old: ICurio.canRender(slot, entity)
-        // New: ICurio.canRender(SlotContext)
+
+        // ICurio.canRender(slot, entity) -> canRender(SlotContext)
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/type/capability/ICurio",
             "canRender",
@@ -178,8 +129,7 @@ public class CuriosApiShim implements VersionShim {
             "canRender",
             "(Ljava/lang/Object;Ljava/lang/String;Lnet/minecraft/world/entity/LivingEntity;)Z"
         );
-        
-        // Old render signature
+
         transformer.registerMethodRedirect(
             "top/theillusivec4/curios/api/type/capability/ICurio",
             "render",

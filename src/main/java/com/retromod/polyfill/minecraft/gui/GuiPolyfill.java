@@ -89,9 +89,7 @@ public class GuiPolyfill implements PolyfillProvider {
             transformer.registerEmbeddedShim(cls);
         }
 
-        // =====================================================================
         // GUI Screen class redirects (The Flattening, 1.13+)
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/GuiScreen",
@@ -102,7 +100,7 @@ public class GuiPolyfill implements PolyfillProvider {
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/GuiTextField",
             "net/minecraft/client/gui/components/EditBox");
-        // GuiLabel was removed with no direct equivalent - redirect to Button as closest match
+        // GuiLabel was removed with no direct equivalent, so redirect to Button as closest match
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/GuiLabel",
             "net/minecraft/client/gui/components/Button");
@@ -110,7 +108,7 @@ public class GuiPolyfill implements PolyfillProvider {
             "net/minecraft/client/gui/GuiSlot",
             "net/minecraft/client/gui/components/ObjectSelectionList");
 
-        // ScaledResolution removed in 1.14 - redirect to embedded shim
+        // ScaledResolution removed in 1.14, so redirect to embedded shim
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/ScaledResolution",
             "com/retromod/polyfill/minecraft/gui/embedded/ScaledResolutionShim");
@@ -123,7 +121,7 @@ public class GuiPolyfill implements PolyfillProvider {
             "net/minecraft/client/gui/FontRenderer",
             "net/minecraft/client/gui/Font");
 
-        // NO redirect for "net/minecraft/client/gui/Gui" - the name is ERA-AMBIGUOUS.
+        // NO redirect for "net/minecraft/client/gui/Gui": the name is ERA-AMBIGUOUS.
         // In 1.12 MCP it was the static drawing helper (drawTexturedModalRect, …),
         // but in Mojang official mappings (1.14.4+) the SAME FQN is the HUD class
         // (the GuiIngame successor that mods mixin into constantly). The old
@@ -132,11 +130,11 @@ public class GuiPolyfill implements PolyfillProvider {
         // its @Mixin target rewritten class_329→Gui→…→GuiGraphicsExtractor while
         // its @Inject selector still said Gui → InvalidInjectionException, HUD dead
         // (caught in the snapshot.3 in-game pass). A 1.12 drawing-helper reference
-        // now resolves to the modern Gui class instead - semantically wrong for
+        // now resolves to the modern Gui class instead, semantically wrong for
         // pre-1.13 mods, but those are below Retromod's supported floor, and the
         // modern meaning must win.
 
-        // InventoryEffectRenderer was removed - redirect to AbstractContainerScreen
+        // InventoryEffectRenderer was removed, so redirect to AbstractContainerScreen
         transformer.registerClassRedirect(
             "net/minecraft/client/renderer/InventoryEffectRenderer",
             "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen");
@@ -164,9 +162,7 @@ public class GuiPolyfill implements PolyfillProvider {
             "net/minecraft/client/gui/GuiMultiplayer",
             "net/minecraft/client/gui/screens/multiplayer/JoinMultiplayerScreen");
 
-        // =====================================================================
         // Inventory GUI screen redirects
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/inventory/GuiContainer",
@@ -181,9 +177,7 @@ public class GuiPolyfill implements PolyfillProvider {
             "net/minecraft/client/gui/inventory/GuiFurnace",
             "net/minecraft/client/gui/screens/inventory/FurnaceScreen");
 
-        // =====================================================================
         // Container → Menu class redirects (1.17+)
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/inventory/Container",
@@ -210,9 +204,7 @@ public class GuiPolyfill implements PolyfillProvider {
             "net/minecraft/inventory/ContainerPlayer",
             "net/minecraft/world/inventory/InventoryMenu");
 
-        // =====================================================================
         // Fabric ScreenHandler method rename (1.19.3)
-        // =====================================================================
 
         // transferSlot(PlayerEntity, int) → quickMoveStack(Player, int)
         transformer.registerMethodRedirect(

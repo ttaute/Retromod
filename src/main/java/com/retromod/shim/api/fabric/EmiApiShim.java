@@ -1,20 +1,13 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * EMI (Emi Menu Integration) API Compatibility Shim
  */
 package com.retromod.shim.api.fabric;
 
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * EMI API compatibility shim.
- * 
- * EMI is a newer recipe viewer that's becoming popular on Fabric.
- * It's designed as a modern alternative to REI/JEI.
- */
+/** Fabric shim for the EMI recipe-viewer API. */
 public class EmiApiShim implements VersionShim {
     
     @Override
@@ -39,11 +32,6 @@ public class EmiApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // STACK CREATION CHANGES
-        // ============================================================
-        
-        // EmiStack.of() method changes
         transformer.registerMethodRedirect(
             "dev/emi/emi/api/stack/EmiStack",
             "of",
@@ -52,18 +40,12 @@ public class EmiApiShim implements VersionShim {
             "of",
             "(Lnet/minecraft/item/ItemStack;)Ldev/emi/emi/api/stack/EmiStack;"
         );
-        
-        // ============================================================
-        // PLUGIN INTERFACE CHANGES
-        // ============================================================
-        
-        // EmiPlugin interface
+
         transformer.registerClassRedirect(
             "dev/emi/emi/api/EmiPlugin",
             "dev/emi/emi/api/EmiPlugin"
         );
-        
-        // Registration methods
+
         transformer.registerMethodRedirect(
             "dev/emi/emi/api/EmiRegistry",
             "addCategory",
@@ -72,28 +54,17 @@ public class EmiApiShim implements VersionShim {
             "addCategory",
             "(Ldev/emi/emi/api/recipe/EmiRecipeCategory;)V"
         );
-        
-        // ============================================================
-        // RECIPE CHANGES
-        // ============================================================
-        
-        // EmiRecipe interface
+
         transformer.registerClassRedirect(
             "dev/emi/emi/api/recipe/EmiRecipe",
             "dev/emi/emi/api/recipe/EmiRecipe"
         );
-        
-        // BasicEmiRecipe for simple recipes
+
         transformer.registerClassRedirect(
             "dev/emi/emi/api/recipe/BasicEmiRecipe",
             "dev/emi/emi/api/recipe/BasicEmiRecipe"
         );
-        
-        // ============================================================
-        // WIDGET CHANGES
-        // ============================================================
-        
-        // Widget creation
+
         transformer.registerMethodRedirect(
             "dev/emi/emi/api/widget/WidgetHolder",
             "addSlot",

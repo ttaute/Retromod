@@ -24,13 +24,13 @@ import java.util.regex.Pattern;
  * Retromod's mod-jar transform rewrites <b>bytecode</b> and loader metadata; it does
  * not touch the {@code data/} JSON a mod ships. But several 26.x changes are data-only.
  * A 1.21.x structure mod then loads and its content registers, yet its data-pack JSON
- * fails to load on 26.1 - so chests come up empty, advancements never load, and (the
+ * fails to load on 26.1, so chests come up empty, advancements never load, and (the
  * big one) <b>worldgen JSON fails to parse, taking down structure generation</b>.
  *
  * <h2>The strict-JSON fix (the main one)</h2>
  * 26.1 parses data-pack JSON with a <b>strict</b> Gson reader. Older mods relied on
  * Minecraft's historically <i>lenient</i> parsing and ship JSON with {@code //} / {@code /* *}{@code /}
- * comments and trailing commas - hugely common in hand-authored worldgen files (Jigsaw
+ * comments and trailing commas, hugely common in hand-authored worldgen files (Jigsaw
  * template_pools, processor_lists). On 26.1 every such file throws
  * {@code MalformedJsonException: Use JsonReader.setStrictness(Strictness.LENIENT)} and stays
  * <b>unbound</b>. One mod's unbound template_pool is FATAL (FatalStartupException) and aborts
@@ -69,7 +69,7 @@ import java.util.regex.Pattern;
  * pattern is absent, so running it on an unaffected file is harmless. The strict-JSON pass
  * does reserialize, but only files that fail strict parsing, and it preserves member order
  * and number tokens. The whole pass is <b>gated to 26.x targets</b>
- * ({@link RetromodVersion#isUnobfuscatedTarget}) - on a 1.21.x target the old shapes parse
+ * ({@link RetromodVersion#isUnobfuscatedTarget}). On a 1.21.x target the old shapes parse
  * leniently and are correct, so they must be left alone.
  */
 public final class ModDataMigrator {
@@ -94,7 +94,7 @@ public final class ModDataMigrator {
 
     // A bare-string "minecraft:potion" array element inside an entity_type tag. Anchored on a
     // leading [ or , (an array element) and a trailing , or ] so it can't touch an object's
-    // "id":"minecraft:potion" (which would corrupt to dangling strings) - that preceding ':'
+    // "id":"minecraft:potion" (which would corrupt to dangling strings); that preceding ':'
     // never matches [\[,]. The trailing delimiter stays in the lookahead, so the original
     // comma/bracket is preserved.
     private static final Pattern POTION_ENTITY_SPLIT = Pattern.compile(
@@ -162,7 +162,7 @@ public final class ModDataMigrator {
      * otherwise preserved byte-for-byte (only the comments / dangling commas vanish). We hand-roll
      * rather than round-trip through Gson because Gson's own lenient reader rejects trailing commas.
      *
-     * <p>Other lenient quirks (single quotes, unquoted keys, NaN) are left untouched - they're
+     * <p>Other lenient quirks (single quotes, unquoted keys, NaN) are left untouched; they're
      * vanishingly rare in datapack JSON, and the loader will report them. Returns the input array
      * <b>unchanged</b> (same reference) when there's nothing to strip, so callers can use
      * reference identity to detect a change.
@@ -234,7 +234,7 @@ public final class ModDataMigrator {
     /**
      * Apply {@link #migrate} to every data file in an already-extracted mod tree, rewriting
      * changed files in place. Used by the runtime transformers (Fabric/Forge) and JiJ handlers,
-     * which extract a mod to a temp dir before repackaging - the byte-stream {@link #migrate}
+     * which extract a mod to a temp dir before repackaging. The byte-stream {@link #migrate}
      * fits the offline CLI's entry-by-entry copy, this fits the extract/repack flow.
      *
      * <p>No-op (returns 0) for non-26.x targets or a missing/empty root. Entry names are

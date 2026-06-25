@@ -24,7 +24,7 @@ import org.objectweb.asm.tree.FieldNode;
  * <ul>
  *   <li>a synthetic is embedded only into a mod that actually references it (gating);</li>
  *   <li>it is embedded under a unique-per-mod {@code com/retromod/embedded/<key>/} package,
- *       NOT at its original (loader-owned) name - so it can never split-package with the
+ *       NOT at its original (loader-owned) name, so it can never split-package with the
  *       loader module or with another mod;</li>
  *   <li>the mod's references are rewritten to the embedded copy;</li>
  *   <li>a mod that doesn't reference it is left completely untouched.</li>
@@ -48,7 +48,7 @@ class SyntheticEmbedderTest {
         return cw.toByteArray();
     }
 
-    /** A class with a field typed {@code L<SYNTH>;} - a reference the embedder must rewrite. */
+    /** A class with a field typed {@code L<SYNTH>;}, a reference the embedder must rewrite. */
     private static byte[] classReferencing(String name) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(V17, ACC_PUBLIC, name, null, "java/lang/Object", null);

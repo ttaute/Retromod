@@ -27,5 +27,5 @@ package com.retromod.polyfill.minecraft.mixin.embedded;
  * By providing this stub class via a class redirect, the check passes.
  */
 public class ChatOptionsScreenStub {
-    // Intentionally empty - exists only to satisfy mixin hierarchy validation
+    // Intentionally empty; exists only to satisfy mixin hierarchy validation
 }

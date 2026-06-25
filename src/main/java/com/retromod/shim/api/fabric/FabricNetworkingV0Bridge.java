@@ -13,53 +13,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Fabric networking V0 ({@code fabric-networking-blockentity-v0}, the original
- * channel-keyed packet-consumer API) soft-fail bridge.
+ * Soft-fail bridge for Fabric networking V0 ({@code net/fabricmc/fabric/api/network/*}), the
+ * Identifier-keyed packet-consumer API deprecated by V1 in 1.20.5 and removed in 2024. Mods like
+ * Xaero's Minimap, REI, and Comforts still ship V0 jars.
  *
- * <h2>What changed</h2>
- * The V0 API at {@code net/fabricmc/fabric/api/network/*} -
- * {@code ClientSidePacketRegistry.INSTANCE}, {@code ServerSidePacketRegistry.INSTANCE},
- * {@code PacketContext}, {@code PacketConsumer} - was a Fabric-API-0.x-era design
- * (Identifier-keyed channels with a single accept(ctx, buf) callback). It was
- * deprecated when V1 ({@code networking/v1/*ServerPlayNetworking}) shipped with
- * proper payload types in 1.20.5 and removed outright by late 2024. Compat-audit
- * results confirm 4+ top-100 mods still ship V0 jars: Xaero's Minimap/World Map
- * (1.16.2-era builds), REI (1.14 build still served by Modrinth), Comforts.
- *
- * <h2>The bridge</h2>
- * Same pattern as {@link FabricRendererMaterialBridge}: inject empty stand-in
- * types in our own {@code com/retromod/generated/legacynetwork/*} namespace,
- * register class redirects so every old-namespace reference points at them.
- * The stubs:
- *
- * <ul>
- *   <li>{@code PacketConsumer} - interface with {@code accept(PacketContext, PacketByteBuf)}.</li>
- *   <li>{@code PacketContext} - interface with {@code getPlayer()},
- *       {@code getPacketSender()}, {@code getTaskQueue()}.</li>
- *   <li>{@code ServerSidePacketRegistry} - interface with {@code INSTANCE}, {@code sendToPlayer},
- *       {@code canPlayerReceive}, {@code register}, {@code unregister}.</li>
- *   <li>{@code ClientSidePacketRegistry} - interface with {@code INSTANCE},
- *       {@code sendToServer}, {@code canServerReceive}, {@code register}, {@code unregister}.</li>
- * </ul>
- *
- * <h2>Functional trade-off</h2>
- * Methods that "send" silently no-op; methods that "register" record nothing;
- * {@code getPlayer()} / {@code getPacketSender()} return null. Mod multiplayer
- * features wired through V0 stay dark - but the mod loads, and the singleplayer
- * surface still works. Strictly better than the current "any GETSTATIC on
- * {@code ServerSidePacketRegistry.INSTANCE} kills the entrypoint."
+ * <p>Injects stand-in types under {@code com/retromod/generated/legacynetwork/*} and redirects the
+ * old references to them. Send/register methods no-op and the getters return null, so V0 multiplayer
+ * features stay dark but the mod loads.
  */
 public class FabricNetworkingV0Bridge implements VersionShim {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
-    // ── Old paths (V0 namespace) ──
     private static final String OLD_PACKET_CONTEXT  = "net/fabricmc/fabric/api/network/PacketContext";
     private static final String OLD_PACKET_CONSUMER = "net/fabricmc/fabric/api/network/PacketConsumer";
     private static final String OLD_SERVER_REGISTRY = "net/fabricmc/fabric/api/network/ServerSidePacketRegistry";
     private static final String OLD_CLIENT_REGISTRY = "net/fabricmc/fabric/api/network/ClientSidePacketRegistry";
 
-    // ── Our stand-ins (own namespace, no naming collisions with MC) ──
     private static final String NEW_PACKET_CONTEXT  = "com/retromod/generated/legacynetwork/PacketContext";
     private static final String NEW_PACKET_CONSUMER = "com/retromod/generated/legacynetwork/PacketConsumer";
     private static final String NEW_SERVER_REGISTRY = "com/retromod/generated/legacynetwork/ServerSidePacketRegistry";
@@ -72,8 +42,7 @@ public class FabricNetworkingV0Bridge implements VersionShim {
     private static final String L_SERVER_REGISTRY  = "L" + NEW_SERVER_REGISTRY + ";";
     private static final String L_CLIENT_REGISTRY  = "L" + NEW_CLIENT_REGISTRY + ";";
 
-    // MC types we reference in descriptors but don't need to compile against -
-    // they exist on every Fabric runtime under these intermediary aliases.
+    // MC types used only in descriptors, via intermediary aliases.
     private static final String L_IDENTIFIER   = "Lnet/minecraft/class_2960;";
     private static final String L_BYTE_BUF     = "Lnet/minecraft/class_2540;";
     private static final String L_PACKET       = "Lnet/minecraft/class_2596;";
@@ -103,32 +72,29 @@ public class FabricNetworkingV0Bridge implements VersionShim {
                 + "+ 4 class redirects (soft-fail: mods load, custom packets silently dropped)");
     }
 
-    // ─── PacketConsumer - single-method callback interface ───────────────────
     private static byte[] generatePacketConsumerInterface() {
         ClassWriter cw = newClassWriter();
         cw.visit(Opcodes.V17,
                 Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,
                 NEW_PACKET_CONSUMER, null, "java/lang/Object", null);
-        // accept(PacketContext, PacketByteBuf)
         abstractMethod(cw, "accept", "(" + L_PACKET_CONTEXT + L_BYTE_BUF + ")V");
         cw.visitEnd();
         return cw.toByteArray();
     }
 
-    // ─── PacketContext interface ─────────────────────────────────────────────
     private static byte[] generatePacketContextInterface() {
         ClassWriter cw = newClassWriter();
         cw.visit(Opcodes.V17,
                 Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,
                 NEW_PACKET_CONTEXT, null, "java/lang/Object", null);
         abstractMethod(cw, "getPlayer",        "()" + L_PLAYER);
-        abstractMethod(cw, "getPacketSender",  "()Ljava/lang/Object;"); // PacketSender was its own interface; Object stub is safe
-        abstractMethod(cw, "getTaskQueue",     "()Ljava/lang/Object;"); // ThreadExecutor
+        // PacketSender and ThreadExecutor stubbed as Object
+        abstractMethod(cw, "getPacketSender",  "()Ljava/lang/Object;");
+        abstractMethod(cw, "getTaskQueue",     "()Ljava/lang/Object;");
         cw.visitEnd();
         return cw.toByteArray();
     }
 
-    // ─── ServerSidePacketRegistry interface ──────────────────────────────────
     private static byte[] generateServerRegistryInterface() {
         ClassWriter cw = newClassWriter();
         cw.visit(Opcodes.V17,
@@ -138,17 +104,15 @@ public class FabricNetworkingV0Bridge implements VersionShim {
         cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
                 "INSTANCE", L_SERVER_REGISTRY, null, null).visitEnd();
 
-        // Outbound from server
         abstractMethod(cw, "sendToPlayer", "(" + L_PLAYER + L_IDENTIFIER + L_BYTE_BUF + ")V");
         abstractMethod(cw, "sendToPlayer", "(" + L_PLAYER + L_PACKET + ")V");
         abstractMethod(cw, "sendToPlayer", "(" + L_SERVER_PLAYER + L_IDENTIFIER + L_BYTE_BUF + ")V");
         abstractMethod(cw, "sendToPlayer", "(" + L_SERVER_PLAYER + L_PACKET + ")V");
         abstractMethod(cw, "canPlayerReceive", "(" + L_PLAYER + L_IDENTIFIER + ")Z");
-        // Registry
         abstractMethod(cw, "register",   "(" + L_IDENTIFIER + L_PACKET_CONSUMER + ")Ljava/util/concurrent/CompletableFuture;");
         abstractMethod(cw, "unregister", "(" + L_IDENTIFIER + ")Z");
 
-        // <clinit> { INSTANCE = new ServerSidePacketRegistryImpl(); }
+        // INSTANCE = new ServerSidePacketRegistryImpl();
         MethodVisitor clinit = cw.visitMethod(Opcodes.ACC_STATIC, "<clinit>", "()V", null, null);
         clinit.visitCode();
         clinit.visitTypeInsn(Opcodes.NEW, IMPL_SERVER_REGISTRY);
@@ -163,7 +127,6 @@ public class FabricNetworkingV0Bridge implements VersionShim {
         return cw.toByteArray();
     }
 
-    // ─── ClientSidePacketRegistry interface ──────────────────────────────────
     private static byte[] generateClientRegistryInterface() {
         ClassWriter cw = newClassWriter();
         cw.visit(Opcodes.V17,
@@ -193,7 +156,6 @@ public class FabricNetworkingV0Bridge implements VersionShim {
         return cw.toByteArray();
     }
 
-    // ─── Concrete impls ──────────────────────────────────────────────────────
     private static byte[] generateServerRegistryImpl() {
         ClassWriter cw = newClassWriter();
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL,
@@ -226,7 +188,6 @@ public class FabricNetworkingV0Bridge implements VersionShim {
         return cw.toByteArray();
     }
 
-    // ─── ASM helpers (shared shape with FabricRendererMaterialBridge) ────────
     private static ClassWriter newClassWriter() {
         return new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override
@@ -268,8 +229,7 @@ public class FabricNetworkingV0Bridge implements VersionShim {
         m.visitEnd();
     }
 
-    /** {@code return CompletableFuture.completedFuture(null);} - sane default for the
-     *  V0 {@code register} return value (callers typically discard or chain). */
+    /** Emits {@code return CompletableFuture.completedFuture(null);}. */
     private static void completedFuture(ClassWriter cw, String name, String desc) {
         MethodVisitor m = cw.visitMethod(Opcodes.ACC_PUBLIC, name, desc, null, null);
         m.visitCode();

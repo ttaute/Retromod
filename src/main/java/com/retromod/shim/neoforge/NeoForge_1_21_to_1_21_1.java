@@ -7,10 +7,7 @@ package com.retromod.shim.neoforge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * NeoForge 1.21 to 1.21.1 shim - Bugfix release.
- * No significant API breaks requiring bytecode-level redirects.
- */
+/** NeoForge 1.21 to 1.21.1: bugfix release, no API breaks to redirect. */
 public class NeoForge_1_21_to_1_21_1 implements VersionShim {
     @Override public String getShimName() { return "NeoForge 1.21 to 1.21.1"; }
     @Override public String getSourceVersion() { return "1.21"; }
@@ -19,7 +16,6 @@ public class NeoForge_1_21_to_1_21_1 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Bugfix release - no API breaks requiring redirects
     }
 
     @Override public String[] getShimClasses() { return new String[0]; }

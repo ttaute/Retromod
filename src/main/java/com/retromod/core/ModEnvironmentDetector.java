@@ -15,28 +15,14 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 
 /**
- * Detects whether a mod is server-only, client-only, or both.
- * 
- * This is important because:
- * - Server-only mods: Only the SERVER needs Retromod installed
- * - Client-only mods: Only the CLIENT needs Retromod installed  
- * - Both: Both sides need Retromod (or the transformed mod)
- * 
- * When a mod is server-only and transformed on the server:
- * - The transformed mod works on the server
- * - Clients can join WITHOUT having Retromod installed
- * - The client doesn't even know the mod is transformed!
- * 
- * This makes it much easier for server admins to use old mods
- * without requiring players to install anything extra.
+ * Detects whether a mod is server-only, client-only, or both. A server-only mod transformed on
+ * the server lets clients join without Retromod, so server admins can run old mods without
+ * requiring players to install anything.
  */
 public class ModEnvironmentDetector {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-EnvDetect");
-    
-    /**
-     * Environment types for mods.
-     */
+
     public enum ModEnvironment {
         /** Runs on both client and server */
         BOTH("*"),
@@ -44,27 +30,23 @@ public class ModEnvironmentDetector {
         CLIENT("client"),
         /** Runs only on the server */
         SERVER("server"),
-        /** Unknown - treat as BOTH for safety */
+        /** Unknown: treat as BOTH for safety */
         UNKNOWN("*");
-        
+
         private final String fabricValue;
-        
+
         ModEnvironment(String fabricValue) {
             this.fabricValue = fabricValue;
         }
-        
+
         public String getFabricValue() {
             return fabricValue;
         }
     }
-    
-    /**
-     * Detect the environment for a mod JAR.
-     */
+
     public static ModEnvironment detectEnvironment(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
-            
-            // Check fabric.mod.json
+
             ZipEntry fabricEntry = jar.getEntry("fabric.mod.json");
             if (fabricEntry != null) {
                 try (InputStream is = jar.getInputStream(fabricEntry)) {
@@ -72,8 +54,7 @@ public class ModEnvironmentDetector {
                     return parseFabricEnvironment(content);
                 }
             }
-            
-            // Check mods.toml (Forge/NeoForge)
+
             ZipEntry forgeEntry = jar.getEntry("META-INF/mods.toml");
             if (forgeEntry == null) {
                 forgeEntry = jar.getEntry("META-INF/neoforge.mods.toml");
@@ -84,23 +65,18 @@ public class ModEnvironmentDetector {
                     return parseForgeEnvironment(content);
                 }
             }
-            
+
         } catch (Exception e) {
             LOGGER.debug("Could not detect environment for: {}", jarPath.getFileName());
         }
-        
+
         return ModEnvironment.UNKNOWN;
     }
-    
-    /**
-     * Parse environment from fabric.mod.json.
-     * 
-     * Format: "environment": "*" | "client" | "server"
-     */
+
     private static ModEnvironment parseFabricEnvironment(String json) {
         Pattern pattern = Pattern.compile("\"environment\"\\s*:\\s*\"([^\"]+)\"");
         Matcher matcher = pattern.matcher(json);
-        
+
         if (matcher.find()) {
             String env = matcher.group(1).toLowerCase();
             return switch (env) {
@@ -110,21 +86,15 @@ public class ModEnvironmentDetector {
                 default -> ModEnvironment.UNKNOWN;
             };
         }
-        
+
         return ModEnvironment.UNKNOWN;
     }
-    
-    /**
-     * Parse environment from mods.toml.
-     * 
-     * Format: side = "BOTH" | "CLIENT" | "SERVER"
-     */
+
     private static ModEnvironment parseForgeEnvironment(String toml) {
-        // Look for side in dependencies section
-        Pattern pattern = Pattern.compile("side\\s*=\\s*\"?(BOTH|CLIENT|SERVER|DEDICATED_SERVER)\"?", 
+        Pattern pattern = Pattern.compile("side\\s*=\\s*\"?(BOTH|CLIENT|SERVER|DEDICATED_SERVER)\"?",
             Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(toml);
-        
+
         if (matcher.find()) {
             String side = matcher.group(1).toUpperCase();
             return switch (side) {
@@ -134,47 +104,28 @@ public class ModEnvironmentDetector {
                 default -> ModEnvironment.UNKNOWN;
             };
         }
-        
+
         return ModEnvironment.UNKNOWN;
     }
-    
-    /**
-     * Check if a mod needs to be present on both client and server.
-     * 
-     * If false, the mod can work on just one side without the other
-     * needing Retromod installed.
-     */
+
+    /** False means the mod can run on one side without the other needing Retromod. */
     public static boolean requiresBothSides(Path jarPath) {
         ModEnvironment env = detectEnvironment(jarPath);
         return env == ModEnvironment.BOTH || env == ModEnvironment.UNKNOWN;
     }
-    
-    /**
-     * Check if this is a server-only mod.
-     * 
-     * Server-only mods are great for servers because:
-     * - Transform the mod on the server
-     * - Clients can join without Retromod
-     * - Players don't need to install anything!
-     */
+
     public static boolean isServerOnly(Path jarPath) {
         return detectEnvironment(jarPath) == ModEnvironment.SERVER;
     }
-    
-    /**
-     * Check if this is a client-only mod.
-     */
+
     public static boolean isClientOnly(Path jarPath) {
         return detectEnvironment(jarPath) == ModEnvironment.CLIENT;
     }
-    
-    /**
-     * Log environment info for a mod.
-     */
+
     public static void logModEnvironment(Path jarPath) {
         ModEnvironment env = detectEnvironment(jarPath);
         String fileName = jarPath.getFileName().toString();
-        
+
         switch (env) {
             case SERVER -> {
                 LOGGER.info("  {} is SERVER-ONLY", fileName);
@@ -192,10 +143,7 @@ public class ModEnvironmentDetector {
             }
         }
     }
-    
-    /**
-     * Get a description of what the environment means for users.
-     */
+
     public static String getEnvironmentDescription(ModEnvironment env) {
         return switch (env) {
             case SERVER -> "Server-only mod - clients don't need Retromod!";

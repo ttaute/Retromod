@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.18.2 to run on 1.19.
- * Handles the major Text API overhaul, chat message changes, and GameEvent updates.
- */
+/** Fabric 1.18.2 to 1.19: Text API overhaul, chat message, and GameEvent changes. */
 public class Fabric_1_18_2_to_1_19 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.18.2 to 1.19"; }
@@ -20,7 +17,7 @@ public class Fabric_1_18_2_to_1_19 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Text API overhaul - the biggest change
+        // LiteralText/TranslatableText were folded into Text
         transformer.registerClassRedirect(
             "net/minecraft/text/LiteralText",
             "net/minecraft/text/Text"
@@ -41,14 +38,12 @@ public class Fabric_1_18_2_to_1_19 implements VersionShim {
             "net/minecraft/text/Text", "translatable",
             "(Ljava/lang/String;[Ljava/lang/Object;)Lnet/minecraft/text/Text;"
         );
-        // Chat message changes
         transformer.registerMethodRedirect(
             "net/minecraft/server/network/ServerPlayerEntity", "sendMessage",
             "(Lnet/minecraft/text/Text;Z)V",
             "com/retromod/shim/fabric/embedded/ChatShim", "sendMessage",
             "(Ljava/lang/Object;Ljava/lang/Object;Z)V"
         );
-        // GameEvent changes
         transformer.registerClassRedirect(
             "net/minecraft/world/event/GameEvent$Callback",
             "net/minecraft/world/event/GameEvent$Emitter"

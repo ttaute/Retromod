@@ -59,7 +59,7 @@ public class NbtPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // Pure redirects - no stub implementations needed.
+        // Pure redirects, no stub implementations needed.
         // All old NBT classes and methods map to modern equivalents.
         return new String[]{};
     }

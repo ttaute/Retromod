@@ -11,15 +11,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Compatibility shim for Fabric mods built for 1.21.5 to run on 1.21.6+.
- * 
- * Major breaking changes addressed:
- * - HUD API completely rewritten (HudElementRegistry)
- * - Material API removed from Fabric Rendering API
- * - CoreShaderRegistrationCallback removed
- * - RenderSystem methods removed
- * - Several deprecated modules removed
- * - Item#appendTooltip deprecated -> ComponentTooltipAppenderRegistry
+ * Fabric 1.21.5 mods on 1.21.6+: HUD API rewrite, removed Material/CoreShaderRegistration
+ * APIs, and the WorldRenderer method moves. https://fabricmc.net/2025/06/15/1216.html
  */
 public class Fabric_1_21_5_to_1_21_6 implements VersionShim {
     
@@ -45,97 +38,45 @@ public class Fabric_1_21_5_to_1_21_6 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        
-        // ============================================================
-        // HUD API REWRITE
-        // Old HUD callbacks -> HudElementRegistry
-        // ============================================================
-        
-        // HudRenderCallback is now completely different
-        // Old: HudRenderCallback.EVENT.register((matrices, tickDelta) -> {...})
-        // New: HudElementRegistry.addLast(id, (context, tickCounter) -> {...})
-        
+
+        // HUD API rewrite: HudRenderCallback -> HudElementRegistry
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback",
             "com/retromod/shim/fabric/embedded/HudRenderCallbackShim"
         );
-        
-        // ============================================================
-        // MATERIAL API REMOVED
-        // ============================================================
-        
+
+        // Material API removed from the Fabric Rendering API
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/renderer/v1/material/MaterialFinder",
             "com/retromod/shim/fabric/embedded/MaterialFinderShim"
         );
-        
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/renderer/v1/material/RenderMaterial",
             "com/retromod/shim/fabric/embedded/RenderMaterialShim"
         );
-        
-        // ============================================================
-        // CORE SHADER REGISTRATION REMOVED
-        // Vanilla resource pack now supports modded core shaders
-        // ============================================================
-        
+
+        // CoreShaderRegistrationCallback removed; core shaders now ship in resource packs
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/CoreShaderRegistrationCallback",
             "com/retromod/shim/fabric/embedded/CoreShaderRegistrationCallbackShim"
         );
-        
-        // ============================================================
-        // WORLD RENDERER CHANGES
-        // Methods moved to VertexRendering
-        // ============================================================
-        
+
+        // WorldRenderer.drawBox moved to VertexRendering
         transformer.registerMethodRedirect(
             "net/minecraft/client/render/WorldRenderer", "drawBox",
             "(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;DDDDDDFFFF)V",
             "com/retromod/shim/fabric/embedded/WorldRendererShim", "drawBox",
             "(Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/VertexConsumer;DDDDDDFFFF)V"
         );
-        
-        // ============================================================
-        // TAG API MODULES MERGED
-        // Several tag modules consolidated
-        // ============================================================
-        
-        // fabric-item-api-v1, fabric-convention-tags-v1 merged
-        // No direct redirects needed, just dependency changes
-        
-        // ============================================================
-        // TOOLTIP CHANGES
-        // Item#appendTooltip deprecated -> ComponentTooltipAppenderRegistry
-        // ============================================================
-        
-        // Mods can still use Item#appendTooltip but should migrate
-        // We provide a bridge to the new API
 
-        // ============================================================
-        // LAYERED DRAW REMOVED
-        // LayeredDraw was removed in 1.21.6 with no direct replacement.
-        // The HUD rendering system was completely rewritten to use
-        // HudElementRegistry instead. Mods using LayeredDraw need to
-        // migrate to the new HudElementRegistry API.
-        // We redirect to a stub that logs a deprecation warning.
-        // ============================================================
-
+        // LayeredDraw folded into the HudElementRegistry rewrite; stub it
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/LayeredDraw",
             "com/retromod/shim/fabric/embedded/LayeredDrawStub"
         );
 
-        // ============================================================
-        // FONT DRAW IN BATCH RETURN TYPE CHANGE
-        // Font.drawInBatch return type changed from int to float in 1.21.6.
-        // A simple redirect won't work due to the return type difference.
-        // Mods calling drawInBatch and using the int return value will need
-        // a polyfill that casts the float result. For mods that discard the
-        // return value, no redirect is needed (JVM handles it).
-        // ============================================================
-        // NOTE: No redirect registered - return type mismatch requires a
-        // polyfill rather than a simple method redirect.
+        // Font.drawInBatch return type changed int -> float; needs a polyfill, not a redirect,
+        // so it's left alone (callers that discard the value are unaffected).
     }
     
     @Override

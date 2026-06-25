@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.18.1 to run on 1.18.2.
- * Handles PlacedFeature registration API changes.
- */
+/** Fabric shim: 1.18.1 mods onto 1.18.2. */
 public class Fabric_1_18_1_to_1_18_2 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.18.1 to 1.18.2"; }

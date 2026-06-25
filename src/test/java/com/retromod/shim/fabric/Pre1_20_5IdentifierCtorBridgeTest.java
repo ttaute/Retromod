@@ -11,23 +11,16 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Safety-contract tests for {@link Pre1_20_5IdentifierCtorBridge}. Real registration
- * needs a live MC host and can't be exercised here; what we pin is that the bridge
- * stays a true no-op (no throw, no registrations) when {@code class_2960} is absent,
- * because the calling site in {@code RetromodPreLaunch} treats any throw as a
- * registration failure and logs a warning - silently bad on a real host where the
- * bridge IS needed.
+ * {@link Pre1_20_5IdentifierCtorBridge} must register cleanly as a no-op when {@code class_2960}
+ * is absent. A throw here would look like a registration failure to {@code RetromodPreLaunch}.
  */
 class Pre1_20_5IdentifierCtorBridgeTest {
 
     @Test
-    @DisplayName("no-op + does not throw when class_2960 is absent (test JVM has no MC)")
+    @DisplayName("no-op and does not throw when class_2960 is absent")
     void absentHostIsNoop() {
         RetromodTransformer t = RetromodTransformer.getInstance();
+        // class_2960 absent means no factory is probed, so nothing registers; we only assert no throw.
         assertDoesNotThrow(() -> Pre1_20_5IdentifierCtorBridge.register(t));
-        // Counting ctor redirects here would be redundant with the bridge's debug-log
-        // assertion: if class_2960 wasn't found, no factory was probed, so no
-        // registerConstructorRedirect call was made. The "doesn't throw" check is
-        // the safety floor - anything else is implementation-leak.
     }
 }

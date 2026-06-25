@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.core;
@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * the ItemStack NBT polyfill registered instance→static redirects through the
  * 6-arg {@code registerMethodRedirect} form (no devirtualize flag), so
  * {@code ItemStack.getTag()} was rewritten to
- * {@code INVOKEVIRTUAL ItemStackNbtBridge.getTag(Object)} - an instruction that
+ * {@code INVOKEVIRTUAL ItemStackNbtBridge.getTag(Object)}, an instruction that
  * pops a receiver <i>plus</i> an argument where the call site only pushed the
  * receiver. The resulting stack underflow made ASM's {@code Frame.merge} throw
  * {@code ArrayIndexOutOfBoundsException} when Mixin recomputed frames over the

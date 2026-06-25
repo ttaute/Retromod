@@ -22,10 +22,8 @@ import org.objectweb.asm.tree.MethodNode;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Structural checks for the synthetic classes + redirects of
- * {@link FabricItemGroupEventsShim} (the 83-mod {@code ItemGroupEvents} bridge).
- * Verifies the bytecode shape a runtime link depends on; the reflective forwarder
- * and the in-game tab modification still need a 26.1 launch.
+ * Structural checks for {@link FabricItemGroupEventsShim}'s synthetic classes and redirects.
+ * The reflective forwarder and in-game tab modification need a 26.1 launch to cover.
  */
 class FabricItemGroupEventsShimTest {
 
@@ -33,8 +31,7 @@ class FabricItemGroupEventsShimTest {
 
     @BeforeAll
     static void pinHostTo26_1() {
-        // The shim self-gates to 26.1+ hosts (pre-26.1, ItemGroupEvents is still alive
-        // and must not be hijacked) - pin the detected host so registerRedirects runs.
+        // shim self-gates to 26.1+ hosts; pin so registerRedirects runs
         RetromodVersion.TARGET_MC_VERSION = "26.1";
     }
 
@@ -110,7 +107,7 @@ class FabricItemGroupEventsShimTest {
         new FabricItemGroupEventsShim().registerRedirects(t);
         var mr = t.getMethodRedirects();
 
-        // representative overload: (ItemLike, ItemLike[])
+        // one overload: (ItemLike, ItemLike[])
         String d = "(Lnet/minecraft/world/level/ItemLike;[Lnet/minecraft/world/level/ItemLike;)V";
         var after = mr.get(new RetromodTransformer.MethodKey(OUTPUT, "addAfter", d));
         assertNotNull(after, "addAfter must be redirected");
@@ -123,21 +120,18 @@ class FabricItemGroupEventsShimTest {
                 .filter(k -> k.owner().equals(OUTPUT) && k.name().equals("addAfter")).count();
         long addBefore = mr.keySet().stream()
                 .filter(k -> k.owner().equals(OUTPUT) && k.name().equals("addBefore")).count();
-        assertEquals(12, addAfter, "all 12 addAfter overloads renamed");
-        assertEquals(12, addBefore, "all 12 addBefore overloads renamed");
+        assertEquals(12, addAfter, "all addAfter overloads renamed");
+        assertEquals(12, addBefore, "all addBefore overloads renamed");
     }
 
     @Test
     @DisplayName("end-to-end: FabricItemGroupEntries.addAfter → FabricCreativeModeTabOutput.insertAfter")
     void classRedirectThenMethodRenameCompose() {
-        // The riskiest assumption: the class redirect (owner FabricItemGroupEntries →
-        // FabricCreativeModeTabOutput, from the version shim) and the method rename
-        // (addAfter → insertAfter, keyed on the NEW owner, from this shim) must
-        // compose in one transform - i.e. the method redirect sees the post-class-
-        // redirect owner. Verify on a real class through the transformer.
+        // the method rename is keyed on the post-redirect owner, so it must see the class
+        // redirect's new owner within one transform pass
         RetromodTransformer t = RetromodTransformer.getInstance();
-        new Fabric_1_21_11_to_26_1().registerRedirects(t);   // FabricItemGroupEntries → FabricCreativeModeTabOutput
-        new FabricItemGroupEventsShim().registerRedirects(t); // addAfter → insertAfter on the new owner
+        new Fabric_1_21_11_to_26_1().registerRedirects(t);
+        new FabricItemGroupEventsShim().registerRedirects(t);
 
         String entries = "net/fabricmc/fabric/api/itemgroup/v1/FabricItemGroupEntries";
         String addAfterDesc = "(Lnet/minecraft/world/level/ItemLike;[Lnet/minecraft/world/level/ItemLike;)V";
@@ -147,7 +141,7 @@ class FabricItemGroupEventsShimTest {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
                 "use", "(L" + entries + ";)V", null, null);
         mv.visitCode();
-        mv.visitVarInsn(Opcodes.ALOAD, 0);     // the entries receiver
+        mv.visitVarInsn(Opcodes.ALOAD, 0);     // entries receiver
         mv.visitInsn(Opcodes.ACONST_NULL);     // ItemLike
         mv.visitInsn(Opcodes.ACONST_NULL);     // ItemLike[]
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, entries, "addAfter", addAfterDesc, false);

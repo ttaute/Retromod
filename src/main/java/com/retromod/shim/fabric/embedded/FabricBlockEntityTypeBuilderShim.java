@@ -1,9 +1,6 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
- * 
- * Shim for FabricBlockEntityType.Builder that was removed in 1.21.2.
- * Block entity types are no longer constructed using builders.
  */
 package com.retromod.shim.fabric.embedded;
 
@@ -11,16 +8,9 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.Supplier;
 
-/**
- * Shim for net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityType.Builder
- * 
- * In 1.21.2, FabricBlockEntityType.Builder was removed.
- * Use FabricBlockEntityTypeBuilder instead (which was un-deprecated).
- * 
- * This shim bridges the removed Builder class to the current API.
- */
+/** Bridges FabricBlockEntityType.Builder (removed in 1.21.2) to FabricBlockEntityTypeBuilder. */
 public class FabricBlockEntityTypeBuilderShim<T> {
-    
+
     private static Class<?> builderClass;
     private static Method createMethod;
     private static Method addBlockMethod;
@@ -42,20 +32,17 @@ public class FabricBlockEntityTypeBuilderShim<T> {
         initialized = true;
         
         try {
-            // Try to find FabricBlockEntityTypeBuilder (the non-deprecated replacement)
             builderClass = Class.forName(
                 "net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder"
             );
-            
-            // Find create method
+
             for (Method m : builderClass.getMethods()) {
                 if (m.getName().equals("create") && Modifier.isStatic(m.getModifiers())) {
                     createMethod = m;
                     break;
                 }
             }
-            
-            // Find addBlock/addBlocks methods
+
             for (Method m : builderClass.getMethods()) {
                 if (m.getName().equals("addBlock") && m.getParameterCount() == 1) {
                     addBlockMethod = m;
@@ -65,9 +52,8 @@ public class FabricBlockEntityTypeBuilderShim<T> {
                     buildMethod = m;
                 }
             }
-            
+
         } catch (ClassNotFoundException e) {
-            // FabricBlockEntityTypeBuilder not found - very old or very new version
             System.err.println("Retromod: FabricBlockEntityTypeBuilder not found");
         }
     }
@@ -84,12 +70,6 @@ public class FabricBlockEntityTypeBuilderShim<T> {
         }
     }
     
-    /**
-     * Create a new builder.
-     * 
-     * Old API: FabricBlockEntityType.Builder.create(factory, blocks...)
-     * New API: FabricBlockEntityTypeBuilder.create(factory).addBlocks(blocks...)
-     */
     public static <T> FabricBlockEntityTypeBuilderShim<T> create(Object factory, Object... blocks) {
         FabricBlockEntityTypeBuilderShim<T> builder = new FabricBlockEntityTypeBuilderShim<>(factory);
         
@@ -102,9 +82,6 @@ public class FabricBlockEntityTypeBuilderShim<T> {
         return builder;
     }
     
-    /**
-     * Add a block to the builder.
-     */
     public FabricBlockEntityTypeBuilderShim<T> addBlock(Object block) {
         blocks.add(block);
         
@@ -119,9 +96,6 @@ public class FabricBlockEntityTypeBuilderShim<T> {
         return this;
     }
     
-    /**
-     * Add multiple blocks to the builder.
-     */
     public FabricBlockEntityTypeBuilderShim<T> addBlocks(Object... blocks) {
         for (Object block : blocks) {
             addBlock(block);
@@ -129,9 +103,6 @@ public class FabricBlockEntityTypeBuilderShim<T> {
         return this;
     }
     
-    /**
-     * Build the BlockEntityType.
-     */
     public Object build() {
         if (realBuilder != null && buildMethod != null) {
             try {
@@ -140,30 +111,20 @@ public class FabricBlockEntityTypeBuilderShim<T> {
                 throw new RuntimeException("Failed to build BlockEntityType", e);
             }
         }
-        
-        // Fallback: try to create directly using vanilla API
         return createBlockEntityTypeFallback();
     }
-    
-    /**
-     * Build with a registry key (older API signature).
-     */
+
+    /** Older API signature; the id was for registration, ignored here. */
     public Object build(Object id) {
-        // The id parameter was used for registration but isn't needed for building
         return build();
     }
-    
-    /**
-     * Fallback creation using vanilla Minecraft API.
-     */
+
     private Object createBlockEntityTypeFallback() {
         try {
-            // Try BlockEntityType.Builder.of(factory, blocks).build()
             Class<?> vanillaBuilderClass = Class.forName(
                 "net.minecraft.world.level.block.entity.BlockEntityType$Builder"
             );
-            
-            // Find of() method
+
             Method ofMethod = null;
             for (Method m : vanillaBuilderClass.getMethods()) {
                 if (m.getName().equals("of") && Modifier.isStatic(m.getModifiers())) {
@@ -171,20 +132,18 @@ public class FabricBlockEntityTypeBuilderShim<T> {
                     break;
                 }
             }
-            
+
             if (ofMethod != null) {
                 Object[] blocksArray = blocks.toArray();
                 Object builder = ofMethod.invoke(null, blockEntityFactory, blocksArray);
-                
-                // Call build()
                 Method build = vanillaBuilderClass.getMethod("build", (Class<?>[]) null);
                 return build.invoke(builder);
             }
-            
+
         } catch (Exception e) {
             throw new RuntimeException("Retromod: Failed to create BlockEntityType via fallback", e);
         }
-        
+
         throw new RuntimeException("Retromod: No BlockEntityType creation method available");
     }
 }

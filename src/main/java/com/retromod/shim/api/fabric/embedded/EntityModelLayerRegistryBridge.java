@@ -10,28 +10,15 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 
 /**
- * Runtime half of the removed Fabric <b>{@code EntityModelLayerRegistry}</b> bridge
- * (entity model-layer registration). Audit gap: ~18 mods sole-blocked on
- * {@code EntityModelLayerRegistry$TexturedModelDataProvider}.
+ * Runtime half of the removed Fabric {@code EntityModelLayerRegistry} bridge.
  *
  * <p>26.1's {@code ModelLayerRegistry} renamed the provider SAM
- * ({@code TexturedModelDataProvider.createModelData} →
- * {@code TexturedLayerDefinitionProvider.createLayerDefinition}) - a lambda trap -
- * but the <i>return type is the same class</i>: Yarn {@code TexturedModelData} is
- * Mojang {@code LayerDefinition} (intermediary {@code class_5607}), which the harvest
- * already remaps in the lambda. So this is a pure SAM-name rename on a provider; the
- * wrapper just calls the old SAM and returns its {@code LayerDefinition}.</p>
- *
- * <p>Unlike the event bridges, this is a <b>provider</b> (returns a value, no
- * registered listener list): {@code registerModelLayer} wraps the mod's old provider
- * in a new one and forwards once to {@code ModelLayerRegistry}.</p>
- *
- * <p>All reflection + {@link Proxy}, embedded raw into the mod jar; fails soft on a
- * reflective miss (the model layer simply isn't registered, logged).</p>
- *
- * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
- * {@code fabric-api-0.141.1} / {@code 0.145.4+26.1.2}. A 26.1 client launch with such
- * a mod (a custom entity model) is still required.</p>
+ * ({@code TexturedModelDataProvider.createModelData} to
+ * {@code TexturedLayerDefinitionProvider.createLayerDefinition}); the return type is
+ * the same class (Yarn {@code TexturedModelData} = Mojang {@code LayerDefinition},
+ * already remapped by the harvest), so the wrapper calls the old SAM and returns its
+ * value. {@code registerModelLayer} wraps the mod's old provider in a new one and
+ * forwards once; a reflective miss leaves the layer unregistered and logs.</p>
  */
 public final class EntityModelLayerRegistryBridge {
 
@@ -48,11 +35,7 @@ public final class EntityModelLayerRegistryBridge {
         return EntityModelLayerRegistryBridge.class.getClassLoader();
     }
 
-    /**
-     * v1 {@code EntityModelLayerRegistry.registerModelLayer(loc, oldProvider)} →
-     * wrap {@code oldProvider} as a v2 {@code TexturedLayerDefinitionProvider} and
-     * register it on {@code ModelLayerRegistry}.
-     */
+    /** Wraps a v1 provider as a v2 {@code TexturedLayerDefinitionProvider} and registers it. */
     public static void registerModelLayer(Object loc, Object oldProvider) {
         try {
             ClassLoader cl = cl();
@@ -61,11 +44,10 @@ public final class EntityModelLayerRegistryBridge {
             Class<?> oldProviderType = Class.forName(SYNTH_PROVIDER, false, cl);
             Class<?> locType = Class.forName(MODEL_LAYER_LOCATION, false, cl);
 
-            final Method oldSam = sam(oldProviderType); // createModelData() : LayerDefinition
+            final Method oldSam = sam(oldProviderType);
 
             Object wrapped = Proxy.newProxyInstance(cl, new Class<?>[]{newProviderType}, (proxy, method, args) -> {
                 if (isSam(method)) {
-                    // new createLayerDefinition() → old createModelData(); same LayerDefinition class.
                     return invokeReturning(oldSam, oldProvider);
                 }
                 return objectMethod(proxy, method, args);

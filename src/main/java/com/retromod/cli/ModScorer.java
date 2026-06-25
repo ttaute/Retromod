@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.cli;
@@ -17,21 +17,14 @@ import java.util.jar.*;
 import java.util.zip.*;
 
 /**
- * Analyzes a mod JAR and produces a compatibility score indicating how
- * well it will work on the target MC version (26.1).
+ * Scores a mod JAR for compatibility with the target MC version (26.1).
  *
- * Supports all three mod loaders: Fabric, Forge, and NeoForge.
- * Auto-detects the loader type from JAR metadata and scores against
- * the correct set of redirects and loader-specific APIs.
- *
- * Scans all .class files with ASM to collect external references (classes,
- * methods, fields), then checks each reference against a combined index
- * built from the MC client JAR, loader-specific APIs, and Retromod's
- * registered redirects.
+ * Auto-detects the loader (Fabric/Forge/NeoForge) from JAR metadata, scans every
+ * .class with ASM for external references, then checks each one against an index
+ * built from the MC client JAR, loader APIs, and Retromod's registered redirects.
  */
 public class ModScorer {
 
-    // --- Mod loader types ---
     public enum ModLoader {
         FABRIC("fabric"),
         FORGE("forge"),
@@ -59,22 +52,18 @@ public class ModScorer {
         }
     }
 
-    // --- Index of what exists in the target MC version ---
+    // Index of what exists in the target MC version.
     private final Set<String> mcClasses = new HashSet<>(8000);
-    private final Map<String, Set<String>> mcMethods = new HashMap<>(8000);  // class -> set of "name desc"
-    private final Map<String, Set<String>> mcFields = new HashMap<>(8000);   // class -> set of "name"
-    // Class hierarchy: class -> superclass (for walking inheritance chain)
+    private final Map<String, Set<String>> mcMethods = new HashMap<>(8000);  // class -> "name desc"
+    private final Map<String, Set<String>> mcFields = new HashMap<>(8000);   // class -> "name"
     private final Map<String, String> mcSuperclasses = new HashMap<>(8000);
     private final Map<String, String[]> mcInterfaces = new HashMap<>(8000);
 
-    // --- Redirects from Retromod shims/polyfills ---
     private final Map<MethodKey, MethodTarget> methodRedirects;
     private final Map<String, String> classRedirects;
     private final Map<FieldKey, FieldTarget> fieldRedirects;
 
-    // --- Prefixes that are always considered OK ---
-    // These packages ship with MC/JVM/loaders, so references to them are never "missing".
-    // We skip them during scoring to avoid false negatives.
+    // Packages shipped by MC/JVM/loaders: references to them are never missing, so skip them.
     private static final String[] LIBRARY_PREFIXES = {
         "java/", "javax/", "jdk/", "sun/",
         "com/google/gson/", "com/google/common/",
@@ -86,22 +75,19 @@ public class ModScorer {
         "com/mojang/datafixers/", "com/mojang/serialization/",
         "com/mojang/math/", "it/unimi/dsi/fastutil/",
         "org/joml/",
-        // Mod loader internals (common to all loaders)
+        // mod loader internals
         "net/fabricmc/loader/", "net/fabricmc/api/",
         "cpw/mods/", "net/minecraftforge/fml/",
         "net/neoforged/fml/",
-        // Retromod itself
         "com/retromod/",
     };
 
-    // --- Fabric API package prefixes ---
     private static final String[] FABRIC_API_PREFIXES = {
         "net/fabricmc/fabric/api/",
         "net/fabricmc/fabric/impl/",
         "net/fabricmc/fabric/mixin/",
     };
 
-    // --- Forge API package prefixes ---
     private static final String[] FORGE_API_PREFIXES = {
         "net/minecraftforge/common/",
         "net/minecraftforge/client/",
@@ -117,7 +103,6 @@ public class ModScorer {
         "net/minecraftforge/resource/",
     };
 
-    // --- NeoForge API package prefixes ---
     private static final String[] NEOFORGE_API_PREFIXES = {
         "net/neoforged/neoforge/",
         "net/neoforged/bus/",
@@ -125,7 +110,6 @@ public class ModScorer {
         "net/neoforged/neoforgespi/",
     };
 
-    // --- Results ---
     private final ScoreResult result = new ScoreResult();
 
     public ModScorer(RetromodTransformer transformer) {
@@ -134,9 +118,6 @@ public class ModScorer {
         this.fieldRedirects = transformer.getFieldRedirects();
     }
 
-    /**
-     * Index all classes, methods, and fields from a JAR file.
-     */
     private void indexJar(Path jarPath) throws IOException {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             Enumeration<JarEntry> entries = jar.entries();
@@ -152,7 +133,6 @@ public class ModScorer {
                                 String superName, String[] interfaces) {
                             currentClass[0] = name;
                             mcClasses.add(name);
-                            // Track hierarchy for method resolution
                             if (superName != null) mcSuperclasses.put(name, superName);
                             if (interfaces != null) mcInterfaces.put(name, interfaces);
                         }
@@ -172,32 +152,25 @@ public class ModScorer {
                         }
                     }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
                 } catch (Exception e) {
-                    // Skip unreadable class files
+                    // skip unreadable class files
                 }
             }
         }
     }
 
-    /**
-     * Load the MC client JAR to build the target version index.
-     */
     public void loadMcJar(Path mcJarPath) throws IOException {
         indexJar(mcJarPath);
     }
 
-    /**
-     * Load the Fabric API JAR (including nested JARs inside META-INF/jars/).
-     */
+    /** Indexes the Fabric API JAR plus any nested JARs under META-INF/jars/. */
     public void loadFabricApiJar(Path fabricApiPath) throws IOException {
         indexJar(fabricApiPath);
 
-        // Also index nested JARs inside META-INF/jars/
         try (JarFile jar = new JarFile(fabricApiPath.toFile())) {
             Enumeration<JarEntry> entries = jar.entries();
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
                 if (entry.getName().startsWith("META-INF/jars/") && entry.getName().endsWith(".jar")) {
-                    // Extract nested JAR to a temp file and index it
                     Path temp = Files.createTempFile("retromod-fapi-", ".jar");
                     try {
                         try (InputStream is = jar.getInputStream(entry);
@@ -213,27 +186,14 @@ public class ModScorer {
         }
     }
 
-    /**
-     * Load a Forge or NeoForge library JAR to build the loader API index.
-     * Typically found in the Prism Launcher libraries folder, e.g.:
-     *   libraries/net/minecraftforge/forge/1.21.x-xx.x.x/forge-1.21.x-xx.x.x.jar
-     *   libraries/net/neoforged/neoforge/xx.x.x/neoforge-xx.x.x.jar
-     */
+    /** Indexes a Forge or NeoForge library JAR (from the launcher's libraries folder). */
     public void loadLoaderJar(Path loaderJarPath) throws IOException {
         indexJar(loaderJarPath);
     }
 
     /**
-     * Auto-detect the mod loader type by examining JAR metadata files.
-     *
-     * Detection order:
-     * 1. fabric.mod.json -> Fabric
-     * 2. META-INF/neoforge.mods.toml -> NeoForge
-     * 3. META-INF/mods.toml -> Forge (post-1.13)
-     * 4. mcmod.info -> Forge (legacy, pre-1.13)
-     *
-     * @param modJarPath path to the mod JAR
-     * @return the detected mod loader type
+     * Detects the mod loader from JAR metadata: fabric.mod.json, neoforge.mods.toml,
+     * mods.toml, or mcmod.info, falling back to scanning for loader-specific classes.
      */
     public static ModLoader detectModLoader(Path modJarPath) throws IOException {
         try (JarFile jar = new JarFile(modJarPath.toFile())) {
@@ -250,7 +210,7 @@ public class ModScorer {
                 return ModLoader.FORGE;
             }
 
-            // Heuristic: scan for loader-specific class references
+            // no metadata: fall back to scanning for loader-specific classes
             Enumeration<JarEntry> entries = jar.entries();
             boolean hasForgeRefs = false;
             boolean hasNeoForgeRefs = false;
@@ -272,15 +232,12 @@ public class ModScorer {
     }
 
     /**
-     * Analyze a mod JAR and produce a compatibility score.
-     * Auto-detects the mod loader type from the JAR.
+     * Scores a mod JAR for compatibility. The loader comes from {@code modInfo} when
+     * known, otherwise it is detected from the JAR.
      *
-     * @param modJarPath path to the mod JAR
-     * @param modInfo    detected mod version info (may be null)
-     * @return the score result
+     * @param modInfo detected mod version info (may be null)
      */
     public ScoreResult analyze(Path modJarPath, ModVersionInfo modInfo) throws IOException {
-        // Auto-detect mod loader
         ModLoader loader;
         if (modInfo != null && modInfo.modLoaderType() != null) {
             loader = switch (modInfo.modLoaderType()) {
@@ -294,13 +251,12 @@ public class ModScorer {
         }
         result.detectedLoader = loader;
 
-        // Determine which packages belong to the mod itself
         Set<String> modPackages = new HashSet<>();
         if (modInfo != null && modInfo.modPackages() != null) {
             modPackages.addAll(modInfo.modPackages());
         }
 
-        // First pass: collect all classes in the mod (for mod-internal detection)
+        // first pass: every class the mod ships, so we can exclude mod-internal refs later
         Set<String> modClasses = new HashSet<>();
         try (JarFile jar = new JarFile(modJarPath.toFile())) {
             Enumeration<JarEntry> entries = jar.entries();
@@ -313,21 +269,17 @@ public class ModScorer {
             }
         }
 
-        // Second pass: scan bytecode for all external references
+        // second pass: scan bytecode for external references
         Set<String> referencedClasses = new LinkedHashSet<>();
-        Map<String, Set<String>> referencedMethods = new LinkedHashMap<>();  // owner -> set of "name desc"
-        Map<String, Set<String>> referencedFields = new LinkedHashMap<>();   // owner -> set of "name"
+        Map<String, Set<String>> referencedMethods = new LinkedHashMap<>();  // owner -> "name desc"
+        Map<String, Set<String>> referencedFields = new LinkedHashMap<>();   // owner -> "name"
         List<String> mixinTargets = new ArrayList<>();
         List<String> loaderSpecificFindings = new ArrayList<>();
 
         try (JarFile jar = new JarFile(modJarPath.toFile())) {
-            // Extract mixin targets based on loader type
             mixinTargets.addAll(extractMixinTargetsForLoader(jar, loader));
-
-            // Collect loader-specific API usage details
             collectLoaderSpecificFindings(jar, loader, loaderSpecificFindings);
 
-            // Scan all class files
             Enumeration<JarEntry> entries = jar.entries();
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
@@ -339,12 +291,12 @@ public class ModScorer {
                             modClasses, referencedClasses, referencedMethods, referencedFields);
                     cr.accept(collector, ClassReader.SKIP_DEBUG);
                 } catch (Exception e) {
-                    // Skip unreadable classes
+                    // skip unreadable classes
                 }
             }
         }
 
-        // --- Score class references ---
+        // score class references
         int totalClasses = 0;
         int resolvableClasses = 0;
         int redirectedClasses = 0;
@@ -364,7 +316,7 @@ public class ModScorer {
             }
         }
 
-        // --- Score method references ---
+        // score method references
         int totalMethods = 0;
         int resolvableMethods = 0;
         int redirectedMethods = 0;
@@ -377,7 +329,6 @@ public class ModScorer {
             for (String nameDesc : entry.getValue()) {
                 totalMethods++;
 
-                // Check if the method exists in MC (walk class hierarchy)
                 String resolvedOwner = classRedirects.getOrDefault(owner, owner);
                 if (isMethodInHierarchy(resolvedOwner, nameDesc)
                         || isMethodInHierarchy(owner, nameDesc)) {
@@ -385,7 +336,6 @@ public class ModScorer {
                     continue;
                 }
 
-                // Check if there's a method redirect
                 int descStart = nameDesc.indexOf('(');
                 String name = nameDesc.substring(0, descStart);
                 String desc = nameDesc.substring(descStart);
@@ -396,7 +346,6 @@ public class ModScorer {
                     continue;
                 }
 
-                // Check with resolved owner too
                 MethodKey resolvedKey = new MethodKey(resolvedOwner, name, desc);
                 if (methodRedirects.containsKey(resolvedKey)) {
                     resolvableMethods++;
@@ -404,7 +353,7 @@ public class ModScorer {
                     continue;
                 }
 
-                // Check if it's a loader API method (always considered available via polyfill)
+                // loader API methods come from a polyfill at runtime
                 if (isLoaderApiClass(owner, loader)) {
                     resolvableMethods++;
                     continue;
@@ -414,7 +363,7 @@ public class ModScorer {
             }
         }
 
-        // --- Score field references ---
+        // score field references
         int totalFields = 0;
         int resolvableFields = 0;
         int redirectedFields = 0;
@@ -427,7 +376,6 @@ public class ModScorer {
             for (String fieldName : entry.getValue()) {
                 totalFields++;
 
-                // Check if field exists (walk class hierarchy)
                 String resolvedOwner = classRedirects.getOrDefault(owner, owner);
                 if (isFieldInHierarchy(resolvedOwner, fieldName)
                         || isFieldInHierarchy(owner, fieldName)) {
@@ -458,7 +406,7 @@ public class ModScorer {
             }
         }
 
-        // --- Score mixin targets ---
+        // score mixin targets
         int totalMixins = mixinTargets.size();
         int validMixins = 0;
         List<String> brokenMixins = new ArrayList<>();
@@ -473,10 +421,8 @@ public class ModScorer {
             }
         }
 
-        // --- Compute scores ---
-        // Each category is scored 0-100 based on what percentage of references are resolvable.
-        // "Resolvable" means the reference either exists in the target MC version, has a
-        // Retromod redirect/polyfill, or belongs to a loader API (always available at runtime).
+        // each category: percent of references that resolve (exist in MC, have a
+        // redirect/polyfill, or belong to a loader API)
         double classScore = totalClasses > 0
                 ? (double) resolvableClasses / totalClasses * 100 : 100;
         double methodScore = totalMethods > 0
@@ -486,12 +432,7 @@ public class ModScorer {
         double mixinScore = totalMixins > 0
                 ? (double) validMixins / totalMixins * 100 : 100;
 
-        // Weighted overall score:
-        //   Methods (40%) - most common source of breakage, highest weight
-        //   Classes (30%) - missing classes are fatal but less frequent
-        //   Fields  (20%) - field changes are less common than method changes
-        //   Mixins  (10%) - only applies to mods using Mixin, lower weight
-        // A mod scoring 90+ will almost certainly work; below 50 is likely broken.
+        // methods break most often, so they carry the most weight; mixins the least
         double overallScore = classScore * 0.3 + methodScore * 0.4 + fieldScore * 0.2 + mixinScore * 0.1;
 
         result.overallScore = (int) Math.round(overallScore);
@@ -521,10 +462,7 @@ public class ModScorer {
         return result;
     }
 
-    /**
-     * Extract mixin targets for the detected loader type.
-     * All three loaders support Mixin, but the config location varies.
-     */
+    /** Extracts mixin targets; each loader keeps its mixin config in a different place. */
     private List<String> extractMixinTargetsForLoader(JarFile jar, ModLoader loader) {
         List<String> targets = new ArrayList<>();
 
@@ -535,17 +473,9 @@ public class ModScorer {
                     targets.addAll(extractMixinTargets(jar, fabricJson));
                 }
             }
-            case FORGE -> {
-                // Forge mods can have mixin configs referenced in mods.toml or in
-                // META-INF/MANIFEST.MF (MixinConfigs attribute), or standalone mixin JSON files
-                targets.addAll(extractForgeMixinTargets(jar));
-            }
-            case NEOFORGE -> {
-                // NeoForge mods use neoforge.mods.toml or manifest for mixin configs
-                targets.addAll(extractNeoForgeMixinTargets(jar));
-            }
+            case FORGE -> targets.addAll(extractForgeMixinTargets(jar));
+            case NEOFORGE -> targets.addAll(extractNeoForgeMixinTargets(jar));
             default -> {
-                // Try all approaches
                 JarEntry fabricJson = jar.getJarEntry("fabric.mod.json");
                 if (fabricJson != null) {
                     targets.addAll(extractMixinTargets(jar, fabricJson));
@@ -557,15 +487,11 @@ public class ModScorer {
         return targets;
     }
 
-    /**
-     * Extract mixin targets from Forge mod JARs.
-     * Forge uses the MANIFEST.MF MixinConfigs attribute or standalone mixin JSON files.
-     */
+    /** Forge mixin configs come from the MANIFEST MixinConfigs attribute, mods.toml, or root JSON. */
     private List<String> extractForgeMixinTargets(JarFile jar) {
         List<String> targets = new ArrayList<>();
         List<String> mixinConfigs = new ArrayList<>();
 
-        // Check MANIFEST.MF for MixinConfigs
         try {
             java.util.jar.Manifest manifest = jar.getManifest();
             if (manifest != null) {
@@ -577,25 +503,21 @@ public class ModScorer {
                 }
             }
         } catch (IOException e) {
-            // Ignore
+            // ignore
         }
 
-        // Also look for mixin config references in mods.toml
         JarEntry modsToml = jar.getJarEntry("META-INF/mods.toml");
         if (modsToml != null) {
             try (InputStream is = jar.getInputStream(modsToml)) {
                 String toml = new String(is.readAllBytes());
-                // Look for [[mixins]] entries or mixinConfigs lines
                 extractMixinConfigsFromToml(toml, mixinConfigs);
             } catch (IOException e) {
-                // Ignore
+                // ignore
             }
         }
 
-        // Also scan for common mixin JSON patterns at root level
         scanForMixinJsonConfigs(jar, mixinConfigs);
 
-        // Read each mixin config
         for (String configName : mixinConfigs) {
             JarEntry configEntry = jar.getJarEntry(configName);
             if (configEntry == null) continue;
@@ -603,21 +525,17 @@ public class ModScorer {
                 String configJson = new String(cis.readAllBytes());
                 targets.addAll(extractTargetsFromMixinConfig(configJson));
             } catch (IOException e) {
-                // Ignore
+                // ignore
             }
         }
         return targets;
     }
 
-    /**
-     * Extract mixin targets from NeoForge mod JARs.
-     * NeoForge uses the MANIFEST.MF MixinConfigs attribute or neoforge.mods.toml.
-     */
+    /** Same as Forge but reads neoforge.mods.toml. */
     private List<String> extractNeoForgeMixinTargets(JarFile jar) {
         List<String> targets = new ArrayList<>();
         List<String> mixinConfigs = new ArrayList<>();
 
-        // Check MANIFEST.MF for MixinConfigs
         try {
             java.util.jar.Manifest manifest = jar.getManifest();
             if (manifest != null) {
@@ -629,24 +547,21 @@ public class ModScorer {
                 }
             }
         } catch (IOException e) {
-            // Ignore
+            // ignore
         }
 
-        // Check neoforge.mods.toml
         JarEntry neoforgeToml = jar.getJarEntry("META-INF/neoforge.mods.toml");
         if (neoforgeToml != null) {
             try (InputStream is = jar.getInputStream(neoforgeToml)) {
                 String toml = new String(is.readAllBytes());
                 extractMixinConfigsFromToml(toml, mixinConfigs);
             } catch (IOException e) {
-                // Ignore
+                // ignore
             }
         }
 
-        // Scan for mixin JSON configs
         scanForMixinJsonConfigs(jar, mixinConfigs);
 
-        // Read each mixin config
         for (String configName : mixinConfigs) {
             JarEntry configEntry = jar.getJarEntry(configName);
             if (configEntry == null) continue;
@@ -654,24 +569,19 @@ public class ModScorer {
                 String configJson = new String(cis.readAllBytes());
                 targets.addAll(extractTargetsFromMixinConfig(configJson));
             } catch (IOException e) {
-                // Ignore
+                // ignore
             }
         }
         return targets;
     }
 
-    /**
-     * Extract mixin config references from TOML content.
-     * Looks for lines like: config = "modid.mixins.json"
-     */
+    /** Pulls config = "..." values out of [[mixins]] TOML sections. */
     private void extractMixinConfigsFromToml(String toml, List<String> mixinConfigs) {
-        // Look for [[mixins]] sections with config = "..."
         int idx = 0;
         while ((idx = toml.indexOf("[[mixins]]", idx)) != -1) {
             idx += "[[mixins]]".length();
             int nextSection = toml.indexOf("[[", idx);
             String section = nextSection >= 0 ? toml.substring(idx, nextSection) : toml.substring(idx);
-            // Find config = "..."
             int configIdx = section.indexOf("config");
             if (configIdx >= 0) {
                 int eqIdx = section.indexOf('=', configIdx);
@@ -688,16 +598,12 @@ public class ModScorer {
         }
     }
 
-    /**
-     * Scan the JAR root for common mixin config JSON files.
-     * Many mods place them as *.mixins.json at the JAR root.
-     */
+    /** Picks up root-level *.mixins.json files not already listed. */
     private void scanForMixinJsonConfigs(JarFile jar, List<String> mixinConfigs) {
         Enumeration<JarEntry> entries = jar.entries();
         while (entries.hasMoreElements()) {
             JarEntry entry = entries.nextElement();
             String name = entry.getName();
-            // Only root-level files, no directories
             if (!name.contains("/") && name.endsWith(".mixins.json")) {
                 if (!mixinConfigs.contains(name)) {
                     mixinConfigs.add(name);
@@ -707,13 +613,11 @@ public class ModScorer {
     }
 
     /**
-     * Collect loader-specific API usage findings for the report.
-     * Checks for loader-specific patterns like @SubscribeEvent, ForgeRegistries,
-     * Event.register(), capability system, etc.
+     * Records loader-specific API usage for the report: @SubscribeEvent, ForgeRegistries,
+     * Event.register(), the capability system, and so on.
      */
     private void collectLoaderSpecificFindings(JarFile jar, ModLoader loader,
             List<String> findings) {
-        // Track what loader-specific APIs the mod uses
         Set<String> forgePatterns = new LinkedHashSet<>();
         Set<String> neoforgePatterns = new LinkedHashSet<>();
         Set<String> fabricPatterns = new LinkedHashSet<>();
@@ -733,7 +637,6 @@ public class ModScorer {
                             @Override
                             public void visitMethodInsn(int opcode, String owner, String mName,
                                     String mDesc, boolean isInterface) {
-                                // Forge: ForgeRegistries field access, event bus
                                 if (owner.startsWith("net/minecraftforge/registries/ForgeRegistries")) {
                                     forgePatterns.add("ForgeRegistries usage");
                                 }
@@ -741,14 +644,12 @@ public class ModScorer {
                                         mName.equals("EVENT_BUS")) {
                                     forgePatterns.add("MinecraftForge.EVENT_BUS");
                                 }
-                                // NeoForge: event bus, capabilities
                                 if (owner.startsWith("net/neoforged/neoforge/common/NeoForge")) {
                                     neoforgePatterns.add("NeoForge common API");
                                 }
                                 if (owner.contains("neoforged") && owner.contains("capabilit")) {
                                     neoforgePatterns.add("NeoForge capability system");
                                 }
-                                // Fabric: Event.register() patterns
                                 if (owner.startsWith("net/fabricmc/fabric/api/") &&
                                         mName.equals("register")) {
                                     fabricPatterns.add("Fabric Event.register()");
@@ -770,7 +671,6 @@ public class ModScorer {
 
                     @Override
                     public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-                        // Forge: @SubscribeEvent, @Mod, @EventBusSubscriber
                         if (desc.equals("Lnet/minecraftforge/eventbus/api/SubscribeEvent;")) {
                             forgePatterns.add("@SubscribeEvent annotation");
                         }
@@ -780,7 +680,6 @@ public class ModScorer {
                         if (desc.contains("EventBusSubscriber")) {
                             forgePatterns.add("@EventBusSubscriber annotation");
                         }
-                        // NeoForge
                         if (desc.equals("Lnet/neoforged/bus/api/SubscribeEvent;")) {
                             neoforgePatterns.add("@SubscribeEvent annotation (NeoForge)");
                         }
@@ -791,14 +690,13 @@ public class ModScorer {
                     }
                 }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG);
 
-                // Re-read for method-level annotations (need code visiting)
                 is.reset();
             } catch (Exception e) {
-                // Skip unreadable classes
+                // skip unreadable classes
             }
         }
 
-        // Re-scan for method-level annotations (the above visitAnnotation is class-level only)
+        // second pass: the visitAnnotation above is class-level only, so catch method-level ones here
         entries = jar.entries();
         while (entries.hasMoreElements()) {
             JarEntry entry = entries.nextElement();
@@ -825,11 +723,10 @@ public class ModScorer {
                     }
                 }, ClassReader.SKIP_DEBUG);
             } catch (Exception e) {
-                // Skip
+                // skip
             }
         }
 
-        // Add findings based on detected loader
         switch (loader) {
             case FORGE -> {
                 if (!forgePatterns.isEmpty()) {
@@ -850,7 +747,6 @@ public class ModScorer {
                 }
             }
             default -> {
-                // Report all found patterns
                 if (!forgePatterns.isEmpty()) {
                     findings.add("Forge API usage detected:");
                     findings.addAll(forgePatterns.stream().map(s -> "  - " + s).toList());
@@ -867,14 +763,11 @@ public class ModScorer {
         }
     }
 
-    /**
-     * Extract mixin target classes from the mod's mixin configs (Fabric).
-     */
+    /** Reads Fabric mixin targets via the mixin config names listed in fabric.mod.json. */
     private List<String> extractMixinTargets(JarFile jar, JarEntry fabricJsonEntry) {
         List<String> targets = new ArrayList<>();
         try (InputStream is = jar.getInputStream(fabricJsonEntry)) {
             String json = new String(is.readAllBytes());
-            // Parse mixin config file names from fabric.mod.json
             List<String> mixinConfigs = new ArrayList<>();
             int idx = 0;
             while ((idx = json.indexOf("\"mixins\"", idx)) != -1) {
@@ -882,7 +775,6 @@ public class ModScorer {
                 int arrEnd = json.indexOf(']', arrStart);
                 if (arrStart == -1 || arrEnd == -1) break;
                 String arr = json.substring(arrStart + 1, arrEnd);
-                // Extract string entries
                 int si = 0;
                 while ((si = arr.indexOf('"', si)) != -1) {
                     int ei = arr.indexOf('"', si + 1);
@@ -891,7 +783,7 @@ public class ModScorer {
                     if (configName.endsWith(".json") || configName.endsWith(".mixins.json")) {
                         mixinConfigs.add(configName);
                     } else if (!configName.isEmpty() && !configName.contains(":")) {
-                        // Could also be just a bare config name
+                        // bare config name
                         mixinConfigs.add(configName);
                     }
                     si = ei + 1;
@@ -899,7 +791,6 @@ public class ModScorer {
                 idx = arrEnd;
             }
 
-            // For each mixin config, read the target classes
             for (String configName : mixinConfigs) {
                 JarEntry configEntry = jar.getJarEntry(configName);
                 if (configEntry == null) continue;
@@ -909,29 +800,22 @@ public class ModScorer {
                 }
             }
         } catch (Exception e) {
-            // Ignore parse errors
+            // ignore parse errors
         }
         return targets;
     }
 
-    /**
-     * Extract target class names from a mixin config JSON.
-     * Looks for the "package" field and class lists in "mixins", "client", "server".
-     */
+    /** Reads the "package" prefix plus the "mixins"/"client"/"server" class arrays. */
     private List<String> extractTargetsFromMixinConfig(String json) {
         List<String> targets = new ArrayList<>();
 
-        // Extract package prefix
         String pkg = extractJsonString(json, "package");
 
-        // Extract mixin class names from mixins, client, and server arrays
         for (String section : new String[]{"mixins", "client", "server"}) {
             List<String> classNames = extractJsonStringArray(json, section);
             for (String cls : classNames) {
                 String fullName = pkg != null ? pkg + "." + cls : cls;
-                // The mixin class itself targets something -- we'd need to read
-                // the @Mixin annotation. For now, track the mixin class as a target
-                // reference that needs the mixin target to exist.
+                // tracks the mixin class itself; resolving its @Mixin target is future work
                 targets.add(fullName);
             }
         }
@@ -939,9 +823,7 @@ public class ModScorer {
         return targets;
     }
 
-    /**
-     * Extract a string value from a JSON key (simple parser, no full JSON library needed).
-     */
+    /** Minimal JSON string-value reader (no JSON library needed). */
     private String extractJsonString(String json, String key) {
         String search = "\"" + key + "\"";
         int idx = json.indexOf(search);
@@ -955,9 +837,7 @@ public class ModScorer {
         return json.substring(quoteStart + 1, quoteEnd);
     }
 
-    /**
-     * Extract a string array from a JSON key (simple parser).
-     */
+    /** Minimal JSON string-array reader. */
     private List<String> extractJsonStringArray(String json, String key) {
         List<String> result = new ArrayList<>();
         String search = "\"" + key + "\"";
@@ -978,10 +858,7 @@ public class ModScorer {
         return result;
     }
 
-    /**
-     * Check if a method exists in the class or any of its superclasses/interfaces.
-     * Walks up the inheritance chain to find inherited methods.
-     */
+    /** True if the method exists on the class or anywhere up its superclass/interface chain. */
     private boolean isMethodInHierarchy(String className, String nameDesc) {
         Set<String> visited = new HashSet<>();
         String current = className;
@@ -990,22 +867,18 @@ public class ModScorer {
             if (methods != null && methods.contains(nameDesc)) {
                 return true;
             }
-            // Check interfaces
             String[] ifaces = mcInterfaces.get(current);
             if (ifaces != null) {
                 for (String iface : ifaces) {
                     if (isMethodInHierarchy(iface, nameDesc)) return true;
                 }
             }
-            // Walk up to superclass
             current = mcSuperclasses.get(current);
         }
         return false;
     }
 
-    /**
-     * Check if a field exists in the class or any of its superclasses.
-     */
+    /** True if the field exists on the class or any superclass. */
     private boolean isFieldInHierarchy(String className, String fieldName) {
         Set<String> visited = new HashSet<>();
         String current = className;
@@ -1030,10 +903,7 @@ public class ModScorer {
         return false;
     }
 
-    /**
-     * Check if a class belongs to the loader's API, based on the detected loader type.
-     * These classes are always considered available (provided by the loader at runtime).
-     */
+    /** True if the class belongs to the detected loader's API (provided at runtime). */
     private boolean isLoaderApiClass(String className, ModLoader loader) {
         return switch (loader) {
             case FABRIC -> isFabricApiClass(className);
@@ -1066,13 +936,9 @@ public class ModScorer {
     }
 
     /**
-     * ASM visitor that collects all external class, method, and field references.
-     * Walks every class in the mod JAR, recording what MC/loader classes, methods,
-     * and fields are referenced in bytecode. These references are then checked against
-     * the target MC version index to determine compatibility.
-     *
-     * <p>Mod-internal references (classes within the mod's own JAR) are tracked via
-     * modClasses but excluded from scoring since they're always available.</p>
+     * ASM visitor that records every class/method/field a mod class references, for later
+     * checking against the target MC index. Mod-internal refs (tracked in modClasses) are
+     * excluded from scoring.
      */
     private static class ReferenceCollector extends ClassVisitor {
         private final Set<String> modClasses;
@@ -1103,7 +969,6 @@ public class ModScorer {
         @Override
         public MethodVisitor visitMethod(int access, String name, String desc,
                 String signature, String[] exceptions) {
-            // Parse types from the method descriptor
             addTypesFromDescriptor(desc);
             return new MethodVisitor(Opcodes.ASM9) {
                 @Override
@@ -1122,7 +987,6 @@ public class ModScorer {
 
                 @Override
                 public void visitTypeInsn(int opcode, String type) {
-                    // NEW, INSTANCEOF, CHECKCAST, ANEWARRAY
                     if (type != null && !type.startsWith("[")) {
                         addClassRef(type);
                     }
@@ -1159,7 +1023,7 @@ public class ModScorer {
                     addTypeRef(type.getReturnType());
                 }
             } catch (Exception e) {
-                // Ignore malformed descriptors
+                // ignore malformed descriptors
             }
         }
 
@@ -1172,12 +1036,7 @@ public class ModScorer {
         }
     }
 
-    // --- Result container ---
-
-    /**
-     * Holds the compatibility analysis results for a single mod.
-     * All scores are 0-100 percentages. Higher is better.
-     */
+    /** Compatibility results for one mod. Scores are 0-100; higher is better. */
     public static class ScoreResult {
         public ModLoader detectedLoader = ModLoader.UNKNOWN;
         public int overallScore;

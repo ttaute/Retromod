@@ -19,7 +19,7 @@ import java.nio.file.*;
 import java.util.*;
 
 /**
- * Mod compatibility checker - used internally by the GUI.
+ * Mod compatibility checker, used internally by the GUI.
  * 
  * Handles transformation for all mod loaders:
  * - Fabric: Uses FabricModTransformer (updates fabric.mod.json in JAR)
@@ -105,7 +105,7 @@ public class ModCompatibilityChecker {
         Path transformed;
         
         if ("fabric".equals(loaderType)) {
-            // Use FabricModTransformer - this updates fabric.mod.json in the JAR
+            // Use FabricModTransformer, which updates fabric.mod.json in the JAR
             // so no fabric_loader_dependencies.json is needed!
             LOGGER.info("Using Fabric transformer (will update fabric.mod.json)");
             FabricModTransformer fabricTransformer = new FabricModTransformer(TARGET_VERSION);

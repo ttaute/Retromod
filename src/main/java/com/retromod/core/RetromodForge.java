@@ -14,54 +14,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-// Imported for the @Mod annotation only. We use the FQN at the annotation site
-// rather than a top-of-file import so the class still compiles when Forge isn't
-// on the classpath (e.g., the standalone CLI build) - Java only resolves
-// annotation classes that actually exist in the compile classpath.
-//
-// The annotation MUST be present at runtime under Forge: javafml's mods.toml
-// declares modId="retromod" and FML's mod scanner refuses to load any JAR that
-// declares mods in mods.toml without a matching @Mod("modId") class. The crash
-// looks like:
-//
-//     The Mod File <jar> has mods that were not found
-//
-// - which is FML's way of saying "I read your mods.toml, then went looking for
-// the corresponding @Mod entry-point class, and couldn't find one."
+// @Mod is referenced by FQN, not imported, so this class still compiles when
+// Forge isn't on the classpath (the standalone CLI build). It must be present at
+// runtime under Forge: FML refuses to load a JAR whose mods.toml declares a
+// modId without a matching @Mod class ("The Mod File <jar> has mods that were not found").
 
 /**
- * Forge entry point for Retromod.
- * Works on BOTH clients and dedicated servers!
- * 
- * CLIENT:
- *   - GUI file picker for adding mods
- *   - Visual performance warnings
- *   - "Add Mods" floating button
- * 
- * SERVER:
- *   - Console-based warnings
- *   - Automatic transformation
- *   - No GUI (headless)
- * 
- * USER EXPERIENCE (CLIENT):
- * 
- * First Launch:
- *   1. Retromod shows a welcome dialog
- *   2. Opens file picker (Finder on Mac, Explorer on Windows)
- *   3. User selects mod JARs they want to use
- *   4. Retromod transforms them and puts in mods folder
- *   5. User restarts game
- *   6. Mods work!
- * 
- * Subsequent Launches:
- *   - Small "Add Mods" button in corner
- *   - Click to add more mods anytime
- * 
- * USER EXPERIENCE (SERVER):
- * 
- *   - Just drop mods in mods folder
- *   - Retromod auto-transforms on startup
- *   - Warnings logged to console
+ * Forge entry point. Runs on clients (GUI file picker, "Add Mods" button) and
+ * dedicated servers (headless, console warnings).
  */
 @net.minecraftforge.fml.common.Mod("retromod")
 public class RetromodForge {
@@ -70,38 +30,27 @@ public class RetromodForge {
 
     public RetromodForge() {
         RetromodVersion.logPresenceBanner(LOGGER);
-        // Detect MC version from Forge's loader. This is normally done in
-        // Retromod.<clinit>, but Retromod implements Fabric's ModInitializer
-        // and can't be loaded on Forge - so the static block never runs here
-        // and we have to populate the version on the loader-agnostic
-        // RetromodVersion holder ourselves.
+        // Retromod.<clinit> normally detects the MC version, but Retromod is a
+        // Fabric ModInitializer and never loads on Forge, so do it ourselves.
         detectMcVersionForForge();
 
         LOGGER.info("Retromod initializing on Forge (target MC: {})...",
                 RetromodVersion.TARGET_MC_VERSION);
 
-        // Write the default config.json if missing. Previously only the Fabric
-        // entry point did this, so Forge/NeoForge users saw an empty
-        // config/retromod/ with no editable config (#74).
+        // Write the default config.json if missing; only Fabric did this before (#74).
         RetromodConfig.ensureDefaultConfig();
 
-        // Detect environment
         boolean isServer = EnvironmentDetector.isDedicatedServer();
         LOGGER.info("Environment: {}", isServer ? "Dedicated Server" : "Client");
 
-        // Initialize the transformer
         RetromodTransformer transformer = RetromodTransformer.getInstance();
 
-        // Load Forge-specific shims
         loadForgeShims(transformer);
 
-        // Register Forge SRG → Mojang member-name mappings.
-        // This is the PRIMARY loader for SRG remap: Forge mods built with
-        // ForgeGradle's reobfJar task carry SRG names (Blocks.f_50069_,
-        // Component.m_237113_, etc.). Forge 64.x dropped its own SRG remap
-        // layer for MC 26.1+ since MC 26.1 ships with no obfuscation,
-        // leaving reobf'd mods to crash with NoSuchFieldError on every
-        // SRG reference. This dictionary fills that gap.
+        // Forge mods built with ForgeGradle's reobfJar carry SRG names
+        // (Blocks.f_50069_, ...); Forge 64.x dropped its SRG remap for MC 26.1+,
+        // so reobf'd mods crash with NoSuchFieldError without this. Forge is the
+        // primary loader for the SRG remap.
         try {
             int srgEntries = com.retromod.mapping.SrgToMojangMapper.getInstance()
                     .applyTo(transformer);
@@ -112,13 +61,11 @@ public class RetromodForge {
             LOGGER.warn("Could not register SRG mappings", e);
         }
 
-        // Vanilla net/minecraft/* class moves & renames. Forge mods are
-        // Mojang-named (post-SRG remap), so they skip the Fabric intermediary→
-        // Mojang remap - but they still need vanilla renames applied or they
-        // crash with NoClassDefFoundError. applyClassMovesOnly is host-version-
-        // aware: it consults the indexed host MC JAR and applies each rename
-        // only where the host has the NEW class and not the OLD one - so it
-        // works on a 1.21.11 host AND a 26.1 host, without the #9 hazard.
+        // Forge mods are Mojang-named after the SRG remap and skip the
+        // intermediary remap, but still need vanilla net/minecraft/* class
+        // renames or they crash with NoClassDefFoundError. applyClassMovesOnly
+        // is host-aware: it applies a rename only where the host has the new
+        // class and not the old one, so it's safe on any host (avoids the #9 hazard).
         try {
             int moves = com.retromod.mapping.IntermediaryToMojangMapper
                     .applyClassMovesOnly(transformer);
@@ -129,22 +76,16 @@ public class RetromodForge {
             LOGGER.warn("Could not register vanilla class moves", e);
         }
 
-        // AutoFix is OPT-IN on every loader. Mirror the security model from
-        // Retromod.onInitialize (the Fabric entry point): logs/latest.log is
-        // writable by any other mod via SLF4J, so a crafted log line that
-        // matches AutoFixEngine's error-pattern regex could trick Retromod
-        // into registering attacker-chosen method/field redirects on the
-        // shared transformer. The opt-in flag must gate BOTH the persisted
-        // fix loader AND the live log analyzer (further down) - turning
-        // AutoFix off needs to actually turn it all the way off.
-        // See the long-form security comment in Retromod.java for details.
+        // AutoFix is opt-in on every loader: latest.log is writable by any mod
+        // via SLF4J, so a crafted log line matching AutoFixEngine's error regex
+        // could register attacker-chosen redirects on the shared transformer.
+        // The flag gates both the saved-fix loader here and the log analyzer
+        // below. See Retromod.java for the full security note.
         boolean autoFixEnabled = Boolean.parseBoolean(
                 System.getProperty("retromod.autoFix", "false"));
 
-        // Load auto-fix fixes from previous launch.
-        // These are redirects/patches discovered by analyzing crash logs from
-        // a prior launch. Must be loaded AFTER shims (so shim redirects take
-        // priority) but BEFORE transformation (so fixes are applied during transform).
+        // Load fixes discovered from a prior launch's crash log. After shims (so
+        // shim redirects win) but before transformation (so fixes get applied).
         if (autoFixEnabled) {
             try {
                 AutoFixEngine autoFixEngine = new AutoFixEngine();
@@ -157,21 +98,18 @@ public class RetromodForge {
             }
         }
 
-        // Initialize fuzzy resolver - last-resort fallback for unresolved references.
-        // Auto-detects the MC JAR from the classpath.
+        // Fuzzy resolver: last-resort fallback for unresolved references (null = auto-detect MC JAR).
         try {
             transformer.initFuzzyResolver(null);
         } catch (Exception e) {
             LOGGER.debug("Could not initialize fuzzy resolver: {}", e.getMessage());
         }
 
-        // Initialize hybrid AOT/JIT engine
         initializeHybridEngine();
 
-        // Vulkan compat (Tier 0): prefer the still-present OpenGL backend on a
-        // 26.2+ client so translated old mods' OpenGL rendering keeps working.
-        // No-op below 26.2 (today's Forge has no 26.2 build, so this is dormant
-        // until one ships) / on a server / if the user chose a backend.
+        // On a 26.2+ client, prefer the OpenGL backend so translated old mods'
+        // OpenGL rendering keeps working. No-op below 26.2 / on a server / if the
+        // user already chose a backend.
         try {
             GraphicsBackendCompat.ensureOpenGlForOldMods(
                 Paths.get(".").toAbsolutePath().normalize(), RetromodVersion.TARGET_MC_VERSION);
@@ -179,17 +117,12 @@ public class RetromodForge {
             LOGGER.debug("Graphics backend preference skipped: {}", e.getMessage());
         }
 
-        // Transform mods from retromod-input/ folder
         int transformed = transformModsFromInput();
-
-        // Also scan mods/ for incompatible mods and transform in place
         transformed += transformModsInPlace();
 
         // Arm the in-game restart prompt (#33), shown on the title screen.
         com.retromod.gui.RestartPrompt.markPending(transformed);
 
-        // CLIENT: Show GUI for first-time setup or add mods button
-        // SERVER: Skip GUI, just log
         if (!isServer && EnvironmentDetector.canShowGui()) {
             if (transformed > 0) {
                 showRestartPopup(transformed);
@@ -206,14 +139,9 @@ public class RetromodForge {
         // Scan for mods that can be runtime-transformed (minor versions)
         scanForRuntimeTransformableMods();
 
-        // Auto-fix: analyze the PREVIOUS launch's log for errors and prepare fixes.
-        // Scans latest.log for known crash patterns (NoSuchMethodError, VerifyError,
-        // mixin failures, etc.) and registers fixes so the NEXT retransformation
-        // incorporates them.
-        //
-        // SECURITY: gated on the same -Dretromod.autoFix flag set above.
-        // The risk model is the same as Fabric's: latest.log is attacker-writable
-        // through any mod's SLF4J logger, so off-by-default is the safer position.
+        // Scan the previous launch's log for known crash patterns and register
+        // fixes for the next retransformation. Gated on the same opt-in flag
+        // above (latest.log is attacker-writable via any mod's SLF4J logger).
         if (autoFixEnabled) {
             try {
                 Path gameDir = Paths.get(".").toAbsolutePath().normalize();
@@ -254,18 +182,14 @@ public class RetromodForge {
     }
     
     /**
-     * Auto-detect the running Minecraft version from Forge's loader and
-     * write it to {@link RetromodVersion#TARGET_MC_VERSION}. Tries the
-     * NeoForge FMLLoader first (covers NeoForge / new Forge), falls back
-     * to the older legacy {@code MCPVersion} class. If neither resolves,
-     * leaves the default in place.
+     * Detect the running MC version from Forge's loader and store it in
+     * {@link RetromodVersion#TARGET_MC_VERSION}. Tries FancyModLoader first,
+     * then the legacy {@code MCPVersion} class; leaves the default if neither works.
      */
     private static void detectMcVersionForForge() {
-        // New Forge / NeoForge unified FancyModLoader, robust across FML API
-        // generations. The old code only tried the static versionInfo() form,
-        // which NoSuchMethodException'd on FML 10.x and silently used the wrong
-        // default - gating out every newer-MC shim (#47/#51/#52). Shared with
-        // RetromodNeoForge via the loader-neutral RetromodVersion helper.
+        // FancyModLoader (new Forge / NeoForge), robust across FML API versions.
+        // The older versionInfo() probe threw NoSuchMethodException on FML 10.x
+        // and gated out every newer-MC shim (#47).
         String mcVersion = RetromodVersion.detectFmlMcVersion();
         if (mcVersion != null) {
             RetromodVersion.TARGET_MC_VERSION = mcVersion;
@@ -282,17 +206,14 @@ public class RetromodForge {
             }
         } catch (Throwable ignored) {}
 
-        // Couldn't detect - dangerous (the shim gate then skips every newer-MC
-        // shim and mods silently mistranslate). Fail loudly instead.
+        // No detection means the shim gate skips every newer-MC shim and mods
+        // mistranslate silently, so fail loudly.
         LOGGER.error("Retromod could NOT detect the Forge host MC version - "
                 + "falling back to {}. Version shims for newer MC will be SKIPPED, "
                 + "so mods may fail to translate. Please report your Forge/FML version.",
                 RetromodVersion.TARGET_MC_VERSION);
     }
 
-    /**
-     * Initialize hybrid AOT/JIT engine.
-     */
     private void initializeHybridEngine() {
         try {
             Path gameDir = Paths.get(".").toAbsolutePath().normalize();
@@ -308,14 +229,12 @@ public class RetromodForge {
     }
     
     /**
-     * Initialize GUI components (client only).
-     * Registers both the in-game title screen button and the Swing-based
-     * first-run setup / floating "Add Mods" button as a fallback.
+     * Client-only GUI: the in-game title screen button plus a Swing fallback
+     * (first-run setup or the floating "Add Mods" button).
      */
     private void initializeClientGui() {
         Path gameDir = Paths.get(".").toAbsolutePath().normalize();
 
-        // Register the in-game title screen button (Forge event bus)
         try {
             TitleScreenButtonInjector.register();
             LOGGER.info("Title screen button registered");
@@ -323,16 +242,13 @@ public class RetromodForge {
             LOGGER.debug("Title screen button not available: {}", e.getMessage());
         }
 
-        // Swing-based GUI as additional entry point
         try {
             RetromodGui gui = new RetromodGui(gameDir);
 
             if (gui.isFirstRun()) {
-                // First time - show welcome and file picker
                 LOGGER.info("First run detected - showing setup dialog");
                 gui.showFirstRunDialog();
             } else {
-                // Show floating "Add Mods" button
                 gui.showAddModsButton();
             }
         } catch (Exception e) {
@@ -353,16 +269,13 @@ public class RetromodForge {
                 try {
                     shim = it.next();
                 } catch (java.util.ServiceConfigurationError e) {
-                    // Class not found - expected in lite builds
-                    continue;
+                    continue; // class absent, expected in lite builds
                 }
                 String loaderType = shim.getModLoaderType();
                 if ("forge".equals(loaderType) || "common".equals(loaderType)) {
                     // Only register shims whose target MC is <= the host. The
-                    // 1.21.11→26.1 shim renames Forge/vanilla classes to 26.1 names
-                    // (e.g. ForgeRegistries→BuiltInRegistries); applied on a 1.21.x host
-                    // those names don't exist → load crash. Same gate as the Fabric path
-                    // (RetromodVersion.mcVersionExceeds). See #38.
+                    // 1.21.11→26.1 shim renames classes to 26.1 names that don't
+                    // exist on a 1.21.x host, which would crash at load (#38).
                     if (RetromodVersion.mcVersionExceeds(
                             shim.getTargetVersion(), RetromodVersion.TARGET_MC_VERSION)) {
                         continue;
@@ -378,9 +291,7 @@ public class RetromodForge {
         }
     }
     
-    /**
-     * Transform mods from the retromod-input/ folder.
-     */
+    /** Transform mods from the retromod-input/ folder into mods/. */
     private int transformModsFromInput() {
         int count = 0;
         try {
@@ -389,7 +300,6 @@ public class RetromodForge {
             Path modsDir = gameDir.resolve("mods");
             Path processedDir = inputDir.resolve("processed");
 
-            // Validate directories are not symlinks
             ZipSecurity.validateNotSymlink(inputDir);
             ZipSecurity.validateNotSymlink(modsDir);
 
@@ -433,9 +343,7 @@ public class RetromodForge {
         return count;
     }
 
-    /**
-     * Scan mods/ for incompatible mods and transform them in place.
-     */
+    /** Scan mods/ for incompatible mods and transform them in place. */
     private int transformModsInPlace() {
         int count = 0;
         try {
@@ -443,7 +351,6 @@ public class RetromodForge {
             Path modsDir = gameDir.resolve("mods");
             Path backupDir = modsDir.resolve("retromod-backups");
 
-            // Validate directories are not symlinks
             ZipSecurity.validateNotSymlink(modsDir);
             ZipSecurity.validateNotSymlink(backupDir);
 
@@ -494,9 +401,7 @@ public class RetromodForge {
         return count;
     }
 
-    /**
-     * Show a popup telling the user to restart Minecraft.
-     */
+    /** Tell the user (via a Swing dialog) to restart Minecraft. */
     private void showRestartPopup(int transformedCount) {
         if (!EnvironmentDetector.canShowGui()) return;
 
@@ -535,8 +440,7 @@ public class RetromodForge {
                     var info = detector.detectVersion(modFile.toPath());
                     if (info != null && info.needsTransformation(RetromodVersion.TARGET_MC_VERSION)) {
                         String sourceVersion = info.targetMcVersion();
-                        
-                        // Runtime-transform Forge mods that need it
+
                         if (sourceVersion != null) {
                             LOGGER.info("Runtime transforming: {} ({} -> {})",
                                 modFile.getName(), sourceVersion, RetromodVersion.TARGET_MC_VERSION);

@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Host-independent coverage for {@link RetromodForgeModLocator} (#78). Forge's classes
- * aren't on the test classpath, so the reflective delegation can't resolve - the point
+ * aren't on the test classpath, so the reflective delegation can't resolve. The point
  * of these tests is that the locator then <em>soft-fails to an empty list and never
  * throws</em>, so it can't disrupt Forge's mod discovery. (The real jar→IModFile path
  * is exercised in-game on a Forge 26.2 instance.)

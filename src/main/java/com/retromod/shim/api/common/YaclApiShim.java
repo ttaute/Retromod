@@ -1,25 +1,13 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * YACL (Yet Another Config Lib) API Compatibility Shim
  */
 package com.retromod.shim.api.common;
 
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * YACL API compatibility shim.
- * 
- * YACL is a modern config library that's becoming increasingly popular
- * as an alternative to Cloth Config.
- * Works on both Fabric and Forge/NeoForge.
- * 
- * API changes:
- * - v2.x -> v3.x: Major API restructure, builder pattern changes
- * - Controller types renamed and reorganized
- */
+/** YACL (Yet Another Config Lib) v2 -> v3 API restructure. Loader-agnostic. */
 public class YaclApiShim implements VersionShim {
     
     @Override
@@ -44,11 +32,7 @@ public class YaclApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PACKAGE CHANGES (v2 -> v3)
-        // ============================================================
-        
-        // Old: dev.isxander.yacl.api -> dev.isxander.yacl3.api
+        // package moved: dev.isxander.yacl.api -> dev.isxander.yacl3.api
         transformer.registerClassRedirect(
             "dev/isxander/yacl/api/YetAnotherConfigLib",
             "dev/isxander/yacl3/api/YetAnotherConfigLib"
@@ -79,11 +63,7 @@ public class YaclApiShim implements VersionShim {
             "dev/isxander/yacl3/api/ListOption"
         );
         
-        // ============================================================
-        // CONTROLLER CHANGES
-        // ============================================================
-        
-        // Controllers package moved
+        // controllers package moved, with a Builder suffix added to each type
         transformer.registerClassRedirect(
             "dev/isxander/yacl/api/controller/BooleanController",
             "dev/isxander/yacl3/api/controller/BooleanControllerBuilder"
@@ -124,11 +104,7 @@ public class YaclApiShim implements VersionShim {
             "dev/isxander/yacl3/api/controller/TickBoxControllerBuilder"
         );
         
-        // ============================================================
-        // BUILDER PATTERN CHANGES
-        // ============================================================
-        
-        // YetAnotherConfigLib.createBuilder()
+        // createBuilder() factories on the renamed types
         transformer.registerMethodRedirect(
             "dev/isxander/yacl/api/YetAnotherConfigLib",
             "createBuilder",
@@ -137,8 +113,7 @@ public class YaclApiShim implements VersionShim {
             "createBuilder",
             "()Ldev/isxander/yacl3/api/YetAnotherConfigLib$Builder;"
         );
-        
-        // ConfigCategory.createBuilder()
+
         transformer.registerMethodRedirect(
             "dev/isxander/yacl/api/ConfigCategory",
             "createBuilder",
@@ -147,8 +122,7 @@ public class YaclApiShim implements VersionShim {
             "createBuilder",
             "()Ldev/isxander/yacl3/api/ConfigCategory$Builder;"
         );
-        
-        // Option.createBuilder()
+
         transformer.registerMethodRedirect(
             "dev/isxander/yacl/api/Option",
             "createBuilder",
@@ -157,10 +131,6 @@ public class YaclApiShim implements VersionShim {
             "createBuilder",
             "()Ldev/isxander/yacl3/api/Option$Builder;"
         );
-        
-        // ============================================================
-        // BINDING CHANGES
-        // ============================================================
         
         transformer.registerClassRedirect(
             "dev/isxander/yacl/api/Binding",
@@ -176,10 +146,6 @@ public class YaclApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/util/function/Supplier;Ljava/util/function/Consumer;)Ldev/isxander/yacl3/api/Binding;"
         );
         
-        // ============================================================
-        // DESCRIPTION/TOOLTIP CHANGES
-        // ============================================================
-        
         transformer.registerClassRedirect(
             "dev/isxander/yacl/api/OptionDescription",
             "dev/isxander/yacl3/api/OptionDescription"
@@ -193,11 +159,7 @@ public class YaclApiShim implements VersionShim {
             "of",
             "(Lnet/minecraft/network/chat/Component;)Ldev/isxander/yacl3/api/OptionDescription;"
         );
-        
-        // ============================================================
-        // GUI CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "dev/isxander/yacl/gui/YACLScreen",
             "dev/isxander/yacl3/gui/YACLScreen"

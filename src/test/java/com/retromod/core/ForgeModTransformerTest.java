@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.core;
@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests the {@code mods.toml} → {@code neoforge.mods.toml} promotion logic that
  * lets modern NeoForge accept 1.20.1 (Neo)Forge mods (issue #42). The file
  * rename + host gate are integration-level (need a NeoForge runtime), but the
- * {@code loaderVersion} relax - the part most likely to get the regex wrong - is
+ * {@code loaderVersion} relax (the part most likely to get the regex wrong) is
  * pure and testable.
  */
 class ForgeModTransformerTest {
@@ -81,7 +81,7 @@ class ForgeModTransformerTest {
         String in = "modLoader=\"javafml\"\nloaderVersion=\"[47,)\"\n\n[[mods]]\nmodId=\"survivalisland\"\n";
         String out = ForgeModTransformer.ensureLicense(in);
         assertTrue(out.contains("license="), "license must be added: " + out);
-        // Must stay in the root table - i.e. appear before the [[mods]] header.
+        // Must stay in the root table, i.e. appear before the [[mods]] header.
         assertTrue(out.indexOf("license=") < out.indexOf("[[mods]]"),
                 "license must precede the [[mods]] table: " + out);
         assertTrue(out.contains("modId=\"survivalisland\""), "existing content preserved");

@@ -7,9 +7,6 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Shim for Fabric 1.21.3 to 1.21.4.
- */
 public class Fabric_1_21_3_to_1_21_4 implements VersionShim {
     @Override public String getShimName() { return "Fabric 1.21.3 to 1.21.4"; }
     @Override public String getSourceVersion() { return "1.21.3"; }
@@ -18,13 +15,7 @@ public class Fabric_1_21_3_to_1_21_4 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // BUILTIN ITEM RENDERER REGISTRY REMOVED
-        // BuiltinItemRendererRegistry was removed in 1.21.4 with no direct replacement.
-        // Mods using this API need to migrate to the new item model system.
-        // We redirect to a stub that logs a warning and no-ops.
-        // ============================================================
-
+        // BuiltinItemRendererRegistry was removed in 1.21.4.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/BuiltinItemRendererRegistry",
             "com/retromod/shim/fabric/embedded/BuiltinItemRendererRegistryStub"

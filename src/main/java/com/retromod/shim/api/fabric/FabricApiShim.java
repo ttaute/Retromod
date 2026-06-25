@@ -1,31 +1,13 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Fabric API Compatibility Shims
- * Handles changes in Fabric API between versions 1.14 - 1.21.11
  */
 package com.retromod.shim.api.fabric;
 
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Comprehensive Fabric API compatibility shim.
- * 
- * Fabric API is modular - these are the most commonly used modules:
- * - fabric-api-base
- * - fabric-networking-api-v1
- * - fabric-resource-loader-v0
- * - fabric-item-group-api-v1
- * - fabric-registry-sync-v0
- * - fabric-rendering-v1
- * - fabric-events-interaction-v0
- * - fabric-block-api-v1
- * - fabric-item-api-v1
- * - fabric-transfer-api-v1
- * - fabric-loot-api-v2
- */
+/** Redirects for Fabric API changes across the common modules. */
 public class FabricApiShim implements VersionShim {
     
     @Override
@@ -50,12 +32,7 @@ public class FabricApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // NETWORKING API CHANGES (Major overhaul in 1.20.5+)
-        // ============================================================
-        
-        // Old: ServerPlayNetworking.send(player, id, buf)
-        // New: ServerPlayNetworking.send(player, payload)
+        // Networking: send(player, id, buf) -> send(player, payload) in 1.20.5+
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/networking/v1/ServerPlayNetworking",
             "send",
@@ -64,9 +41,7 @@ public class FabricApiShim implements VersionShim {
             "sendLegacy",
             "(Lnet/minecraft/server/network/ServerPlayerEntity;Lnet/minecraft/util/Identifier;Lnet/minecraft/network/PacketByteBuf;)V"
         );
-        
-        // Old: ClientPlayNetworking.send(id, buf)
-        // New: ClientPlayNetworking.send(payload)
+
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/networking/v1/ClientPlayNetworking",
             "send",
@@ -86,12 +61,7 @@ public class FabricApiShim implements VersionShim {
             "()Lnet/minecraft/network/PacketByteBuf;"
         );
         
-        // ============================================================
-        // ITEM GROUP API CHANGES (1.19.3+ overhaul)
-        // ============================================================
-        
-        // Old: ItemGroupEvents.modifyEntriesEvent(group).register(...)
-        // New: Different signature in 1.20+
+        // Item groups: modifyEntriesEvent changed signature in 1.20+
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/itemgroup/v1/ItemGroupEvents",
             "modifyEntriesEvent",
@@ -107,12 +77,7 @@ public class FabricApiShim implements VersionShim {
             "com/retromod/shim/api/fabric/embedded/FabricItemGroupBuilderShim"
         );
         
-        // ============================================================
-        // BLOCK/ITEM SETTINGS CHANGES (1.20+)
-        // ============================================================
-        
-        // FabricBlockSettings.of(material) -> AbstractBlock.Settings.create()
-        // Material system removed in 1.20
+        // FabricBlockSettings.of(material) -> AbstractBlock.Settings.create(); Material removed in 1.20
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/object/builder/v1/block/FabricBlockSettings",
             "of",
@@ -122,7 +87,7 @@ public class FabricApiShim implements VersionShim {
             "(Ljava/lang/Object;)Lnet/minecraft/block/AbstractBlock$Settings;"
         );
         
-        // FabricBlockSettings.copyOf(block) still works but signature changed
+        // FabricBlockSettings.copy(block) signature changed
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/object/builder/v1/block/FabricBlockSettings",
             "copy",
@@ -132,17 +97,13 @@ public class FabricApiShim implements VersionShim {
             "(Lnet/minecraft/block/AbstractBlock;)Lnet/minecraft/block/AbstractBlock$Settings;"
         );
         
-        // FabricItemSettings -> Item.Settings (FabricItemSettings removed)
+        // FabricItemSettings removed -> Item.Settings
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/item/v1/FabricItemSettings",
             "net/minecraft/item/Item$Settings"
         );
-        
-        // ============================================================
-        // REGISTRY CHANGES (1.19.3+ Registries overhaul)
-        // ============================================================
-        
-        // Registry.register -> Registries system
+
+        // Registries overhaul (1.19.3+): Registry.register -> Registries
         transformer.registerMethodRedirect(
             "net/minecraft/util/registry/Registry",
             "register",
@@ -152,23 +113,18 @@ public class FabricApiShim implements VersionShim {
             "(Lnet/minecraft/registry/Registry;Lnet/minecraft/util/Identifier;Ljava/lang/Object;)Ljava/lang/Object;"
         );
         
-        // Old Registry class -> new Registries class
         transformer.registerClassRedirect(
             "net/minecraft/util/registry/Registry",
             "net/minecraft/registry/Registries"
         );
-        
+
         // BuiltinRegistries -> BuiltInRegistries
         transformer.registerClassRedirect(
             "net/minecraft/util/registry/BuiltinRegistries",
             "net/minecraft/registry/BuiltInRegistries"
         );
-        
-        // ============================================================
-        // RENDERING API CHANGES
-        // ============================================================
-        
-        // BlockRenderLayerMap changes
+
+        // Rendering
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/blockrenderlayer/v1/BlockRenderLayerMap",
             "putBlock",
@@ -178,7 +134,6 @@ public class FabricApiShim implements VersionShim {
             "(Lnet/minecraft/block/Block;Lnet/minecraft/client/render/RenderLayer;)V"
         );
         
-        // ColorProviderRegistry changes
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/ColorProviderRegistry",
             "BLOCK",
@@ -187,12 +142,8 @@ public class FabricApiShim implements VersionShim {
             "getBlockRegistry",
             "()Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // RESOURCE LOADER CHANGES
-        // ============================================================
-        
-        // ResourceManagerHelper changes
+
+        // Resource loader
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/resource/ResourceManagerHelper",
             "get",
@@ -201,12 +152,8 @@ public class FabricApiShim implements VersionShim {
             "getHelper",
             "(Lnet/minecraft/resource/ResourceType;)Lnet/fabricmc/fabric/api/resource/ResourceManagerHelper;"
         );
-        
-        // ============================================================
-        // TRANSFER API CHANGES (1.20+)
-        // ============================================================
-        
-        // Storage API changes
+
+        // Transfer/storage API (1.20+)
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/transfer/v1/item/ItemStorage",
             "SIDED",
@@ -215,22 +162,14 @@ public class FabricApiShim implements VersionShim {
             "getItemStorageSided",
             "()Lnet/fabricmc/fabric/api/lookup/v1/block/BlockApiLookup;"
         );
-        
-        // ============================================================
-        // LOOT API CHANGES (v1 -> v2)
-        // ============================================================
-        
-        // LootTableLoadingCallback removed, use LootTableEvents
+
+        // Loot v1 -> v2: LootTableLoadingCallback removed
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/loot/v1/LootTableLoadingCallback",
             "com/retromod/shim/api/fabric/embedded/LootTableShim"
         );
-        
-        // ============================================================
-        // EVENT INTERACTION CHANGES
-        // ============================================================
-        
-        // UseBlockCallback, UseItemCallback, AttackBlockCallback changes
+
+        // Player interaction events
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/event/player/UseBlockCallback",
             "EVENT",
@@ -239,11 +178,8 @@ public class FabricApiShim implements VersionShim {
             "getUseBlockEvent",
             "()Lnet/fabricmc/fabric/api/event/Event;"
         );
-        
-        // ============================================================
-        // BIOME MODIFICATION API (1.19+)
-        // ============================================================
-        
+
+        // Biome modification (1.19+)
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/biome/v1/BiomeModifications",
             "addFeature",
@@ -252,12 +188,8 @@ public class FabricApiShim implements VersionShim {
             "addFeature",
             "(Ljava/util/function/Predicate;Lnet/minecraft/world/gen/GenerationStep$Feature;Lnet/minecraft/registry/RegistryKey;)V"
         );
-        
-        // ============================================================
-        // SCREEN API CHANGES
-        // ============================================================
-        
-        // ScreenEvents changes
+
+        // Screen events
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/screen/v1/ScreenEvents",
             "beforeRender",
@@ -266,11 +198,7 @@ public class FabricApiShim implements VersionShim {
             "beforeRender",
             "(Lnet/minecraft/client/gui/screen/Screen;)Lnet/fabricmc/fabric/api/event/Event;"
         );
-        
-        // ============================================================
-        // DIMENSION API CHANGES
-        // ============================================================
-        
+
         // FabricDimensions.teleport signature changed
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/dimension/v1/FabricDimensions",

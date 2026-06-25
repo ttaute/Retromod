@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Fabric shim for 1.15.2 to 1.16.5 (Nether Update). Dimension system reworked,
- * some Fabric API changes.
- */
+/** Fabric 1.15.2 to 1.16.5: dimension rework plus Fabric API churn. */
 public class Fabric_1_15_2_to_1_16_5 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.15.2 to 1.16.5"; }
@@ -20,33 +17,29 @@ public class Fabric_1_15_2_to_1_16_5 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Dimension rework
         transformer.registerClassRedirect(
             "net/minecraft/world/dimension/DimensionType",
             "net/minecraft/world/dimension/DimensionType"
         );
-        // RegistryKey introduced (replaces dimension-specific access patterns)
+        // getDimension() became RegistryKey-based
         transformer.registerMethodRedirect(
             "net/minecraft/world/World", "getDimension",
             "()Lnet/minecraft/world/dimension/DimensionType;",
             "com/retromod/shim/fabric/embedded/DimensionShim", "getDimension",
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        // World.getRegistryKey() added
         transformer.registerMethodRedirect(
             "net/minecraft/world/World", "getDimensionRegistryKey",
             "()Lnet/minecraft/util/registry/RegistryKey;",
             "net/minecraft/world/World", "getRegistryKey",
             "()Lnet/minecraft/util/registry/RegistryKey;"
         );
-        // Biome changes (Nether biomes)
         transformer.registerMethodRedirect(
             "net/minecraft/world/biome/Biome", "getTemperature",
             "()F",
             "com/retromod/shim/fabric/embedded/BiomeShim", "getTemperature",
             "(Ljava/lang/Object;)F"
         );
-        // Recipe types moved
         transformer.registerMethodRedirect(
             "net/minecraft/recipe/RecipeType", "register",
             "(Ljava/lang/String;)Lnet/minecraft/recipe/RecipeType;",

@@ -13,35 +13,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Bridges the removed Fabric <b>{@code HudRenderCallback}</b> (single global HUD
- * render event) onto 26.1's layered {@code hud/HudElementRegistry}. Audit gap:
- * ~6 mods sole-blocked on it (HUD overlay mods).
+ * Bridges the removed Fabric {@code HudRenderCallback} onto 26.1's layered
+ * {@code hud/HudElementRegistry}.
  *
- * <p>26.1 deleted {@code HudRenderCallback} outright; the replacement is named
- * {@code HudElement}s in a registry. The SAM also differs
- * ({@code onHudRender} → {@code extractRenderState}), so a class redirect alone
- * would lambda-trap. The synthetic injected here uses the <b>extends + default
- * bridge</b> shape (same as the ScreenEvents render→extract synthetics):
+ * <p>26.1 dropped {@code HudRenderCallback} and changed the SAM ({@code onHudRender} ->
+ * {@code extractRenderState}), so a plain class redirect would lambda-trap. The synthetic keeps
+ * {@code onHudRender} as the sole abstract method so old lambdas still link, extends
+ * {@code HudElement}, and forwards via a default {@code extractRenderState}; {@code EVENT} is wired
+ * in {@code <clinit>} and registers as one {@code HudElement} layer through
+ * {@code HudRenderCallbackBridge}.
  *
- * <pre>
- * interface HudRenderCallback extends hud.HudElement {
- *     void onHudRender(GuiGraphicsExtractor, DeltaTracker);            // old SAM (only abstract)
- *     default void extractRenderState(g, d) { onHudRender(g, d); }     // new SAM bridged
- *     Event&lt;HudRenderCallback&gt; EVENT = …;                         // wired in &lt;clinit&gt;
- * }
- * </pre>
- *
- * Old lambdas link against {@code onHudRender} (still the single abstract method),
- * every listener <i>is</i> a {@code HudElement}, and
- * {@link com.retromod.shim.api.fabric.embedded.HudRenderCallbackBridge} registers
- * the event's combined invoker as one {@code HudElement} layer.
- *
- * <p><b>Gated 26.1+</b> (pitfall #9): {@code HudRenderCallback} still exists and
- * works on pre-26.1 hosts - and the synthetic's Mojang/26.1 descriptors
- * ({@code GuiGraphicsExtractor}) wouldn't resolve there anyway.</p>
- *
- * <p><b>STATUS - authored, not yet runtime-verified</b> (needs an in-game 26.1 HUD
- * overlay check alongside the other bridges).</p>
+ * <p>Gated to 26.1+ (#9): {@code HudRenderCallback} still exists on older hosts.
  */
 public class FabricHudRenderCallbackShim implements VersionShim {
 
@@ -54,7 +36,7 @@ public class FabricHudRenderCallbackShim implements VersionShim {
 
     private static final String EVENT   = "net/fabricmc/fabric/api/event/Event";
     private static final String L_EVENT = "L" + EVENT + ";";
-    /** Old SAM in post-remap (Mojang + 26.1 class-move) form: class_332→GuiGraphicsExtractor, class_9779→DeltaTracker. */
+    /** Remapped SAM descriptor: class_332 -> GuiGraphicsExtractor, class_9779 -> DeltaTracker. */
     private static final String SAM_DESC =
             "(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V";
 
@@ -65,8 +47,6 @@ public class FabricHudRenderCallbackShim implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // 26.1+ hosts ONLY (pitfall #9): HudRenderCallback is alive pre-26.1, and the
-        // synthetic's GuiGraphicsExtractor descriptor only resolves on 26.1.
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
             LOGGER.debug("[Retromod] HudRenderCallback bridge skipped (host {} < 26.1 - old API still present)",
@@ -83,11 +63,6 @@ public class FabricHudRenderCallbackShim implements VersionShim {
                 + "HudElementRegistry (STATUS: needs in-game verification)");
     }
 
-    /**
-     * Synthetic {@code HudRenderCallback}: extends the new {@code HudElement};
-     * abstract old SAM + default new-SAM forwarder + {@code EVENT} wired in
-     * {@code <clinit>} through the reflective bridge.
-     */
     static byte[] generateInterface() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17,
@@ -97,7 +72,6 @@ public class FabricHudRenderCallbackShim implements VersionShim {
         cw.visitField(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
                 "EVENT", L_EVENT, null, null).visitEnd();
 
-        // The old SAM - stays the single abstract method so lambdas keep linking.
         cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "onHudRender", SAM_DESC, null, null)
                 .visitEnd();
 

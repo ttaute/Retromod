@@ -64,16 +64,14 @@ public class BlockPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class redirects handle these renames
+        // No embedded stubs needed; pure class redirects handle these renames
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // Block class renames: net.minecraft.block.* -> net.minecraft.world.level.block.*
         // These cover the 1.13 Flattening renames using Mojang official names.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/block/BlockContainer",

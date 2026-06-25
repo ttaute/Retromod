@@ -16,22 +16,16 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * §A1: synthetic reimplementations of the AgeableListModel-family abstract bases that 26.1
- * removed (class_4592 AnimalModel, class_4593 tint subclass, class_4595 CompositeEntityModel).
- *
- * <p>These are GONE on the modern host, so a pre-1.17 Fabric model mod that extends one fails
- * to load. {@link Pre1_17ModelBridge} now injects an abstract synthetic for each and class-
- * redirects the dead intermediary onto it. These tests pin the synthetics' structure (valid
- * bytecode, correct super, abstract getters kept abstract, render concrete) and the redirect
- * wiring (a mod extending class_4592 is rebased onto the synthetic, super() included).
- * In-game rendering on a real pre-26.1 Fabric instance is the remaining manual check.</p>
+ * Pins the synthetic model bases {@link Pre1_17ModelBridge} injects for the abstract models 26.1
+ * removed (class_4592, class_4593, class_4595): valid bytecode, correct super, abstract getters,
+ * concrete render, and the redirect that rebases a mod extending class_4592 onto the synthetic.
  */
 class Pre1_17AbstractBaseTest {
 
     private static final String RENDER_DESC =
             "(Lnet/minecraft/class_4587;Lnet/minecraft/class_4588;IIFFFF)V";
 
-    /** Lightweight reflective view of a generated class via a core-ASM visitor (no asm-tree dep). */
+    /** Reflective view of a generated class. */
     private static final class Info extends ClassVisitor {
         int access;
         String superName;
@@ -53,7 +47,7 @@ class Pre1_17AbstractBaseTest {
 
     private static Info inspect(byte[] clazz) {
         Info i = new Info();
-        new ClassReader(clazz).accept(i, 0); // throws if the bytecode is malformed
+        new ClassReader(clazz).accept(i, 0); // throws on malformed bytecode
         return i;
     }
 
@@ -68,17 +62,16 @@ class Pre1_17AbstractBaseTest {
         assertEquals("net/minecraft/class_583", i.superName, "AnimalModel base extends class_583");
         assertNotEquals(0, i.access & Opcodes.ACC_ABSTRACT, "base must be abstract");
 
-        // all four 1.16 constructors present
+        // all four 1.16 constructors
         assertTrue(i.methods.containsKey("<init>()V"));
         assertTrue(i.methods.containsKey("<init>(ZFF)V"));
         assertTrue(i.methods.containsKey("<init>(ZFFFFF)V"));
         assertTrue(i.methods.containsKey("<init>(Ljava/util/function/Function;ZFFFFF)V"));
 
-        // head/body getters kept abstract for the mod to implement
+        // part getters stay abstract for the mod to implement
         assertNotEquals(0, i.methods.get("method_22946()Ljava/lang/Iterable;") & Opcodes.ACC_ABSTRACT);
         assertNotEquals(0, i.methods.get("method_22948()Ljava/lang/Iterable;") & Opcodes.ACC_ABSTRACT);
 
-        // render concrete (inherited by the mod)
         Integer render = i.methods.get("method_2828" + RENDER_DESC);
         assertNotNull(render, "must declare the model render method_2828");
         assertEquals(0, render & Opcodes.ACC_ABSTRACT, "render must be concrete");
@@ -128,7 +121,7 @@ class Pre1_17AbstractBaseTest {
         assertEquals("com/retromod/generated/LegacyAnimalModel", i.superName,
                 "a mod extending the removed class_4592 must be rebased onto the synthetic");
 
-        // and its super(false, 0f, 0f) ctor call must now target the synthetic's ctor
+        // the super(...) call must now target the synthetic's ctor
         boolean[] superRedirected = {false};
         new ClassReader(out).accept(new ClassVisitor(Opcodes.ASM9) {
             @Override public MethodVisitor visitMethod(int a, String n, String d, String s, String[] e) {
@@ -148,7 +141,7 @@ class Pre1_17AbstractBaseTest {
         t.clearRedirectsForTesting();
     }
 
-    /** A pre-1.17 Fabric model: {@code class MyDeerModel extends class_4592} with {@code super(false, 0, 0)}. */
+    /** A pre-1.17 Fabric model: {@code MyDeerModel extends class_4592} with {@code super(false, 0, 0)}. */
     private static byte[] modExtendingAnimalModel() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "test/MyDeerModel", null,
@@ -156,9 +149,9 @@ class Pre1_17AbstractBaseTest {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         mv.visitCode();
         mv.visitVarInsn(Opcodes.ALOAD, 0);
-        mv.visitInsn(Opcodes.ICONST_0); // false
-        mv.visitInsn(Opcodes.FCONST_0); // 0f
-        mv.visitInsn(Opcodes.FCONST_0); // 0f
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitInsn(Opcodes.FCONST_0);
+        mv.visitInsn(Opcodes.FCONST_0);
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, "net/minecraft/class_4592", "<init>", "(ZFF)V", false);
         mv.visitInsn(Opcodes.RETURN);
         mv.visitMaxs(0, 0);

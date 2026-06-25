@@ -15,13 +15,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * The main Retromod in-game screen - the one that opens when you click the
+ * The main Retromod in-game screen, the one that opens when you click the
  * Retromod logo on the title screen. Has:
  *
  * <ul>
  *   <li>A "settings" gear button at top-right that opens the toggle screen</li>
- *   <li>"Add Mods" - opens the OS native file picker (with macOS workarounds)</li>
- *   <li>"Open Mods Folder" - opens the {@code retromod-input/} folder in the
+ *   <li>"Add Mods": opens the OS native file picker (with macOS workarounds)</li>
+ *   <li>"Open Mods Folder": opens the {@code retromod-input/} folder in the
  *       OS file manager. Reliable cross-platform fallback when the file
  *       picker has issues.</li>
  *   <li>"Done" at the bottom to return to the parent screen</li>
@@ -44,9 +44,7 @@ public final class MainScreenFactory {
 
     private MainScreenFactory() {}
 
-    // ──────────────────────────────────────────────────────────────────────
     // PUBLIC API
-    // ──────────────────────────────────────────────────────────────────────
 
     public static void open(Object parentScreen) {
         LOGGER.info("[Retromod] MainScreenFactory.open() entered");
@@ -80,16 +78,13 @@ public final class MainScreenFactory {
         setScreen(screen);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // LAYOUT
-    // ──────────────────────────────────────────────────────────────────────
 
     private static void addAllWidgets(Object screen, Object parentScreen) {
         try {
             int width  = McReflect.getIntField(screen, screenClass, 854, "width");
             int height = McReflect.getIntField(screen, screenClass, 480, "height");
 
-            // ── Settings gear button at top-right ─────────────────────────
             // Uses a Unicode gear glyph since SpriteIconButton is unreliable
             // across MC versions. The text is short ("⚙") so the button can
             // still be square (20x20).
@@ -98,7 +93,6 @@ public final class MainScreenFactory {
                     width - 22, 2, 20, 20);
             addWidget(screen, settingsBtn);
 
-            // ── Center column: stacked action buttons ─────────────────────
             int btnWidth  = 240;
             int btnHeight = 24;
             int gap       = 8;
@@ -117,21 +111,20 @@ public final class MainScreenFactory {
                     x, startY, btnWidth, btnHeight);
             addWidget(screen, subtitle);
 
-            // Add Mods button - opens the OS native file picker
+            // Add Mods button: opens the OS native file picker
             Object addBtn = buildButton(
                     McI18n.translatable("retromod.main.add_mods"),
                     makePressAction(() -> openNativeFilePicker(screen)),
                     x, startY + btnHeight + gap, btnWidth, btnHeight);
             addWidget(screen, addBtn);
 
-            // Open Mods Folder button - reliable cross-platform alternative
+            // Open Mods Folder button: reliable cross-platform alternative
             Object folderBtn = buildButton(
                     McI18n.translatable("retromod.main.open_folder"),
                     makePressAction(MainScreenFactory::openInputFolder),
                     x, startY + (btnHeight + gap) * 2, btnWidth, btnHeight);
             addWidget(screen, folderBtn);
 
-            // ── Done button at fixed bottom ───────────────────────────────
             Object doneBtn = buildButton(McI18n.translatable("retromod.settings.done"),
                     makePressAction(() -> setScreen(parentScreen)),
                     width / 2 - 75, height - 28, 150, 20);
@@ -142,9 +135,7 @@ public final class MainScreenFactory {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // ACTIONS
-    // ──────────────────────────────────────────────────────────────────────
 
     /**
      * Open the OS native file picker on a daemon thread so we don't block
@@ -180,7 +171,7 @@ public final class MainScreenFactory {
 
     /**
      * Open {@code retromod-input/} in the OS file manager so the user can
-     * drop JARs into it. Works on every platform - uses MC's own
+     * drop JARs into it. Works on every platform, using MC's own
      * Util.getOperatingSystem().open() (same call as the vanilla
      * "Open Resource Pack Folder" button).
      */
@@ -225,9 +216,7 @@ public final class MainScreenFactory {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // BUTTON BUILDERS (mirrored from ConfigScreenFactory for now)
-    // ──────────────────────────────────────────────────────────────────────
 
     private static Object buildButton(Object text, Object pressAction,
                                        int x, int y, int w, int h) {
@@ -278,9 +267,7 @@ public final class MainScreenFactory {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // MC CLASS RESOLUTION
-    // ──────────────────────────────────────────────────────────────────────
 
     private static boolean resolveClasses() {
         if (resolved) return screenClass != null;

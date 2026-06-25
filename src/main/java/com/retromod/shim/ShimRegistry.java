@@ -10,55 +10,38 @@ import java.util.*;
 import java.util.logging.Logger;
 
 /**
- * Registry for managing loaded version shims.
- *
- * <p>Supports fuzzy version matching for intermediate Minecraft versions. Shims are
- * registered for "milestone" versions (e.g. 1.14.4, 1.15.2, 1.16.5), but mods may
- * target any intermediate version (e.g. 1.14.1, 1.15.1, 1.16.2). When a mod targets
- * an intermediate version, the registry automatically resolves it to the nearest
- * milestone version before performing BFS pathfinding. This allows shim chains to be
- * found even when no shim is registered with the exact source version the mod targets.</p>
- *
- * <p>For Minecraft 1.17 and later, every version has its own shim, so no fuzzy
- * matching is needed.</p>
+ * Holds the loaded version shims and finds chains between versions. Mods targeting an
+ * intermediate version (1.16.2) resolve to the nearest milestone shim (1.16.5) before
+ * pathfinding. From 1.17 on every version has its own shim.
  */
 public class ShimRegistry {
 
     private static final Logger LOGGER = Logger.getLogger(ShimRegistry.class.getName());
 
-    /**
-     * Maps intermediate MC versions to their nearest milestone version.
-     * Pre-1.17 versions are grouped into milestone releases that represent
-     * the most stable/complete version of that minor release line.
-     */
+    /** Maps intermediate MC versions to the milestone shim that covers their release line. */
     private static final Map<String, String> VERSION_ALIASES;
 
     static {
         Map<String, String> aliases = new HashMap<>();
 
-        // 1.13.x → 1.13.2
         aliases.put("1.13",   "1.13.2");
         aliases.put("1.13.1", "1.13.2");
 
-        // 1.14.x → 1.14.4
         aliases.put("1.14",   "1.14.4");
         aliases.put("1.14.1", "1.14.4");
         aliases.put("1.14.2", "1.14.4");
         aliases.put("1.14.3", "1.14.4");
 
-        // 1.15.x → 1.15.2
         aliases.put("1.15",   "1.15.2");
         aliases.put("1.15.1", "1.15.2");
 
-        // 1.16.x → 1.16.5
         aliases.put("1.16",   "1.16.5");
         aliases.put("1.16.1", "1.16.5");
         aliases.put("1.16.2", "1.16.5");
         aliases.put("1.16.3", "1.16.5");
         aliases.put("1.16.4", "1.16.5");
 
-        // 26.1 pre-releases and snapshots → 26.1
-        // Fabric Loader reports version as "26.1-pre.2", Prism shows "26.1-pre-2"
+        // pre-releases / rc / snapshots → 26.1 (Fabric uses dots, Prism uses dashes)
         aliases.put("26.1-pre.1", "26.1");
         aliases.put("26.1-pre.2", "26.1");
         aliases.put("26.1-pre-1", "26.1");
@@ -68,22 +51,16 @@ public class ShimRegistry {
         aliases.put("26.1-pre.3", "26.1");
         aliases.put("26.1-pre-3", "26.1");
         aliases.put("26.1 Pre-Release 3", "26.1");
-        // Release candidates
         aliases.put("26.1-rc.1", "26.1");
         aliases.put("26.1-rc-1", "26.1");
         aliases.put("26.1 Release Candidate 1", "26.1");
-        // Snapshots
         aliases.put("26.1-snapshot.1", "26.1");
         aliases.put("26.1-snapshot.2", "26.1");
         aliases.put("26.1-snapshot.3", "26.1");
-        // Sub-versions
         aliases.put("26.1.0", "26.1");
         aliases.put("26.1.1", "26.1");
         aliases.put("26.1.2", "26.1");
 
-        // 26.2 pre-releases / release candidates / snapshots → 26.2
-        // (same dot/dash dual forms: Fabric Loader reports "26.2-rc.1",
-        // Prism and the version manifest use "26.2-rc-1")
         for (int i = 1; i <= 6; i++) {
             aliases.put("26.2-pre." + i, "26.2");
             aliases.put("26.2-pre-" + i, "26.2");
@@ -93,7 +70,6 @@ public class ShimRegistry {
             aliases.put("26.2 Release Candidate " + i, "26.2");
             aliases.put("26.2-snapshot." + i, "26.2");
         }
-        // Sub-versions
         aliases.put("26.2.0", "26.2");
         aliases.put("26.2.1", "26.2");
         aliases.put("26.2.2", "26.2");
@@ -102,43 +78,30 @@ public class ShimRegistry {
         VERSION_ALIASES = Collections.unmodifiableMap(aliases);
     }
 
-    // Maps: sourceVersion -> List of shims for that version
     private final Map<String, List<VersionShim>> shimsBySourceVersion = new HashMap<>();
 
-    // Maps: modLoader -> sourceVersion -> List of shims
+    // loader -> sourceVersion -> shims
     private final Map<String, Map<String, List<VersionShim>>> shimsByLoaderAndVersion = new HashMap<>();
 
-    // All registered shims
     private final List<VersionShim> allShims = new ArrayList<>();
-    
-    /**
-     * Register a version shim.
-     */
+
     public void register(VersionShim shim) {
         allShims.add(shim);
-        
-        // Index by source version
+
         shimsBySourceVersion
             .computeIfAbsent(shim.getSourceVersion(), k -> new ArrayList<>())
             .add(shim);
-        
-        // Index by loader and version
+
         shimsByLoaderAndVersion
             .computeIfAbsent(shim.getModLoaderType(), k -> new HashMap<>())
             .computeIfAbsent(shim.getSourceVersion(), k -> new ArrayList<>())
             .add(shim);
     }
-    
-    /**
-     * Get all shims for a specific source version.
-     */
+
     public List<VersionShim> getShimsForVersion(String sourceVersion) {
         return shimsBySourceVersion.getOrDefault(sourceVersion, Collections.emptyList());
     }
-    
-    /**
-     * Get shims for a specific mod loader and source version.
-     */
+
     public List<VersionShim> getShimsForLoaderAndVersion(String modLoader, String sourceVersion) {
         Map<String, List<VersionShim>> byVersion = shimsByLoaderAndVersion.get(modLoader);
         if (byVersion == null) return Collections.emptyList();
@@ -146,65 +109,32 @@ public class ShimRegistry {
     }
     
     /**
-     * Resolve a Minecraft version to its nearest milestone version.
-     *
-     * <p>If the given version is an intermediate version (e.g. 1.16.2), it will be
-     * mapped to the corresponding milestone (e.g. 1.16.5). If the version is already
-     * a milestone or has no known alias, it is returned as-is.</p>
-     *
-     * @param version the Minecraft version string to resolve
-     * @return the milestone version, or the original version if no alias exists
+     * Resolve an intermediate MC version (1.16.2) to its milestone (1.16.5). Milestones and
+     * unknown versions pass through unchanged.
      */
     public static String resolveVersion(String version) {
         return VERSION_ALIASES.getOrDefault(version, version);
     }
 
-    /**
-     * Get all known Minecraft versions that this registry can handle.
-     *
-     * <p>This includes both milestone versions (that have registered shims) and
-     * intermediate versions (that are mapped to milestones via {@link #VERSION_ALIASES}).</p>
-     *
-     * @return an unmodifiable set of all known version strings
-     */
+    /** Every version the registry handles: milestones with shims plus their intermediate aliases. */
     public Set<String> getAllKnownVersions() {
         Set<String> versions = new HashSet<>();
-
-        // Add all milestone versions that have registered shims
         versions.addAll(shimsBySourceVersion.keySet());
-
-        // Add all intermediate versions from the alias map
         versions.addAll(VERSION_ALIASES.keySet());
-
         return Collections.unmodifiableSet(versions);
     }
 
     /**
-     * Find the best shim chain to transform from sourceVersion to targetVersion.
-     *
-     * <p>If the sourceVersion is an intermediate version (e.g. 1.16.2), it will be
-     * automatically resolved to the nearest milestone version (e.g. 1.16.5) before
-     * performing BFS pathfinding. The same resolution is applied to the targetVersion.</p>
-     *
-     * <p>For example, to go from 1.21.7 to 1.21.10, this might return:
-     * [Shim_1.21.7_to_1.21.8, Shim_1.21.8_to_1.21.9, Shim_1.21.9_to_1.21.10]</p>
+     * Find the shortest shim chain from sourceVersion to targetVersion, resolving intermediate
+     * versions to milestones first. Returns an empty list when no path exists.
      */
     public List<VersionShim> findShimChain(String modLoader, String sourceVersion, String targetVersion) {
-        // A null source or target means we don't know where to start (or stop) the
-        // BFS, so there is no shim chain to find - return an empty chain and let the
-        // caller fall back to its best-effort path. Without this guard resolveVersion
-        // hands back null (getOrDefault(null, null)) and the resolvedSource.equals(...)
-        // comparison below NPEs ("Cannot invoke String.equals(Object) because
-        // resolvedSource is null"). Real trigger: a NeoForge/Forge mod whose toml
-        // declares only loaderVersion and no minecraft dependency (e.g. Macaw's
-        // Furniture 3.4.2 for 1.21.11) -> ModVersionDetector returns a null source MC
-        // version, and batchCommand forces a bytecode transform anyway, calling this
-        // with a null source.
+        // A toml with only loaderVersion (no minecraft dep) leaves the version null; bail before the
+        // equals below NPEs.
         if (sourceVersion == null || targetVersion == null) {
             return Collections.emptyList();
         }
 
-        // Resolve intermediate versions to their nearest milestone
         String resolvedSource = resolveVersion(sourceVersion);
         String resolvedTarget = resolveVersion(targetVersion);
 
@@ -217,16 +147,7 @@ public class ShimRegistry {
                     + " (fuzzy version matching)");
         }
 
-        // BFS (Breadth-First Search) to find the shortest chain of shims
-        // from source → target version. Each shim bridges one version gap
-        // (e.g., 1.20.1→1.20.4). BFS guarantees we find the chain with the
-        // fewest shims, which minimizes the number of bytecode transformations.
-        //
-        // Example: to go from 1.16.5 → 26.1, BFS might find:
-        //   1.16.5→1.17 → 1.17→1.18 → ... → 1.21.10→26.1
-        //
-        // Each node in the queue holds the current version + the shim chain
-        // that got us there. When we reach the target, we return the chain.
+        // BFS so the first path found uses the fewest shims.
         Queue<ShimPath> queue = new LinkedList<>();
         Set<String> visited = new HashSet<>();
 
@@ -236,12 +157,10 @@ public class ShimRegistry {
         while (!queue.isEmpty()) {
             ShimPath current = queue.poll();
 
-            // Found the target - return the chain of shims that got us here
             if (current.version.equals(resolvedTarget)) {
                 return current.shims;
             }
 
-            // Explore all shims from the current version (edges in the version graph)
             for (VersionShim shim : getShimsForLoaderAndVersion(modLoader, current.version)) {
                 String nextVersion = shim.getTargetVersion();
 
@@ -256,20 +175,14 @@ public class ShimRegistry {
             }
         }
 
-        // No path exists from source → target (missing shims for some version gap)
         return Collections.emptyList();
     }
-    
-    /**
-     * Get all registered shims.
-     */
+
     public List<VersionShim> getAllShims() {
         return Collections.unmodifiableList(allShims);
     }
-    
-    /**
-     * Get supported source versions for a mod loader.
-     */
+
+    /** Source versions with at least one shim for the given loader. */
     public Set<String> getSupportedVersions(String modLoader) {
         Map<String, List<VersionShim>> byVersion = shimsByLoaderAndVersion.get(modLoader);
         if (byVersion == null) return Collections.emptySet();

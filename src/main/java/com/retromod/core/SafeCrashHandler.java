@@ -14,76 +14,52 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Graceful crash handler for Retromod.
- * 
- * When a transformed mod causes an error during gameplay:
- * 1. Catches the error before it crashes Minecraft
- * 2. Pauses the game (sets TPS to 0 / freezes tick loop)
- * 3. Saves the world automatically
- * 4. Shows a friendly popup explaining what happened
- * 5. Forces the user to quit (no "continue playing" option)
- * 
- * This prevents players from losing their world due to mod incompatibilities.
+ * Catches errors from transformed mods during gameplay, pauses, saves the world,
+ * shows a quit-only dialog, and exits so players don't lose worlds to mod incompatibilities.
  */
 public class SafeCrashHandler {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-SafeCrash");
-    
-    // Singleton
+
     private static SafeCrashHandler instance;
-    
-    // Track which class caused an error -> which mod it belongs to
+
+    // class name -> owning mod id
     private final Map<String, String> classToModMap;
-    
-    // Track errors per mod
+
     private final Map<String, Integer> modErrorCounts = new ConcurrentHashMap<>();
-    
-    // Flag to prevent multiple crash dialogs
+
     private final AtomicBoolean crashHandled = new AtomicBoolean(false);
-    
-    // Reference to Minecraft server (for world saving)
+
     private Object minecraftServer = null;
     private Object minecraftClient = null;
-    
-    // The previous default handler, so we can chain to it
+
     private final Thread.UncaughtExceptionHandler previousHandler;
 
     private SafeCrashHandler(Map<String, String> classToModMap) {
         this.classToModMap = classToModMap;
-
-        // Save previous handler so we can chain non-Retromod exceptions to it
         this.previousHandler = Thread.getDefaultUncaughtExceptionHandler();
-
-        // Install our handler that only intercepts Retromod-related exceptions
         Thread.setDefaultUncaughtExceptionHandler(this::handleUncaughtException);
     }
 
     public static synchronized SafeCrashHandler getInstance() {
         if (instance == null) {
-            // Get class->mod mapping from HybridTransformationEngine if available
             Map<String, String> mapping = new ConcurrentHashMap<>();
             try {
                 HybridTransformationEngine engine = HybridTransformationEngine.getInstance();
                 mapping = engine.getClassToModMap();
             } catch (Exception e) {
-                // Fall back to empty mapping
+                // leave mapping empty
             }
             instance = new SafeCrashHandler(mapping);
         }
         return instance;
     }
-    
-    /**
-     * Register the Minecraft server instance (for world saving).
-     */
+
     public void registerServer(Object server) {
         this.minecraftServer = server;
         LOGGER.debug("Registered Minecraft server for safe crash handling");
     }
-    
-    /**
-     * Register the Minecraft client instance.
-     */
+
     public void registerClient(Object client) {
         this.minecraftClient = client;
         LOGGER.debug("Registered Minecraft client for safe crash handling");
@@ -94,65 +70,40 @@ public class SafeCrashHandler {
      * Returns true if the error was handled (game should stop), false to propagate.
      */
     public boolean handleTransformError(String className, Throwable error) {
-        // Determine which mod caused this
         String modId = identifyMod(className, error);
-        
-        // Track error count
         modErrorCounts.merge(modId, 1, Integer::sum);
-        
-        // Log the error
         LOGGER.error("Transformed mod '{}' threw an error in class '{}'", modId, className, error);
-        
-        // If this is a critical error (not just a minor issue), trigger safe crash
+
         if (isCriticalError(error)) {
             triggerSafeCrash(modId, className, error);
             return true;
         }
-        
         return false;
     }
-    
-    /**
-     * Global uncaught exception handler.
-     * Only intercepts exceptions from classes we KNOW are Retromod-transformed
-     * (i.e. present in classToModMap). All other exceptions are forwarded to the
-     * previous handler so Minecraft's own crash handling works normally.
-     *
-     * NOTE: This handler ALWAYS logs full exception details to both the logger
-     * and stderr, and writes a crash-log.txt file. This prevents the "error
-     * code 1 with no text" problem where exceptions are swallowed silently.
-     */
+
+    // Intercepts exceptions from classes in classToModMap; everything else chains to the
+    // previous handler. Always logs to logger + stderr and writes crash-log.txt so a crash
+    // never exits with no diagnostic text.
     private void handleUncaughtException(Thread thread, Throwable error) {
-        // ALWAYS log the full exception first - before anything else.
-        // This prevents the "crash error 1 with no text" problem.
         LOGGER.error("Uncaught exception on thread '{}': {}", thread.getName(), error.getMessage());
         LOGGER.error("Full stack trace:", error);
         System.err.println("[Retromod] Uncaught exception on thread \"" + thread.getName() + "\": " + error);
         error.printStackTrace(System.err);
 
-        // Write crash log to file so the user always has something to report
         writeCrashLog(thread, error);
 
-        // Now check if it's from a Retromod-transformed class
         String modId = identifyConfirmedModFromStackTrace(error);
 
         if (modId != null) {
             LOGGER.error("Crash caused by Retromod-transformed mod: '{}'", modId);
             triggerSafeCrash(modId, null, error);
-        } else {
-            // Not from a Retromod-transformed class - delegate to previous handler
-            if (previousHandler != null) {
-                previousHandler.uncaughtException(thread, error);
-            } else {
-                // No previous handler - use default JVM behavior (already logged above)
-            }
+        } else if (previousHandler != null) {
+            previousHandler.uncaughtException(thread, error);
         }
+        // no previous handler: already logged above, fall through to default JVM behavior
     }
 
-    /**
-     * Write crash details to config/retromod/crash-log.txt so the user always
-     * has something to report even if the console window vanishes (e.g., Windows).
-     */
+    // Persist crash details in case the console window vanishes (Windows).
     private void writeCrashLog(Thread thread, Throwable error) {
         try {
             java.nio.file.Path crashLogDir = java.nio.file.Path.of("config/retromod");
@@ -178,21 +129,17 @@ public class SafeCrashHandler {
             sb.append("\nJava: ").append(System.getProperty("java.version")).append("\n");
             sb.append("OS: ").append(System.getProperty("os.name")).append(" ")
               .append(System.getProperty("os.version")).append("\n");
-            sb.append("Retromod: 1.2.0-snapshot.3\n");
+            sb.append("Retromod: 1.2.0-snapshot.4\n");
             sb.append("\nPlease report this at: https://github.com/Bownlux/Retromod/issues\n");
 
             java.nio.file.Files.writeString(crashLog, sb.toString());
             LOGGER.info("Crash details written to {}", crashLog.toAbsolutePath());
         } catch (Exception e) {
-            // Can't write crash log - at least we already logged to stderr
             LOGGER.warn("Could not write crash log file: {}", e.getMessage());
         }
     }
 
-    /**
-     * Only returns a mod ID if the stack trace contains a class that is
-     * CONFIRMED to be in our classToModMap (i.e., actually transformed by Retromod).
-     */
+    // Returns a mod id only for a stack-trace class that's in classToModMap (Retromod-transformed).
     private String identifyConfirmedModFromStackTrace(Throwable error) {
         for (StackTraceElement element : error.getStackTrace()) {
             String className = element.getClassName().replace('.', '/');
@@ -249,7 +196,7 @@ public class SafeCrashHandler {
                 continue;
             }
             
-            // This might be a mod class - try to extract mod name
+            // This might be a mod class; try to extract mod name
             String[] parts = className.split("/");
             if (parts.length >= 3) {
                 return parts[2];
@@ -499,7 +446,7 @@ public class SafeCrashHandler {
 
         // Block this thread briefly while screen is showing
         try {
-            Thread.sleep(30000); // 30 seconds max - user should click Save & Quit
+            Thread.sleep(30000); // 30 seconds max; user should click Save & Quit
         } catch (InterruptedException ignored) {
             System.exit(1);
         }

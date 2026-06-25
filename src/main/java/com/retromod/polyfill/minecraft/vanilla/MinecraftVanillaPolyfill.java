@@ -5,6 +5,7 @@
 package com.retromod.polyfill.minecraft.vanilla;
 
 import com.retromod.core.RetromodTransformer;
+import com.retromod.core.RetromodVersion;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -63,17 +64,27 @@ public class MinecraftVanillaPolyfill implements PolyfillProvider {
 
         // Material/MaterialColor removed in 1.20, properties inlined into BlockState
         // StructureFeature removed in 1.18.2, replaced by Structure
-        // These are handled by the shim chain - no stub needed at runtime.
+        // These are handled by the shim chain, no stub needed at runtime.
 
         // LazyLoadedValue removed in 26.1. Redirect to our embedded polyfill.
         // Mods like Jade reference this at runtime (e.g., ClientProxy.java:304).
-        // Register BOTH Mojang name AND intermediary name - ASM remapper is single-pass,
+        // Register BOTH Mojang name AND intermediary name. The ASM remapper is single-pass,
         // so class_3528→LazyLoadedValue doesn't chain to LazyLoadedValue→polyfill.
-        transformer.registerClassRedirect(
-            "net/minecraft/util/LazyLoadedValue",
-            "com/retromod/polyfill/minecraft/embedded/LazyLoadedValue");
-        transformer.registerClassRedirect(
-            "net/minecraft/class_3528",
-            "com/retromod/polyfill/minecraft/embedded/LazyLoadedValue");
+        //
+        // Host-gated to 26.1+: net/minecraft/util/LazyLoadedValue still EXISTS below
+        // 26.1, and Jade is a NeoForge/Forge mod (Mojang-named), so on a pre-26.1
+        // NeoForge host an un-gated redirect would hijack the live class. Harmless on
+        // the Fabric runtime (intermediary mods don't carry the Mojang name, #17), but
+        // the NeoForge runtime now loads polyfills too, so gate it. The intermediary
+        // class_3528 only appears in Fabric mods, which are remapped to Mojang names on
+        // a 26.1+ host anyway, so the same gate is correct for it.
+        if (!RetromodVersion.mcVersionExceeds("26.1", RetromodVersion.TARGET_MC_VERSION)) {
+            transformer.registerClassRedirect(
+                "net/minecraft/util/LazyLoadedValue",
+                "com/retromod/polyfill/minecraft/embedded/LazyLoadedValue");
+            transformer.registerClassRedirect(
+                "net/minecraft/class_3528",
+                "com/retromod/polyfill/minecraft/embedded/LazyLoadedValue");
+        }
     }
 }

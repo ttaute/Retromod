@@ -48,17 +48,15 @@ public class EmiBridgePolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class redirects to EMI 1.x
+        // No embedded stubs needed: pure class redirects to EMI 1.x
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // EMI 0.x -> 1.x class renames.
         // The package stays dev.emi.emi.api but some classes were renamed.
         // Only REMOVED/RENAMED classes are redirected here.
-        // =====================================================================
 
         // EmiTexture -> EmiDrawable (generic drawable rendering helper)
         transformer.registerClassRedirect(

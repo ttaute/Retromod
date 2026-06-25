@@ -10,8 +10,8 @@ public class ItemGroupShim {
     public static Object modifyEntriesEvent(Object itemGroup) {
         try {
             Class<?> events = Class.forName("net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents");
-            Method method = events.getMethod("modifyEntriesEvent", Class.forName("net.minecraft.registry.RegistryKey"));
-            return method.invoke(null, itemGroup);
+            Method m = events.getMethod("modifyEntriesEvent", Class.forName("net.minecraft.registry.RegistryKey"));
+            return m.invoke(null, itemGroup);
         } catch (Exception e) {
             throw new RuntimeException("ItemGroupShim failed", e);
         }

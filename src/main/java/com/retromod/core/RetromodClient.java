@@ -18,57 +18,33 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Client-specific initialization for Retromod.
- * 
- * This handles:
- * - GUI file picker for adding mods
- * - Visual performance warnings
- * - "Add Mods" floating button
- * 
- * Server-side code should NOT import this class.
+ * Client-side initialization: GUI file picker, performance warnings, title screen button.
+ * Server-side code must not import this class.
  */
 @Environment(EnvType.CLIENT)
 public class RetromodClient implements ClientModInitializer {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Client");
-    
+
     @Override
     public void onInitializeClient() {
         LOGGER.info("Retromod client-side initialization...");
-        
-        // Mark environment as client
-        EnvironmentDetector.setEnvironment(true, false);
-        
-        // Get game directory
-        Path gameDir = Paths.get(".").toAbsolutePath().normalize();
-        
-        // IMPORTANT: Create folders if they don't exist (backup in case PreLaunch missed)
-        ModHealthChecker.ensureFoldersExist(gameDir);
-        
-        // Initialize client-only features
-        initializeGui(gameDir);
-        
-        // Register crash handler with client instance
-        registerClientCrashHandler();
 
-        // Register Retromod presence channel for server cosmetic integration
+        EnvironmentDetector.setEnvironment(true, false);
+
+        Path gameDir = Paths.get(".").toAbsolutePath().normalize();
+
+        // backstop in case PreLaunch didn't create them
+        ModHealthChecker.ensureFoldersExist(gameDir);
+
+        initializeGui(gameDir);
+        registerClientCrashHandler();
         registerRetromodPresenceChannel();
 
         LOGGER.info("Retromod client initialization complete!");
     }
     
-    /**
-     * Initialize GUI components.
-     *
-     * Registers a title screen button injector that adds a "Retromod" button
-     * to the Minecraft title screen. The injector auto-detects the loader
-     * (Fabric/NeoForge/Forge) and uses the appropriate event system.
-     *
-     * On Fabric, this requires Fabric API to be installed for ScreenEvents.
-     * If Fabric API is not available, falls back to logging a message.
-     *
-     * See: TitleScreenButtonInjector, RetromodScreen
-     */
+    /** Adds the title screen button (loader auto-detected); needs Fabric API on Fabric. */
     private void initializeGui(Path gameDir) {
         try {
             TitleScreenButtonInjector.register();
@@ -79,15 +55,11 @@ public class RetromodClient implements ClientModInitializer {
         }
     }
     
-    /**
-     * Register crash handler with Minecraft client for world saving.
-     * Uses McReflect to resolve the correct class name across all loaders.
-     */
+    /** Hands the MC client instance to the crash handler for world saving. */
     private void registerClientCrashHandler() {
         try {
             SafeCrashHandler crashHandler = SafeCrashHandler.getInstance();
 
-            // Resolve MC client class (handles yarn, mojang, and intermediary names)
             Class<?> mcClass = McReflect.findClass(
                 "net.minecraft.client.MinecraftClient",  // yarn
                 "net.minecraft.client.Minecraft"         // mojang
@@ -109,21 +81,15 @@ public class RetromodClient implements ClientModInitializer {
     }
 
     /**
-     * Register a plugin messaging channel to signal Retromod presence to servers.
-     * When joining a server (e.g., RevivalSMP), sends a presence packet so the
-     * server can unlock cosmetics for Retromod users.
-     *
-     * Uses reflection to avoid compile-time dependency on Fabric API networking classes
-     * (which are not available in the Maven build, only in Gradle/Fabric Loom).
+     * Registers a JOIN listener that signals Retromod presence so a server can unlock cosmetics.
+     * Reflection-only: Fabric API networking classes aren't on the Maven classpath.
      */
     private void registerRetromodPresenceChannel() {
         try {
-            // ClientPlayConnectionEvents.JOIN.register(...)
             Class<?> eventsClass = Class.forName("net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents");
             Object joinEvent = eventsClass.getField("JOIN").get(null);
 
-            // The JOIN event's register method accepts a JoinCallback functional interface
-            // We create a dynamic proxy to implement it
+            // proxy the JOIN callback functional interface
             Class<?> joinCallbackClass = Class.forName(
                 "net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents$Join");
 
@@ -132,13 +98,12 @@ public class RetromodClient implements ClientModInitializer {
                 new Class<?>[]{joinCallbackClass},
                 (proxyObj, method, args) -> {
                     if ("onPlayReady".equals(method.getName())) {
-                        sendPresencePacket(args[1]); // args[1] is the PacketSender
+                        sendPresencePacket(args[1]); // PacketSender
                     }
                     return null;
                 }
             );
 
-            // Register the proxy with the event
             Method registerMethod = joinEvent.getClass().getMethod("register", Object.class);
             registerMethod.invoke(joinEvent, proxy);
 
@@ -148,22 +113,15 @@ public class RetromodClient implements ClientModInitializer {
         }
     }
 
-    /**
-     * Send the Retromod presence packet to the server via reflection.
-     */
     private void sendPresencePacket(Object packetSender) {
         try {
-            // Create PacketByteBuf: PacketByteBufs.create()
             Class<?> packetByteBufsClass = Class.forName("net.fabricmc.fabric.api.networking.v1.PacketByteBufs");
             Object buf = packetByteBufsClass.getMethod("create").invoke(null);
 
-            // Write data: buf.writeString("retromod"), buf.writeString("1.2.0-snapshot.3")
             Method writeString = buf.getClass().getMethod("writeString", String.class);
             writeString.invoke(buf, "retromod");
-            writeString.invoke(buf, "1.2.0-snapshot.3");
+            writeString.invoke(buf, "1.2.0-snapshot.4");
 
-            // Create Identifier: Identifier.of("retromod", "presence")
-            // yarn: net.minecraft.util.Identifier, mojang: net.minecraft.resources.ResourceLocation
             Class<?> identifierClass = McReflect.findClass(
                 "net.minecraft.util.Identifier",              // yarn
                 "net.minecraft.resources.ResourceLocation"    // mojang
@@ -173,19 +131,17 @@ public class RetromodClient implements ClientModInitializer {
                 return;
             }
             Object identifier;
-            // MC 1.21+ uses Identifier.of() / ResourceLocation.fromNamespaceAndPath()
+            // 1.21+ uses the static factory; older versions use the constructor
             Method idFactory = McReflect.findMethod(identifierClass,
                 new Class[]{String.class, String.class},
                 "of", "fromNamespaceAndPath");
             if (idFactory != null) {
                 identifier = idFactory.invoke(null, "retromod", "presence");
             } else {
-                // Older versions use constructor
                 identifier = identifierClass.getConstructor(String.class, String.class)
                     .newInstance("retromod", "presence");
             }
 
-            // Send: sender.sendPacket(identifier, buf)
             Method sendPacket = packetSender.getClass().getMethod("sendPacket",
                 identifierClass, buf.getClass().getSuperclass());
             sendPacket.invoke(packetSender, identifier, buf);

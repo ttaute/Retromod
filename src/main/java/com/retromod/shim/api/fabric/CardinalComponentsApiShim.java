@@ -1,8 +1,6 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Cardinal Components API Compatibility Shim
  */
 package com.retromod.shim.api.fabric;
 
@@ -10,16 +8,7 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Cardinal Components API compatibility shim.
- * 
- * Cardinal Components provides a capability-like system for Fabric mods.
- * Similar to Forge Capabilities but designed for Fabric.
- * 
- * API changes:
- * - v2.x -> v3.x: Component registration changes
- * - v3.x -> v4.x: Sync system changes
- * - v4.x -> v5.x: Entity components changes
- * - v5.x -> v6.x+: Further API refinements
+ * Cardinal Components API shim. The package and registration layout changed across v2 to v6.
  */
 public class CardinalComponentsApiShim implements VersionShim {
     
@@ -45,18 +34,9 @@ public class CardinalComponentsApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Full dev.onyxstudios.cca → org.ladysnake.cca package move (CCA 5→6),
-        // harvested from the real jars. The hand-curated entries below cover the
-        // famous classes with their API-change method/field redirects; this
-        // covers the rest of the public api/ surface as plain class moves.
         registerOnyxToLadysnakePackageMoves(transformer);
 
-        // ============================================================
-        // PACKAGE CHANGES
-        // ============================================================
-
-        // Old: nerdhub.cardinal.components
-        // New: dev.onyxstudios.cca (then org.ladysnake.cca)
+        // nerdhub.cardinal.components -> dev.onyxstudios.cca -> org.ladysnake.cca
         transformer.registerClassRedirect(
             "nerdhub/cardinal/components/api/ComponentType",
             "org/ladysnake/cca/api/v3/component/ComponentKey"
@@ -67,11 +47,6 @@ public class CardinalComponentsApiShim implements VersionShim {
             "org/ladysnake/cca/api/v3/component/ComponentKey"
         );
         
-        // ============================================================
-        // COMPONENT INTERFACE CHANGES
-        // ============================================================
-        
-        // Old: Component interface
         transformer.registerClassRedirect(
             "nerdhub/cardinal/components/api/Component",
             "org/ladysnake/cca/api/v3/component/Component"
@@ -82,7 +57,6 @@ public class CardinalComponentsApiShim implements VersionShim {
             "org/ladysnake/cca/api/v3/component/Component"
         );
         
-        // Syncable component
         transformer.registerClassRedirect(
             "nerdhub/cardinal/components/api/component/SyncedComponent",
             "org/ladysnake/cca/api/v3/component/sync/AutoSyncedComponent"
@@ -93,12 +67,7 @@ public class CardinalComponentsApiShim implements VersionShim {
             "org/ladysnake/cca/api/v3/component/sync/AutoSyncedComponent"
         );
         
-        // ============================================================
-        // COMPONENT REGISTRY CHANGES
-        // ============================================================
-        
-        // Old: ComponentRegistry.INSTANCE
-        // New: ComponentRegistryV3.INSTANCE
+        // ComponentRegistry.INSTANCE -> ComponentRegistryV3.INSTANCE via shim accessor
         transformer.registerFieldRedirect(
             "nerdhub/cardinal/components/api/ComponentRegistry",
             "INSTANCE",
@@ -117,12 +86,7 @@ public class CardinalComponentsApiShim implements VersionShim {
             "()Ljava/lang/Object;"
         );
         
-        // ============================================================
-        // COMPONENT ACCESS CHANGES
-        // ============================================================
-        
-        // Old: ComponentType.get(provider)
-        // New: ComponentKey.get(provider)
+        // ComponentType.get/maybeGet -> ComponentKey.get/maybeGet
         transformer.registerMethodRedirect(
             "nerdhub/cardinal/components/api/ComponentType",
             "get",
@@ -131,8 +95,7 @@ public class CardinalComponentsApiShim implements VersionShim {
             "get",
             "(Ljava/lang/Object;)Lorg/ladysnake/cca/api/v3/component/Component;"
         );
-        
-        // Old: ComponentType.maybeGet(provider)
+
         transformer.registerMethodRedirect(
             "nerdhub/cardinal/components/api/ComponentType",
             "maybeGet",
@@ -141,10 +104,6 @@ public class CardinalComponentsApiShim implements VersionShim {
             "maybeGet",
             "(Ljava/lang/Object;)Ljava/util/Optional;"
         );
-        
-        // ============================================================
-        // ENTITY COMPONENTS CHANGES
-        // ============================================================
         
         transformer.registerClassRedirect(
             "nerdhub/cardinal/components/api/util/EntityComponents",
@@ -156,10 +115,6 @@ public class CardinalComponentsApiShim implements VersionShim {
             "org/ladysnake/cca/api/v3/entity/EntityComponentFactoryRegistry"
         );
         
-        // ============================================================
-        // WORLD COMPONENTS CHANGES
-        // ============================================================
-        
         transformer.registerClassRedirect(
             "nerdhub/cardinal/components/api/util/WorldComponents",
             "org/ladysnake/cca/api/v3/world/WorldComponentFactoryRegistry"
@@ -169,10 +124,6 @@ public class CardinalComponentsApiShim implements VersionShim {
             "dev/onyxstudios/cca/api/v3/world/WorldComponentFactoryRegistry",
             "org/ladysnake/cca/api/v3/world/WorldComponentFactoryRegistry"
         );
-        
-        // ============================================================
-        // CHUNK COMPONENTS CHANGES
-        // ============================================================
         
         transformer.registerClassRedirect(
             "nerdhub/cardinal/components/api/util/ChunkComponents",
@@ -184,10 +135,6 @@ public class CardinalComponentsApiShim implements VersionShim {
             "org/ladysnake/cca/api/v3/chunk/ChunkComponentFactoryRegistry"
         );
         
-        // ============================================================
-        // ITEM COMPONENTS CHANGES
-        // ============================================================
-        
         transformer.registerClassRedirect(
             "nerdhub/cardinal/components/api/util/ItemComponents",
             "org/ladysnake/cca/api/v3/item/ItemComponentFactoryRegistry"
@@ -198,12 +145,7 @@ public class CardinalComponentsApiShim implements VersionShim {
             "org/ladysnake/cca/api/v3/item/ItemComponentFactoryRegistry"
         );
         
-        // ============================================================
-        // NBT SERIALIZATION CHANGES
-        // ============================================================
-        
-        // Old: Component.fromTag(tag)
-        // New: Component.readFromNbt(tag, registryLookup)
+        // fromTag/toTag -> readFromNbt/writeToNbt (now take a registry lookup), via shim
         transformer.registerMethodRedirect(
             "nerdhub/cardinal/components/api/Component",
             "fromTag",
@@ -212,9 +154,7 @@ public class CardinalComponentsApiShim implements VersionShim {
             "readFromNbt",
             "(Ljava/lang/Object;Lnet/minecraft/nbt/CompoundTag;)V"
         );
-        
-        // Old: Component.toTag(tag)
-        // New: Component.writeToNbt(tag, registryLookup)
+
         transformer.registerMethodRedirect(
             "nerdhub/cardinal/components/api/Component",
             "toTag",
@@ -224,26 +164,11 @@ public class CardinalComponentsApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/nbt/CompoundTag;)Lnet/minecraft/nbt/CompoundTag;"
         );
     }
-    
 
-    /**
-     * The bulk dev.onyxstudios.cca → org.ladysnake.cca package move (CCA 5.x→6.x),
-     * harvested by sub-path match from the real jars (5.2.3 vs 6.1.3) - every
-     * public {@code api/} class that kept its sub-path across the rename
-     * (verified present in both; inner classes get explicit entries since the
-     * ASM remapper matches exact names). These are plain class moves; the
-     * curated method/field redirects in {@link #registerRedirects} handle the
-     * classes whose API <i>also</i> changed.
-     *
-     * <p>Deliberately NOT redirected - removed outright in CCA 6 (no successor;
-     * a mod using these needs the 6.x API, beyond a redirect): the item-component
-     * family ({@code api/v3/item/ItemComponent}, {@code ItemComponentFactoryRegistry},
-     * {@code CcaNbtType}, {@code ItemTagInvalidationListener} - CCA 6 dropped item
-     * components in favour of vanilla data components), {@code api/v3/entity/PlayerComponent}
-     * and {@code PlayerCopyCallback}, and the {@code api/v3/block/util/Sided*Compound}
-     * helpers. CCA-internal ({@code internal/}, {@code mixin/}) classes are skipped:
-     * mods don't reference them and they churn between versions.
-     */
+    // dev.onyxstudios.cca -> org.ladysnake.cca for every api/ class whose sub-path survived the
+    // CCA 5->6 rename, inner classes included. Classes dropped in CCA 6 with no successor (item
+    // components, PlayerComponent/PlayerCopyCallback, the block/util Sided*Compound helpers) and
+    // internal/mixin classes are left out; a mod using those needs the 6.x API.
     private void registerOnyxToLadysnakePackageMoves(RetromodTransformer t) {
         t.registerClassRedirect("dev/onyxstudios/cca/api/v3/block/BlockComponentFactoryRegistry",
                 "org/ladysnake/cca/api/v3/block/BlockComponentFactoryRegistry");

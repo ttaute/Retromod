@@ -13,46 +13,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Bridges the removed Fabric <b>item-group events v1</b> API
- * ({@code net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents}) - adding items to
- * creative tabs - onto the surviving {@code creativetab/v1/CreativeModeTabEvents}.
- * This is the single biggest functional-interface gap in the compat audit:
- * ~83 mods are sole-blocked on {@code ItemGroupEvents$ModifyEntries}.
+ * Bridges the removed Fabric item-group events v1 API
+ * ({@code net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents}) onto the surviving
+ * {@code creativetab/v1}.
  *
- * <h2>Why a redirect alone is a false win</h2>
- * The v1 SAM is {@code ModifyEntries.modifyEntries(FabricItemGroupEntries)}; the v2
- * one is {@code ModifyOutput.modifyOutput(FabricCreativeModeTabOutput)}. The
- * <i>method name</i> changed, so a class redirect of the inner interface would
- * crash {@code LambdaMetafactory} (the mod's lambda hard-codes {@code modifyEntries}).
- * And the registration entrypoint renamed too: {@code modifyEntriesEvent(key)} →
- * {@code modifyOutputEvent(key)}. So both the holder and the SAM must be kept alive.
- *
- * <h2>Three moving parts</h2>
+ * <p>A class redirect alone can't do it: the SAM method renamed ({@code modifyEntries} ->
+ * {@code modifyOutput}), so redirecting the inner interface crashes {@code LambdaMetafactory}
+ * (the mod's lambda hard-codes {@code modifyEntries}), and the registration entrypoint renamed
+ * too ({@code modifyEntriesEvent} -> {@code modifyOutputEvent}). So we keep the holder and the
+ * SAMs alive under the old names:
  * <ol>
- *   <li><b>Synthetic holder + SAM interfaces.</b> A synthetic {@code ItemGroupEvents}
- *       carrying {@code modifyEntriesEvent(ResourceKey)} and the
- *       {@code MODIFY_ENTRIES_ALL} field; synthetic {@code ModifyEntries} /
- *       {@code ModifyEntriesAll} interfaces preserving the old SAM names with the
- *       (redirected) {@code FabricCreativeModeTabOutput} parameter. The old names
- *       are redirected onto these. The holder routes everything through
- *       {@link com.retromod.shim.api.fabric.embedded.ItemGroupEventsBridge}, which
- *       wires each v1 event to its live v2 counterpart by reflection.</li>
- *   <li><b>Parameter-object method renames.</b> The lambda body calls
- *       {@code addAfter}/{@code addBefore} on the entries object; on
- *       {@code FabricCreativeModeTabOutput} (the existing class-redirect target of
- *       {@code FabricItemGroupEntries}) those are now {@code insertAfter}/
- *       {@code insertBefore}. We rename all 12 overloads of each - descriptors taken
- *       verbatim from {@code fabric-api-0.145.4} so a 1:1 rename is exact. The
- *       {@code prepend}/getter methods kept their names and ride the class redirect.</li>
+ *   <li>Synthetic {@code ItemGroupEvents} holder + {@code ModifyEntries}/{@code ModifyEntriesAll}
+ *       SAM interfaces, routed through
+ *       {@link com.retromod.shim.api.fabric.embedded.ItemGroupEventsBridge}, which wires
+ *       each v1 event to its v2 counterpart by reflection.</li>
+ *   <li>{@code addAfter}/{@code addBefore} on {@code FabricCreativeModeTabOutput} renamed to
+ *       {@code insertAfter}/{@code insertBefore}, all 12 overloads each.</li>
  * </ol>
  *
- * <p>{@code FabricItemGroupEntries → FabricCreativeModeTabOutput} itself is the
- * version shim's job ({@code Fabric_1_21_11_to_26_1}); this shim assumes it and only
- * renames the methods on the new owner.</p>
+ * <p>{@code FabricItemGroupEntries -> FabricCreativeModeTabOutput} is the version shim's job
+ * ({@code Fabric_1_21_11_to_26_1}); this shim assumes it and only renames the methods on the
+ * new owner.
  *
- * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
- * {@code fabric-api-0.141.1+1.21.11} (old) and {@code 0.145.4+26.1.2} (new). A 26.1
- * launch that adds an item to a creative tab through a v1 mod is still required.</p>
+ * <p>Not yet runtime-verified: needs a 26.1 launch adding an item to a creative tab via a v1 mod.
  */
 public class FabricItemGroupEventsShim implements VersionShim {
 
@@ -77,12 +60,7 @@ public class FabricItemGroupEventsShim implements VersionShim {
     private static final String MODIFY_ENTRIES_ALL_DESC = "(L" + CREATIVE_TAB + ";L" + OUTPUT + ";)V";
     private static final String MODIFY_ENTRIES_EVENT_DESC = "(L" + RESOURCE_KEY + ";)" + L_EVENT;
 
-    /**
-     * The 12 entry-insertion overload descriptors, in Mojang form (the post-harvest
-     * shape the call site has by the time method redirects run). addAfter/addBefore
-     * share this exact set with insertAfter/insertBefore (a pure rename). Verified
-     * 1:1 against fabric-api-0.145.4.
-     */
+    /** The 12 entry-insertion overload descriptors (Mojang form), shared by add and insert (fabric-api-0.145.4). */
     private static final String[] INSERT_DESCS = {
         "(Ljava/util/function/Predicate;Ljava/util/Collection;Ljava/util/List;)V",
         "(Ljava/util/function/Predicate;Ljava/util/Collection;Lnet/minecraft/world/item/CreativeModeTab$TabVisibility;)V",
@@ -105,11 +83,8 @@ public class FabricItemGroupEventsShim implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // 26.1+ hosts ONLY (pitfall #9). On a pre-26.1 host ItemGroupEvents is still
-        // ALIVE in the Fabric API - redirecting it to our synthetic would hijack a
-        // working API and wire it to creativetab/v1, which doesn't exist there. The
-        // synthetics also declare Mojang-named MC types (ResourceKey, CreativeModeTab)
-        // that don't resolve on an intermediary runtime.
+        // 26.1+ hosts only (#9): pre-26.1 still ships the v1 API, so the synthetics would
+        // shadow a working API and reference types that don't resolve.
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
             LOGGER.debug("[Retromod] item-group events v1 bridge skipped (host {} < 26.1 - old API still present)",
@@ -117,10 +92,8 @@ public class FabricItemGroupEventsShim implements VersionShim {
             return;
         }
 
-        // (0) Embed the reflective bridge (java.* only).
         transformer.registerEmbeddedShim(BRIDGE.replace('/', '.'));
 
-        // (1) Keep the holder + the two SAM interfaces alive, redirect old names onto them.
         transformer.registerSyntheticClass(HOLDER, generateHolder());
         transformer.registerSyntheticClass(MODIFY_ENTRIES, generateModifyEntries());
         transformer.registerSyntheticClass(MODIFY_ENTRIES_ALL, generateModifyEntriesAll());
@@ -131,8 +104,7 @@ public class FabricItemGroupEventsShim implements VersionShim {
             transformer.registerClassRedirect(outer + "$ModifyEntriesAll", MODIFY_ENTRIES_ALL);
         }
 
-        // (2) Rename the entries-object methods on the (already class-redirected) output.
-        //     addAfter → insertAfter, addBefore → insertBefore, per exact overload.
+        // addAfter -> insertAfter, addBefore -> insertBefore on the class-redirected output, per overload.
         for (String desc : INSERT_DESCS) {
             transformer.registerMethodRedirect(OUTPUT, "addAfter", desc, OUTPUT, "insertAfter", desc);
             transformer.registerMethodRedirect(OUTPUT, "addBefore", desc, OUTPUT, "insertBefore", desc);
@@ -143,11 +115,7 @@ public class FabricItemGroupEventsShim implements VersionShim {
                 + "addAfter/addBefore→insertAfter/insertBefore (STATUS: needs in-game verification)");
     }
 
-    /**
-     * Synthetic {@code ItemGroupEvents} holder: {@code modifyEntriesEvent(ResourceKey)}
-     * forwarding to the bridge, plus the {@code MODIFY_ENTRIES_ALL} field set in
-     * {@code <clinit>}.
-     */
+    /** Synthetic holder: {@code modifyEntriesEvent} forwards to the bridge, {@code MODIFY_ENTRIES_ALL} set in {@code <clinit>}. */
     static byte[] generateHolder() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,

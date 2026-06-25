@@ -11,12 +11,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * The harvested dev.onyxstudios.cca → org.ladysnake.cca package move (CCA 5→6):
- * the public {@code api/} surface that kept its sub-path is redirected (incl.
- * inner classes), and classes CCA 6 genuinely removed are NOT redirected to a
- * non-existent target.
- */
+/** CCA 5 to 6 package move: same-path classes get redirected, classes CCA 6 removed do not. */
 class CardinalComponentsPackageMoveTest {
 
     @Test
@@ -27,16 +22,14 @@ class CardinalComponentsPackageMoveTest {
             new CardinalComponentsApiShim().registerRedirects(t);
             Map<String, String> r = t.getClassRedirects();
 
-            // representative same-path moves (verified present in both 5.2.3 and 6.1.3)
             assertEquals("org/ladysnake/cca/api/v3/component/ComponentProvider",
                     r.get("dev/onyxstudios/cca/api/v3/component/ComponentProvider"));
             assertEquals("org/ladysnake/cca/api/v3/block/BlockComponentInitializer",
                     r.get("dev/onyxstudios/cca/api/v3/block/BlockComponentInitializer"));
-            // inner classes get explicit entries (ASM matches exact names)
+            // inner classes need their own entries; ASM matches by exact name
             assertEquals("org/ladysnake/cca/api/v3/block/BlockComponentFactoryRegistry$Registration",
                     r.get("dev/onyxstudios/cca/api/v3/block/BlockComponentFactoryRegistry$Registration"));
 
-            // every old dev.onyxstudios target must resolve to an org.ladysnake class
             r.forEach((from, to) -> {
                 if (from.startsWith("dev/onyxstudios/cca/")) {
                     assertTrue(to.startsWith("org/ladysnake/cca/"),
@@ -44,7 +37,7 @@ class CardinalComponentsPackageMoveTest {
                 }
             });
 
-            // CCA 6 REMOVED these - must NOT be redirected to a phantom target
+            // removed in CCA 6: no same-path target to redirect to
             assertFalse(r.containsKey("dev/onyxstudios/cca/api/v3/item/ItemComponent"),
                     "ItemComponent was removed in CCA 6 - no same-path target exists");
             assertFalse(r.containsKey("dev/onyxstudios/cca/api/v3/entity/PlayerComponent"),

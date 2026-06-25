@@ -20,7 +20,7 @@ import com.retromod.core.RetromodTransformer;
 
 /**
  * §C JiJ-recursion (#95). A mod that bundles a library in {@code META-INF/jars/} (Fabric) or
- * {@code META-INF/jarjar/} (NeoForge) needs that library's bytecode transformed too - a lib
+ * {@code META-INF/jarjar/} (NeoForge) needs that library's bytecode transformed too. A lib
  * referencing a relocated class otherwise loads broken or is reported "missing". This drives
  * {@link RetromodCli#transformNestedJar} directly and proves it (a) rewrites a nested jar's
  * own classes and (b) recurses into a jar-inside-a-jar.
@@ -30,7 +30,7 @@ class NestedJarRecursionTest {
     private static final String OLD = "test/relocated/Old";
     private static final String NEW = "test/relocated/New";
 
-    /** A class with a field typed {@code Ltest/relocated/Old;} - a reference the redirect rewrites. */
+    /** A class with a field typed {@code Ltest/relocated/Old;}, a reference the redirect rewrites. */
     private static byte[] classRef(String name) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(V17, ACC_PUBLIC, name, null, "java/lang/Object", null);

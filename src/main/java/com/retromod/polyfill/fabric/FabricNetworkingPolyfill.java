@@ -42,7 +42,7 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
     @Override
     public String[] getRemovedClasses() {
         return new String[]{
-            // Removed in 1.20.5 - replaced by CustomPayload system
+            // Removed in 1.20.5: replaced by CustomPayload system
             "net/fabricmc/fabric/api/networking/v1/PacketType",
             "net/fabricmc/fabric/api/networking/v1/FabricPacket",
 
@@ -63,9 +63,7 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // Class redirects for removed types
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/PacketType",
@@ -85,7 +83,6 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
             "net/fabricmc/fabric/api/client/networking/v1/ClientPlayNetworking$PlayChannelHandler",
             "com/retromod/polyfill/fabric/embedded/ClientPlayChannelHandler");
 
-        // =====================================================================
         // Method redirects for registerGlobalReceiver and send
         //
         // IMPORTANT: Source descriptors use POST-REMAPPING names because
@@ -98,7 +95,6 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
         // Target descriptors use Object params because our bridge class can't
         // reference MC classes at compile time. The JVM verifier accepts this
         // because specific types are assignable to Object.
-        // =====================================================================
 
         // Server: registerGlobalReceiver(Identifier, ServerPlayChannelHandler) -> boolean
         transformer.registerMethodRedirect(

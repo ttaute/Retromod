@@ -2,7 +2,7 @@
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  * 
- * Based on actual Fabric API changes documented at:
+ * Fabric API changes documented at:
  * https://fabricmc.net/2025/09/23/1219.html
  */
 package com.retromod.shim.fabric;
@@ -11,14 +11,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Compatibility shim for Fabric mods built for 1.21.8 to run on 1.21.9+.
- * 
- * Major breaking changes addressed:
- * - Entity#getWorld renamed to Entity#getEntityWorld (CRITICAL)
- * - Resource Loader API major rework
- * - World Render Events removed (temporarily)
- * - Key mapping changes
- * - Block entity rendering now uses OrderedRenderCommandQueue
+ * Fabric 1.21.8 -> 1.21.9: Entity#getWorld rename, Resource Loader rework, removed
+ * World Render Events, and the KeyBinding category change.
  */
 public class Fabric_1_21_8_to_1_21_9 implements VersionShim {
     
@@ -44,18 +38,13 @@ public class Fabric_1_21_8_to_1_21_9 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        
-        // ============================================================
-        // ENTITY.getWorld() -> ENTITY.getEntityWorld()
-        // This is the most impactful change - affects almost all mods
-        // ============================================================
-        
+
+        // Entity#getWorld -> getEntityWorld, including overriding subclasses.
         transformer.registerMethodRedirect(
             "net/minecraft/entity/Entity", "getWorld", "()Lnet/minecraft/world/World;",
             "net/minecraft/entity/Entity", "getEntityWorld", "()Lnet/minecraft/world/World;"
         );
-        
-        // Also for subclasses that might override
+
         transformer.registerMethodRedirect(
             "net/minecraft/entity/LivingEntity", "getWorld", "()Lnet/minecraft/world/World;",
             "net/minecraft/entity/LivingEntity", "getEntityWorld", "()Lnet/minecraft/world/World;"
@@ -76,14 +65,8 @@ public class Fabric_1_21_8_to_1_21_9 implements VersionShim {
             "net/minecraft/client/network/ClientPlayerEntity", "getEntityWorld", "()Lnet/minecraft/world/World;"
         );
         
-        // ============================================================
-        // RESOURCE LOADER API REWORK
-        // ResourceManagerHelper -> ResourceLoader
-        // ============================================================
-        
-        // Old: ResourceManagerHelper.get(type).registerReloadListener(listener)
-        // New: ResourceLoader.get(type).registerReloader(id, listener)
-        
+        // Resource Loader rework: route the old ResourceManagerHelper.get(...).registerReloadListener(...)
+        // through a shim that calls the new ResourceLoader.get(...).registerReloader(id, ...).
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/resource/ResourceManagerHelper",
             "com/retromod/shim/fabric/embedded/ResourceManagerHelperShim"
@@ -103,41 +86,22 @@ public class Fabric_1_21_8_to_1_21_9 implements VersionShim {
             "(Ljava/lang/Object;)V"
         );
         
-        // ============================================================
-        // WORLD RENDER EVENTS REMOVED
-        // No replacement yet in 1.21.9 - use mixins
-        // ============================================================
-        
-        // These events don't exist in 1.21.9, provide no-op shims
+        // WorldRenderEvents has no 1.21.9 replacement yet; redirect to a no-op shim.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderEvents",
             "com/retromod/shim/fabric/embedded/WorldRenderEventsShim"
         );
-        
-        // ============================================================
-        // KEY MAPPING CHANGES
-        // String category -> KeyBinding.Category record
-        // ============================================================
 
-        // Old: new KeyBinding(name, type, key, categoryString)
-        // New: new KeyBinding(name, type, key, categoryRecord)
-
-        // The old String-based constructor was REMOVED in 1.21.9.
-        // Must redirect to KeyBindingShim which creates a Category record.
+        // String-category KeyBinding constructor is gone in 1.21.9; the shim builds the
+        // Category record from the old String argument.
         transformer.registerMethodRedirect(
             "net/minecraft/client/option/KeyBinding", "<init>",
             "(Ljava/lang/String;Lnet/minecraft/client/util/InputUtil$Type;ILjava/lang/String;)V",
             "com/retromod/shim/fabric/embedded/KeyBindingShim", "create",
             "(Ljava/lang/String;Ljava/lang/Object;ILjava/lang/String;)Lnet/minecraft/client/option/KeyBinding;"
         );
-        
-        // ============================================================
-        // BLOCK ENTITY RENDERING
-        // Now uses OrderedRenderCommandQueue
-        // ============================================================
-        
-        // BlockEntityRenderer methods changed signatures
-        // Most mods won't break but may need updates for optimal performance
+
+        // BlockEntityRenderer moved to OrderedRenderCommandQueue; no redirect needed for the common cases.
     }
     
     @Override

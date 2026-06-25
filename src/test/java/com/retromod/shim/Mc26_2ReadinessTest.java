@@ -21,11 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * MC 26.2 readiness: the 26.1→26.2 shims chain on every loader, the
- * pre/rc/snapshot version aliases resolve, and the core move list (harvested
- * from the real 26.1.2 / 26.2-rc-1 client jars) contains the verified moves -
- * and does NOT touch {@code client/gui/Gui}, which 26.2 split (HUD half went
- * to the new {@code Hud}) but did not remove.
+ * MC 26.2 readiness: the 26.1->26.2 shims chain on every loader, the pre/rc/snapshot
+ * version aliases resolve, and the core move list redirects the harvested moves but not
+ * {@code client/gui/Gui} (26.2 split it into {@code Hud} rather than removing it).
  */
 class Mc26_2ReadinessTest {
 
@@ -49,7 +47,7 @@ class Mc26_2ReadinessTest {
         reg.register(new Fabric_1_21_11_to_26_1());
         reg.register(new Fabric_26_1_to_26_2());
 
-        // Host reports the raw rc version string - the alias must normalize it
+        // raw rc host string must normalize through the alias
         List<VersionShim> chain = reg.findShimChain("fabric", "1.21.11", "26.2-rc-1");
         assertEquals(2, chain.size());
         assertEquals("26.1", chain.get(0).getTargetVersion());
@@ -74,29 +72,27 @@ class Mc26_2ReadinessTest {
             Mc26_1To26_2CoreMoves.register(t);
             Map<String, String> r = t.getClassRedirects();
 
-            // advancements split - the bulk of 26.2
+            // advancements split
             assertEquals("net/minecraft/advancements/triggers/CriteriaTriggers",
                     r.get("net/minecraft/advancements/CriteriaTriggers"));
             assertEquals("net/minecraft/advancements/predicates/entity/EntityPredicate",
                     r.get("net/minecraft/advancements/criterion/EntityPredicate"));
-            // cubemob refactor keeps Slime's identity (NOT the extracted base)
+            // Slime maps to itself under cubemob, not the extracted base
             assertEquals("net/minecraft/world/entity/monster/cubemob/Slime",
                     r.get("net/minecraft/world/entity/monster/Slime"));
             assertEquals("net/minecraft/world/entity/monster/cubemob/AbstractCubeMob$CubeMobMoveControl",
                     r.get("net/minecraft/world/entity/monster/Slime$SlimeMoveControl"));
-            // contextualbar Renderer-suffix drop
+            // contextualbar dropped the Renderer suffix
             assertEquals("net/minecraft/client/gui/contextualbar/ExperienceBar",
                     r.get("net/minecraft/client/gui/contextualbar/ExperienceBarRenderer"));
 
-            // Gui was SPLIT, not renamed - a redirect would hijack the live class
+            // Gui was split, not renamed; redirecting it would hijack the live class.
             assertFalse(r.containsKey("net/minecraft/client/gui/Gui"),
                     "Gui survives in 26.2; it must never be redirected");
 
             assertTrue(r.size() >= 180, "expected the full harvested move set, got " + r.size());
 
-            // 26.2 extracted the registry constants into EntityTypes /
-            // BlockEntityTypes holder classes - caught live on 26.2-rc-1
-            // (27 test-mod failures, every EntityType.X a NoSuchFieldError)
+            // 26.2 moved the registry constants into EntityTypes / BlockEntityTypes holders
             var zombie = t.getFieldRedirects().get(
                     new RetromodTransformer.FieldKey("net/minecraft/world/entity/EntityType", "ZOMBIE"));
             assertEquals("net/minecraft/world/entity/EntityTypes", zombie.owner());

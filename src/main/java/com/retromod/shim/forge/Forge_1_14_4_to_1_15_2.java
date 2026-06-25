@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
@@ -7,9 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Buzzy Bees update. Major rendering pipeline overhaul in Forge.
- */
+/** Buzzy Bees: GlStateManager rendering calls move to RenderSystem. */
 public class Forge_1_14_4_to_1_15_2 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.14.4 to 1.15.2"; }
@@ -19,7 +17,6 @@ public class Forge_1_14_4_to_1_15_2 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Rendering changes
         transformer.registerMethodRedirect(
             "net/minecraft/client/renderer/GlStateManager", "pushMatrix",
             "()V",
@@ -62,7 +59,6 @@ public class Forge_1_14_4_to_1_15_2 implements VersionShim {
             "com/retromod/shim/forge/embedded/RenderShim", "disableAlphaTest",
             "()V"
         );
-        // MatrixStack introduced
         transformer.registerClassRedirect(
             "net/minecraft/client/renderer/Matrix4f",
             "net/minecraft/util/math/vector/Matrix4f"

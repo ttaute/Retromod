@@ -14,34 +14,22 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Dedicated server initialization for Retromod.
- * 
- * Server-specific features:
- * - No GUI (headless operation)
- * - Console-based warnings
- * - Automatic world saving on crash
- * - TPS monitoring for performance
- * 
- * Does NOT initialize any Swing/AWT components.
+ * Headless dedicated-server entry point: no Swing/AWT, console warnings, crash-time world save.
  */
 @Environment(EnvType.SERVER)
 public class RetromodServer implements DedicatedServerModInitializer {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Server");
-    
+
     @Override
     public void onInitializeServer() {
         LOGGER.info("Retromod dedicated server initialization...");
-        
-        // Mark environment as server (headless)
+
         EnvironmentDetector.setEnvironment(false, true);
-        
-        // Initialize server-specific features
+
         initializeServerFeatures();
-        
-        // Register crash handler with server
         registerServerCrashHandler();
-        
+
         LOGGER.info("=======================================================");
         LOGGER.info("  Retromod: Server Mode Active");
         LOGGER.info("=======================================================");
@@ -53,18 +41,14 @@ public class RetromodServer implements DedicatedServerModInitializer {
         
         LOGGER.info("Retromod server initialization complete!");
     }
-    
-    /**
-     * Initialize server-specific features.
-     */
+
     private void initializeServerFeatures() {
         Path gameDir = Paths.get(".").toAbsolutePath().normalize();
         Path modsFolder = gameDir.resolve("mods");
-        
-        // IMPORTANT: Create folders if they don't exist (backup in case PreLaunch missed)
+
+        // backup in case PreLaunch missed
         ModHealthChecker.ensureFoldersExist(gameDir);
-        
-        // Initialize hybrid engine for server
+
         try {
             HybridTransformationEngine hybrid = HybridTransformationEngine.getInstance();
             hybrid.initialize(modsFolder, "26.1");
@@ -72,8 +56,7 @@ public class RetromodServer implements DedicatedServerModInitializer {
         } catch (Exception e) {
             LOGGER.warn("Could not initialize hybrid engine: {}", e.getMessage());
         }
-        
-        // Log mod count
+
         try {
             long modCount = java.nio.file.Files.list(modsFolder)
                 .filter(p -> p.toString().endsWith(".jar"))
@@ -83,19 +66,14 @@ public class RetromodServer implements DedicatedServerModInitializer {
             LOGGER.debug("Could not count mods: {}", e.getMessage());
         }
     }
-    
-    /**
-     * Register crash handler with Minecraft server for world saving.
-     */
+
     private void registerServerCrashHandler() {
         try {
             SafeCrashHandler crashHandler = SafeCrashHandler.getInstance();
-            
-            // Try to get server instance
-            // This uses reflection to avoid compile-time dependency
+
+            // reflective probe avoids a compile-time MC dependency; instance is registered later
             try {
                 Class<?> serverClass = Class.forName("net.minecraft.server.MinecraftServer");
-                // Server instance is typically set later, so we'll register a callback
                 LOGGER.debug("Server crash handler ready (will register instance when available)");
             } catch (Exception e) {
                 LOGGER.debug("Could not prepare server crash handler");
@@ -104,11 +82,8 @@ public class RetromodServer implements DedicatedServerModInitializer {
             LOGGER.debug("Crash handler not available: {}", e.getMessage());
         }
     }
-    
-    /**
-     * Called when the server is fully started.
-     * Can be used to register the server instance with crash handler.
-     */
+
+    /** Registers the running server instance with the crash handler once it's started. */
     public static void onServerStarted(Object server) {
         try {
             SafeCrashHandler.getInstance().registerServer(server);
@@ -117,15 +92,13 @@ public class RetromodServer implements DedicatedServerModInitializer {
             LOGGER.debug("Could not register server with crash handler");
         }
     }
-    
-    /**
-     * Called on each server tick for TPS monitoring.
-     */
+
+    /** Per-tick TPS monitoring hook. */
     public static void onServerTick() {
         try {
             MemorySafetyMonitor.getInstance().onServerTick();
         } catch (Exception e) {
-            // Ignore tick errors
+            // ignore tick errors
         }
     }
 }

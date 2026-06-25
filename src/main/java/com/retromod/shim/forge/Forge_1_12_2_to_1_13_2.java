@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
@@ -7,10 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * The Flattening - Minecraft 1.13 completely overhauled the block/item ID system,
- * registry system, and command system. This is the most complex shim in Retromod.
- */
+/** The Flattening: 1.13 rewrote the block/item ID, registry, and command systems. */
 public class Forge_1_12_2_to_1_13_2 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.12.2 to 1.13.2"; }
@@ -20,11 +17,7 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // THE FLATTENING - Block/Item registry overhaul
-        // ============================================================
-
-        // Init classes moved
+        // init.* classes moved into their type packages
         transformer.registerClassRedirect(
             "net/minecraft/init/Blocks",
             "net/minecraft/block/Blocks"
@@ -54,9 +47,6 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/potion/Effects"
         );
 
-        // ============================================================
-        // Block state system overhaul
-        // ============================================================
         transformer.registerClassRedirect(
             "net/minecraft/block/state/IBlockState",
             "net/minecraft/block/BlockState"
@@ -82,9 +72,6 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/state/DirectionProperty"
         );
 
-        // ============================================================
-        // Entity renames
-        // ============================================================
         transformer.registerClassRedirect(
             "net/minecraft/entity/player/EntityPlayer",
             "net/minecraft/entity/player/PlayerEntity"
@@ -122,9 +109,6 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/entity/MobEntity"
         );
 
-        // ============================================================
-        // NBT renames
-        // ============================================================
         transformer.registerClassRedirect(
             "net/minecraft/nbt/NBTTagCompound",
             "net/minecraft/nbt/CompoundNBT"
@@ -150,9 +134,6 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/nbt/INBT"
         );
 
-        // ============================================================
-        // GUI / Screen renames
-        // ============================================================
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/GuiScreen",
             "net/minecraft/client/gui/screen/Screen"
@@ -174,9 +155,6 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/client/gui/screen/inventory/ChestScreen"
         );
 
-        // ============================================================
-        // Container / Inventory renames
-        // ============================================================
         transformer.registerClassRedirect(
             "net/minecraft/inventory/Container",
             "net/minecraft/inventory/container/Container"
@@ -190,9 +168,6 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/item/ItemGroup"
         );
 
-        // ============================================================
-        // World renames
-        // ============================================================
         transformer.registerClassRedirect(
             "net/minecraft/world/WorldServer",
             "net/minecraft/world/server/ServerWorld"
@@ -202,17 +177,12 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/world/chunk/Chunk"
         );
 
-        // ============================================================
-        // Network renames
-        // ============================================================
         transformer.registerClassRedirect(
             "net/minecraft/network/play/server/SPacketChat",
             "net/minecraft/network/play/server/SChatPacket"
         );
 
-        // ============================================================
-        // Forge API changes
-        // ============================================================
+        // GameRegistry.register split into typed register calls
         transformer.registerMethodRedirect(
             "net/minecraftforge/fml/common/registry/GameRegistry", "register",
             "(Lnet/minecraft/item/Item;)V",
@@ -226,7 +196,6 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "(Ljava/lang/Object;)V"
         );
 
-        // Mod annotation moved
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/common/Mod",
             "net/minecraftforge/fml/common/Mod"
@@ -252,7 +221,7 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraftforge/fml/event/server/FMLServerStartingEvent"
         );
 
-        // Proxy system removed in 1.13+
+        // SidedProxy gone in 1.13+
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/common/SidedProxy",
             "com/retromod/shim/forge/embedded/SidedProxyShim"

@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.17 to run on 1.17.1.
- * Minor bugfix release with no significant API changes.
- */
+/** Fabric 1.17 to 1.17.1: bugfix release, no API changes. */
 public class Fabric_1_17_to_1_17_1 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.17 to 1.17.1"; }
@@ -20,10 +17,7 @@ public class Fabric_1_17_to_1_17_1 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // No redirects needed - 1.17.1 is a bugfix release with no API
-        // renames, removals, or signature changes. This shim exists solely for
-        // BFS chain continuity (ShimRegistry needs a connected path from any
-        // version to 26.1).
+        // Bugfix release: nothing to redirect, keeps the shim chain connected.
     }
 
     @Override

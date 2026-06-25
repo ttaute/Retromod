@@ -19,7 +19,7 @@ import org.objectweb.asm.tree.MethodNode;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression test for #66 - a mod-API-specific method rename must not pollute the
+ * Regression test for #66: a mod-API-specific method rename must not pollute the
  * owner-agnostic bare-name redirect map and rename unrelated mixin targets.
  *
  * <p>AutoRegLib's shim redirects {@code NetworkHandler.register → registerPacket}.
@@ -95,7 +95,7 @@ class MixinRedirectPollutionTest {
     @DisplayName("Obfuscated names DO still get bare-name redirects (MC renames keep working)")
     void obfuscatedNamesStillRedirectBareName() {
         RetromodTransformer t = RetromodTransformer.getInstance();
-        // A globally-unique intermediary rename - safe to apply owner-agnostically.
+        // A globally-unique intermediary rename, safe to apply owner-agnostically.
         t.registerMethodRedirect(
                 "net/minecraft/class_2591", "method_99999001",
                 "()V", "net/minecraft/class_2591", "uniquelyRenamedTarget", "()V", false);

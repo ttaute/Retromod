@@ -26,12 +26,12 @@ public class TrinketsShim {
                 }
             }
         } catch (Exception e) { }
-        // Return empty Multimap via reflection (Guava is available at runtime)
+        // empty Guava Multimap, or a plain map when Guava is absent
         try {
             Class<?> multimapClass = Class.forName("com.google.common.collect.HashMultimap");
             return multimapClass.getMethod("create").invoke(null);
         } catch (Exception e) {
-            return new HashMap<>(); // Fallback
+            return new HashMap<>();
         }
     }
     public static Object getSlotGroup(String name) {

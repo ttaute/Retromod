@@ -124,7 +124,7 @@ class ModDataMigratorTest {
         // sole entry
         assertTrue(mig("data/m/tags/entity_type/x.json", "{\"values\":[\"minecraft:potion\"]}", "26.1")
                 .contains("\"minecraft:splash_potion\", \"minecraft:lingering_potion\""));
-        // last entry (no trailing comma) - must not corrupt the closing bracket
+        // last entry (no trailing comma) must not corrupt the closing bracket
         String out = mig("data/m/tags/entity_type/x.json",
                 "{\"values\":[\"minecraft:arrow\",\"minecraft:potion\"]}", "26.1");
         assertTrue(out.endsWith("\"minecraft:lingering_potion\"]}"), out);
@@ -132,7 +132,7 @@ class ModDataMigratorTest {
 
     @Test
     void potionSplitScopedToEntityTypeTagsOnly() {
-        // the potion ITEM is unchanged in 26.x - a loot table referencing it must be left alone
+        // the potion ITEM is unchanged in 26.x, so a loot table referencing it must be left alone
         String loot = "{\"pools\":[{\"entries\":[{\"type\":\"minecraft:item\",\"name\":\"minecraft:potion\"}]}]}";
         assertEquals(loot, mig("data/m/loot_table/x.json", loot, "26.1"));
         // and a non-entity_type tag (e.g. an item tag) is also not subject to the entity split
@@ -142,7 +142,7 @@ class ModDataMigratorTest {
 
     @Test
     void potionSplitLeavesObjectIdFormUntouched() {
-        // {"id":"minecraft:potion"} object form is not an array element - must not be corrupted
+        // {"id":"minecraft:potion"} object form is not an array element, so it must not be corrupted
         String in = "{\"values\":[{\"id\":\"minecraft:potion\",\"required\":false}]}";
         assertEquals(in, mig("data/m/tags/entity_type/x.json", in, "26.1"));
     }

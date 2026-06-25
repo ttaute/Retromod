@@ -13,25 +13,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Bridges the removed Fabric <b>{@code EntityModelLayerRegistry}</b> API onto the
- * surviving {@code ModelLayerRegistry}. Audit gap: ~18 mods sole-blocked on
- * {@code EntityModelLayerRegistry$TexturedModelDataProvider}.
+ * Bridges the removed Fabric {@code EntityModelLayerRegistry} onto the surviving
+ * {@code ModelLayerRegistry}. The provider SAM was renamed ({@code createModelData} to
+ * {@code createLayerDefinition}) but the return type is unchanged, so the harvest fixes
+ * the lambda body. Synthetic {@code EntityModelLayerRegistry} holder and
+ * {@code TexturedModelDataProvider} SAM keep the old names; the holder's
+ * {@code registerModelLayer} forwards to {@code EntityModelLayerRegistryBridge}, which
+ * wraps the old provider as a new one and registers it.
  *
- * <p>The provider SAM renamed ({@code createModelData} → {@code createLayerDefinition})
- * - a lambda trap - but its return type is unchanged: Yarn {@code TexturedModelData}
- * is Mojang {@code LayerDefinition} (intermediary {@code class_5607}), so the harvest
- * already fixes the lambda body. We keep a synthetic {@code EntityModelLayerRegistry}
- * holder and a {@code TexturedModelDataProvider} SAM at the old names; the holder's
- * {@code registerModelLayer} forwards to
- * {@link com.retromod.shim.api.fabric.embedded.EntityModelLayerRegistryBridge}, which
- * wraps the old provider as a new one and registers it.</p>
- *
- * <p>Replaces the previous {@code EntityModelLayerRegistry → ModelLayerRegistry}
- * class redirect (a latent lambda trap) in {@code Fabric_1_21_11_to_26_1}.</p>
- *
- * <p><b>STATUS - authored, not yet runtime-verified.</b> Checked against
- * {@code fabric-api-0.141.1} / {@code 0.145.4+26.1.2}. A 26.1 client launch with a
- * custom-entity-model mod is still required.</p>
+ * <p>Authored against fabric-api-0.141.1 / 0.145.4+26.1.2; needs a 26.1 launch with a
+ * custom-entity-model mod to runtime-verify.</p>
  */
 public class FabricEntityModelLayerShim implements VersionShim {
 
@@ -56,11 +47,8 @@ public class FabricEntityModelLayerShim implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // 26.1+ hosts ONLY (pitfall #9). Pre-26.1, EntityModelLayerRegistry is still
-        // ALIVE in the Fabric API - redirecting it would hijack a working API and wire
-        // it to ModelLayerRegistry, which doesn't exist there. The synthetics also
-        // declare Mojang-named MC types (ModelLayerLocation, LayerDefinition),
-        // unresolvable on an intermediary runtime.
+        // 26.1+ hosts only (#9): pre-26.1 the old API still exists and the synthetics name
+        // Mojang types that don't resolve on an intermediary runtime.
         if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
                 com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
             LOGGER.debug("[Retromod] EntityModelLayerRegistry bridge skipped (host {} < 26.1 - old API still present)",
@@ -81,10 +69,7 @@ public class FabricEntityModelLayerShim implements VersionShim {
                 + "(STATUS: needs in-game verification)");
     }
 
-    /**
-     * Holder with {@code static void registerModelLayer(ModelLayerLocation, TexturedModelDataProvider)}
-     * forwarding to the bridge. No static fields, so no {@code <clinit>}.
-     */
+    /** Holder whose static {@code registerModelLayer} forwards to the bridge. */
     static byte[] generateHolder() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC | Opcodes.ACC_FINAL | Opcodes.ACC_SUPER,
@@ -93,8 +78,8 @@ public class FabricEntityModelLayerShim implements VersionShim {
         MethodVisitor m = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
                 "registerModelLayer", REGISTER_DESC, null, null);
         m.visitCode();
-        m.visitVarInsn(Opcodes.ALOAD, 0); // ModelLayerLocation
-        m.visitVarInsn(Opcodes.ALOAD, 1); // provider
+        m.visitVarInsn(Opcodes.ALOAD, 0);
+        m.visitVarInsn(Opcodes.ALOAD, 1);
         m.visitMethodInsn(Opcodes.INVOKESTATIC, BRIDGE, "registerModelLayer",
                 "(Ljava/lang/Object;Ljava/lang/Object;)V", false);
         m.visitInsn(Opcodes.RETURN);

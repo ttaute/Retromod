@@ -80,7 +80,7 @@ public class PolyfillRegistry {
             try {
                 provider = it.next();
             } catch (ServiceConfigurationError e) {
-                // Class not found - expected in lite builds where some providers are excluded
+                // Class not found: expected in lite builds where some providers are excluded
                 LOGGER.debug("Skipping unavailable polyfill provider: {}", e.getMessage());
                 skipped++;
                 continue;

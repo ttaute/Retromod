@@ -10,24 +10,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Fabric Shield Lib API compatibility shim.
- *
- * FabricShieldLib by CrimsonDawn45 was a library for Fabric (1.16 - 1.19)
- * that provided an easy API for creating custom shields with custom models
- * and banner patterns. It filled a gap that Fabric API did not cover for
- * custom shield rendering.
- *
- * The library became unmaintained after 1.19 as Minecraft's rendering pipeline
- * underwent significant changes (PoseStack -> GuiGraphics, new model loading
- * system, etc.). Modern Fabric mods now use direct rendering hooks or
- * Fabric Rendering API v1 for custom shield models.
- *
- * Key mappings:
- * - FabricShieldLib.registerShield() -> manual registry + model registration
- * - FabricShieldItem -> custom Item subclass with shield behavior
- * - FabricBannerShieldItem -> custom Item with banner rendering
- * - ShieldEntityModel -> vanilla ShieldModel with custom geometry
- * - Shield render layer registration -> Fabric Rendering API
+ * Redirects FabricShieldLib (CrimsonDawn45, Fabric 1.16-1.19, unmaintained since the
+ * 1.19 rendering overhaul) onto the embedded {@code FabricShieldLibShim} compat shapes.
  */
 public class FabricShieldLibApiShim implements VersionShim {
 
@@ -53,21 +37,11 @@ public class FabricShieldLibApiShim implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // SHIELD ITEM CLASSES
-        // ============================================================
-
-        // Old: com.github.crimsondawn45.fabricshieldlib.lib.object.FabricShieldItem
-        // Base class for custom shield items; extended Item with shield durability,
-        // cooldown, and blocking behavior
-        // New: redirect to shim that creates a proper shield Item for modern MC
         transformer.registerClassRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/object/FabricShieldItem",
             "com/retromod/shim/api/fabric/embedded/FabricShieldLibShim$FabricShieldItemCompat"
         );
 
-        // Old: FabricShieldItem constructor (settings, cooldownTicks, durability, repairItem)
-        // New: construct modern shield item with equivalent properties
         transformer.registerMethodRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/object/FabricShieldItem",
             "<init>",
@@ -77,16 +51,11 @@ public class FabricShieldLibApiShim implements VersionShim {
             "(Lnet/minecraft/item/Item$Settings;IILnet/minecraft/item/Item;)Ljava/lang/Object;"
         );
 
-        // Old: com.github.crimsondawn45.fabricshieldlib.lib.object.FabricBannerShieldItem
-        // Extended FabricShieldItem with banner pattern rendering support
-        // New: redirect to shim with banner support
         transformer.registerClassRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/object/FabricBannerShieldItem",
             "com/retromod/shim/api/fabric/embedded/FabricShieldLibShim$FabricBannerShieldItemCompat"
         );
 
-        // Old: FabricBannerShieldItem constructor (settings, cooldownTicks, durability, repairItem)
-        // New: construct modern banner shield item
         transformer.registerMethodRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/object/FabricBannerShieldItem",
             "<init>",
@@ -96,20 +65,12 @@ public class FabricShieldLibApiShim implements VersionShim {
             "(Lnet/minecraft/item/Item$Settings;IILnet/minecraft/item/Item;)Ljava/lang/Object;"
         );
 
-        // ============================================================
-        // SHIELD ENTITY MODEL (rendering)
-        // ============================================================
-
-        // Old: com.github.crimsondawn45.fabricshieldlib.lib.object.FabricShieldEntityModel
-        // Custom entity model class for shield rendering with Fabric's model system
-        // New: net.minecraft.client.model.ShieldModel (vanilla 1.20+)
+        // entity model maps onto vanilla ShieldModel (1.20+)
         transformer.registerClassRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/object/FabricShieldEntityModel",
             "com/retromod/shim/api/fabric/embedded/FabricShieldLibShim$ShieldModelCompat"
         );
 
-        // Old: FabricShieldEntityModel constructor (modelPart)
-        // New: ShieldModel(root) in modern MC
         transformer.registerMethodRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/object/FabricShieldEntityModel",
             "<init>",
@@ -119,32 +80,18 @@ public class FabricShieldLibApiShim implements VersionShim {
             "(Lnet/minecraft/client/model/ModelPart;)Ljava/lang/Object;"
         );
 
-        // ============================================================
-        // MAIN LIB REGISTRATION CLASS
-        // ============================================================
-
-        // Old: com.github.crimsondawn45.fabricshieldlib.initializers.FabricShieldLibClient
-        // Client-side initializer that set up shield rendering
-        // New: redirect to shim that handles modern render registration
+        // lib initializers (client + common)
         transformer.registerClassRedirect(
             "com/github/crimsondawn45/fabricshieldlib/initializers/FabricShieldLibClient",
             "com/retromod/shim/api/fabric/embedded/FabricShieldLibShim$ClientInitCompat"
         );
 
-        // Old: FabricShieldLib (common initializer)
-        // New: redirect to shim
         transformer.registerClassRedirect(
             "com/github/crimsondawn45/fabricshieldlib/initializers/FabricShieldLib",
             "com/retromod/shim/api/fabric/embedded/FabricShieldLibShim$CommonInitCompat"
         );
 
-        // ============================================================
-        // SHIELD RENDERING / MODEL LAYER REGISTRATION
-        // ============================================================
-
-        // Old: FabricShieldLibClient.registerShieldModelLayer(shieldItem, modelLayer)
-        // Registered a custom model layer for the shield's rendering
-        // New: EntityModelLayerRegistry from Fabric Rendering API
+        // render registration (model layer + texture)
         transformer.registerMethodRedirect(
             "com/github/crimsondawn45/fabricshieldlib/initializers/FabricShieldLibClient",
             "registerShieldModelLayer",
@@ -154,9 +101,6 @@ public class FabricShieldLibApiShim implements VersionShim {
             "(Lnet/minecraft/item/Item;Ljava/lang/Object;)V"
         );
 
-        // Old: FabricShieldLibClient.registerShieldTexture(shieldItem, texture)
-        // Registered the texture used for shield rendering
-        // New: handled via modern SpriteAtlas or direct texture reference
         transformer.registerMethodRedirect(
             "com/github/crimsondawn45/fabricshieldlib/initializers/FabricShieldLibClient",
             "registerShieldTexture",
@@ -166,12 +110,7 @@ public class FabricShieldLibApiShim implements VersionShim {
             "(Lnet/minecraft/item/Item;Lnet/minecraft/util/Identifier;)V"
         );
 
-        // ============================================================
-        // SHIELD ENCHANTMENT HELPERS
-        // ============================================================
-
-        // Old: FabricShieldLib.isShield(stack) - check if an item is a registered shield
-        // New: check via item properties / tags
+        // FabricShieldLib.isShield(stack)
         transformer.registerMethodRedirect(
             "com/github/crimsondawn45/fabricshieldlib/initializers/FabricShieldLib",
             "isShield",
@@ -181,20 +120,12 @@ public class FabricShieldLibApiShim implements VersionShim {
             "(Lnet/minecraft/item/ItemStack;)Z"
         );
 
-        // ============================================================
-        // SHIELD EVENT CALLBACKS
-        // ============================================================
-
-        // Old: com.github.crimsondawn45.fabricshieldlib.lib.event.ShieldBlockCallback
-        // Custom event fired when a shield blocks an attack
-        // New: redirect to Fabric API attack entity / damage events
+        // shield event callbacks
         transformer.registerClassRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/event/ShieldBlockCallback",
             "com/retromod/shim/api/fabric/embedded/FabricShieldLibShim$ShieldBlockCallbackCompat"
         );
 
-        // Old: ShieldBlockCallback.EVENT - the event instance
-        // New: redirect to Fabric API equivalent
         transformer.registerFieldRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/event/ShieldBlockCallback",
             "EVENT",
@@ -204,9 +135,6 @@ public class FabricShieldLibApiShim implements VersionShim {
             "Ljava/lang/Object;"
         );
 
-        // Old: com.github.crimsondawn45.fabricshieldlib.lib.event.ShieldDisabledCallback
-        // Custom event fired when shield is disabled (cooldown from axe)
-        // New: redirect to vanilla/Fabric damage events
         transformer.registerClassRedirect(
             "com/github/crimsondawn45/fabricshieldlib/lib/event/ShieldDisabledCallback",
             "com/retromod/shim/api/fabric/embedded/FabricShieldLibShim$ShieldDisabledCallbackCompat"

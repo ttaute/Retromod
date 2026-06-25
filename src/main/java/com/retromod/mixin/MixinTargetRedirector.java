@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 4. Changes annotation to "newMethod"
  * 5. Mixin now targets the correct method!
  * 
- * This is basically what you described - we're the translator/interceptor.
+ * This is basically what you described: we're the translator/interceptor.
  */
 public class MixinTargetRedirector {
     
@@ -252,7 +252,7 @@ public class MixinTargetRedirector {
     /**
      * Transform method annotations (@Inject, @Redirect, etc.)
      * 
-     * This is the core of your idea - redirecting method targets!
+     * This is the core of your idea: redirecting method targets!
      */
     private int transformMethodAnnotations(MethodNode method) {
         int count = 0;

@@ -24,7 +24,7 @@ import com.retromod.embedder.ModVersionInfo;
  *
  * <p>The critical gate: vanilla class moves apply to EVERY loader, but the Fabric
  * intermediary-&gt;Mojang MEMBER mappings are Fabric-only. Applying them to a NeoForge mod
- * (already Mojang-named) clobbered correct Mojang fields - it renamed YUNG's API's
+ * (already Mojang-named) clobbered correct Mojang fields: it renamed YUNG's API's
  * {@code Blocks.WHITE_CANDLE} to a field 26.2 no longer has, crashing construction.
  */
 class RetromodCliAuxRedirectsTest {
@@ -34,7 +34,7 @@ class RetromodCliAuxRedirectsTest {
                 Set.of(), Set.of(), false);
     }
 
-    /** The summary ends with "... N member mapping(s)." - extract N. */
+    /** The summary ends with "... N member mapping(s)." Extract N. */
     private static int memberCount(String summary) {
         java.util.regex.Matcher m =
                 java.util.regex.Pattern.compile("(\\d+) member mapping").matcher(summary);

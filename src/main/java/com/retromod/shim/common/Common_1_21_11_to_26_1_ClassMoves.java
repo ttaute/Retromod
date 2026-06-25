@@ -7,43 +7,23 @@ package com.retromod.shim.common;
 import com.retromod.core.RetromodTransformer;
 
 /**
- * Loader-agnostic Minecraft class moves/renames for the 1.21.11 → 26.1 jump.
+ * Loader-agnostic Mojang->Mojang vanilla class moves/renames for the 1.21.11 -> 26.1 jump (#64).
  *
- * <h2>Why shared</h2>
- * These are <b>vanilla MC</b> Mojang→Mojang renames (e.g. {@code GuiGraphics} →
- * {@code GuiGraphicsExtractor}). They apply identically whether the mod is Fabric
- * or NeoForge, because both loaders use Mojang names on a 26.1 host (Fabric's
- * intermediary→Mojang harvest already lands old Fabric mods on Mojang names by
- * the time these run; NeoForge mods are Mojang-named since 1.20.2). Keeping them
- * in one place means a rename added here fixes both loaders at once - the
- * compat-audit's biggest finding was that snapshot.1 added these to the Fabric
- * shim only, so NeoForge mods (e.g. the 1.21.1-on-NeoForge mods in #64) still
- * hit {@code NoClassDefFoundError} on {@code GuiGraphics}/{@code RenderType}.
- *
- * <h2>Scope</h2>
- * Vanilla {@code net/minecraft/**} (+ {@code com/mojang/blaze3d/**}) type
- * relocations ONLY. Loader-API renames (Fabric networking S2C/C2S, ScreenHandler
- * → Menu, ClientWorldEvents → ClientLevelEvents, NeoForge-specific types, …) stay
- * in each loader's own shim - they're not portable.
- *
- * <p>Called from both {@code Fabric_1_21_11_to_26_1} and
+ * <p>Scope is vanilla {@code net/minecraft/**} and {@code com/mojang/blaze3d/**} only; loader-API
+ * renames live in each loader's shim. Called from {@code Fabric_1_21_11_to_26_1} and
  * {@code NeoForge_1_21_11_to_26_1}.</p>
  */
 public final class Common_1_21_11_to_26_1_ClassMoves {
 
     private Common_1_21_11_to_26_1_ClassMoves() {}
 
-    /** Register every loader-agnostic vanilla 1.21.11→26.1 class move. */
     public static void register(RetromodTransformer transformer) {
-        // GuiGraphics → GuiGraphicsExtractor - the type that bundles PoseStack +
-        // BufferSource + scissor stack for in-GUI rendering. Every overlay/HUD/
-        // screen mod takes a GuiGraphics parameter, so this is the single
-        // most-referenced 26.1 rename in the compat audit (1400+ refs).
+        // GuiGraphics -> GuiGraphicsExtractor
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/GuiGraphics",
             "net/minecraft/client/gui/GuiGraphicsExtractor");
 
-        // RenderType + RenderTypes moved into their own `rendertype` sub-package.
+        // RenderType + RenderTypes moved into a rendertype sub-package.
         transformer.registerClassRedirect(
             "net/minecraft/client/renderer/RenderType",
             "net/minecraft/client/renderer/rendertype/RenderType");
@@ -51,47 +31,31 @@ public final class Common_1_21_11_to_26_1_ClassMoves {
             "net/minecraft/client/renderer/RenderTypes",
             "net/minecraft/client/renderer/rendertype/RenderTypes");
 
-        // BlockAndTintGetter moved from `world/level/` to `client/renderer/block/`
-        // when the type became client-only (the server doesn't tint).
+        // BlockAndTintGetter became client-only and moved to client/renderer/block/.
         transformer.registerClassRedirect(
             "net/minecraft/world/level/BlockAndTintGetter",
             "net/minecraft/client/renderer/block/BlockAndTintGetter");
 
-        // ItemNameBlockItem removed in 26.x - it was a BlockItem subclass whose only
-        // job was naming the placed block from the stack's custom name, which 26.x
-        // folded into BlockItem itself. Same (Block, Item.Properties) constructor, so
-        // redirecting the now-absent subclass to its former superclass lets a mod that
-        // `extends ItemNameBlockItem` (e.g. Handcrafted) load on 26.x - only the
-        // place-time custom-naming is lost. Without it: NoClassDefFoundError.
+        // ItemNameBlockItem folded into BlockItem in 26.x; same (Block, Item.Properties)
+        // ctor, so an extending mod loads. Place-time custom naming is lost.
         transformer.registerClassRedirect(
             "net/minecraft/world/item/ItemNameBlockItem",
             "net/minecraft/world/item/BlockItem");
 
-        // ResourceKey.location() -> identifier() : 26.x renamed the accessor that returns
-        // the key's id. A method RENAME (via the ClassRemapper's mapMethodName), not a
-        // method redirect, because the real call site is a method REFERENCE
-        // (ResourceKey::location, captured in Resourceful Lib's ExtraByteCodecs) that the
-        // direct-call redirect pass can't reach. Owner-scoped so it only touches ResourceKey.
-        // Lives here (not the runtime-only class-move method) so the offline batch path
-        // gets it too via the shim chain. Fixes Chipped/Handcrafted: NoSuchMethodError
-        // ResourceKey.location() on 26.x.
+        // ResourceKey.location() -> identifier() in 26.x. A method rename, not a redirect:
+        // the call site is a method reference (ResourceKey::location in Resourceful Lib's
+        // ExtraByteCodecs) that the direct-call pass can't reach.
         transformer.registerMethodRename(
             "net/minecraft/resources/ResourceKey", "location", "identifier");
 
-        // ChunkPos(long) constructor removed in 26.x in favour of the static factory
-        // ChunkPos.unpack(long). Rewrite `new ChunkPos(packedPos)` -> ChunkPos.unpack(...),
-        // same as the Identifier ctor redirects. Without it: NoSuchMethodError
-        // ChunkPos.<init>(long) (Chipped via Resourceful Lib's packed-pos codecs).
+        // ChunkPos(long) ctor removed in 26.x; rewrite to the static ChunkPos.unpack(long).
         transformer.registerConstructorRedirect(
             "net/minecraft/world/level/ChunkPos", "(J)V",
             "net/minecraft/world/level/ChunkPos", "unpack",
             "(J)Lnet/minecraft/world/level/ChunkPos;");
 
-        // Tier-2 render-state soft-fail: neutralize the imperative RenderSystem
-        // state setters deleted in the blaze3d GpuDevice/RenderPipeline refactor
-        // (gone by 1.21.11, stay gone through 26.x). Loader-agnostic blaze3d, so
-        // it rides this shared path for Fabric + NeoForge; Forge wires it
-        // directly. See RemovedRenderStateNeutralize for the full rationale.
+        // Neutralize the imperative RenderSystem state setters deleted in the blaze3d
+        // GpuDevice/RenderPipeline refactor (Forge wires this directly instead).
         RemovedRenderStateNeutralize.register(transformer);
     }
 }

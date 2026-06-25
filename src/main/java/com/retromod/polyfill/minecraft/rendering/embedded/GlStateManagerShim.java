@@ -50,7 +50,7 @@ public class GlStateManagerShim {
             disableDepthTest = lookup.findStatic(renderSystem, "disableDepthTest",
                 MethodType.methodType(void.class));
         } catch (Exception e) {
-            // Running on dedicated server or RenderSystem not available - all ops become no-ops
+            // Running on dedicated server or RenderSystem not available; all ops become no-ops
         }
 
         SET_SHADER_COLOR = setShaderColor;
@@ -60,9 +60,7 @@ public class GlStateManagerShim {
         DISABLE_DEPTH_TEST = disableDepthTest;
     }
 
-    // =========================================================================
     // Methods that delegate to RenderSystem
-    // =========================================================================
 
     /**
      * Sets the shader color. Delegates to RenderSystem.setShaderColor().
@@ -131,9 +129,7 @@ public class GlStateManagerShim {
         }
     }
 
-    // =========================================================================
     // No-op methods: fixed-function features removed in core GL profile
-    // =========================================================================
 
     /**
      * No-op. Alpha testing was removed from the core GL profile.
@@ -174,9 +170,7 @@ public class GlStateManagerShim {
         // No-op: texture enable/disable not meaningful in shader pipeline
     }
 
-    // =========================================================================
     // No-op methods: matrix stack replaced by PoseStack / GuiGraphics
-    // =========================================================================
 
     /**
      * No-op. The fixed-function matrix stack (glPushMatrix) was removed.

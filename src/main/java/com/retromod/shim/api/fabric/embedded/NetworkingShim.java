@@ -7,13 +7,8 @@ package com.retromod.shim.api.fabric.embedded;
 import java.lang.reflect.Method;
 
 /**
- * Shim for Fabric Networking API changes.
- * 
- * The networking API underwent major changes in 1.20.5:
- * - Old: send(player, Identifier, PacketByteBuf)
- * - New: send(player, CustomPayload)
- * 
- * This shim wraps legacy calls to work with the new payload system.
+ * Bridges the pre-1.20.5 Fabric networking API onto the payload one:
+ * {@code send(player, Identifier, PacketByteBuf)} became {@code send(player, CustomPayload)}.
  */
 public class NetworkingShim {
     
@@ -23,38 +18,28 @@ public class NetworkingShim {
     private static Method newClientSendMethod;
     private static Class<?> payloadClass;
     
-    /**
-     * Legacy server send method - wraps buf in a payload.
-     */
+    /** Wraps the buf in a payload and calls the modern server send. */
     public static void sendLegacy(Object player, Object identifier, Object packetByteBuf) {
         try {
             ensureInitialized();
-            
-            // Create a legacy wrapper payload
             Object payload = createLegacyPayload(identifier, packetByteBuf);
-            
-            // Call new send method
+
             Class<?> serverNetworking = Class.forName("net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking");
             Method send = serverNetworking.getMethod("send", 
                 Class.forName("net.minecraft.server.network.ServerPlayerEntity"),
                 payloadClass);
             send.invoke(null, player, payload);
-            
         } catch (Exception e) {
-            // Fallback: try to find legacy method that still exists
             tryLegacyFallback(player, identifier, packetByteBuf, true);
         }
     }
-    
-    /**
-     * Legacy client send method.
-     */
+
+    /** Client counterpart of {@link #sendLegacy}. */
     public static void clientSendLegacy(Object identifier, Object packetByteBuf) {
         try {
             ensureInitialized();
-            
             Object payload = createLegacyPayload(identifier, packetByteBuf);
-            
+
             Class<?> clientNetworking = Class.forName("net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking");
             Method send = clientNetworking.getMethod("send", payloadClass);
             send.invoke(null, payload);
@@ -64,12 +49,9 @@ public class NetworkingShim {
         }
     }
     
-    /**
-     * Creates a PacketByteBuf (replaces PacketByteBufs.create()).
-     */
+    /** Replacement for the removed {@code PacketByteBufs.create()}. */
     public static Object createBuf() {
         try {
-            // Try new way first
             Class<?> packetByteBufClass = Class.forName("net.minecraft.network.PacketByteBuf");
             Class<?> unpooledClass = Class.forName("io.netty.buffer.Unpooled");
             Method buffer = unpooledClass.getMethod("buffer");
@@ -77,7 +59,6 @@ public class NetworkingShim {
             return packetByteBufClass.getConstructor(Class.forName("io.netty.buffer.ByteBuf"))
                 .newInstance(byteBuf);
         } catch (Exception e) {
-            // Try legacy PacketByteBufs.create()
             try {
                 Class<?> packetByteBufs = Class.forName("net.fabricmc.fabric.api.networking.v1.PacketByteBufs");
                 Method create = packetByteBufs.getMethod("create");
@@ -92,7 +73,6 @@ public class NetworkingShim {
         if (!initialized) {
             synchronized (LOCK) {
                 if (!initialized) {
-                    // Try to find CustomPayload class
                     try {
                         payloadClass = Class.forName("net.fabricmc.fabric.api.networking.v1.FabricPacket");
                     } catch (ClassNotFoundException e) {
@@ -110,12 +90,10 @@ public class NetworkingShim {
     
     private static Object createLegacyPayload(Object identifier, Object packetByteBuf) {
         try {
-            // Create a wrapper that implements CustomPayload
             Class<?> wrapperClass = Class.forName("com.retromod.shim.api.fabric.embedded.LegacyPayloadWrapper");
             return wrapperClass.getConstructor(Object.class, Object.class)
                 .newInstance(identifier, packetByteBuf);
         } catch (Exception e) {
-            // Return a simple record-like object
             return new Object[] { identifier, packetByteBuf };
         }
     }

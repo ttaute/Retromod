@@ -10,15 +10,8 @@ import org.slf4j.LoggerFactory;
 import java.awt.GraphicsEnvironment;
 
 /**
- * Utility to detect the runtime environment.
- *
- * Detects:
- * - Client vs Dedicated Server
- * - Headless (no GUI) vs GUI available
- * - CPU architecture (x86_64, aarch64/ARM, etc.)
- * - Operating system (Windows, macOS, Linux)
- * - Rendering backend (OpenGL, Vulkan, Metal)
- * - Which features to enable/disable
+ * Detects the runtime environment: client vs dedicated server, headless vs GUI,
+ * CPU architecture, OS, and rendering backend.
  */
 public class EnvironmentDetector {
 
@@ -28,26 +21,19 @@ public class EnvironmentDetector {
     private static Boolean isHeadless = null;
     private static Boolean isDedicatedServer = null;
 
-    // Architecture and OS (cached on first access)
     private static String cpuArch = null;
     private static String osName = null;
     private static RenderingBackend renderingBackend = null;
 
-    /**
-     * CPU architecture family.
-     */
     public enum CpuArch {
-        X86_64,     // Intel/AMD 64-bit (most desktops and servers)
-        X86,        // Intel/AMD 32-bit (legacy)
-        AARCH64,    // ARM 64-bit (Apple Silicon, Raspberry Pi 4+, some servers)
-        ARM,        // ARM 32-bit (older Raspberry Pi, some embedded)
-        RISCV64,    // RISC-V 64-bit (emerging)
+        X86_64,     // Intel/AMD 64-bit
+        X86,        // Intel/AMD 32-bit
+        AARCH64,    // ARM 64-bit (Apple Silicon, Raspberry Pi 4+)
+        ARM,        // ARM 32-bit
+        RISCV64,
         UNKNOWN
     }
 
-    /**
-     * Operating system family.
-     */
     public enum OsFamily {
         WINDOWS,
         MACOS,
@@ -55,25 +41,16 @@ public class EnvironmentDetector {
         UNKNOWN
     }
 
-    /**
-     * Rendering backend used by Minecraft / LWJGL.
-     */
     public enum RenderingBackend {
-        OPENGL,     // Current Minecraft default
-        VULKAN,     // Future Minecraft (rumored/planned)
-        METAL,      // macOS native (possible via MoltenVK or direct)
-        DIRECTX,    // Windows native (possible future)
-        SOFTWARE,   // Fallback / headless
+        OPENGL,
+        VULKAN,
+        METAL,
+        DIRECTX,
+        SOFTWARE,
         UNKNOWN
     }
 
-    // =========================================================================
-    //  Client / Server Detection
-    // =========================================================================
-
-    /**
-     * Check if running on a client (has rendering, GUI).
-     */
+    /** True when running on a client (rendering, GUI). */
     public static boolean isClient() {
         if (isClient == null) {
             isClient = detectClient();
@@ -81,9 +58,7 @@ public class EnvironmentDetector {
         return isClient;
     }
 
-    /**
-     * Check if running on a dedicated server (no client, no GUI).
-     */
+    /** True when running on a dedicated server (no client, no GUI). */
     public static boolean isDedicatedServer() {
         if (isDedicatedServer == null) {
             isDedicatedServer = detectDedicatedServer();
@@ -91,9 +66,7 @@ public class EnvironmentDetector {
         return isDedicatedServer;
     }
 
-    /**
-     * Check if running in headless mode (no display available).
-     */
+    /** True when no display is available. */
     public static boolean isHeadless() {
         if (isHeadless == null) {
             isHeadless = detectHeadless();
@@ -101,20 +74,11 @@ public class EnvironmentDetector {
         return isHeadless;
     }
 
-    /**
-     * Check if GUI dialogs can be shown.
-     */
+    /** True when GUI dialogs can be shown. */
     public static boolean canShowGui() {
         return isClient() && !isHeadless();
     }
 
-    // =========================================================================
-    //  Architecture Detection
-    // =========================================================================
-
-    /**
-     * Get the CPU architecture family.
-     */
     public static CpuArch getCpuArch() {
         String arch = getCpuArchString();
         return switch (arch) {
@@ -127,9 +91,7 @@ public class EnvironmentDetector {
         };
     }
 
-    /**
-     * Get the raw CPU architecture string from the JVM.
-     */
+    /** Raw {@code os.arch} string from the JVM. */
     public static String getCpuArchString() {
         if (cpuArch == null) {
             cpuArch = System.getProperty("os.arch", "unknown").toLowerCase();
@@ -137,28 +99,16 @@ public class EnvironmentDetector {
         return cpuArch;
     }
 
-    /**
-     * Check if running on ARM (includes both 32-bit and 64-bit ARM).
-     */
+    /** True on either 32-bit or 64-bit ARM. */
     public static boolean isArm() {
         CpuArch arch = getCpuArch();
         return arch == CpuArch.AARCH64 || arch == CpuArch.ARM;
     }
 
-    /**
-     * Check if running on Apple Silicon (M1/M2/M3/M4).
-     */
     public static boolean isAppleSilicon() {
         return getCpuArch() == CpuArch.AARCH64 && getOsFamily() == OsFamily.MACOS;
     }
 
-    // =========================================================================
-    //  OS Detection
-    // =========================================================================
-
-    /**
-     * Get the operating system family.
-     */
     public static OsFamily getOsFamily() {
         String os = getOsString();
         if (os.contains("win")) return OsFamily.WINDOWS;
@@ -167,9 +117,7 @@ public class EnvironmentDetector {
         return OsFamily.UNKNOWN;
     }
 
-    /**
-     * Get the raw OS name string.
-     */
+    /** Raw {@code os.name} string. */
     public static String getOsString() {
         if (osName == null) {
             osName = System.getProperty("os.name", "unknown").toLowerCase();
@@ -177,14 +125,6 @@ public class EnvironmentDetector {
         return osName;
     }
 
-    // =========================================================================
-    //  Rendering Backend Detection
-    // =========================================================================
-
-    /**
-     * Get the rendering backend being used.
-     * Detects Vulkan, Metal, OpenGL, or fallback.
-     */
     public static RenderingBackend getRenderingBackend() {
         if (renderingBackend == null) {
             renderingBackend = detectRenderingBackend();
@@ -192,34 +132,24 @@ public class EnvironmentDetector {
         return renderingBackend;
     }
 
-    /**
-     * Check if Minecraft is using Vulkan rendering.
-     */
     public static boolean isVulkan() {
         return getRenderingBackend() == RenderingBackend.VULKAN;
     }
 
-    /**
-     * Check if Minecraft is using Metal rendering (macOS).
-     */
     public static boolean isMetal() {
         return getRenderingBackend() == RenderingBackend.METAL;
     }
 
-    /**
-     * Check if Minecraft is using OpenGL rendering (current default).
-     */
     public static boolean isOpenGL() {
         return getRenderingBackend() == RenderingBackend.OPENGL;
     }
 
     private static RenderingBackend detectRenderingBackend() {
-        // Dedicated servers don't use rendering
         if (isDedicatedServer()) {
             return RenderingBackend.SOFTWARE;
         }
 
-        // Check system property (Minecraft may set this in future)
+        // Explicit override, should MC ever set one
         String backendProp = System.getProperty("minecraft.rendering.backend", "");
         if (!backendProp.isEmpty()) {
             return switch (backendProp.toLowerCase()) {
@@ -231,12 +161,8 @@ public class EnvironmentDetector {
             };
         }
 
-        // Check LWJGL for Vulkan support
         try {
-            // If LWJGL Vulkan classes are loadable AND being used, Vulkan is active
             Class.forName("org.lwjgl.vulkan.VK10");
-            // Check if Minecraft's GlStateManager equivalent uses Vulkan
-            // Future MC versions may have a VkStateManager or similar
             try {
                 Class.forName("com.mojang.blaze3d.platform.VulkanStateManager");
                 return RenderingBackend.VULKAN;
@@ -246,25 +172,21 @@ public class EnvironmentDetector {
                 return RenderingBackend.VULKAN;
             } catch (ClassNotFoundException ignored) {}
         } catch (ClassNotFoundException ignored) {
-            // LWJGL Vulkan not available
         }
 
-        // Check for Metal (macOS via MoltenVK or direct Metal)
         if (getOsFamily() == OsFamily.MACOS) {
             try {
-                // Future: Minecraft might use Metal directly on macOS
                 Class.forName("com.mojang.blaze3d.platform.MetalStateManager");
                 return RenderingBackend.METAL;
             } catch (ClassNotFoundException ignored) {}
 
-            // Check for MoltenVK (Vulkan-over-Metal translation layer)
+            // MoltenVK routes Vulkan over Metal
             String vulkanICD = System.getenv("VK_ICD_FILENAMES");
             if (vulkanICD != null && vulkanICD.contains("MoltenVK")) {
-                return RenderingBackend.VULKAN; // Vulkan via MoltenVK
+                return RenderingBackend.VULKAN;
             }
         }
 
-        // Check for DirectX (Windows only, future)
         if (getOsFamily() == OsFamily.WINDOWS) {
             try {
                 Class.forName("com.mojang.blaze3d.platform.DirectXStateManager");
@@ -272,20 +194,8 @@ public class EnvironmentDetector {
             } catch (ClassNotFoundException ignored) {}
         }
 
-        // Default: OpenGL. Minecraft still uses OpenGL as its only backend
-        // through 26.1.x - Mojang has not shipped Vulkan, Metal, or DirectX
-        // as of this writing. We check several signal classes that identify
-        // "a modern MC render pipeline is running" in order of specificity:
-        //
-        //   1.21.x and older: com.mojang.blaze3d.platform.GlStateManager
-        //   26.1+:            com.mojang.blaze3d.platform.GlStateManager was
-        //                     removed in the rendering refactor; the new
-        //                     entry point is com.mojang.blaze3d.systems.RenderSystem
-        //                     which is present on every 26.1 client.
-        //
-        // Either one existing → OPENGL. If neither exists we really are in
-        // an environment without a known MC rendering surface (dedicated server
-        // minus the SOFTWARE branch above, or an unsupported future version).
+        // OpenGL is MC's only backend through 26.1.x. GlStateManager was dropped
+        // in the 26.1 render refactor, so RenderSystem is the signal there.
         for (String glSignal : new String[]{
                 "com.mojang.blaze3d.platform.GlStateManager",   // 1.8 - 1.21.x
                 "com.mojang.blaze3d.systems.RenderSystem",       // 1.15+ incl 26.1
@@ -300,56 +210,37 @@ public class EnvironmentDetector {
         return RenderingBackend.UNKNOWN;
     }
 
-    // =========================================================================
-    //  Client / Server Detection (private)
-    // =========================================================================
-
     private static boolean detectClient() {
-        // Existence-only probes (initialize=false) - see classExists(): detection
-        // must never trigger a Minecraft bootstrap class's <clinit>.
         if (classExists("net.minecraft.client.MinecraftClient")   // Yarn (dev)
                 || classExists("net.minecraft.client.Minecraft")  // Mojang (26.1+, NeoForge)
-                || classExists("net.minecraft.class_310")) {      // intermediary - pre-26.1 Fabric runtime
+                || classExists("net.minecraft.class_310")) {      // intermediary, pre-26.1 Fabric
             return true;
         }
-        // Fallback: if we have a display, we're almost certainly a client.
         return !detectHeadless();
     }
 
     private static boolean detectDedicatedServer() {
-        // The Minecraft runtime ships a MERGED jar, so server classes - even
-        // net.minecraft.server.dedicated.DedicatedServer and MinecraftServer - are
-        // present on a CLIENT too. Their presence is therefore NOT a reliable
-        // "this is a dedicated server" signal. The reliable signal is the ABSENCE
-        // of a client class.
+        // The MC runtime ships a merged jar, so server classes exist on a client
+        // too. Absence of a client class is the only reliable dedicated signal.
         boolean clientPresent = classExists("net.minecraft.client.MinecraftClient")
                 || classExists("net.minecraft.client.Minecraft")
-                || classExists("net.minecraft.class_310"); // intermediary - pre-26.1 Fabric client
+                || classExists("net.minecraft.class_310");
         if (clientPresent) {
-            return false; // integrated server on a client - not dedicated
+            return false;
         }
-        // No client class present → if a server class is present, it's dedicated.
         if (classExists("net.minecraft.server.MinecraftServer")
                 || classExists("net.minecraft.server.dedicated.DedicatedServer")) {
             return true;
         }
-        // Fallback: if headless, probably a server.
         return detectHeadless();
     }
 
     /**
-     * Test whether a class is present <em>without initializing it</em>.
-     *
-     * <p><b>Why this exists (#46):</b> the single-arg {@link Class#forName(String)}
-     * <em>initializes</em> the class. Probing a Minecraft bootstrap class such as
-     * {@code net.minecraft.server.MinecraftServer} that way during mod
-     * construction forced its {@code <clinit>} to run far too early. With a mod
-     * that mixins into those classes (Legacy4J mixins {@code MinecraftServer} and
-     * {@code LevelSettings}), that cascaded into {@code wily.legacy.client.PackAlbum.<clinit>},
-     * which reads {@code Minecraft.getInstance().gameDirectory} before the client
-     * singleton exists → {@link NullPointerException}. Retromod's mere presence
-     * then crashed an otherwise-working mod. Detection must observe, never trigger
-     * static initialization - hence the three-arg form with {@code initialize = false}.
+     * Tests class presence without initializing it (#46). The single-arg
+     * {@link Class#forName(String)} runs the target's {@code <clinit>}; probing an
+     * MC bootstrap class that way during mod construction ran it far too early and
+     * crashed otherwise-working mods, so we use the three-arg form with
+     * {@code initialize = false}.
      */
     static boolean classExists(String name) {
         try {
@@ -360,38 +251,30 @@ public class EnvironmentDetector {
             Class.forName(name, false, cl);
             return true;
         } catch (Throwable ignored) {
-            // ClassNotFoundException (absent) or any LinkageError - treat as absent.
+            // absent, or any LinkageError: treat as absent
             return false;
         }
     }
 
     /**
-     * Public, non-initializing host-class existence probe ({@code initialize=false},
-     * same contract as {@link #classExists(String)} - see its javadoc on why we must
-     * never trigger {@code <clinit>}). Used by the mixin compatibility layer to detect
-     * a {@code @Mixin} target that was removed on the host MC and can't be remapped
-     * (#79), so the mixin can be neutralized before it crashes the game.
-     *
-     * @param binaryName the binary class name (e.g. {@code net.minecraft.world.level.storage.loot.LootDataManager})
-     * @return {@code true} if the class is loadable on the host without initializing it
+     * Non-initializing host-class probe (same contract as {@link #classExists(String)}).
+     * The mixin compat layer uses it to neutralize a {@code @Mixin} whose target was
+     * removed on the host MC.
      */
     public static boolean hostClassExists(String binaryName) {
         return classExists(binaryName);
     }
 
     private static boolean detectHeadless() {
-        // Check Java's headless mode
         if (GraphicsEnvironment.isHeadless()) {
             return true;
         }
 
-        // Check system property
         String headless = System.getProperty("java.awt.headless");
         if ("true".equalsIgnoreCase(headless)) {
             return true;
         }
 
-        // Check if DISPLAY is set (Linux)
         String display = System.getenv("DISPLAY");
         if (System.getProperty("os.name", "").toLowerCase().contains("linux")) {
             if (display == null || display.isEmpty()) {
@@ -399,7 +282,6 @@ public class EnvironmentDetector {
             }
         }
 
-        // Try to check if we can create a window
         try {
             GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
             ge.getDefaultScreenDevice();
@@ -409,13 +291,7 @@ public class EnvironmentDetector {
         }
     }
 
-    // =========================================================================
-    //  Logging
-    // =========================================================================
-
-    /**
-     * Log the full detected environment.
-     */
+    /** Log the detected environment. */
     public static void logEnvironment() {
         LOGGER.info("Environment: {} (headless: {})",
             isDedicatedServer() ? "Dedicated Server" : "Client",
@@ -430,9 +306,7 @@ public class EnvironmentDetector {
         }
     }
 
-    /**
-     * Force set the environment (for testing or when auto-detection fails).
-     */
+    /** Override detection (testing, or when auto-detection fails). */
     public static void setEnvironment(boolean client, boolean headless) {
         isClient = client;
         isHeadless = headless;

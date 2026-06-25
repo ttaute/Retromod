@@ -10,24 +10,9 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * AutoRegLib API compatibility shim.
- *
- * AutoRegLib (Automatic Registration Library) by Vazkii was a utility library
- * for Forge 1.10 through 1.16 that provided automatic block/item registration,
- * automatic model/texture loading, and automatic creative tab population.
- * It was the foundation library for Quark, Psi, Botania, and other Vazkii mods.
- *
- * AutoRegLib was deprecated in 1.16+ as Vazkii moved to Zeta (for Quark)
- * and direct Forge/NeoForge DeferredRegister patterns. The automatic
- * registration approach became less relevant as Minecraft's registry system
- * matured and mod loaders added their own deferred registration APIs.
- *
- * Key mappings:
- * - IForgeRegistryEntry (extended by ARL items/blocks) -> direct Registry
- * - RegistryHelper -> DeferredRegister (Forge) / Registry.register (Fabric)
- * - IModBlock / IModItem -> standard Block/Item subclassing
- * - ModCreativeTab -> CreativeModeTab.Builder
- * - RecipeHandler -> RecipeSerializer registration
+ * AutoRegLib (Vazkii): the Forge 1.10-1.16 auto-registration library behind Quark/Psi/Botania,
+ * deprecated once loaders gained DeferredRegister. Redirects its helpers to embedded compat
+ * shims backed by modern registry APIs.
  */
 public class AutoRegLibApiShim implements VersionShim {
 
@@ -48,27 +33,18 @@ public class AutoRegLibApiShim implements VersionShim {
 
     @Override
     public String getModLoaderType() {
-        return "common"; // AutoRegLib was Forge-only but the redirect pattern is universal
+        return "common"; // ARL was Forge-only, but the redirect pattern works on any loader
     }
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // CORE REGISTRATION HELPER
-        // ============================================================
-
-        // Old: vazkii.autoreglib.RegistryHelper - main automatic registration class
-        // Mods called RegistryHelper.register(block/item) and it auto-generated
-        // registry names, model JSON paths, and creative tab entries
-        // New: redirect to shim that uses modern DeferredRegister pattern
+        // RegistryHelper: ARL's auto-registration entry point.
         transformer.registerClassRedirect(
             "vazkii/autoreglib/api/RegistryHelper",
             "com/retromod/shim/api/common/embedded/AutoRegLibShim$RegistryHelperCompat"
         );
 
-        // Old: RegistryHelper.registerBlock(block, name) - register block + auto item
-        // Automatically created a BlockItem, registered both, set up models
-        // New: DeferredRegister<Block>.register(name, supplier) + item separately
+        // registerBlock(block, name): block + auto-generated BlockItem.
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/api/RegistryHelper",
             "registerBlock",
@@ -78,9 +54,7 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/world/level/block/Block;Ljava/lang/String;)Lnet/minecraft/world/level/block/Block;"
         );
 
-        // Old: RegistryHelper.registerBlock(block, name, itemBlock)
-        // Register block with a custom BlockItem
-        // New: register both through DeferredRegister
+        // registerBlock(block, name, itemBlock): block with a custom BlockItem.
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/api/RegistryHelper",
             "registerBlock",
@@ -90,9 +64,7 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/world/level/block/Block;Ljava/lang/String;Lnet/minecraft/world/item/BlockItem;)Lnet/minecraft/world/level/block/Block;"
         );
 
-        // Old: RegistryHelper.registerItem(item, name) - register item
-        // Automatically set registry name and creative tab
-        // New: DeferredRegister<Item>.register(name, supplier)
+        // registerItem(item, name).
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/api/RegistryHelper",
             "registerItem",
@@ -102,9 +74,7 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/world/item/Item;Ljava/lang/String;)Lnet/minecraft/world/item/Item;"
         );
 
-        // Old: RegistryHelper.registerEntity(entityType, name, mod)
-        // Auto-register entity types with tracking settings
-        // New: DeferredRegister<EntityType> / Registry.register
+        // registerEntity(entityType, name, mod, ...): entity type + tracking settings.
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/api/RegistryHelper",
             "registerEntity",
@@ -114,21 +84,13 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Class;Ljava/lang/String;Ljava/lang/Object;III)V"
         );
 
-        // ============================================================
-        // IMOD BLOCK / IMOD ITEM INTERFACES
-        // ============================================================
-
-        // Old: vazkii.autoreglib.block.IModBlock - blocks implementing this get
-        // automatic model loading, item registration, and creative tab placement
-        // New: standard Block subclass (no auto-registration needed)
+        // IModBlock: implementors got auto model loading, item registration, and tab placement.
         transformer.registerClassRedirect(
             "vazkii/autoreglib/block/IModBlock",
             "com/retromod/shim/api/common/embedded/AutoRegLibShim$IModBlockCompat"
         );
 
-        // Old: IModBlock.getPrefix() - return a prefix for the registry name
-        // AutoRegLib would combine prefix + name for the registry path
-        // New: no-op, modern mods use explicit registry names
+        // getPrefix() fed the registry-name prefix; modern mods name registries explicitly.
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/block/IModBlock",
             "getPrefix",
@@ -138,8 +100,7 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Ljava/lang/Object;)Ljava/lang/String;"
         );
 
-        // Old: IModBlock.createItemBlock() - auto-create the corresponding BlockItem
-        // New: mods create BlockItems explicitly
+        // createItemBlock() auto-built the matching BlockItem.
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/block/IModBlock",
             "createItemBlock",
@@ -149,16 +110,12 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Ljava/lang/Object;)Lnet/minecraft/world/item/BlockItem;"
         );
 
-        // Old: vazkii.autoreglib.item.IModItem - items implementing this get
-        // automatic model loading and creative tab placement
-        // New: standard Item subclass
+        // IModItem: implementors got auto model loading and tab placement.
         transformer.registerClassRedirect(
             "vazkii/autoreglib/item/IModItem",
             "com/retromod/shim/api/common/embedded/AutoRegLibShim$IModItemCompat"
         );
 
-        // Old: IModItem.getPrefix()
-        // New: no-op
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/item/IModItem",
             "getPrefix",
@@ -168,20 +125,12 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Ljava/lang/Object;)Ljava/lang/String;"
         );
 
-        // ============================================================
-        // CREATIVE TAB HELPER
-        // ============================================================
-
-        // Old: vazkii.autoreglib.util.ModCreativeTab - auto-populating creative tab
-        // Automatically added all registered IModBlock/IModItem to this tab
-        // New: CreativeModeTab.Builder (1.19.3+) or manual registration
+        // ModCreativeTab: an auto-populating creative tab, now CreativeModeTab.Builder.
         transformer.registerClassRedirect(
             "vazkii/autoreglib/util/ModCreativeTab",
             "com/retromod/shim/api/common/embedded/AutoRegLibShim$ModCreativeTabCompat"
         );
 
-        // Old: new ModCreativeTab(modId, iconSupplier) - create creative tab
-        // New: CreativeModeTab.builder().title(...).icon(...).displayItems(...).build()
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/util/ModCreativeTab",
             "<init>",
@@ -191,20 +140,13 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Ljava/lang/String;Ljava/util/function/Supplier;)Ljava/lang/Object;"
         );
 
-        // ============================================================
-        // RECIPE HANDLER
-        // ============================================================
-
-        // Old: vazkii.autoreglib.recipe.RecipeHandler - auto recipe serializer registration
-        // New: RecipeSerializer registered via DeferredRegister
+        // RecipeHandler: auto serializer registration, now DeferredRegister<RecipeSerializer>.
         transformer.registerClassRedirect(
             "vazkii/autoreglib/recipe/RecipeHandler",
             "com/retromod/shim/api/common/embedded/AutoRegLibShim$RecipeHandlerCompat"
         );
 
-        // Old: RecipeHandler.addShapedRecipe(output, params...) - helper to add recipes
-        // This was already deprecated in later ARL versions (recipes moved to data packs)
-        // New: no-op or log warning (recipes must be JSON data packs now)
+        // addShapedRecipe / addShapelessRecipe: code-defined recipes are gone, recipes are JSON now.
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/recipe/RecipeHandler",
             "addShapedRecipe",
@@ -214,8 +156,6 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Lnet/minecraft/world/item/ItemStack;[Ljava/lang/Object;)V"
         );
 
-        // Old: RecipeHandler.addShapelessRecipe(output, inputs...)
-        // New: no-op (recipes are data-driven in modern MC)
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/recipe/RecipeHandler",
             "addShapelessRecipe",
@@ -225,22 +165,13 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Lnet/minecraft/world/item/ItemStack;[Ljava/lang/Object;)V"
         );
 
-        // ============================================================
-        // MODEL HANDLER (automatic model/texture resolution)
-        // ============================================================
-
-        // Old: vazkii.autoreglib.client.ModelHandler - auto JSON model generation
-        // AutoRegLib would generate simple block/item models at runtime if no
-        // JSON was found in the resource pack
-        // New: mods provide JSON models or use model datagen
+        // ModelHandler: generated simple models at runtime when none were in the resource pack.
         transformer.registerClassRedirect(
             "vazkii/autoreglib/client/ModelHandler",
             "com/retromod/shim/api/common/embedded/AutoRegLibShim$ModelHandlerCompat"
         );
 
-        // Old: ModelHandler.registerModel(item, meta, modelLocation)
-        // Used to manually override model locations
-        // New: ModelLoadingPlugin (Fabric) or RegisterEvent for models (Forge)
+        // registerModel(item, meta, location): manual model override.
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/client/ModelHandler",
             "registerModel",
@@ -250,20 +181,13 @@ public class AutoRegLibApiShim implements VersionShim {
             "(Lnet/minecraft/world/item/Item;ILjava/lang/Object;)V"
         );
 
-        // ============================================================
-        // PROXY SYSTEM (removed in modern MC modding)
-        // ============================================================
-
-        // Old: vazkii.autoreglib.base.ModBase - base mod class with proxy support
-        // AutoRegLib had its own proxy system wrapping Forge's @SidedProxy
-        // New: modern mods use dist-specific initialization instead
+        // ModBase: ARL's base mod class wrapping Forge's @SidedProxy system (gone in modern MC).
         transformer.registerClassRedirect(
             "vazkii/autoreglib/base/ModBase",
             "com/retromod/shim/api/common/embedded/AutoRegLibShim$ModBaseCompat"
         );
 
-        // Old: ModBase.proxy field (CommonProxy)
-        // New: no-op, side-specific code uses DistExecutor or platform checks
+        // ModBase.proxy field (CommonProxy).
         transformer.registerFieldRedirect(
             "vazkii/autoreglib/base/ModBase",
             "proxy",
@@ -273,20 +197,13 @@ public class AutoRegLibApiShim implements VersionShim {
             "Ljava/lang/Object;"
         );
 
-        // ============================================================
-        // NETWORK HELPER
-        // ============================================================
-
-        // Old: vazkii.autoreglib.network.NetworkHandler - simple packet registration
-        // Wrapped Forge's SimpleNetworkWrapper with auto-incrementing discriminators
-        // New: modern packet registration via Forge/Fabric networking APIs
+        // NetworkHandler: wrapped SimpleNetworkWrapper with auto-incrementing discriminators.
         transformer.registerClassRedirect(
             "vazkii/autoreglib/network/NetworkHandler",
             "com/retromod/shim/api/common/embedded/AutoRegLibShim$NetworkHandlerCompat"
         );
 
-        // Old: NetworkHandler.register(packetClass, side) - register a packet type
-        // New: channel.registerPacket() or PayloadRegistrar (NeoForge)
+        // register(packetClass, side): now channel.registerPacket() / PayloadRegistrar.
         transformer.registerMethodRedirect(
             "vazkii/autoreglib/network/NetworkHandler",
             "register",

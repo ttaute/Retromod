@@ -10,17 +10,7 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Architectury API compatibility shim.
- * 
- * Architectury is a popular API for creating cross-loader mods
- * (supporting both Fabric and Forge/NeoForge from one codebase).
- * 
- * API changes:
- * - v1.x -> v2.x: Package restructure
- * - v2.x -> v3.x: Registration API changes
- * - v3.x -> v4.x: Event system overhaul
- * - v4.x -> v6.x: Platform abstraction changes
- * - v6.x -> v9.x+: NeoForge support, further changes
+ * Architectury API shim: its package and registration/event APIs moved around across v1-v9+.
  */
 public class ArchitecturyApiShim implements VersionShim {
     
@@ -46,12 +36,7 @@ public class ArchitecturyApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PACKAGE CHANGES
-        // ============================================================
-        
-        // Old: me.shedaniel.architectury
-        // New: dev.architectury (package rename in v6+)
+        // me.shedaniel.architectury -> dev.architectury (v6+)
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/registry/Registries",
             "dev/architectury/registry/registries/Registries"
@@ -66,29 +51,18 @@ public class ArchitecturyApiShim implements VersionShim {
             "me/shedaniel/architectury/registry/RegistrySupplier",
             "dev/architectury/registry/registries/RegistrySupplier"
         );
-        
-        // ============================================================
-        // PLATFORM CLASS CHANGES
-        // ============================================================
-        
-        // Old: Platform class location
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/platform/Platform",
             "dev/architectury/platform/Platform"
         );
-        
-        // Old: ExpectPlatform annotation
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/annotations/ExpectPlatform",
             "dev/architectury/injectables/annotations/ExpectPlatform"
         );
-        
-        // ============================================================
-        // REGISTRATION API CHANGES
-        // ============================================================
-        
-        // Old: Registries.get(modId)
-        // New: DeferredRegister.create(modId, registry)
+
+        // Registries.get(modId) -> DeferredRegister.create(modId, registry)
         transformer.registerMethodRedirect(
             "me/shedaniel/architectury/registry/Registries",
             "get",
@@ -97,8 +71,7 @@ public class ArchitecturyApiShim implements VersionShim {
             "getRegistries",
             "(Ljava/lang/String;)Ljava/lang/Object;"
         );
-        
-        // Old: registries.get(registry)
+
         transformer.registerMethodRedirect(
             "me/shedaniel/architectury/registry/Registries",
             "get",
@@ -107,12 +80,7 @@ public class ArchitecturyApiShim implements VersionShim {
             "getDeferredRegister",
             "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // EVENT SYSTEM CHANGES
-        // ============================================================
-        
-        // Old event classes
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/event/events/common/LifecycleEvent",
             "dev/architectury/event/events/common/LifecycleEvent"
@@ -132,8 +100,7 @@ public class ArchitecturyApiShim implements VersionShim {
             "me/shedaniel/architectury/event/events/client/ClientLifecycleEvent",
             "dev/architectury/event/events/client/ClientLifecycleEvent"
         );
-        
-        // Event registration
+
         transformer.registerMethodRedirect(
             "me/shedaniel/architectury/event/Event",
             "register",
@@ -142,17 +109,12 @@ public class ArchitecturyApiShim implements VersionShim {
             "register",
             "(Ljava/lang/Object;)V"
         );
-        
-        // ============================================================
-        // NETWORKING CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/networking/NetworkManager",
             "dev/architectury/networking/NetworkManager"
         );
-        
-        // Old: NetworkManager.registerReceiver(side, id, receiver)
+
         transformer.registerMethodRedirect(
             "me/shedaniel/architectury/networking/NetworkManager",
             "registerReceiver",
@@ -161,17 +123,12 @@ public class ArchitecturyApiShim implements VersionShim {
             "registerReceiver",
             "(Ljava/lang/Object;Lnet/minecraft/resources/ResourceLocation;Ljava/lang/Object;)V"
         );
-        
-        // ============================================================
-        // MENU REGISTRY CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/registry/MenuRegistry",
             "dev/architectury/registry/menu/MenuRegistry"
         );
-        
-        // Old: MenuRegistry.register(id, factory)
+
         transformer.registerMethodRedirect(
             "me/shedaniel/architectury/registry/MenuRegistry",
             "register",
@@ -180,47 +137,27 @@ public class ArchitecturyApiShim implements VersionShim {
             "registerMenu",
             "(Lnet/minecraft/resources/ResourceLocation;Ljava/lang/Object;)Lnet/minecraft/world/inventory/MenuType;"
         );
-        
-        // ============================================================
-        // BLOCK ENTITY REGISTRY CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/registry/BlockEntityRegistry",
             "dev/architectury/registry/registries/DeferredRegister"
         );
-        
-        // ============================================================
-        // FUEL REGISTRY CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/registry/fuel/FuelRegistry",
             "dev/architectury/registry/fuel/FuelRegistry"
         );
-        
-        // ============================================================
-        // GAME RULES CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/registry/GameRulesRegistry",
             "dev/architectury/registry/level/GameRules"
         );
-        
-        // ============================================================
-        // KEY MAPPINGS CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/registry/KeyMappingRegistry",
             "dev/architectury/registry/client/keymappings/KeyMappingRegistry"
         );
-        
-        // ============================================================
-        // RENDER TYPE REGISTRY CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/architectury/registry/RenderTypeRegistry",
             "dev/architectury/registry/client/rendering/RenderTypeRegistry"

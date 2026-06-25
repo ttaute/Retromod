@@ -2,16 +2,8 @@
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
- * Based on actual Fabric API changes documented at:
- * https://fabricmc.net/2026/03/14/261.html
- * https://docs.fabricmc.net/develop/porting/26.1/fabric-api
- *
- * This is the biggest shim in the chain - MC 26.1 removed ALL obfuscation
- * and Fabric API renamed hundreds of classes/methods to match Mojang's names.
- *
- * NOTE: Vanilla MC class moves (587 entries) are handled separately by
- * mojang-class-moves-26.1.tsv loaded via IntermediaryToMojangMapper.
- * This shim focuses on FABRIC API renames and method signature changes.
+ * Fabric API changes: https://fabricmc.net/2026/03/14/261.html
+ *                     https://docs.fabricmc.net/develop/porting/26.1/fabric-api
  */
 package com.retromod.shim.fabric;
 
@@ -22,21 +14,10 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 /**
- * Compatibility shim for Fabric mods built for 1.21.11 to run on 26.1+.
- *
- * MC 26.1 is the first unobfuscated Minecraft version. Major changes:
- * - ALL code obfuscation removed (Mojang official names used directly)
- * - Intermediary names are dead - class_XXXX / method_XXXX / field_XXXX gone
- * - Yarn mappings discontinued
- * - Java 25 required (class file major version 69)
- * - Fabric API renamed hundreds of classes to match Mojang naming
- * - Many Fabric API packages reorganized
- * - Several deprecated APIs removed
- *
- * Vanilla MC class/package moves are handled by mojang-class-moves-26.1.tsv
- * and intermediary→Mojang remapping (87K entries in intermediary-to-mojang.tsv).
- *
- * This shim handles Fabric API-specific renames and method changes.
+ * Fabric 1.21.11 mods to 26.1+. The largest shim in the chain: 26.1 dropped all
+ * obfuscation and Fabric API renamed hundreds of classes/methods to match. Vanilla
+ * class/package moves go through mojang-class-moves-26.1.tsv and the intermediary to
+ * Mojang remap; this shim covers the Fabric API side.
  */
 public class Fabric_1_21_11_to_26_1 implements VersionShim {
 
@@ -63,23 +44,13 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
 
-        // Vanilla content holder fields whose TYPE changed in MC 1.21
-        // (became ResourceKey<X> instead of X). Routed through
-        // RegistryRefLookup which does the runtime registry lookup.
+        // Vanilla content holder fields whose type became ResourceKey<X> in MC 1.21.
         registerRegistryRefRedirects(transformer);
 
-        // ============================================================
-        // FABRIC API PACKAGE RENAMES
-        // Fabric API 26.1 renamed many packages to match Mojang naming
-        // ============================================================
-
-        // --- 26.1 vanilla MC class moves (shared with the NeoForge 26.1 shim) ---
-        // GuiGraphics→GuiGraphicsExtractor, RenderType(s)→rendertype/*,
-        // BlockAndTintGetter relocation. These are loader-agnostic Mojang renames,
-        // so they live in one place and fix both Fabric and NeoForge mods. (#64)
+        // Vanilla class moves shared with the NeoForge 26.1 shim (#64).
         com.retromod.shim.common.Common_1_21_11_to_26_1_ClassMoves.register(transformer);
 
-        // --- Networking: S2C/C2S → Clientbound/Serverbound ---
+        // Networking: S2C/C2S -> Clientbound/Serverbound
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/C2SConfigurationChannelEvents",
             "net/fabricmc/fabric/api/client/networking/v1/ServerboundConfigurationChannelEvents"
@@ -105,29 +76,22 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/networking/v1/FabricServerConfigurationPacketListenerImpl"
         );
 
-        // PayloadTypeRegistry static accessors were renamed TWICE in fabric-api
-        // and 26.1 has only the newest spelling, so an old mod (or a JiJ'd lib
-        // like forge-config-api-port, which calls these to register its config
-        // sync payloads - #94, CoroUtil/Watut) hits NoSuchMethodError on 26.1.
-        //   gen-1 (≤ fabric-api 0.111): configurationClientbound() / …Serverbound() / playClientbound() / playServerbound()
-        //   gen-2 (~0.115-0.119, 1.21.4): configurationS2C() / configurationC2S() / playS2C() / playC2S()
-        //   gen-3 (26.1, the host):       clientboundConfiguration() / serverboundConfiguration() / clientboundPlay() / serverboundPlay()
-        // Map BOTH old generations → gen-3 (S2C = server→client = clientbound;
-        // C2S = serverbound). All are static, no-arg, return PayloadTypeRegistry,
-        // so the descriptor is identical and only the name changes. A redirect
-        // whose source name a given mod never calls is simply inert. Verified
-        // against fabric-api 0.119.4 (gen-2) and 0.145.4 (gen-3); gen-1 confirmed
-        // by the #94 crash (configurationClientbound). Gated to 26.1 hosts by
-        // virtue of living in the 26.1 shim (gen-3 only exists there).
+        // PayloadTypeRegistry's static accessors were renamed twice; 26.1 has only
+        // the newest spelling. Map both old generations to gen-3 (#94, CoroUtil/Watut):
+        //   gen-1 (<= 0.111):     configurationClientbound() / ...Serverbound() / playClientbound() / playServerbound()
+        //   gen-2 (~0.115-0.119): configurationS2C() / configurationC2S() / playS2C() / playC2S()
+        //   gen-3 (26.1 host):    clientboundConfiguration() / serverboundConfiguration() / clientboundPlay() / serverboundPlay()
+        // S2C = server->client = clientbound; C2S = serverbound. All static, no-arg,
+        // returning PayloadTypeRegistry, so only the name differs.
         String PTR = "net/fabricmc/fabric/api/networking/v1/PayloadTypeRegistry";
         String PTR_DESC = "()Lnet/fabricmc/fabric/api/networking/v1/PayloadTypeRegistry;";
         String[][] ptrRenames = {
-            // gen-1 → gen-3
+            // gen-1 -> gen-3
             {"configurationClientbound", "clientboundConfiguration"},
             {"configurationServerbound", "serverboundConfiguration"},
             {"playClientbound",          "clientboundPlay"},
             {"playServerbound",          "serverboundPlay"},
-            // gen-2 → gen-3
+            // gen-2 -> gen-3
             {"configurationS2C", "clientboundConfiguration"},
             {"configurationC2S", "serverboundConfiguration"},
             {"playS2C",          "clientboundPlay"},
@@ -137,15 +101,9 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             transformer.registerMethodRedirect(PTR, r[0], PTR_DESC, PTR, r[1], PTR_DESC);
         }
 
-        // --- World → Level renames ---
-        // ClientWorldEvents and ServerEntityWorldChangeEvents are handled by
-        // FabricRenamedSamBridgesShim, NOT plain redirects: their SAM methods
-        // AND holder fields renamed (lambda trap + NoSuchFieldError). The old
-        // plain ServerEntityWorldChangeEvents redirect here also used an
-        // event/lifecycle/v1 source path that never existed (real path is
-        // entity/event/v1) - the bridge covers both.
-        // ServerWorldEvents → ServerLevelEvents is handled by FabricServerWorldEventsShim
-        // for the same reason (onWorldLoad/onWorldUnload → onLevelLoad/onLevelUnload).
+        // World -> Level renames. ClientWorldEvents, ServerEntityWorldChangeEvents and
+        // ServerWorldEvents go through FabricRenamedSamBridgesShim/FabricServerWorldEventsShim
+        // instead: both their SAM methods and holder fields renamed (lambda trap + NoSuchFieldError).
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderEvents",
             "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderEvents"
@@ -154,18 +112,11 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderContext",
             "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderContext"
         );
-        // Tick-event inner interfaces: $Start/EndWorldTick → $Start/EndLevelTick.
-        // The 26.1 Fabric API finished the World→Level rename on these nested SAMs
-        // (the outer ClientTickEvents/ServerTickEvents kept their names). The SAM
-        // methods (onStartTick/onEndTick) are UNCHANGED - only the parameter went
-        // ClientWorld/ServerWorld → ClientLevel/ServerLevel, which the 26.1
-        // intermediary→Mojang harvest already remaps in the mod's lambda - so this
-        // is a true redirect, not a lambda trap (verified the host has only the
-        // $*LevelTick inners, with the same onStartTick/onEndTick descriptor).
-        // The 1.16.5→1.17 shim has the same entries, but its chain only covers
-        // ≤1.16 mods; a 1.19-1.21 mod reaches 26.1 through this shim, so the
-        // redirect has to live here too (audit: ClientTickEvents$EndWorldTick was a
-        // sole blocker for ~10 mods despite the outer class resolving fine).
+        // Tick-event inner interfaces: $Start/EndWorldTick -> $Start/EndLevelTick. The
+        // outer classes and SAM methods are unchanged; only the parameter went
+        // ClientWorld/ServerWorld -> ClientLevel/ServerLevel, which the harvest already
+        // remaps, so this is a redirect not a lambda trap. The 1.16.5->1.17 shim has the
+        // same entries but only covers <=1.16 mods; a 1.19-1.21 mod reaches 26.1 here.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartWorldTick",
             "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartLevelTick"
@@ -183,7 +134,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndLevelTick"
         );
 
-        // --- ScreenHandler → Menu renames ---
+        // ScreenHandler -> Menu renames
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/screenhandler/v1/ExtendedScreenHandlerFactory",
             "net/fabricmc/fabric/api/menu/v1/ExtendedMenuProvider"
@@ -197,14 +148,11 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/menu/v1/FabricMenuProvider"
         );
 
-        // --- ItemGroup → CreativeTab renames ---
-        // NOTE: ItemGroupEvents itself (the holder + its ModifyEntries/ModifyEntriesAll
-        // SAMs) is handled by FabricItemGroupEventsShim, NOT a plain class redirect:
-        // CreativeModeTabEvents renamed modifyEntriesEvent→modifyOutputEvent (so a
-        // redirect would NoSuchMethodError) and the SAM method renamed
-        // modifyEntries→modifyOutput (a lambda trap). Only the straight data-class
-        // renames live here. FabricItemGroupEntries→FabricCreativeModeTabOutput MUST
-        // stay: the shim's addAfter→insertAfter method renames key on the new owner.
+        // ItemGroup -> CreativeTab renames. ItemGroupEvents goes through
+        // FabricItemGroupEventsShim instead (modifyEntriesEvent->modifyOutputEvent and the
+        // SAM modifyEntries->modifyOutput, a lambda trap). Only the data-class renames live
+        // here; keep FabricItemGroupEntries -> FabricCreativeModeTabOutput since the shim's
+        // addAfter->insertAfter keys on the new owner.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/itemgroup/v1/FabricItemGroup",
             "net/fabricmc/fabric/api/creativetab/v1/FabricCreativeModeTab"
@@ -214,25 +162,22 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/creativetab/v1/FabricCreativeModeTabOutput"
         );
 
-        // --- Rendering renames ---
+        // Rendering renames.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/BlockRenderLayerMap",
             "com/retromod/generated/legacyfabric/BlockRenderLayerMap"
         );
-        // EntityModelLayerRegistry → ModelLayerRegistry is handled by
-        // FabricEntityModelLayerShim, NOT a plain redirect: the provider SAM renamed
-        // createModelData → createLayerDefinition (a lambda trap; same LayerDefinition
-        // return type, so only the SAM name needs bridging).
-        // LivingEntityFeatureRendererRegistrationCallback, DrawItemStackOverlayCallback,
-        // TooltipComponentCallback, ServerChunkEvents$LevelTypeChange and
-        // LandPathNodeTypesRegistry are handled by FabricRenamedSamBridgesShim,
-        // NOT plain redirects: their SAM methods renamed (lambda traps).
+        // EntityModelLayerRegistry, LivingEntityFeatureRendererRegistrationCallback,
+        // DrawItemStackOverlayCallback, TooltipComponentCallback,
+        // ServerChunkEvents$LevelTypeChange and LandPathNodeTypesRegistry go through
+        // FabricEntityModelLayerShim/FabricRenamedSamBridgesShim: their SAM methods renamed
+        // (lambda traps).
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/model/BakedModelManager",
             "net/fabricmc/fabric/api/client/model/loading/v1/FabricModelManager"
         );
 
-        // --- Registry renames ---
+        // Registry renames
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/event/registry/FuelRegistryEvents",
             "net/fabricmc/fabric/api/registry/FuelValueEvents"
@@ -246,7 +191,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/registry/VibrationFrequencyRegistry"
         );
 
-        // --- Data generation renames ---
+        // Data generation renames
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/datagen/v1/FabricDataOutput",
             "net/fabricmc/fabric/api/datagen/v1/FabricPackOutput"
@@ -264,7 +209,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/datagen/v1/provider/FabricLootTableSubProvider"
         );
 
-        // --- Entity renames ---
+        // Entity renames
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/object/builder/v1/entity/FabricEntityTypeBuilder",
             "net/fabricmc/fabric/api/object/builder/v1/entity/FabricEntityType$Builder"
@@ -274,7 +219,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/object/builder/v1/entity/FabricEntityDataRegistry"
         );
 
-        // --- Transfer API renames ---
+        // Transfer API renames
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/transfer/v1/storage/base/FabricReadView",
             "net/fabricmc/fabric/api/serialization/v1/value/FabricValueInput"
@@ -288,18 +233,14 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/transfer/v1/item/ContainerStorage"
         );
 
-        // --- KeyBinding → KeyMapping ---
+        // KeyBinding -> KeyMapping
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/keybinding/v1/KeyBindingHelper",
             "net/fabricmc/fabric/api/client/keymapping/v1/KeyMappingHelper"
         );
 
-        // KeyMapping constructor: String category → KeyMapping.Category record (changed in 1.21.9)
-        // Old: new KeyMapping(String, InputConstants.Type, int, String)
-        // New: new KeyMapping(String, InputConstants.Type, int, KeyMapping.Category)
-        // Uses Mojang names since intermediary→Mojang remapping has already resolved class names.
-        // The descriptor is also resolved through classRedirects, so this matches both
-        // intermediary and Mojang-named bytecode.
+        // KeyMapping ctor: String category -> KeyMapping.Category record (1.21.9).
+        // Mojang names, since the class-name remap and classRedirects ran first.
         transformer.registerConstructorRedirect(
             "net/minecraft/client/KeyMapping",
             "(Ljava/lang/String;Lcom/mojang/blaze3d/platform/InputConstants$Type;ILjava/lang/String;)V",
@@ -307,18 +248,15 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Ljava/lang/String;Ljava/lang/Object;ILjava/lang/String;)Ljava/lang/Object;"
         );
 
-        // Button 6-param constructor removed in 26.1.
-        // Old: Button(int x, int y, int w, int h, Component text, OnPress onPress)
-        // New: Button(int x, int y, int w, int h, Component text, OnPress onPress, CreateNarration narration)
-        // For `new Button(...)` calls → redirect to ButtonShim factory:
+        // Button gained a 7th CreateNarration param in 26.1.
+        // new Button(...) calls -> ButtonShim factory.
         transformer.registerConstructorRedirect(
             "net/minecraft/client/gui/components/Button",
             "(IIIILnet/minecraft/network/chat/Component;Lnet/minecraft/client/gui/components/Button$OnPress;)V",
             "com/retromod/shim/fabric/embedded/ButtonShim", "create",
             "(IIIILjava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        // For `super(...)` calls in Button subclasses (e.g. ModMenuButtonWidget) →
-        // augment descriptor to add DEFAULT_NARRATION as 7th parameter:
+        // super(...) calls in Button subclasses: add DEFAULT_NARRATION as the 7th arg.
         transformer.registerSuperConstructorRedirect(
             "net/minecraft/client/gui/components/Button",
             "(IIIILnet/minecraft/network/chat/Component;Lnet/minecraft/client/gui/components/Button$OnPress;)V",
@@ -327,13 +265,9 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "Lnet/minecraft/client/gui/components/Button$CreateNarration;"
         );
 
-        // TranslatableContents constructor descriptor change.
-        // Old: TranslatableContents(String key) - 1-arg, removed in 26.1
-        // New: TranslatableContents(String key, String fallback, Object[] args) - 3-arg
-        // We use super constructor redirect to transform the INVOKESPECIAL <init> call
-        // by inserting the missing parameters (null fallback, empty args array).
-        // This keeps the NEW/DUP/INVOKESPECIAL pattern intact so the verifier is happy
-        // - the result IS a real TranslatableContents, not a wrapped MutableComponent.
+        // TranslatableContents ctor: 1-arg/2-arg forms removed, now (key, fallback, args).
+        // Super-ctor redirect inserts the missing params (null fallback, empty args) into
+        // the INVOKESPECIAL, keeping NEW/DUP/INVOKESPECIAL intact for the verifier.
         transformer.registerSuperConstructorRedirect(
             "net/minecraft/network/chat/contents/TranslatableContents",
             "(Ljava/lang/String;)V",
@@ -345,8 +279,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Ljava/lang/String;Ljava/lang/String;[Ljava/lang/Object;)V"
         );
 
-        // --- Window: getWindow() → handle() ---
-        // MC 26.1 renamed getter methods to record-style accessors
+        // Window.getWindow() -> handle() (record-style accessor in 26.1)
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/platform/Window", "getWindow",
             "()J",
@@ -354,11 +287,8 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()J"
         );
 
-        // --- Screen.render → Screen.extractRenderState ---
-        // In 26.1, Screen rendering was split into extract + render phases.
-        // Old mods override render(PoseStack/GuiGraphics, int, int, float).
-        // New: extractRenderState(GuiGraphicsExtractor, int, int, float)
-        // This redirect handles direct method CALLS (not overrides - those need mixin handling).
+        // Screen.render -> extractRenderState: 26.1 split rendering into extract + render
+        // phases. Handles direct calls only; overrides need mixin handling.
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/screens/Screen", "render",
             "(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
@@ -366,7 +296,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V"
         );
 
-        // AbstractContainerScreen.render → extractRenderState
+        // AbstractContainerScreen.render -> extractRenderState
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen", "render",
             "(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
@@ -374,13 +304,12 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V"
         );
 
-        // GuiGraphics class redirect → GuiGraphicsExtractor
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/GuiGraphics",
             "net/minecraft/client/gui/GuiGraphicsExtractor"
         );
 
-        // Tesselator.getBuilder() → Tesselator.begin() - signature changed but name redirect helps
+        // Tesselator.getBuilder() -> begin() (signature also changed)
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/vertex/Tesselator", "getBuilder",
             "()Lcom/mojang/blaze3d/vertex/BufferBuilder;",
@@ -388,7 +317,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Lcom/mojang/blaze3d/vertex/VertexFormat$Mode;Lcom/mojang/blaze3d/vertex/VertexFormat;)Lcom/mojang/blaze3d/vertex/BufferBuilder;"
         );
 
-        // Tesselator.end() → Tesselator.clear()
+        // Tesselator.end() -> clear()
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/vertex/Tesselator", "end",
             "()V",
@@ -396,7 +325,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()V"
         );
 
-        // VertexConsumer.endVertex() → removed (auto-ends in 26.1, no-op)
+        // VertexConsumer.endVertex() removed (26.1 auto-ends) -> no-op
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/vertex/VertexConsumer", "endVertex",
             "()V",
@@ -405,8 +334,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize
         );
 
-        // SoundEvent constructor removed - use factory method
-        // Old: new SoundEvent(Identifier) → New: SoundEvent.createVariableRangeEvent(Identifier)
+        // SoundEvent ctor removed -> SoundEvent.createVariableRangeEvent(Identifier)
         transformer.registerConstructorRedirect(
             "net/minecraft/sounds/SoundEvent",
             "(Lnet/minecraft/resources/Identifier;)V",
@@ -414,7 +342,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Lnet/minecraft/resources/Identifier;)Lnet/minecraft/sounds/SoundEvent;"
         );
 
-        // Window.window field renamed to Window.handle in 26.1
+        // Window.window field -> Window.handle in 26.1
         transformer.registerFieldRedirect(
             "com/mojang/blaze3d/platform/Window", "window",
             "J",
@@ -422,8 +350,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "J"
         );
 
-        // Util.backgroundExecutor() removed - redirect to no-op that returns a simple executor
-        // Mods use this for async tasks. In 26.1 the field is private with no getter.
+        // Util.backgroundExecutor() removed (now a private field) -> a stand-in executor.
         transformer.registerMethodRedirect(
             "net/minecraft/util/Util", "backgroundExecutor",
             "()Ljava/util/concurrent/ExecutorService;",
@@ -431,9 +358,8 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()Ljava/util/concurrent/ExecutorService;"
         );
 
-        // Registry.SOUND_EVENT moved to Registries.SOUND_EVENT in newer MC.
-        // The field type also changed from Registry to ResourceKey<Registry<SoundEvent>>.
-        // (Restored the original shape - see history note below for why.)
+        // Registry.SOUND_EVENT -> Registries.SOUND_EVENT; the type also went Registry
+        // to ResourceKey<Registry<SoundEvent>>.
         transformer.registerFieldRedirect(
             "net/minecraft/core/Registry", "SOUND_EVENT",
             "Lnet/minecraft/core/Registry;",
@@ -441,53 +367,31 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "Lnet/minecraft/resources/ResourceKey;"
         );
 
-        // History note: a previous attempt at fixing the SOUND_EVENT test in
-        // retromod-test-mod's RegistryTests added field-redirect overrides
-        // that forced the field's emitted descriptor to
-        // Lnet/minecraft/core/Registry; (the "correct" type). That broke
-        // launch with a VerifyError at TestRunner.<clinit> time:
-        //   Type 'net/minecraft/core/Registry' (current frame, stack[0]) is
-        //   not assignable to 'net/minecraft/core/registries/BuiltInRegistries'
-        // Root cause: a class redirect somewhere in the chain remaps
-        // `Registry` → `BuiltInRegistries`, which makes the chained .get()
-        // call's owner `BuiltInRegistries` too. Field type and call-owner
-        // were consistently wrong before - the verifier was happy and the
-        // JVM's runtime dispatch found Registry.get on the actual receiver.
-        // Fixing only the field type made them inconsistent; verifier rejected.
-        // The proper fix is to track down the bad `Registry` →
-        // `BuiltInRegistries` mapping in the intermediary→Mojang data and
-        // correct it there, so both field and method call land on `Registry`.
-        // Until then, we leave the field shape alone (consistently wrong but
-        // working) and let RegistryTests Test 14 fail.
+        // Leave the field shape alone (consistently wrong but working): a class redirect
+        // in the chain remaps Registry -> BuiltInRegistries for the chained .get() owner
+        // too, so field type and call-owner agree and the verifier accepts it. Fixing
+        // only the field type makes them inconsistent -> VerifyError. The fix is to
+        // correct the bad Registry -> BuiltInRegistries mapping in the harvest; until
+        // then RegistryTests Test 14 fails.
 
-        // TagKey.id() - in yarn 1.20.1 the accessor is `id()` returning
-        // Identifier. In Mojang-mapped 26.1 TagKey is a record and its
-        // location accessor is `location()` returning ResourceLocation.
-        // Retromod's record-component heuristic was renaming this to
-        // `comp_327()` which doesn't actually exist; force the explicit
-        // mapping. (Surfaced by TagTests.)
+        // TagKey.id() (yarn) -> TagKey.location() (26.1 record, returns ResourceLocation).
+        // The record-component heuristic was rewriting this to a nonexistent comp_327();
+        // force the explicit mapping (TagTests).
         transformer.registerMethodRedirect(
             "net/minecraft/registry/tag/TagKey", "id",
             "()Lnet/minecraft/util/Identifier;",
             "net/minecraft/tags/TagKey", "location",
             "()Lnet/minecraft/resources/ResourceLocation;"
         );
-        // Defensive: if the heuristic still rewrote `id` → `comp_327` somewhere
-        // upstream, catch the resulting bytecode here and route it to the real
-        // method.
+        // Catch the case where the heuristic still rewrote id -> comp_327 upstream.
         transformer.registerMethodRedirect(
             "net/minecraft/tags/TagKey", "comp_327",
             "()Lnet/minecraft/resources/ResourceLocation;",
             "net/minecraft/tags/TagKey", "location",
             "()Lnet/minecraft/resources/ResourceLocation;"
         );
-        // Even more defensive: a separate upstream remap stage produces a
-        // hybrid descriptor where the package was remapped (yarn
-        // `net/minecraft/util/` → mojang `net/minecraft/resources/`) but
-        // the class name was NOT (`Identifier` left alone instead of
-        // becoming `ResourceLocation`). This results in a non-existent
-        // `net/minecraft/resources/Identifier` type. Catch that broken
-        // descriptor too.
+        // And the hybrid descriptor where the package was remapped but the class name
+        // was not (Identifier left as-is), giving a nonexistent net/minecraft/resources/Identifier.
         transformer.registerMethodRedirect(
             "net/minecraft/tags/TagKey", "comp_327",
             "()Lnet/minecraft/resources/Identifier;",
@@ -501,29 +405,17 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()Lnet/minecraft/resources/ResourceLocation;"
         );
 
-        // SoundEvent.getId() → getLocation()
-        //
-        // SoundEvent became a record in MC 1.21 and the method that
-        // returns the ResourceLocation/Identifier was renamed
-        // getId() → getLocation(). The intermediary method_14833 has
-        // no entry in intermediary-to-mojang.tsv (the method was
-        // removed in mojang naming, not just renamed), so we need an
-        // explicit redirect. Surfaced by retromod-test-mod's Test 14
-        // (Registries.SOUND_EVENT.get(SoundEvents.BLOCK_STONE_BREAK.getId()))
-        // with NoSuchMethodError on method_14833().
-        //
-        // Note: the source class here is the post-class-remap name
-        // (net/minecraft/sounds/SoundEvent, mojang-style). The intermediary
-        // method name method_14833 is what survives the remap because
-        // the intermediary→mojang map doesn't have an entry for it.
+        // SoundEvent.getId() -> getLocation() (record since 1.21). The intermediary
+        // method_14833 has no intermediary-to-mojang entry (removed, not renamed), so it
+        // survives the remap and needs an explicit redirect (test-mod Test 14,
+        // NoSuchMethodError on method_14833). Source class is the post-remap Mojang name.
         transformer.registerMethodRedirect(
             "net/minecraft/sounds/SoundEvent", "method_14833",
             "()Lnet/minecraft/resources/Identifier;",
             "net/minecraft/sounds/SoundEvent", "getLocation",
             "()Lnet/minecraft/resources/Identifier;"
         );
-        // Also handle the post-yarn-name variant in case the bytecode
-        // arrives with the yarn-style getId() name instead.
+        // Also the yarn-style getId() name, in case the bytecode arrives that way.
         transformer.registerMethodRedirect(
             "net/minecraft/sounds/SoundEvent", "getId",
             "()Lnet/minecraft/resources/Identifier;",
@@ -531,7 +423,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()Lnet/minecraft/resources/Identifier;"
         );
 
-        // TitleScreen.COPYRIGHT_TEXT became private in 26.1 - redirect to reflection bridge
+        // TitleScreen.COPYRIGHT_TEXT became private in 26.1; redirect to reflection bridge
         transformer.registerFieldRedirect(
             "net/minecraft/client/gui/screens/TitleScreen", "COPYRIGHT_TEXT",
             "Lnet/minecraft/network/chat/Component;",
@@ -539,30 +431,27 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()Ljava/lang/Object;"
         );
 
-        // --- GUI/Screen renames ---
+        // GUI/Screen renames
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/SpecialGuiElementRegistry",
             "net/fabricmc/fabric/api/client/rendering/v1/PictureInPictureRendererRegistry"
         );
 
-        // --- Command API renames ---
+        // Command API renames
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/command/v2/ClientCommandManager",
             "net/fabricmc/fabric/api/client/command/v2/ClientCommands"
         );
 
-        // --- Brewing renames ---
+        // Brewing renames
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/registry/FabricBrewingRecipeRegistryBuilder",
             "net/fabricmc/fabric/api/registry/FabricPotionBrewingBuilder"
         );
 
-        // --- 26.1 batch verified against fabric-api 0.145.4 + the official ---
-        // --- migration map (docs.fabricmc.net/develop/porting/fabric-api)  ---
-        // Particle API: factory → provider naming. The inner SAM kept its method
-        // name (`create`) - only its param type changed (FabricSpriteProvider →
-        // FabricSpriteSet, redirected below), so the inner redirect is lambda-safe
-        // (verified by javap on both jars, same rule as the tick events).
+        // Particle API factory -> provider naming. The inner SAM kept its method name
+        // (create); only its param type changed (FabricSpriteProvider -> FabricSpriteSet,
+        // redirected below), so the inner redirect is lambda-safe.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/particle/v1/ParticleFactoryRegistry",
             "net/fabricmc/fabric/api/client/particle/v1/ParticleProviderRegistry"
@@ -583,8 +472,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/particle/v1/FabricBlockStateParticleEffect",
             "net/fabricmc/fabric/api/particle/v1/FabricBlockParticleOption"
         );
-        // Rendering/texture + item/poi/entity-data/gamerule renames (straight
-        // class renames, old gone + new present in 0.145.4).
+        // Rendering/texture + item/poi/entity-data/gamerule renames.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/AtlasSourceRegistry",
             "net/fabricmc/fabric/api/client/rendering/v1/SpriteSourceRegistry"
@@ -607,27 +495,20 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         );
 
 
-        // ============================================================
-        // FABRIC API METHOD RENAMES
-        // Methods renamed within classes that still exist
-        // ============================================================
+        // Fabric API method renames within classes that still exist.
 
-        // ScreenEvents: render → extract renames
-        // The inner interfaces were renamed (AfterRender → AfterExtract, etc.)
-        // AND the SAM method name changed (afterRender → afterExtract).
-        // We generate synthetic interfaces with the OLD method names so that
-        // old mod lambdas can be created without NoClassDefFoundError. Each synthetic
-        // EXTENDS the renamed interface and bridges it with a default method
-        // (afterExtract → afterRender), so the old interface stays functional (one
-        // abstract method), registration into the real Event<AfterExtract> works
-        // natively, and the callbacks DO fire - no reflection involved.
+        // ScreenEvents render -> extract. The inner interfaces renamed
+        // (AfterRender -> AfterExtract) and so did the SAM (afterRender -> afterExtract).
+        // Synthetic interfaces with the old method names let old lambdas resolve; each
+        // extends the renamed interface and bridges via a default method, so registration
+        // into Event<AfterExtract> and the callbacks both work without reflection.
         transformer.registerSyntheticClass(
             "net/fabricmc/fabric/api/client/screen/v1/ScreenEvents$AfterRender",
             generateScreenEventInterface("AfterRender", "afterRender"));
         transformer.registerSyntheticClass(
             "net/fabricmc/fabric/api/client/screen/v1/ScreenEvents$BeforeRender",
             generateScreenEventInterface("BeforeRender", "beforeRender"));
-        // Method renames (for static calls to ScreenEvents.beforeRender/afterRender)
+        // Static calls to ScreenEvents.beforeRender/afterRender
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/screen/v1/ScreenEvents", "beforeRender",
             "(Lnet/minecraft/client/gui/screens/Screen;)Lnet/fabricmc/fabric/api/event/Event;",
@@ -641,16 +522,15 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Lnet/minecraft/client/gui/screens/Screen;)Lnet/fabricmc/fabric/api/event/Event;"
         );
 
-        // KeyBindingHelper.registerKeyBinding → KeyMappingHelper.registerKeyMapping
-        // Register with OLD owner name AND resolved Mojang descriptor
-        // (bytecode has old Yarn owner but descriptors get resolved to Mojang names)
+        // KeyBindingHelper.registerKeyBinding -> KeyMappingHelper.registerKeyMapping.
+        // Old Yarn owner + Mojang-resolved descriptor.
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/keybinding/v1/KeyBindingHelper", "registerKeyBinding",
             "(Lnet/minecraft/client/KeyMapping;)Lnet/minecraft/client/KeyMapping;",
             "net/fabricmc/fabric/api/client/keymapping/v1/KeyMappingHelper", "registerKeyMapping",
             "(Lnet/minecraft/client/KeyMapping;)Lnet/minecraft/client/KeyMapping;"
         );
-        // Also register with post-redirect owner name for mods using new Fabric API names
+        // Same under the post-redirect owner, for mods using the new Fabric API names.
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/keymapping/v1/KeyMappingHelper", "registerKeyBinding",
             "(Lnet/minecraft/client/KeyMapping;)Lnet/minecraft/client/KeyMapping;",
@@ -678,7 +558,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Lnet/minecraft/client/gui/screens/Screen;)Lnet/minecraft/client/Minecraft;"
         );
 
-        // FabricRegistryBuilder.createSimple() → create()
+        // FabricRegistryBuilder.createSimple() -> create()
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/event/registry/FabricRegistryBuilder", "createSimple",
             "(Lnet/minecraft/resources/ResourceKey;)Lnet/fabricmc/fabric/api/event/registry/FabricRegistryBuilder;",
@@ -686,14 +566,13 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Lnet/minecraft/resources/ResourceKey;)Lnet/fabricmc/fabric/api/event/registry/FabricRegistryBuilder;"
         );
 
-        // Item.Settings → Item.Properties (already a Mojang name, may already work)
-        // FabricItem.Settings → FabricItem.Properties
+        // FabricItem.Settings -> FabricItem.Properties
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/item/v1/FabricItem$Settings",
             "net/fabricmc/fabric/api/item/v1/FabricItem$Properties"
         );
 
-        // Networking method renames: createC2SPacket → createServerboundPacket
+        // Networking: createC2SPacket -> createServerboundPacket, createS2CPacket -> createClientboundPacket
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/networking/v1/ServerPlayNetworking", "createC2SPacket",
             "(Lnet/minecraft/resources/Identifier;Lnet/minecraft/network/FriendlyByteBuf;)Lnet/minecraft/network/protocol/Packet;",
@@ -707,35 +586,28 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(Lnet/minecraft/resources/Identifier;Lnet/minecraft/network/FriendlyByteBuf;)Lnet/minecraft/network/protocol/Packet;"
         );
 
-        // PlayChannelHandler → PlayPayloadHandler (already shimmed in 1.21.5→1.21.6)
-        // But re-register here for mods that skip the 1.21.6 shim
+        // PlayChannelHandler -> PlayPayloadHandler. Re-registered here for mods that
+        // skip the 1.21.6 shim.
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/ServerPlayNetworking$PlayChannelHandler",
-            "com/retromod/shim/fabric/embedded/HudRenderCallbackShim" // Placeholder - real bridge in FabricNetworkingPolyfill
+            "com/retromod/shim/fabric/embedded/HudRenderCallbackShim" // placeholder; real bridge in FabricNetworkingPolyfill
         );
 
-        // ============================================================
-        // DFU (DataFixerUpper) API CHANGES
-        // DataResult changed from class to interface in DFU 9.x
-        // ============================================================
-
-        // DataResult.get() removed - redirect to polyfill (instance → static)
-        // Uses Object types since DFU classes aren't available at compile time
+        // DataResult.get() removed (class became interface in DFU 9.x) -> polyfill,
+        // instance to static. Object types since DFU isn't on the compile classpath.
         transformer.registerMethodRedirect(
             "com/mojang/serialization/DataResult", "get",
             "()Lcom/mojang/datafixers/util/Either;",
             "com/retromod/polyfill/minecraft/DataResultPolyfill", "get",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
-            true  // devirtualize: instance method → static method
+            true  // devirtualize: instance method -> static method
         );
 
-        // ============================================================
-        // MINECRAFT VANILLA METHOD/FIELD RENAMES (1.21.x → 26.1)
-        // These affect mixin accessors and direct field/method references
-        // ============================================================
+        // Vanilla method/field renames (1.21.x -> 26.1), affecting mixin accessors and
+        // direct field/method references.
 
-        // AbstractWidget: x/y/width/height became private in 26.1
-        // Old mods access fields directly; new MC has getX()/setX(), getY()/setY() etc.
+        // AbstractWidget x/y/width/height went private in 26.1; route field access
+        // through getX()/setX() etc.
         transformer.registerFieldAccessorRedirect(
             "net/minecraft/client/gui/components/AbstractWidget", "x",
             "getX", "()I", "setX", "(I)V"
@@ -752,9 +624,9 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/minecraft/client/gui/components/AbstractWidget", "height",
             "getHeight", "()I", "setHeight", "(I)V"
         );
-        // Note: 'active' and 'visible' are still public fields in 26.1, no accessor needed
+        // active/visible are still public fields in 26.1, no accessor needed.
 
-        // KeyMapping: boundKey → key
+        // KeyMapping.boundKey -> key
         transformer.registerFieldRedirect(
             "net/minecraft/client/KeyMapping", "boundKey",
             "Lcom/mojang/blaze3d/platform/InputConstants$Key;",
@@ -762,7 +634,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "Lcom/mojang/blaze3d/platform/InputConstants$Key;"
         );
 
-        // AbstractContainerScreen: findSlot(DD)Slot → getHoveredSlot(DD)Slot
+        // AbstractContainerScreen.findSlot -> getHoveredSlot
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen", "findSlot",
             "(DD)Lnet/minecraft/world/inventory/Slot;",
@@ -770,21 +642,20 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(DD)Lnet/minecraft/world/inventory/Slot;"
         );
 
-        // Item.getDefaultInstance() → safe wrapper that handles "Components not bound yet"
-        // In 26.1, item components are data-driven and bound during data pack loading.
-        // Old mods that create ItemStacks during class init or early callbacks crash.
-        // This devirtualized redirect wraps the call to catch the NPE and return EMPTY.
+        // Item.getDefaultInstance() -> safe wrapper. 26.1 binds item components during
+        // data pack loading, so mods creating ItemStacks at class init crash; the wrapper
+        // catches the NPE and returns EMPTY.
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/Item", "getDefaultInstance",
             "()Lnet/minecraft/world/item/ItemStack;",
             "com/retromod/shim/fabric/embedded/ItemSafetyShim", "safeGetDefaultInstance",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
-            true  // devirtualize: instance method → static method
+            true  // devirtualize: instance method -> static method
         );
 
-        // CommandSourceStack.hasPermission(int) removed in 26.1 - permission system reworked.
-        // Old int levels (0-4) map to PermissionLevel enum (ALL, MODERATORS, GAMEMASTERS, ADMINS, OWNERS).
-        // Bridge uses reflection to check the new PermissionSet system.
+        // CommandSourceStack.hasPermission(int) removed in 26.1 (permission rework).
+        // Old int levels 0-4 map to the PermissionLevel enum; bridge checks the new
+        // PermissionSet system via reflection.
         transformer.registerMethodRedirect(
             "net/minecraft/commands/CommandSourceStack", "hasPermission",
             "(I)Z",
@@ -793,18 +664,17 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize
         );
 
-        // Listener.setGain(float) removed in 26.1 - volume control moved to per-source
-        // Dynamic FPS calls this to mute/unmute sounds. No-op redirect prevents crash.
+        // Listener.setGain(float) removed in 26.1 (volume moved to per-source). Dynamic
+        // FPS calls this to mute/unmute; no-op redirect.
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/audio/Listener", "setGain",
             "(F)V",
             "com/retromod/shim/fabric/embedded/ItemSafetyShim", "noOp",
             "(Ljava/lang/Object;F)V",
-            true  // devirtualize: instance method → static method
+            true  // devirtualize: instance method -> static method
         );
 
-        // EntityType.BOAT/CHEST_BOAT split into per-wood types in 26.1
-        // Old: EntityType.BOAT → New: EntityType.OAK_BOAT (most common default)
+        // EntityType.BOAT/CHEST_BOAT split into per-wood types in 26.1; default to OAK_*.
         transformer.registerFieldRedirect(
             "net/minecraft/world/entity/EntityType", "BOAT",
             "Lnet/minecraft/world/entity/EntityType;",
@@ -818,12 +688,9 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "Lnet/minecraft/world/entity/EntityType;"
         );
 
-        // ============================================================
-        // ITEM TOOLTIP CALLBACK - redirect EVENT field to dummy event
-        // ============================================================
-        // ItemTooltipCallback.getTooltip changed from 3 to 4 params in 26.1.
-        // Old mods register lambdas with 3 params → AbstractMethodError when hovering.
-        // Use field-to-method redirect: GETSTATIC EVENT → INVOKESTATIC getDummyTooltipEvent()
+        // ItemTooltipCallback.getTooltip went 3 -> 4 params in 26.1; old 3-param lambdas
+        // AbstractMethodError on hover. Redirect the EVENT field to a dummy event
+        // (GETSTATIC EVENT -> INVOKESTATIC getDummyTooltipEvent()).
         transformer.registerFieldRedirect(
             "net/fabricmc/fabric/api/client/item/v1/ItemTooltipCallback", "EVENT",
             "Lnet/fabricmc/fabric/api/event/Event;",
@@ -831,43 +698,25 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "()Ljava/lang/Object;"
         );
 
-        // ============================================================
-        // SCREEN MOUSE EVENTS - redirect broken callbacks to dummy events
-        // ============================================================
-        // NOTE: We do NOT redirect Event.register() globally - that breaks
-        // ALL event registrations because our shim class can't access
-        // Fabric's ArrayBackedEvent due to module/classloader restrictions.
-        // Instead, we only redirect the specific ScreenMouseEvents methods
-        // that return Events with changed callback signatures.
+        // ScreenMouseEvents allowMouseClick/allowMouseRelease/after/beforeMouseScroll
+        // changed callback signatures in 26.1 (individual params -> event object). Left
+        // unredirected: a dummy-event redirect returns Object that gets CHECKCAST to Event
+        // -> fatal VerifyError, whereas leaving them gives an ArrayStoreException that
+        // Fabric's event system catches as non-fatal. Event.register() is also left
+        // unredirected: the shim can't reach Fabric's ArrayBackedEvent across
+        // module/classloader boundaries, and a global redirect would break all registrations.
 
-        // ScreenMouseEvents: allowMouseClick/allowMouseRelease/afterMouseScroll/beforeMouseScroll
-        // These callbacks changed signature in 26.1 (old: individual params, new: event object).
-        // Previously we redirected to dummy events, but the dummy shim returns Object which
-        // gets CHECKCAST'd to Event, causing VerifyError and crashing the game.
-        // By NOT redirecting, old mods get ArrayStoreException when registering their lambda
-        // with the wrong functional interface. ArrayStoreException is caught as non-fatal by
-        // Fabric's event system - much better than VerifyError which is always fatal.
-        // DO NOT re-add dummy redirects for these methods.
-
-        // ============================================================
-        // FONT TEXT RENDERING - draw/drawShadow removed in 26.1
-        // ~70% of mods render text using these old methods.
-        // New API: Font.drawInBatch(String, float, float, int, boolean,
-        //          Matrix4f, MultiBufferSource, DisplayMode, int, int)
-        // ============================================================
-
-        // Font.draw(PoseStack, String, float, float, int) -> int
-        // Intermediary: method_1729 (mapped to "draw" in TSV)
+        // Font text rendering: draw/drawShadow removed in 26.1 (now drawInBatch).
+        // Font.draw(PoseStack, String, ...) [intermediary method_1729]
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/Font", "draw",
             "(Lcom/mojang/blaze3d/vertex/PoseStack;Ljava/lang/String;FFI)I",
             "com/retromod/shim/fabric/embedded/FontBridge", "drawString",
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/String;FFI)I",
-            true  // devirtualize: instance method → static method
+            true  // devirtualize: instance method -> static method
         );
 
-        // Font.draw(PoseStack, Component, float, float, int) -> int
-        // Intermediary: method_27528 (mapped to "draw" in TSV)
+        // Font.draw(PoseStack, Component, ...) [intermediary method_27528]
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/Font", "draw",
             "(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/network/chat/Component;FFI)I",
@@ -876,8 +725,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize
         );
 
-        // Font.drawShadow(PoseStack, String, float, float, int) -> int
-        // Intermediary: method_27517 (mapped to "drawShadow" in TSV)
+        // Font.drawShadow(PoseStack, String, ...) [intermediary method_27517]
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/Font", "drawShadow",
             "(Lcom/mojang/blaze3d/vertex/PoseStack;Ljava/lang/String;FFI)I",
@@ -886,7 +734,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize
         );
 
-        // Font.drawShadow(PoseStack, Component, float, float, int) -> int
+        // Font.drawShadow(PoseStack, Component, ...)
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/Font", "drawShadow",
             "(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/network/chat/Component;FFI)I",
@@ -895,7 +743,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize
         );
 
-        // Font.drawShadow(PoseStack, FormattedCharSequence, float, float, int) -> int
+        // Font.drawShadow(PoseStack, FormattedCharSequence, ...)
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/Font", "drawShadow",
             "(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/util/FormattedCharSequence;FFI)I",
@@ -904,27 +752,20 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             true  // devirtualize
         );
 
-        // ============================================================
-        // RENDERSYSTEM - removed static methods in 26.1
-        // ============================================================
-
-        // RenderSystem.enableTexture() → no-op (textures always enabled)
+        // RenderSystem static methods removed in 26.1 (pipeline-based now, not a GL
+        // state machine); redirect to no-ops.
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/systems/RenderSystem", "enableTexture",
             "()V",
             "com/retromod/shim/fabric/embedded/FontBridge", "noOpVoid",
             "()V"
         );
-
-        // RenderSystem.disableTexture() → no-op
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/systems/RenderSystem", "disableTexture",
             "()V",
             "com/retromod/shim/fabric/embedded/FontBridge", "noOpVoid",
             "()V"
         );
-
-        // RenderSystem.setShaderTexture(int, ResourceLocation) → no-op (removed in 26.1)
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/systems/RenderSystem", "setShaderTexture",
             "(ILnet/minecraft/resources/ResourceLocation;)V",
@@ -932,8 +773,6 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(ILjava/lang/Object;)V"
         );
 
-        // RenderSystem.enableBlend/disableBlend/enableDepthTest/disableDepthTest/setShaderColor
-        // ALL removed in 26.1. Rendering is now pipeline-based, not GL state machine.
         for (String method : new String[]{"enableBlend", "disableBlend",
                 "enableDepthTest", "disableDepthTest", "defaultBlendFunc"}) {
             transformer.registerMethodRedirect(
@@ -943,7 +782,6 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
                 "()V"
             );
         }
-        // setShaderColor(float, float, float, float) → no-op
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/systems/RenderSystem", "setShaderColor",
             "(FFFF)V",
@@ -951,19 +789,11 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(FFFF)V"
         );
 
-        // AbstractContainerScreen.slotClicked: descriptor changed in 26.1
-        // Old: slotClicked(Slot, int, int, ClickAction)V
-        // New: slotClicked(Slot, int, int, ContainerInput)V
-        // The method name didn't change - the 4th parameter type changed.
-        // MouseTweaks' @Invoker targets the old descriptor, which won't match.
-        // This is a non-fatal mixin failure - MouseTweaks still initializes without it.
+        // AbstractContainerScreen.slotClicked: 4th param went ClickAction -> ContainerInput
+        // in 26.1 (name unchanged). MouseTweaks' @Invoker targets the old descriptor and
+        // won't match; non-fatal, the mod still initializes without it.
 
-        // ============================================================
-        // REMOVED DEPRECATED MODULES
-        // These were deprecated earlier and removed in 26.1
-        // ============================================================
-
-        // fabric-convention-tags-v1 removed (use v2)
+        // fabric-convention-tags-v1 removed in 26.1 -> v2
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/tag/convention/v1/ConventionalBlockTags",
             "net/fabricmc/fabric/api/tag/convention/v2/ConventionalBlockTags"
@@ -985,7 +815,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/tag/convention/v2/ConventionalEnchantmentTags"
         );
 
-        // fabric-rendering-api-v1 world subpackage → level
+        // fabric-rendering-api-v1 world subpackage -> level
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/world/WorldRenderContext",
             "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderContext"
@@ -995,8 +825,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
     @Override
     public String[] getShimClasses() {
         return new String[] {
-            // Embedded shim classes needed for 26.1 compatibility
-            // HudRenderCallbackShim already declared in 1.21.5→1.21.6 shim
+            // HudRenderCallbackShim is declared in the 1.21.5->1.21.6 shim.
             "com.retromod.shim.fabric.embedded.KeyBindingShim",
             "com.retromod.shim.fabric.embedded.ItemSafetyShim",
             "com.retromod.shim.fabric.embedded.ButtonShim",
@@ -1005,38 +834,22 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
     }
 
     /**
-     * Generate a synthetic ScreenEvents inner interface (AfterRender or BeforeRender).
-     *
-     * These interfaces were renamed to AfterExtract/BeforeExtract in 26.1 Fabric API.
-     * The SAM method was also renamed (afterRender→afterExtract) and the parameter
-     * type changed (GuiGraphics→GuiGraphicsExtractor).
-     *
-     * We generate the old interface EXTENDING the new one, with a default method
-     * bridge so that:
-     *   1. Lambdas implementing AfterRender can be stored in AfterExtract[] arrays
-     *      (no ArrayStoreException)
-     *   2. When the event fires afterExtract(), our default bridge calls afterRender()
-     *      on the lambda (the old mod's actual implementation)
-     *
-     * The generated interface looks like:
-     *   interface AfterRender extends AfterExtract {
-     *       void afterRender(Screen, GuiGraphicsExtractor, int, int, float);
-     *       default void afterExtract(Screen, GuiGraphicsExtractor, int, int, float) {
-     *           afterRender(screen, extractor, mouseX, mouseY, tickDelta);
-     *       }
-     *   }
+     * Synthetic ScreenEvents inner interface (AfterRender/BeforeRender) extending its 26.1
+     * replacement (AfterExtract/BeforeExtract), with a default method bridging the renamed
+     * SAM so old lambdas store into the new event arrays and the renamed callback delegates
+     * to the old one.
      */
     private static byte[] generateScreenEventInterface(String simpleName, String methodName) {
         String pkg = "net/fabricmc/fabric/api/client/screen/v1/ScreenEvents$";
         String className = pkg + simpleName;
 
-        // Determine parent interface (AfterRender→AfterExtract, BeforeRender→BeforeExtract)
+        // Parent: AfterRender -> AfterExtract, BeforeRender -> BeforeExtract.
         String parentSimple = simpleName.replace("Render", "Extract");
         String parentClass = pkg + parentSimple;
         String parentMethod = methodName.replace("Render", "Extract")
                                         .replace("render", "extract");
 
-        // Descriptor uses GuiGraphicsExtractor (26.1 name, GuiGraphics was renamed)
+        // Param type is the renamed GuiGraphicsExtractor.
         String desc = "(Lnet/minecraft/client/gui/screens/Screen;"
                 + "Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V";
 
@@ -1044,15 +857,15 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         cw.visit(Opcodes.V21,
             Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,
             className, null, "java/lang/Object",
-            new String[]{ parentClass });  // extends AfterExtract/BeforeExtract
+            new String[]{ parentClass });
 
-        // Abstract SAM method: void afterRender/beforeRender(Screen, GuiGraphicsExtractor, int, int, float)
+        // Abstract SAM: afterRender/beforeRender.
         cw.visitMethod(
             Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT,
             methodName, desc, null, null
         ).visitEnd();
 
-        // Default bridge: afterExtract/beforeExtract delegates to afterRender/beforeRender
+        // Default bridge: afterExtract/beforeExtract delegates to the old SAM.
         MethodVisitor mv = cw.visitMethod(
             Opcodes.ACC_PUBLIC,
             parentMethod, desc, null, null);
@@ -1073,26 +886,12 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
     }
 
     /**
-     * Field-to-method redirects for the MC 1.21+ "registry-key migration"
-     * of vanilla content holders.
-     *
-     * <p>In older MC, fields like {@code Enchantments.SHARPNESS} were typed
-     * as the actual content ({@code Enchantment}). In MC 1.21+ the same
-     * field names exist but their type is now {@code ResourceKey<Enchantment>} -
-     * a registry key, not the value. Mod bytecode that reads the field
-     * expecting an {@code Enchantment} crashes with
-     * {@code NoSuchFieldError: ... does not have member field 'Enchantment SHARPNESS'}.
-     *
-     * <p>Each redirect routes a {@code GETSTATIC X.Y:Z} to a static call on
-     * {@link com.retromod.polyfill.registry.RegistryRefLookup} that does the
-     * runtime registry lookup and returns the actual content. The
-     * transformer's CHECKCAST emit takes care of the {@code Object} →
-     * {@code Enchantment}/{@code MobEffect} cast at the use site.
-     *
-     * <p>Field names use the Mojang spelling because the {@code ClassRemapper}
-     * stage runs before {@code RetromodMethodVisitor} sees the bytecode, so
-     * by the time these redirects are looked up, names are already in
-     * Mojang form.
+     * Field-to-method redirects for the MC 1.21+ registry-key migration of vanilla content
+     * holders. Fields like {@code Enchantments.SHARPNESS} are now typed
+     * {@code ResourceKey<Enchantment>}, so reading them as the value throws NoSuchFieldError.
+     * Each redirect routes the GETSTATIC to a {@link com.retromod.polyfill.registry.RegistryRefLookup}
+     * runtime lookup; the transformer's CHECKCAST handles the cast at the use site. Field
+     * names use Mojang spelling, since ClassRemapper runs first.
      */
     private void registerRegistryRefRedirects(RetromodTransformer transformer) {
         registerEnchantmentRedirects(transformer);
@@ -1101,28 +900,18 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
     }
 
     /**
-     * NBT getter signature change in MC 1.21.5+: {@code CompoundTag.getString(String)}
-     * etc. now return {@code Optional<X>} instead of the primitive/string
-     * directly. Mods compiled against the old shape do
-     * {@code INVOKEVIRTUAL CompoundTag.getString(String)String} and crash
-     * with {@code NoSuchMethodError}.
-     *
-     * <p>Fix: redirect each call to a static helper on
-     * {@link com.retromod.polyfill.registry.NbtCompatLookup} with
-     * {@code devirtualize=true} (the receiver becomes the first arg).
-     * The helper resolves whichever signature the runtime MC actually
-     * has, unwraps the {@code Optional} when needed, and returns the
-     * primitive/string directly so the calling bytecode's stack matches
-     * what it originally expected.
-     *
-     * <p>Surfaced by retromod-test-mod's {@code NbtTests}.
+     * NBT getters changed in MC 1.21.5+: {@code CompoundTag.getString(String)} etc. now
+     * return {@code Optional<X>}, so the old {@code ()String}-shaped INVOKEVIRTUAL throws
+     * NoSuchMethodError. Redirect each to a {@link com.retromod.polyfill.registry.NbtCompatLookup}
+     * helper (devirtualized, receiver-first) that resolves whichever signature the runtime
+     * has, unwraps the Optional, and returns the primitive/string the caller expects (NbtTests).
      */
     private void registerNbtCompatRedirects(RetromodTransformer transformer) {
         String compoundTag = "net/minecraft/nbt/CompoundTag";
         String listTag     = "net/minecraft/nbt/ListTag";
         String lookup      = "com/retromod/polyfill/registry/NbtCompatLookup";
 
-        // CompoundTag.getX(String) - receiver-first static descriptors.
+        // CompoundTag.getX(String): receiver-first static descriptors.
         transformer.registerMethodRedirect(
             compoundTag, "getString", "(Ljava/lang/String;)Ljava/lang/String;",
             lookup, "compoundGetString",
@@ -1181,8 +970,7 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         String lookup    = "com/retromod/polyfill/registry/RegistryRefLookup";
         String objRet    = "()Ljava/lang/Object;";
 
-        // Mojang field name is the same as the polyfill method name in
-        // each pair below (both come from the registry id, uppercased).
+        // Mojang field name == polyfill method name here (both are the uppercased registry id).
         String[] names = {
             "SHARPNESS", "SMITE", "BANE_OF_ARTHROPODS", "KNOCKBACK",
             "FIRE_ASPECT", "LOOTING", "SWEEPING_EDGE",
@@ -1212,9 +1000,8 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
         String lookup   = "com/retromod/polyfill/registry/RegistryRefLookup";
         String objRet   = "()Ljava/lang/Object;";
 
-        // (Mojang field, polyfill method) pairs. The polyfill method names
-        // mirror the YARN field names (SPEED, HASTE, ...) for readability,
-        // since the test mod is yarn-compiled and they're easier to scan.
+        // (Mojang field, polyfill method) pairs. The polyfill methods use the yarn field
+        // names (SPEED, HASTE, ...), matching the yarn-compiled test mod.
         String[][] pairs = {
             {"MOVEMENT_SPEED",   "SPEED"},
             {"MOVEMENT_SLOWDOWN","SLOWNESS"},

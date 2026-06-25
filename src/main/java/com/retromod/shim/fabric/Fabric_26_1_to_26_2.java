@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.shim.fabric;
@@ -9,13 +9,9 @@ import com.retromod.core.VersionShim;
 import com.retromod.shim.common.Mc26_1To26_2CoreMoves;
 
 /**
- * Fabric 26.1 → 26.2 shim.
- *
- * <p>Both versions are fully Mojang-named, so this is class moves/renames
- * only - the shared {@link Mc26_1To26_2CoreMoves} list harvested from the
- * real client jars. Fabric API renames for the 26.2 line get added here
- * once a fabric-api build is tagged for the 26.2 release (0.152.x currently
- * targets the 26.2 pre-releases only).
+ * Fabric 26.1 to 26.2 shim. Both versions are Mojang-named, so it's class moves
+ * only ({@link Mc26_1To26_2CoreMoves}); Fabric API renames land here once a
+ * fabric-api build targets 26.2.
  */
 public class Fabric_26_1_to_26_2 implements VersionShim {
 

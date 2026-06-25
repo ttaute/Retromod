@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.20.5 to run on 1.20.6.
- * Minor stabilization release with no significant API changes.
- */
+/** Fabric 1.20.5 to 1.20.6: a stabilization release with no API changes. */
 public class Fabric_1_20_5_to_1_20_6 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.20.5 to 1.20.6"; }
@@ -20,10 +17,7 @@ public class Fabric_1_20_5_to_1_20_6 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // No redirects needed - 1.20.6 is a hotfix for trader llama data loss.
-        // No API renames, removals, or signature changes. This shim exists
-        // solely for BFS chain continuity (ShimRegistry needs a connected path
-        // from any version to 26.1).
+        // 1.20.6 was a hotfix with no API changes; this shim just keeps the chain connected.
     }
 
     @Override

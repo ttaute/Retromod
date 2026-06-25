@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.compat;
@@ -24,62 +24,30 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Runtime version spoofer - lies about installed mod versions when a calling
- * mod does its own version check in code.
+ * Reports a faked dependency version to mods that do their own in-code version check.
  *
- * <h3>The problem this solves</h3>
- * <p>Retromod already relaxes {@code "depends"} entries in mod metadata so
- * Fabric Loader stops blocking mods at load time. That fixes metadata-level
- * incompatibilities. But some mods (REI, old tech mods, anything with a
- * "strict compatibility" check) also run code at init that asks Fabric Loader
- * for the installed version of a dependency and compares it against a
- * hard-coded version range. When the installed version is newer than the
- * range, the mod pops up a "your X is unsupported" error and refuses to work.</p>
+ * <p>Relaxing {@code "depends"} metadata stops Fabric Loader from blocking mods at
+ * load time, but some mods (REI, old tech mods) also query the loader at init for an
+ * installed dependency version and compare it against a hard-coded range. If the
+ * installed version is newer than the range they pop a "your X is unsupported" error
+ * and refuse to work. REI 14 on Cloth Config 15 reads
+ * {@code getModContainer("cloth-config").get().getMetadata().getVersion().getFriendlyString()},
+ * sees {@code "15.0.140"}, and bails.
  *
- * <p>Example from REI 14 on Cloth Config 15:</p>
- * <pre>
- * String cloth = FabricLoader.getInstance()
- *     .getModContainer("cloth-config").get()
- *     .getMetadata().getVersion().getFriendlyString();
- * // "15.0.140" - newer than REI expects
- * if (!acceptedRange.matches(cloth)) {
- *     showCompatibilityPopup("Cloth Config " + cloth + " unsupported!");
- * }
- * </pre>
+ * <p>The transformer redirects {@code FabricLoader.getModContainer(modId)} in
+ * transformed mods to {@link #getModContainer(Object, String)}. Mods in the spoof
+ * table get a {@link Proxy}-wrapped container whose version chain returns the spoofed
+ * string; everything else, and every non-version accessor, passes through to the real
+ * objects so authors/description/dependencies stay accurate.
  *
- * <h3>How the spoofer works</h3>
- * <p>Retromod's bytecode transformer redirects every call to
- * {@code FabricLoader.getModContainer(modId)} inside transformed mods to
- * {@link #getModContainer(Object, String)}. We intercept the call, look up
- * {@code modId} in a curated spoof table, and either:</p>
- * <ul>
- *   <li>Return the real {@link net.fabricmc.loader.api.ModContainer} unchanged
- *       (the common case - most calls don't need lying),</li>
- *   <li>Or return a {@link Proxy}-wrapped {@code ModContainer} whose
- *       {@code getMetadata().getVersion().getFriendlyString()} chain returns
- *       the spoofed version string instead of the real one.</li>
- * </ul>
+ * <p>The rules live in {@code /retromod/version-spoofs.json}, each spoofed version
+ * picked to satisfy the widest practical range for that mod family (Cloth Config maps
+ * to {@code "13.999.999"}, which clears REI 14's {@code ">=13.0.0 <14.0.0"} and most
+ * other "cloth-config 13-something" checks).
  *
- * <p>Only the version-reporting chain is spoofed. Every other method on the
- * container/metadata/version passes through to the real implementation, so
- * mods that inspect other fields (authors, description, dependencies) see
- * real data.</p>
- *
- * <h3>Which mods get spoofed?</h3>
- * <p>Curated list in {@code /retromod/version-spoofs.json}. Each entry says
- * "when any caller asks for the version of mod X, tell them Y." The spoofed
- * version is chosen to satisfy the widest practical version-range constraint
- * for that mod family - e.g. Cloth Config spoofs to {@code "13.999.999"},
- * which satisfies both {@code ">=13.0.0 &lt;14.0.0"} (REI 14's check) and
- * most other checks that expect "cloth-config 13-something."</p>
- *
- * <h3>Reflection-only implementation</h3>
- * <p>This class deliberately uses {@code Object} parameter types instead of
- * importing {@code net.fabricmc.loader.api.FabricLoader} / {@code ModContainer}
- * / {@code ModMetadata} / {@code Version}. Retromod ships as a standalone JAR
- * that also runs in the CLI, where Fabric Loader is not on the classpath.
- * Using reflection keeps the core JAR loadable in those environments; the
- * spoofer simply no-ops if Fabric types aren't present.</p>
+ * <p>Parameters are typed {@code Object} rather than the Fabric interfaces: Retromod
+ * also runs in the CLI without Fabric Loader on the classpath, so the spoofer reaches
+ * the Fabric types reflectively and no-ops when they are absent.
  */
 public final class VersionSpoofer {
 
@@ -91,37 +59,23 @@ public final class VersionSpoofer {
     private static final boolean SPOOF_ENABLED =
             Boolean.parseBoolean(System.getProperty("retromod.spoofVersions", "true"));
 
-    /** {@code modId → spoofedVersionString}. Populated lazily on first use. */
+    /** {@code modId -> spoofedVersionString}, loaded lazily on first use. */
     private static volatile Map<String, String> spoofTable;
 
-    /** How many times we've returned a spoofed container (for diagnostics). */
     private static final java.util.concurrent.atomic.AtomicInteger spoofsApplied =
             new java.util.concurrent.atomic.AtomicInteger();
 
     private VersionSpoofer() {}
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // REDIRECT TARGETS
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // These methods are called by transformed mod bytecode. The redirect from
-    // FabricLoader.getModContainer(String) to getModContainer(Object, String)
-    // is registered in VersionSpoofShim at transformer init time.
-
     /**
-     * Replacement for {@code FabricLoader.getModContainer(String)}. Called
-     * from transformed mod bytecode.
+     * Replacement for {@code FabricLoader.getModContainer(String)}, called from
+     * transformed mod bytecode. {@code fabricLoader} is the receiver (a Fabric
+     * {@code FabricLoader} instance), typed {@code Object} to build without a Fabric dep.
      *
-     * <p>The {@code fabricLoader} parameter is the receiver object (a real
-     * {@code net.fabricmc.loader.api.FabricLoader} instance); we take it as
-     * {@code Object} so this class compiles without a Fabric dep.</p>
-     *
-     * @return {@code Optional<ModContainer>} - real or proxy-wrapped
+     * @return real or proxy-wrapped {@code Optional<ModContainer>}
      */
     public static Optional<?> getModContainer(Object fabricLoader, String modId) {
-        // Invoke the real method reflectively. Errors fall back to Optional.empty()
-        // - the original Fabric behaviour for missing mods - so a reflection
-        // failure never breaks the caller harder than the real method would.
+        // Empty on reflection failure matches Fabric's behaviour for a missing mod.
         Optional<?> real;
         try {
             Method m = fabricLoader.getClass().getMethod("getModContainer", String.class);
@@ -135,32 +89,22 @@ public final class VersionSpoofer {
         if (!SPOOF_ENABLED) return real;
 
         String spoofedVersion = getSpoofTable().get(modId);
-        if (spoofedVersion == null) return real;         // no spoof needed
-        if (!real.isPresent()) return real;               // mod not installed - can't fake it
+        if (spoofedVersion == null) return real;
+        if (!real.isPresent()) return real;               // mod not installed, can't fake it
 
         try {
             Object wrapped = wrapContainer(real.get(), spoofedVersion);
             spoofsApplied.incrementAndGet();
             return Optional.of(wrapped);
         } catch (Throwable t) {
-            // If proxy construction fails for any reason, fall back to the real
-            // container. Spoofing is best-effort diagnostic help - never block
-            // the mod from loading just because the proxy setup went sideways.
+            // Spoofing is best-effort; fall back to the real container if the proxy fails.
             LOGGER.debug("Could not build spoof proxy for {} ({}): {}",
                     modId, spoofedVersion, t.getMessage());
             return real;
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PROXY CONSTRUCTION
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Wrap a real {@code ModContainer} so its {@code getMetadata()} returns a
-     * spoofing proxy. All other methods (parent, roots, findPath, etc.) pass
-     * through unchanged.
-     */
+    /** Wrap a {@code ModContainer} so {@code getMetadata()} returns a spoofing proxy. */
     private static Object wrapContainer(Object realContainer, String spoofedVersion)
             throws ClassNotFoundException {
         Class<?> containerIface = Class.forName("net.fabricmc.loader.api.ModContainer");
@@ -170,12 +114,7 @@ public final class VersionSpoofer {
                 new ContainerHandler(realContainer, spoofedVersion));
     }
 
-    /**
-     * Wrap a real {@code ModMetadata} so its {@code getVersion()} returns a
-     * spoofing proxy. Every other accessor (id, name, authors, dependencies,
-     * …) returns the real value so mods that care about other metadata
-     * fields see accurate data.
-     */
+    /** Wrap a {@code ModMetadata} so {@code getVersion()} returns a spoofing proxy; other accessors pass through. */
     private static Object wrapMetadata(Object realMetadata, String spoofedVersion)
             throws ClassNotFoundException {
         Class<?> metaIface = Class.forName("net.fabricmc.loader.api.metadata.ModMetadata");
@@ -186,15 +125,8 @@ public final class VersionSpoofer {
     }
 
     /**
-     * Wrap a real {@code Version} object so its text accessors return the
-     * spoofed string. We intercept:
-     * <ul>
-     *   <li>{@code getFriendlyString()} - the human-readable form
-     *       (most common version-check code path)</li>
-     *   <li>{@code toString()}</li>
-     *   <li>{@code compareTo(Version)} - returns 0 so any SemVer range check
-     *       that uses compareTo thinks we match the expected version</li>
-     * </ul>
+     * Wrap a {@code Version} so {@code getFriendlyString()}/{@code toString()} return the
+     * spoofed string and {@code compareTo} reports 0, letting SemVer range checks accept us.
      */
     private static Object wrapVersion(Object realVersion, String spoofedVersion)
             throws ClassNotFoundException {
@@ -204,10 +136,6 @@ public final class VersionSpoofer {
                 new Class<?>[]{versionIface},
                 new VersionHandler(realVersion, spoofedVersion));
     }
-
-    // Invocation handlers kept as static nested classes (not lambdas) so their
-    // instance state - the real target + the spoof string - is always captured
-    // by reference, never by value-at-capture-time.
 
     private static final class ContainerHandler implements InvocationHandler {
         private final Object real;
@@ -262,25 +190,17 @@ public final class VersionSpoofer {
                     && method.getParameterCount() == 0) {
                 return spoofVersion;
             }
-            // compareTo(Version) - neutralize by claiming equal. Any SemVer
-            // range check that boils down to "compare and compare" will see
-            // "match" and accept us.
+            // Claim equal so SemVer range checks built on compareTo accept us.
             if ("compareTo".equals(name) && method.getParameterCount() == 1) {
                 return 0;
             }
-            // hashCode / equals - pass through so proxy identity behaves.
             return method.invoke(real, args);
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // DATA-DRIVEN RULES
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * Lazy-load the spoof table from the bundled JSON resource. If the
-     * resource is missing or malformed, the spoofer operates in "passthrough-
-     * only" mode - all calls return the real container.
+     * Lazy-load the spoof table from the bundled JSON resource. A missing or malformed
+     * resource leaves the table empty, so every call passes through to the real container.
      */
     private static Map<String, String> getSpoofTable() {
         Map<String, String> local = spoofTable;
@@ -304,7 +224,7 @@ public final class VersionSpoofer {
             try (BufferedReader r = new BufferedReader(
                     new InputStreamReader(in, StandardCharsets.UTF_8))) {
                 JsonObject root = JsonParser.parseReader(r).getAsJsonObject();
-                // Top-level schema: { "spoofs": { "cloth-config": "13.999.999", ... } }
+                // Schema: { "spoofs": { "cloth-config": "13.999.999", ... } }
                 if (root.has("spoofs")) {
                     JsonObject spoofs = root.getAsJsonObject("spoofs");
                     for (Map.Entry<String, JsonElement> e : spoofs.entrySet()) {
@@ -318,25 +238,18 @@ public final class VersionSpoofer {
         return out;
     }
 
-    /**
-     * Number of times a spoofed container has been returned (for diagnostics).
-     */
+    /** Number of spoofed containers returned so far (diagnostics). */
     public static int getSpoofsApplied() {
         return spoofsApplied.get();
     }
 
-    /**
-     * Test-only hook - reset the cached table so unit tests can re-populate
-     * with a controlled rule set.
-     */
+    /** Test hook: drop the cached table so a test can re-populate it. */
     static void resetForTesting() {
         spoofTable = null;
         spoofsApplied.set(0);
     }
 
-    /**
-     * Test-only hook - install a specific rule map, bypassing the JSON load.
-     */
+    /** Test hook: install a rule map directly, bypassing the JSON load. */
     static void setSpoofTableForTesting(Map<String, String> table) {
         spoofTable = Collections.unmodifiableMap(new HashMap<>(table));
     }

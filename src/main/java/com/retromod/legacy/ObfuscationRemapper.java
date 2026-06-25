@@ -139,7 +139,7 @@ public class ObfuscationRemapper extends ClassVisitor {
                 case 'L' -> {
                     int end = descriptor.indexOf(';', i);
                     if (end < 0) {
-                        // malformed (no ';'): substring(i+1, -1) would throw - pass the tail through unchanged
+                        // malformed (no ';'): substring(i+1, -1) would throw. Pass the tail through unchanged.
                         result.append(descriptor, i, descriptor.length());
                         i = descriptor.length();
                     } else {

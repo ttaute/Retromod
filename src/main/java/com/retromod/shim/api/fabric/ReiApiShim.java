@@ -1,8 +1,6 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * REI (Roughly Enough Items) API Compatibility Shim
  */
 package com.retromod.shim.api.fabric;
 
@@ -10,14 +8,9 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * REI API compatibility shim.
- * 
- * REI is the most popular recipe viewer for Fabric. Major API changes:
- * - v3.x -> v4.x: EntryStack changes
- * - v4.x -> v5.x: Plugin system overhaul
- * - v5.x -> v6.x: Display system changes
- * - v6.x -> v9.x: Registration API changes
- * - v9.x -> v12.x+: Further plugin changes
+ * Bridges REI (Roughly Enough Items) v3 plugin/entry APIs up to v12: EntryStack
+ * creation moved to EntryStacks, REIPlugin split into client/server, and the
+ * display/registration packages were renamed.
  */
 public class ReiApiShim implements VersionShim {
     
@@ -43,27 +36,17 @@ public class ReiApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PACKAGE RELOCATIONS
-        // ============================================================
-        
-        // Very old package
         transformer.registerClassRedirect(
             "me/shedaniel/rei/api/RecipeHelper",
             "me/shedaniel/rei/api/client/registry/display/DisplayRegistry"
         );
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/rei/api/EntryRegistry",
             "me/shedaniel/rei/api/client/registry/entry/EntryRegistry"
         );
-        
-        // ============================================================
-        // ENTRY STACK CHANGES
-        // ============================================================
-        
-        // Old: EntryStack.create(itemStack)
-        // New: EntryStacks.of(itemStack)
+
+        // EntryStack.create(stack/fluid) -> EntryStacks.of(...)
         transformer.registerMethodRedirect(
             "me/shedaniel/rei/api/common/entry/EntryStack",
             "create",
@@ -72,8 +55,7 @@ public class ReiApiShim implements VersionShim {
             "of",
             "(Lnet/minecraft/item/ItemStack;)Lme/shedaniel/rei/api/common/entry/EntryStack;"
         );
-        
-        // Old: EntryStack.create(fluid)
+
         transformer.registerMethodRedirect(
             "me/shedaniel/rei/api/common/entry/EntryStack",
             "create",
@@ -82,29 +64,19 @@ public class ReiApiShim implements VersionShim {
             "of",
             "(Lnet/minecraft/fluid/Fluid;)Lme/shedaniel/rei/api/common/entry/EntryStack;"
         );
-        
-        // ============================================================
-        // PLUGIN INTERFACE CHANGES
-        // ============================================================
-        
-        // Old: REIPlugin (single interface)
-        // New: Split into REIClientPlugin, REIServerPlugin
+
+        // REIPlugin/REIPluginV0 collapsed into the client plugin interface
         transformer.registerClassRedirect(
             "me/shedaniel/rei/api/REIPlugin",
             "me/shedaniel/rei/api/client/plugins/REIClientPlugin"
         );
-        
+
         transformer.registerClassRedirect(
             "me/shedaniel/rei/api/REIPluginV0",
             "me/shedaniel/rei/api/client/plugins/REIClientPlugin"
         );
-        
-        // ============================================================
-        // REGISTRATION METHODS CHANGES
-        // ============================================================
-        
-        // Old: registerRecipeDisplays(RecipeHelper)
-        // New: registerDisplays(DisplayRegistry)
+
+        // registerRecipeDisplays(RecipeHelper) -> registerDisplays(DisplayRegistry)
         transformer.registerMethodRedirect(
             "me/shedaniel/rei/api/client/plugins/REIClientPlugin",
             "registerRecipeDisplays",
@@ -113,9 +85,8 @@ public class ReiApiShim implements VersionShim {
             "registerDisplays",
             "(Lme/shedaniel/rei/api/client/registry/display/DisplayRegistry;)V"
         );
-        
-        // Old: registerEntries(EntryRegistry)
-        // New: registerEntries(EntryRegistry) - same name but different package
+
+        // same name, new EntryRegistry package
         transformer.registerMethodRedirect(
             "me/shedaniel/rei/api/client/plugins/REIClientPlugin",
             "registerEntries",
@@ -124,13 +95,8 @@ public class ReiApiShim implements VersionShim {
             "registerEntries",
             "(Lme/shedaniel/rei/api/client/registry/entry/EntryRegistry;)V"
         );
-        
-        // ============================================================
-        // DISPLAY CHANGES
-        // ============================================================
-        
-        // Old: BasicDisplay
-        // New: Different constructors
+
+        // BasicDisplay ctor and category/widget factories route through the embedded ReiShim
         transformer.registerMethodRedirect(
             "me/shedaniel/rei/api/common/display/basic/BasicDisplay",
             "<init>",
@@ -139,12 +105,7 @@ public class ReiApiShim implements VersionShim {
             "createBasicDisplay",
             "(Ljava/util/List;Ljava/util/List;)Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // CATEGORY CHANGES
-        // ============================================================
-        
-        // Old: DisplayCategory methods
+
         transformer.registerMethodRedirect(
             "me/shedaniel/rei/api/client/registry/category/CategoryRegistry",
             "add",
@@ -153,12 +114,7 @@ public class ReiApiShim implements VersionShim {
             "addCategory",
             "(Ljava/lang/Object;Ljava/lang/Object;)V"
         );
-        
-        // ============================================================
-        // WIDGET CHANGES
-        // ============================================================
-        
-        // Old: Widgets.createRecipeBase(bounds)
+
         transformer.registerMethodRedirect(
             "me/shedaniel/rei/api/client/gui/Widgets",
             "createRecipeBase",
@@ -167,8 +123,7 @@ public class ReiApiShim implements VersionShim {
             "createRecipeBase",
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        
-        // Slot widget changes
+
         transformer.registerMethodRedirect(
             "me/shedaniel/rei/api/client/gui/Widgets",
             "createSlot",

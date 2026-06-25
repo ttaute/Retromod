@@ -60,9 +60,7 @@ public class ObfuscationDatabase {
     private void initializeBuiltInMappings() {
         // These are the most commonly-needed mappings embedded directly
         
-        // ─────────────────────────────────────────────────────────────────────
         // YARN ↔ MOJANG CLASS MAPPINGS
-        // ─────────────────────────────────────────────────────────────────────
         
         addClassMapping("yarn", "mojang", 
             "net/minecraft/class_1", "net/minecraft/world/level/Level");
@@ -81,9 +79,7 @@ public class ObfuscationDatabase {
         addClassMapping("yarn", "mojang",
             "net/minecraft/class_2586", "net/minecraft/world/level/block/entity/BlockEntity");
         
-        // ─────────────────────────────────────────────────────────────────────
         // COMMON METHOD RENAMES ACROSS VERSIONS
-        // ─────────────────────────────────────────────────────────────────────
         
         // Entity.getWorld() → Entity.getEntityWorld() (1.21.9+)
         addMethodMapping("1.21.8", "1.21.9",
@@ -100,9 +96,7 @@ public class ObfuscationDatabase {
             "net/minecraft/item/ItemStack", "stackSize", "I",
             "getCount");
             
-        // ─────────────────────────────────────────────────────────────────────
         // SRG (FORGE) TO YARN (FABRIC) METHOD MAPPINGS
-        // ─────────────────────────────────────────────────────────────────────
         
         // These allow cross-loader compatibility
         addMethodMapping("srg", "yarn",

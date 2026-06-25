@@ -30,7 +30,7 @@ import java.nio.file.Path;
  * (default on). Set it to {@code false} to suppress the prompt.
  *
  * <p>On confirm we cleanly stop the client (the user relaunches from their
- * launcher). True in-process relaunch isn't attempted - it can't be done
+ * launcher). True in-process relaunch isn't attempted; it can't be done
  * reliably across launchers (Prism/MultiMC/vanilla each wrap the launch), and a
  * half-working relaunch is worse than a clean stop.
  */
@@ -109,7 +109,6 @@ public final class RestartPrompt {
         }
     }
 
-    // ── Test hooks ──────────────────────────────────────────────────────────
     static void resetForTesting() { pendingCount = 0; shownThisSession = false; }
     static void markShownForTesting() { shownThisSession = true; }
     static int pendingForTesting() { return pendingCount; }

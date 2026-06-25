@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.shim.fabric;
@@ -12,72 +12,41 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Pre-1.18.2 {@code Biome.Category} bridge (Fabric, pre-26.1 hosts, intermediary
- * namespace).
+ * Pre-1.18.2 {@code Biome.Category} bridge for Fabric on pre-26.1 hosts (intermediary names).
  *
- * <h2>The problem</h2>
- * {@code Biome.Category} ({@code class_1959$class_1961}) - an enum of biome "kinds"
- * (FOREST, DESERT, NETHER, …) used to register custom mob spawns - was deleted in
- * 1.18.2 when biome categorization moved to data-driven tags. Every pre-1.18.2
- * mod that registers spawns via category - Earth2Java's {@code BiomeSpawnHelper}
- * is the canonical case - dies in its own {@code <clinit>} with
- * {@code NoClassDefFoundError: class_1959$class_1961} the instant it touches one
- * of the enum constants, before the mod's onInitialize even runs. The companion
- * accessor, {@code class_1959.method_8688()} (Biome.getCategory), is also gone
- * and fires {@code NoSuchMethodError} from the same helpers.
- *
- * <h2>The bridge</h2>
- * Inject a stand-in enum {@code com/retromod/generated/LegacyBiomeCategory} with
- * one static field per legacy intermediary ID ({@code field_9354 … field_9370}),
- * and class-redirect every reference to {@code class_1959$class_1961} onto it.
- * Bonus: the synthetic also publishes a static
- * {@code getCategory(Lclass_1959;)LLegacyBiomeCategory;} that
- * {@code class_1959.method_8688()} is rewritten to call (devirtualized so the
- * receiver becomes the first arg) - returning {@code field_9363} (the slot that
- * was NONE on 1.16-era yarn).
- *
- * <p>The functional outcome is intentionally inert: every real biome on a 1.18.2+
- * host comes back as the synthetic "none", so category-keyed spawn arrays end up
- * empty and the mod's mobs don't get added to vanilla spawn pools. That's the
- * right floor - the mod LOADS (every other feature still works; players can
- * <code>/summon</code> the mobs, custom items/blocks/recipes/textures all run
- * untouched), and the alternative is "Retromod crashes the mod at startup",
- * which is what was happening. A future pass could synthesize a tag-based
- * spawn-injection bridge, but that's a much larger rewrite of the mod's spawn
- * logic and well beyond what a name-translation layer can do.</p>
- *
- * <h2>Gating</h2>
- * Wired alongside the model + InteractionResult + Identifier-ctor bridges
- * (pre-26.1 Fabric hosts only). Self-gates as a no-op when {@code class_1959}
- * itself isn't on the classpath, so unit tests (no MC) don't register anything.
+ * <p>{@code Biome.Category} ({@code class_1959$class_1961}) and its accessor
+ * {@code class_1959.method_8688()} were deleted in 1.18.2 when biome categories moved to
+ * data-driven tags, so pre-1.18.2 spawn-registration mods that touch the enum in their own
+ * {@code <clinit>} crash with {@code NoClassDefFoundError}/{@code NoSuchMethodError} before
+ * onInitialize runs. We inject a stand-in enum, class-redirect every reference onto it, and
+ * rewrite {@code method_8688} to a static that always returns the NONE slot. Category-keyed
+ * spawn arrays then come back empty (the mod's mobs aren't added to vanilla pools) but the
+ * mod loads; a tag-based spawn-injection bridge would be a far larger rewrite.
  */
 public final class Pre1_18_2BiomeCategoryBridge {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod");
 
-    /** Original intermediary internal name of {@code Biome.Category}. */
+    /** Intermediary internal name of {@code Biome.Category}. */
     private static final String BIOME_CATEGORY = "net/minecraft/class_1959$class_1961";
 
-    /** Original intermediary internal name of {@code Biome}. */
+    /** Intermediary internal name of {@code Biome}. */
     private static final String BIOME = "net/minecraft/class_1959";
 
-    /** Original intermediary name of {@code Biome.getCategory}. */
+    /** Intermediary name of {@code Biome.getCategory}. */
     private static final String GET_CATEGORY = "method_8688";
 
-    /** Our stand-in enum's internal name. */
+    /** Stand-in enum's internal name. */
     private static final String SELF = "com/retromod/generated/LegacyBiomeCategory";
 
     private static final String L_SELF = "L" + SELF + ";";
     private static final String L_BIOME = "L" + BIOME + ";";
 
     /**
-     * Every intermediary field ID for {@code Biome.Category} that we generate as a
-     * constant. {@code field_9354 .. field_9370} is the full set from 1.16-era yarn
-     * (BEACH, DESERT, EXTREME_HILLS, FOREST, ICY, JUNGLE, MESA, MUSHROOM, NETHER,
-     * NONE, OCEAN, PLAINS, RIVER, SAVANNA, SWAMP, TAIGA, THEEND). We include all 17
-     * even though Earth2Java's {@code BiomeSpawnHelper} only references 14 - the
-     * cost is negligible, and any other pre-1.18.2 mod with a different subset of
-     * categories then works for free.
+     * Intermediary field IDs for {@code Biome.Category} from 1.16-era yarn
+     * ({@code field_9354 .. field_9370}: BEACH, DESERT, EXTREME_HILLS, FOREST, ICY, JUNGLE,
+     * MESA, MUSHROOM, NETHER, NONE, OCEAN, PLAINS, RIVER, SAVANNA, SWAMP, TAIGA, THEEND).
+     * All 17 so any pre-1.18.2 mod's subset resolves.
      */
     private static final String[] CATEGORY_FIELDS = {
         "field_9354", "field_9355", "field_9356", "field_9357", "field_9358",
@@ -86,15 +55,14 @@ public final class Pre1_18_2BiomeCategoryBridge {
         "field_9369", "field_9370",
     };
 
-    /** The synthetic constant we return from {@code getCategory(Biome)} - slot of NONE on 1.16 yarn. */
+    /** Constant returned from {@code getCategory(Biome)}: the NONE slot on 1.16 yarn. */
     private static final String NONE_FIELD = "field_9363";
 
     private Pre1_18_2BiomeCategoryBridge() {}
 
-    /** Wire the synthetic + class redirect + Biome.getCategory rewrite. */
+    /** Wire the synthetic, class redirect, and Biome.getCategory rewrite. */
     public static void register(RetromodTransformer transformer) {
-        // Probe class_1959 (Biome) on the host. If it isn't even there, we're in a
-        // unit test or some headless tool - bail with a debug log, no redirects.
+        // Nothing to do when Biome isn't on the host (unit test / headless tool).
         try {
             Class.forName("net." + "minecraft.class_1959", false,
                     Pre1_18_2BiomeCategoryBridge.class.getClassLoader());
@@ -107,14 +75,9 @@ public final class Pre1_18_2BiomeCategoryBridge {
         transformer.registerSyntheticClass(SELF, generateLegacyBiomeCategory());
         transformer.registerClassRedirect(BIOME_CATEGORY, SELF);
 
-        // Biome.getCategory() - gone on host. Rewrite to our static, devirtualized so
-        // the original `aload biome; invokevirtual method_8688()` becomes `aload biome;
-        // invokestatic LegacyBiomeCategory.getCategory(Biome)`. The receiver type
-        // (`class_1959`) is the real Biome on the host, so no stub needed.
-        //
-        // Descriptor: after the class redirect for BIOME_CATEGORY, the original return
-        // type `Lclass_1959$class_1961;` is rewritten to `LLegacyBiomeCategory;` in the
-        // call site, so the redirect key has to match that POST-remap form.
+        // Rewrite the deleted Biome.getCategory() to our static, moving the receiver into
+        // the first arg. The redirect key uses the post-redirect return type (LegacyBiomeCategory):
+        // the BIOME_CATEGORY class redirect already rewrote the call site's return type.
         transformer.registerMethodRedirect(
                 BIOME, GET_CATEGORY, "()" + L_SELF,
                 SELF, "getCategory", "(" + L_BIOME + ")" + L_SELF,
@@ -126,21 +89,16 @@ public final class Pre1_18_2BiomeCategoryBridge {
     }
 
     /**
-     * Generate an enum with one public static final field per legacy category ID.
-     * Shape mirrors what {@code javac} emits for a plain enum: private {@code (String,int)}
-     * ctor, synthetic {@code $VALUES} array, {@code values()} / {@code valueOf(String)}
-     * helpers, and a {@code <clinit>} that constructs each constant and stuffs it into
-     * the array. Plus our extra {@code static getCategory(Biome)} that returns NONE -
-     * the swap-in for the deleted host accessor.
+     * Generate an enum with one public static final field per legacy category ID, in the shape
+     * javac emits for a plain enum (private {@code (String,int)} ctor, synthetic {@code $VALUES},
+     * {@code values()}/{@code valueOf}, {@code <clinit>}), plus a static {@code getCategory(Biome)}
+     * returning NONE that swaps in for the deleted accessor.
      */
     static byte[] generateLegacyBiomeCategory() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
             @Override
             protected String getCommonSuperClass(String t1, String t2) {
-                // The synthetic only mentions Enum subclasses + Object - but the
-                // generator runs in unit tests without MC on the classpath, so fall
-                // back to Object whenever the resolver fails (same trick as the
-                // pre-1.17 model bridge).
+                // The resolver runs without MC on the classpath in unit tests; fall back to Object.
                 try { return super.getCommonSuperClass(t1, t2); }
                 catch (Throwable t) { return "java/lang/Object"; }
             }
@@ -153,7 +111,6 @@ public final class Pre1_18_2BiomeCategoryBridge {
                 "java/lang/Enum",
                 null);
 
-        // Public static final fields, one per category constant.
         for (String field : CATEGORY_FIELDS) {
             cw.visitField(
                     Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL | Opcodes.ACC_ENUM,
@@ -161,13 +118,11 @@ public final class Pre1_18_2BiomeCategoryBridge {
             ).visitEnd();
         }
 
-        // Synthetic private static final $VALUES array.
         cw.visitField(
                 Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL | Opcodes.ACC_SYNTHETIC,
                 "$VALUES", "[" + L_SELF, null, null
         ).visitEnd();
 
-        // Private constructor: Enum.<init>(String name, int ordinal).
         MethodVisitor ctor = cw.visitMethod(
                 Opcodes.ACC_PRIVATE, "<init>", "(Ljava/lang/String;I)V", null, null);
         ctor.visitCode();
@@ -207,9 +162,7 @@ public final class Pre1_18_2BiomeCategoryBridge {
         valueOf.visitEnd();
 
         // public static LegacyBiomeCategory getCategory(Biome) { return field_9363; }
-        // The Biome receiver is unused - every category-keyed lookup on a 1.18.2+ host
-        // collapses to NONE, which makes the mod's spawn arrays come back empty. See
-        // the class javadoc for why that's the right floor here.
+        // Biome receiver is unused; every lookup collapses to NONE (see class javadoc).
         MethodVisitor getCat = cw.visitMethod(
                 Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC, "getCategory",
                 "(" + L_BIOME + ")" + L_SELF, null, null);

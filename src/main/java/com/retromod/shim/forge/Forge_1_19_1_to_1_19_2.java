@@ -7,11 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Forge 1.19.1 to 1.19.2 shim - Minor bugfix release.
- * No significant API breaks requiring bytecode-level redirects;
- * this was a minor stabilization patch for chat and network fixes.
- */
+/** Forge 1.19.1 to 1.19.2 shim. Bugfix release, no API breaks. */
 public class Forge_1_19_1_to_1_19_2 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.19.1 to 1.19.2"; }
@@ -21,7 +17,6 @@ public class Forge_1_19_1_to_1_19_2 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Minor release with no significant API breaks requiring redirects
     }
 
     @Override

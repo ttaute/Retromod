@@ -26,14 +26,14 @@ import java.util.Set;
  * Curated + user-extensible list of mixin handler methods that fatally crash on
  * the target MC and can't be repaired by remapping.
  *
- * <p>Some mixin failures are recoverable in place - a renamed {@code @At} target
+ * <p>Some mixin failures are recoverable in place: a renamed {@code @At} target
  * gets redirected, a {@code CAPTURE_FAILHARD} gets downgraded to {@code FAILSOFT}.
  * But others can't: most notably a MixinExtras {@code @WrapOperation} /
  * {@code @ModifyExpressionValue} handler that captures a {@code @Local} from a
  * vanilla method whose local-variable layout changed between MC versions. The
  * {@code @Local} then resolves to the wrong slot and MixinExtras emits an invalid
  * bridge method, which the JVM rejects with {@code VerifyError: Bad local variable
- * type} at class-load time - fatal, before any soft-fail logic can run.
+ * type} at class-load time: fatal, before any soft-fail logic can run.
  *
  * <p>We can't safely <em>auto-detect</em> that case (the local often still exists,
  * just at a different slot, so a naive check would strip working mixins). Instead
@@ -60,14 +60,14 @@ public final class MixinBlocklist {
     private static volatile Map<String, Set<String>> blocked;
 
     /**
-     * Mixin internal names whose <b>entire</b> mixin should be neutralized - not
+     * Mixin internal names whose <b>entire</b> mixin should be neutralized, not
      * just handler methods. Used for the cases handler-stripping can't fix:
      * mixins that add an interface to a target class (e.g. True Darkness's
      * {@code MixinLightTexture implements LightmapAccess}, #68) or have a hard
      * {@code @Inject} critical-injection failure where the surrounding mixin is
      * interdependent (#69). For these, {@link MixinCompatibilityTransformer}
      * rewrites the {@code @Mixin} annotation to point at a non-existent target so
-     * the mixin framework skips the whole class gracefully - the same harmless
+     * the mixin framework skips the whole class gracefully, the same harmless
      * "target not found" path MC's own moved inner classes already take.
      *
      * <p>Set via {@code "strip": "class"} on a blocklist entry. Defaults to the
@@ -181,7 +181,6 @@ public final class MixinBlocklist {
         LOGGER.debug("Loaded {} mixin blocklist entr(ies) from {}", n, source);
     }
 
-    // ── Test hooks ────────────────────────────────────────────────────────────
     static void setForTesting(Map<String, Set<String>> e) { blocked = e; }
     static void setForTesting(Map<String, Set<String>> e, Set<String> fs) { blocked = e; fullStrip = fs; }
     static void resetForTesting() { blocked = null; fullStrip = null; }

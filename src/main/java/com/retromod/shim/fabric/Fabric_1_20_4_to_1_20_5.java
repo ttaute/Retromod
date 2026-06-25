@@ -8,9 +8,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Compatibility shim for Fabric mods built for 1.20.4 to run on 1.20.5.
- * Handles the massive component system migration replacing NBT on ItemStacks,
- * FoodComponent API changes, attribute system updates, and Item.Settings rework.
+ * Fabric 1.20.4 to 1.20.5: NBT-to-components migration on ItemStacks, plus FoodComponent,
+ * attribute, and Item.Settings reworks.
  */
 public class Fabric_1_20_4_to_1_20_5 implements VersionShim {
 
@@ -21,7 +20,7 @@ public class Fabric_1_20_4_to_1_20_5 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ItemStack NBT methods removed - use components
+        // ItemStack NBT methods removed; use components
         transformer.registerMethodRedirect(
             "net/minecraft/item/ItemStack", "getNbt",
             "()Lnet/minecraft/nbt/NbtCompound;",
@@ -74,12 +73,12 @@ public class Fabric_1_20_4_to_1_20_5 implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"
         );
 
-        // BlockPathTypes renamed to PathType (1.20.5 pathfinder cleanup)
+        // BlockPathTypes renamed to PathType
         transformer.registerClassRedirect(
             "net/minecraft/world/level/pathfinder/BlockPathTypes",
             "net/minecraft/world/level/pathfinder/PathType"
         );
-        // BootstapContext typo fix -> BootstrapContext
+        // BootstapContext typo fixed to BootstrapContext
         transformer.registerClassRedirect(
             "net/minecraft/data/worldgen/BootstapContext",
             "net/minecraft/data/worldgen/BootstrapContext"
@@ -91,24 +90,21 @@ public class Fabric_1_20_4_to_1_20_5 implements VersionShim {
             "net/minecraft/world/entity/Entity", "igniteForSeconds",
             "(I)V"
         );
-        // ItemStack.isSameItemSameTags() renamed to isSameItemSameComponents() (NBT -> components migration)
+        // isSameItemSameTags renamed to isSameItemSameComponents
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/ItemStack", "isSameItemSameTags",
             "(Lnet/minecraft/world/item/ItemStack;)Z",
             "net/minecraft/world/item/ItemStack", "isSameItemSameComponents",
             "(Lnet/minecraft/world/item/ItemStack;)Z"
         );
-        // Screen.renderDirtBackground() renamed to renderMenuBackground()
-        // NOTE: descriptor may vary between versions - using void return
+        // renderDirtBackground renamed to renderMenuBackground
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/screens/Screen", "renderDirtBackground",
             "()V",
             "net/minecraft/client/gui/screens/Screen", "renderMenuBackground",
             "()V"
         );
-        // BlockEntity.load() renamed to loadAdditional() in 1.20.5
-        // NOTE: In 1.20.5 the descriptor added HolderLookup.Provider param.
-        // This redirect covers the old single-param CompoundTag version.
+        // load renamed to loadAdditional; covers the old single-arg CompoundTag form
         transformer.registerMethodRedirect(
             "net/minecraft/world/level/block/entity/BlockEntity", "load",
             "(Lnet/minecraft/nbt/CompoundTag;)V",

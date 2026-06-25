@@ -7,10 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Forge 1.21.8 to 1.21.9 compatibility shim.
- * Handles Entity.getWorld() -> Entity.getEntityWorld() rename.
- */
+/** Forge shim: 1.21.9 renamed Entity.getWorld()/level() to getEntityWorld(). */
 public class Forge_1_21_8_to_1_21_9 implements VersionShim {
     
     @Override
@@ -35,7 +32,6 @@ public class Forge_1_21_8_to_1_21_9 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Entity.getWorld() renamed to getEntityWorld() in 1.21.9
         transformer.registerMethodRedirect(
             "net/minecraft/world/entity/Entity",
             "getWorld",
@@ -44,8 +40,7 @@ public class Forge_1_21_8_to_1_21_9 implements VersionShim {
             "getEntityWorld",
             "()Lnet/minecraft/world/level/Level;"
         );
-        
-        // Also handle the level() method variant
+
         transformer.registerMethodRedirect(
             "net/minecraft/world/entity/Entity",
             "level",

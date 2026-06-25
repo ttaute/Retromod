@@ -123,9 +123,7 @@ public class VirtualModLoader {
         return itemRegistry;
     }
     
-    // ─────────────────────────────────────────────────────────────────────────
     // INNER CLASSES
-    // ─────────────────────────────────────────────────────────────────────────
     
     /**
      * Represents a loaded virtual mod.

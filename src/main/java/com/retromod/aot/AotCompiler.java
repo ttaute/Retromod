@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.aot;
@@ -22,45 +22,24 @@ import java.util.jar.*;
 import java.util.zip.*;
 
 /**
- * Ahead-of-Time (AOT) Compiler for Retromod.
- * 
- * Instead of transforming bytecode at runtime (JIT), this compiler:
- * 1. Pre-transforms all classes in a mod JAR
- * 2. Embeds required shims for removed APIs
- * 3. Saves the transformed JAR to a cache or inside the original
- * 4. Falls back to JIT only for obfuscated code that can't be analyzed
- * 
- * Benefits:
- * - Faster subsequent launches (no runtime transformation)
- * - Can validate transformations before running
- * - Can detect compatibility issues early
- * - Transformed mods can be distributed
+ * Pre-transforms a mod JAR's classes ahead of time, embeds shims for removed APIs, caches the result,
+ * and falls back to runtime JIT only for obfuscated classes that can't be analyzed statically.
  */
 public class AotCompiler {
-    
-    private static final Logger LOGGER = LoggerFactory.getLogger("retromod-aot");
-    
-    // Cache directory for pre-compiled mods
-    private static final Path AOT_CACHE_DIR = Path.of("config/retromod/aot-cache");
-    
-    // Manifest key indicating this JAR was AOT compiled
-    private static final String AOT_MANIFEST_KEY = "Retromod-AOT-Version";
-    
-    // Current AOT compiler version (bump when shims change)
-    private static final String AOT_VERSION = "1.2.0-snapshot.3";
 
-    // Lazily-cached self-hash of the running Retromod jar. Used to stamp every AOT
-    // cache entry so that ANY change to Retromod's own classes - release-to-release
-    // OR dev iteration within a snapshot - auto-invalidates stale caches. Without
-    // this, users (and devs) had to manually `rm -rf config/retromod/aot-cache/`
-    // every time the transform logic changed; AOT_VERSION alone only catches the
-    // rare bumps. See CLAUDE.md pitfall #4.
-    //
-    // Delegates to {@link com.retromod.security.SignatureVerifier} (which also has
-    // its own internal cache), and soft-fails to an empty string on any error - an
-    // empty hash means "don't stamp, don't check", so we degrade to the old behavior
-    // rather than breaking AOT entirely if the verifier can't find the running jar
-    // (dev mode, IDE classpath, etc.).
+    private static final Logger LOGGER = LoggerFactory.getLogger("retromod-aot");
+
+    private static final Path AOT_CACHE_DIR = Path.of("config/retromod/aot-cache");
+
+    private static final String AOT_MANIFEST_KEY = "Retromod-AOT-Version";
+
+    // bump when shims change
+    private static final String AOT_VERSION = "1.2.0-snapshot.4";
+
+    // Self-hash of the running Retromod jar, stamped on every cache entry so any change to Retromod's
+    // own classes invalidates stale caches (AOT_VERSION alone only catches version bumps). Empty hash
+    // means "don't stamp, don't check", degrading to AOT_VERSION-only when the verifier can't find the
+    // running jar (dev/IDE classpath). See CLAUDE.md pitfall #4.
     private static volatile String selfHashCache;
     private static String currentSelfHash() {
         String s = selfHashCache;
@@ -81,8 +60,7 @@ public class AotCompiler {
     private final ModVersionDetector versionDetector;
     private final ApiEmbedder apiEmbedder;
     private final String targetMcVersion;
-    
-    // Statistics
+
     private int classesTransformed = 0;
     private int classesSkipped = 0;
     private int classesObfuscated = 0;
@@ -101,67 +79,53 @@ public class AotCompiler {
         }
     }
     
-    /**
-     * Process a mod JAR using AOT compilation.
-     * 
-     * @param modJar Path to the mod JAR
-     * @return Path to the AOT-compiled JAR (may be cached version)
-     */
+    /** Returns the AOT-compiled JAR for {@code modJar} (possibly a cached copy), or the original if no transform applies. */
     public Path compileModAot(Path modJar) throws IOException {
         LOGGER.info("AOT compiling: {}", modJar.getFileName());
-        
-        // Check if already AOT compiled
+
         Path cachedJar = getCachedJar(modJar);
         if (cachedJar != null && isValidCache(cachedJar, modJar)) {
             LOGGER.info("Using cached AOT compilation for: {}", modJar.getFileName());
             return cachedJar;
         }
-        
-        // Analyze the mod
+
         ModVersionInfo modInfo = versionDetector.detectVersion(modJar);
         if (modInfo == null) {
             LOGGER.warn("Could not analyze mod: {}", modJar.getFileName());
-            return modJar;  // Return original
+            return modJar;
         }
-        
-        // Check if transformation is needed
+
         if (!modInfo.needsTransformation(targetMcVersion)) {
             LOGGER.info("Mod {} is already compatible, skipping AOT", modInfo.modId());
             return modJar;
         }
-        
-        // Create backup before transformation
+
         backupOriginalMod(modJar);
-        
-        // Find shim chain
+
         List<VersionShim> shimChain = shimRegistry.findShimChain(
             modInfo.modLoaderType(),
             modInfo.targetMcVersion(),
             targetMcVersion
         );
-        
-        // Only bail when there's genuinely nothing to do: no chain AND not a 26.x
-        // target. For 26.x targets the vanilla class-move table below is needed even
-        // when the chain is empty, so don't return early there.
+
+        // For 26.x targets the vanilla class-move table below is needed even when the chain is empty,
+        // so only bail on an empty chain for non-26.x targets.
         if (shimChain.isEmpty() && !RetromodVersion.isUnobfuscatedTarget(targetMcVersion)) {
             LOGGER.warn("No shim chain available for {} ({} -> {})",
                 modInfo.modId(), modInfo.targetMcVersion(), targetMcVersion);
             return modJar;
         }
 
-        // Register all shims in chain
         for (VersionShim shim : shimChain) {
             LOGGER.debug("Applying shim: {}", shim.getShimName());
             shim.registerRedirects(transformer);
         }
 
-        // Layer on the SAME vanilla 26.1 class moves an in-game boot and the CLI
-        // `transform` apply on top of the chain. AOT historically registered only the
-        // chain, so AOT-prepped mods (the recommended NeoForge flow) kept pre-26.x
-        // class names (e.g. EndDragonFight instead of EnderDragonFight) and a 1.21.x
-        // mod's mixin @Shadow/@Inject failed to apply. Class moves are loader-agnostic;
-        // the Fabric intermediary->Mojang MEMBER mappings are Fabric-only (NeoForge/
-        // Forge are Mojang-named, so applying them clobbers correct Mojang fields).
+        // Layer the vanilla 26.1 class moves on top of the chain, matching the in-game boot and CLI
+        // `transform` paths. Without these, AOT-prepped mods kept pre-26.x class names (EndDragonFight
+        // vs EnderDragonFight) and a 1.21.x mod's mixin @Shadow/@Inject failed to apply. Class moves are
+        // loader-agnostic; the intermediary->Mojang MEMBER mappings are Fabric-only (NeoForge/Forge are
+        // already Mojang-named, so applying them clobbers correct fields).
         if (RetromodVersion.isUnobfuscatedTarget(targetMcVersion)) {
             try {
                 var moves = com.retromod.mapping.IntermediaryToMojangMapper
@@ -181,11 +145,10 @@ public class AotCompiler {
             }
         }
         
-        // Perform AOT compilation
         Path outputJar = AOT_CACHE_DIR.resolve(
             modJar.getFileName().toString().replace(".jar", "-aot.jar")
         );
-        
+
         compileJar(modJar, outputJar, modInfo);
         
         LOGGER.info("AOT compilation complete: {} classes transformed, {} skipped, {} obfuscated (JIT fallback)",
@@ -194,19 +157,15 @@ public class AotCompiler {
         return outputJar;
     }
     
-    /**
-     * Backup original mod JAR before transformation.
-     * Backups are stored in mods/retromod-backups/
-     */
+    /** Backs up the original mod JAR to mods/retromod-backups/ before transformation. */
     private void backupOriginalMod(Path modJar) {
         try {
             Path backupFolder = modJar.getParent().resolve("retromod-backups");
             Files.createDirectories(backupFolder);
-            
+
             String fileName = modJar.getFileName().toString();
             Path backupPath = backupFolder.resolve(fileName);
-            
-            // Use atomic copy to avoid TOCTOU race between exists-check and copy
+
             Files.copy(modJar, backupPath, StandardCopyOption.REPLACE_EXISTING);
             LOGGER.info("Created backup: {}", backupPath);
         } catch (Exception e) {
@@ -214,14 +173,11 @@ public class AotCompiler {
         }
     }
     
-    /**
-     * Compile all mods in a folder using AOT.
-     * Returns immediately, compilation happens in background.
-     */
+    /** Compiles all mods in a folder in the background, returning immediately. */
     public CompletableFuture<List<Path>> compileAllModsAsync(Path modsFolder) {
         return CompletableFuture.supplyAsync(() -> {
             List<Path> compiled = new ArrayList<>();
-            
+
             try {
                 File[] modFiles = modsFolder.toFile().listFiles(
                     (dir, name) -> name.endsWith(".jar") && !name.contains("-aot")
@@ -236,7 +192,7 @@ public class AotCompiler {
                         compiled.add(result);
                     } catch (Exception e) {
                         LOGGER.error("Failed to AOT compile: {}", modFile.getName(), e);
-                        compiled.add(modFile.toPath());  // Use original
+                        compiled.add(modFile.toPath());
                     }
                 }
             } catch (Exception e) {
@@ -247,10 +203,7 @@ public class AotCompiler {
         });
     }
     
-    /**
-     * Compile all mods synchronously (blocks until complete).
-     * Shows progress for UI feedback.
-     */
+    /** Compiles all mods synchronously, reporting progress through {@code callback}. */
     public List<AotResult> compileAllModsSync(Path modsFolder, ProgressCallback callback) {
         List<AotResult> results = new ArrayList<>();
         
@@ -286,8 +239,7 @@ public class AotCompiler {
                     classesTransformed,
                     classesObfuscated
                 ));
-                
-                // Reset counters
+
                 classesTransformed = 0;
                 classesSkipped = 0;
                 classesObfuscated = 0;
@@ -308,11 +260,7 @@ public class AotCompiler {
         return results;
     }
     
-    /**
-     * Perform the actual JAR compilation.
-     */
     private void compileJar(Path inputJar, Path outputJar, ModVersionInfo modInfo) throws IOException {
-        // Collect all classes and analyze them first
         Map<String, byte[]> transformedClasses = new LinkedHashMap<>();
         Map<String, byte[]> originalResources = new LinkedHashMap<>();
         Set<String> obfuscatedClasses = new HashSet<>();
@@ -327,19 +275,16 @@ public class AotCompiler {
                 
                 try (InputStream is = jar.getInputStream(entry)) {
                     byte[] data = is.readAllBytes();
-                    
+
                     if (entry.getName().endsWith(".class")) {
-                        // Analyze and potentially transform class
                         String className = entry.getName().replace(".class", "");
-                        
+
                         if (shouldTransformClass(className, modInfo)) {
                             if (isObfuscated(data)) {
-                                // Mark for JIT fallback
                                 obfuscatedClasses.add(className);
                                 transformedClasses.put(entry.getName(), data);
                                 classesObfuscated++;
                             } else {
-                                // AOT transform
                                 byte[] transformed = transformClassAot(data, className);
                                 transformedClasses.put(entry.getName(), transformed);
                                 classesTransformed++;
@@ -355,14 +300,11 @@ public class AotCompiler {
             }
         }
         
-        // Collect embedded shims
         Map<String, byte[]> embeddedShims = collectEmbeddedShims(modInfo);
-        
-        // Write output JAR
+
         try (JarOutputStream jos = new JarOutputStream(
                 new BufferedOutputStream(new FileOutputStream(outputJar.toFile())))) {
-            
-            // Write manifest with AOT marker
+
             Manifest manifest = new Manifest();
             manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
             manifest.getMainAttributes().putValue(AOT_MANIFEST_KEY, AOT_VERSION);
@@ -370,16 +312,11 @@ public class AotCompiler {
             manifest.getMainAttributes().putValue("Retromod-Target-Version", targetMcVersion);
             manifest.getMainAttributes().putValue("Retromod-Compiled-Time", String.valueOf(System.currentTimeMillis()));
             manifest.getMainAttributes().putValue("Retromod-Source-Hash", computeHash(inputJar));
-            // Stamp the running Retromod's self-hash so the cache auto-invalidates on ANY
-            // Retromod code change - release-to-release AND dev iteration within a snapshot.
-            // (Was: AOT_VERSION only, which forced manual `rm -rf config/retromod/aot-cache/`
-            // every time the transform logic changed. CLAUDE.md pitfall #4.)
             String selfHash = currentSelfHash();
             if (!selfHash.isEmpty()) {
                 manifest.getMainAttributes().putValue("Retromod-Self-Hash", selfHash);
             }
-            
-            // Add obfuscated class list for JIT fallback
+
             if (!obfuscatedClasses.isEmpty()) {
                 manifest.getMainAttributes().putValue("Retromod-JIT-Classes", 
                     String.join(",", obfuscatedClasses));
@@ -388,29 +325,22 @@ public class AotCompiler {
             jos.putNextEntry(new JarEntry("META-INF/MANIFEST.MF"));
             manifest.write(jos);
             jos.closeEntry();
-            
-            // Write transformed classes.
-            // Validate the entry name: keys come from input-JAR entry.getName()
-            // so a malicious mod could ship a class entry whose name traverses
-            // out of the archive (e.g. "../../etc/foo.class"). Retromod itself
-            // never extracts the OUTPUT JAR, but downstream tooling (Forge's
-            // mod scanner, dev IDE archive viewers, third-party unzippers)
-            // might - and would inherit a zip-slip vuln from us. Same defense
-            // the CLI's writeMod path uses.
+
+            // safeEntryName guards against zip-slip: entry names come from the input JAR, so a malicious
+            // mod could ship a class whose name traverses out of the archive ("../../etc/foo.class").
+            // Downstream tooling that extracts the output JAR would otherwise inherit the vuln from us.
             for (Map.Entry<String, byte[]> entry : transformedClasses.entrySet()) {
                 jos.putNextEntry(new JarEntry(ZipSecurity.safeEntryName(entry.getKey())));
                 jos.write(entry.getValue());
                 jos.closeEntry();
             }
             
-            // Write original resources, processing mixin configs to strip broken entries
             MixinCompatibilityTransformer mixinTransformer = new MixinCompatibilityTransformer(transformer);
             for (Map.Entry<String, byte[]> entry : originalResources.entrySet()) {
-                if (entry.getKey().equals("META-INF/MANIFEST.MF")) continue;  // Already wrote
+                if (entry.getKey().equals("META-INF/MANIFEST.MF")) continue;
 
                 byte[] data = entry.getValue();
 
-                // Process mixin config JSON files to strip broken mixin entries
                 if (entry.getKey().endsWith(".mixins.json") || entry.getKey().endsWith("mixin.json")) {
                     try {
                         String json = new String(data, java.nio.charset.StandardCharsets.UTF_8);
@@ -436,35 +366,29 @@ public class AotCompiler {
                     }
                 }
 
-                // Recurse the transform (bytecode + metadata) into bundled Jar-in-Jar
-                // libraries so an AOT-prepped mod's JiJ'd libs get the same treatment as
-                // the JIT path (#95): a lib referencing a relocated class otherwise loads
-                // broken or is reported "missing". Soft-fails per nested jar.
+                // Recurse the transform into bundled Jar-in-Jar libs so an AOT-prepped mod's JiJ'd libs get
+                // the same treatment as the JIT path (#95): a lib referencing a relocated class otherwise
+                // loads broken or is reported missing. Soft-fails per nested jar.
                 if ((entry.getKey().startsWith("META-INF/jars/")
                         || entry.getKey().startsWith("META-INF/jarjar/"))
                         && entry.getKey().endsWith(".jar")) {
                     data = transformNestedJarAot(data, 1);
                 }
 
-                // Same input-derived-name defense as the transformedClasses
-                // loop above - see comment there.
                 jos.putNextEntry(new JarEntry(ZipSecurity.safeEntryName(entry.getKey())));
                 jos.write(data);
                 jos.closeEntry();
             }
 
-            // Write embedded shims. Keys come from Retromod's own shim
-            // collection (collectEmbeddedShims), not user input - but
-            // safeEntryName is cheap and defends against a future refactor
-            // accidentally letting an attacker-controlled string land here.
+            // Keys come from Retromod's own shim collection, not user input, but safeEntryName guards
+            // against a future refactor letting an attacker-controlled string land here.
             for (Map.Entry<String, byte[]> entry : embeddedShims.entrySet()) {
                 jos.putNextEntry(new JarEntry(
                     ZipSecurity.safeEntryName("retromod_embedded/" + entry.getKey() + ".class")));
                 jos.write(entry.getValue());
                 jos.closeEntry();
             }
-            
-            // Write AOT metadata
+
             writeAotMetadata(jos, modInfo, obfuscatedClasses);
         }
     }
@@ -473,11 +397,9 @@ public class AotCompiler {
     private static final int MAX_JIJ_DEPTH_AOT = 4;
 
     /**
-     * Recursively transform a bundled Jar-in-Jar library in the AOT path: rewrite its
-     * bytecode with the same transformer as the outer mod, relax its metadata, and recurse
-     * into its own bundled jars (#95). Mirrors the JIT path's
-     * {@code RetromodCli.transformNestedJar}; self-contained so the aot package keeps no
-     * dependency on cli. Soft-fails to the original bytes on any error.
+     * Rewrites a bundled Jar-in-Jar library's bytecode and metadata with the outer mod's transformer and
+     * recurses into its own bundled jars. Mirrors {@code RetromodCli.transformNestedJar} (kept self-contained
+     * so aot doesn't depend on cli). Soft-fails to the original bytes on any error.
      */
     private byte[] transformNestedJarAot(byte[] jarData, int depth) {
         try {
@@ -498,7 +420,6 @@ public class AotCompiler {
                                 byte[] t = transformer.transformClass(d, cn);
                                 if (t != null && t != d) { d = t; modified = true; }
                             } catch (Exception ignored) {
-                                // leave the class untouched on any transform error
                             }
                         } else if (name.equals("fabric.mod.json") || name.equals("quilt.mod.json")) {
                             d = relaxFabricModDependencies(d); modified = true;
@@ -521,60 +442,43 @@ public class AotCompiler {
         }
     }
 
-    /**
-     * Compile a class using hybrid AOT/JIT approach.
-     * Falls back to partial JIT only for specific code regions that can't be analyzed.
-     */
+    /** Hybrid AOT/JIT class transform, falling back to {@link #transformClassSimple} on any error. */
     private byte[] transformClassAot(byte[] classBytes, String className) {
         try {
-            // Use hybrid compiler for smart partial AOT
             HybridCompiler hybridCompiler = new HybridCompiler(transformer);
             HybridCompiler.HybridCompilationResult result = hybridCompiler.compileClass(classBytes, className);
-            
-            // Update stats
+
             if (result.methodsJitOnly() > 0) {
-                classesObfuscated++;  // Track classes that needed any JIT
+                classesObfuscated++;
             }
-            
-            // Log compilation mode breakdown
+
             if (result.methodsPartialAot() > 0 || result.methodsJitOnly() > 0) {
                 LOGGER.debug("Class {} compiled: {} full AOT, {} partial, {} JIT-only methods",
                     className, result.methodsFullyAot(), result.methodsPartialAot(), result.methodsJitOnly());
             }
-            
+
             return result.bytecode();
-            
+
         } catch (Exception e) {
-            // Fallback to simple transformation
             LOGGER.warn("Hybrid compilation failed for {}, using simple transform", className);
             return transformClassSimple(classBytes, className);
         }
     }
-    
-    /**
-     * Simple transformation fallback - transforms entire class without analysis.
-     */
+
+    /** Transforms a whole class in one pass, no per-method analysis. */
     private byte[] transformClassSimple(byte[] classBytes, String className) {
         ClassReader reader = new ClassReader(classBytes);
-        // SafeClassWriter (not the raw ClassWriter) - its getCommonSuperClass
-        // override catches the TypeNotPresentException ASM throws when it can't
-        // resolve an MC class via Class.forName(). Raw ClassWriter blew up the
-        // whole AOT pass on a single mod that referenced a target-MC class
-        // not present on the source classpath (e.g. JourneyMap referencing
-        // GuiGraphics during a 26.1.2 build off the game thread).
+        // SafeClassWriter's getCommonSuperClass override catches the TypeNotPresentException raw ClassWriter
+        // throws when ASM can't resolve an MC class via Class.forName(): a target-MC class absent from the
+        // source classpath would otherwise blow up the whole AOT pass.
         ClassWriter writer = new com.retromod.util.SafeClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
-        
-        // Full transformation pass
+
         ClassVisitor visitor = new AotClassVisitor(Opcodes.ASM9, writer, className);
         reader.accept(visitor, ClassReader.EXPAND_FRAMES);
-        
+
         return writer.toByteArray();
     }
-    
-    /**
-     * ASM ClassVisitor for AOT transformation.
-     * More thorough than JIT - analyzes and rewrites everything.
-     */
+
     private class AotClassVisitor extends ClassVisitor {
         private final String className;
         
@@ -593,7 +497,6 @@ public class AotCompiler {
         @Override
         public void visit(int version, int access, String name, String signature,
                 String superName, String[] interfaces) {
-            // Handle class-level redirects (superclass changes, interface changes)
             String newSuper = transformer.getClassRedirects().getOrDefault(superName, superName);
             
             String[] newInterfaces = interfaces;
@@ -609,29 +512,23 @@ public class AotCompiler {
         }
     }
     
-    /**
-     * ASM MethodVisitor for AOT transformation.
-     */
     private class AotMethodVisitor extends MethodVisitor {
-        
+
         public AotMethodVisitor(int api, MethodVisitor methodVisitor) {
             super(api, methodVisitor);
         }
-        
+
         @Override
-        public void visitMethodInsn(int opcode, String owner, String name, 
+        public void visitMethodInsn(int opcode, String owner, String name,
                 String descriptor, boolean isInterface) {
-            
-            // Check for method redirect
+
             var key = new RetromodTransformer.MethodKey(owner, name, descriptor);
             var target = transformer.getMethodRedirects().get(key);
-            
+
             if (target != null) {
-                // Redirect the call
-                super.visitMethodInsn(opcode, target.owner(), target.name(), 
+                super.visitMethodInsn(opcode, target.owner(), target.name(),
                     target.desc(), isInterface);
             } else {
-                // Check for class redirect
                 String newOwner = transformer.getClassRedirects().getOrDefault(owner, owner);
                 super.visitMethodInsn(opcode, newOwner, name, descriptor, isInterface);
             }
@@ -664,13 +561,11 @@ public class AotCompiler {
         
         @Override
         public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
-            // Handle array type redirects
             String newDesc = redirectDescriptor(descriptor);
             super.visitMultiANewArrayInsn(newDesc, numDimensions);
         }
-        
+
         private String redirectDescriptor(String descriptor) {
-            // Simple descriptor redirection
             for (var entry : transformer.getClassRedirects().entrySet()) {
                 descriptor = descriptor.replace(
                     "L" + entry.getKey() + ";",
@@ -681,93 +576,70 @@ public class AotCompiler {
         }
     }
     
-    /**
-     * Check if a class appears to be obfuscated.
-     * Obfuscated classes need JIT fallback because we can't predict
-     * all code paths statically.
-     */
+    /** Heuristic detection of obfuscated classes (short class/method names, default package), which need JIT fallback. */
     private boolean isObfuscated(byte[] classBytes) {
         try {
             ClassReader reader = new ClassReader(classBytes);
             String className = reader.getClassName();
-            
-            // Check for common obfuscation patterns
-            
-            // 1. Very short class names (a, b, aa, ab, etc.)
+
             String simpleName = className.substring(className.lastIndexOf('/') + 1);
             if (simpleName.length() <= 2 && simpleName.matches("[a-z]+")) {
                 return true;
             }
-            
-            // 2. Classes in default package or obfuscator packages
+
             if (!className.contains("/")) {
-                return true;  // Default package
+                return true;
             }
-            
-            // 3. Check method names
+
             final boolean[] hasObfuscatedMethods = {false};
             reader.accept(new ClassVisitor(Opcodes.ASM9) {
                 @Override
                 public MethodVisitor visitMethod(int access, String name, String descriptor,
                         String signature, String[] exceptions) {
-                    // Short method names that aren't constructors or common names
                     if (name.length() <= 2 && !name.equals("<init>") && !name.equals("<clinit>")) {
                         hasObfuscatedMethods[0] = true;
                     }
                     return null;
                 }
             }, ClassReader.SKIP_CODE);
-            
+
             return hasObfuscatedMethods[0];
-            
+
         } catch (Exception e) {
-            // If we can't analyze it, assume not obfuscated
             return false;
         }
     }
-    
-    /**
-     * Check if a class should be transformed based on its package.
-     */
+
     private boolean shouldTransformClass(String className, ModVersionInfo modInfo) {
-        // Don't transform Minecraft classes
-        if (className.startsWith("net/minecraft/") || 
+        if (className.startsWith("net/minecraft/") ||
             className.startsWith("com/mojang/")) {
             return false;
         }
-        
-        // Don't transform mod loader classes
+
         if (className.startsWith("net/fabricmc/") ||
             className.startsWith("net/minecraftforge/") ||
             className.startsWith("net/neoforged/")) {
             return false;
         }
-        
-        // Transform if in mod's packages
+
         for (String pkg : modInfo.modPackages()) {
             if (className.startsWith(pkg.replace('.', '/'))) {
                 return true;
             }
         }
-        
-        // Transform if it's likely mod code
+
         return true;
     }
-    
-    /**
-     * Collect all shim classes that need to be embedded.
-     */
+
     private Map<String, byte[]> collectEmbeddedShims(ModVersionInfo modInfo) throws IOException {
         Map<String, byte[]> shims = new HashMap<>();
-        
-        // Get shim chain
+
         List<VersionShim> shimChain = shimRegistry.findShimChain(
             modInfo.modLoaderType(),
             modInfo.targetMcVersion(),
             targetMcVersion
         );
-        
-        // Collect shim classes from each shim in chain
+
         for (VersionShim shim : shimChain) {
             for (String shimClass : shim.getShimClasses()) {
                 try {
@@ -783,18 +655,15 @@ public class AotCompiler {
             }
         }
 
-        // Include synthetic classes (ASM-generated polyfills with MC-typed fields)
+        // ASM-generated polyfills with MC-typed fields
         shims.putAll(transformer.getSyntheticClasses());
 
         return shims;
     }
 
-    /**
-     * Write AOT metadata file to the JAR.
-     */
     private void writeAotMetadata(JarOutputStream jos, ModVersionInfo modInfo,
             Set<String> obfuscatedClasses) throws IOException {
-        
+
         StringBuilder sb = new StringBuilder();
         sb.append("# Retromod AOT Compilation Metadata\n");
         sb.append("aot_version=").append(AOT_VERSION).append("\n");
@@ -819,73 +688,56 @@ public class AotCompiler {
         jos.closeEntry();
     }
     
-    /**
-     * Get cached JAR path if it exists.
-     */
     private Path getCachedJar(Path originalJar) {
         Path cached = AOT_CACHE_DIR.resolve(
             originalJar.getFileName().toString().replace(".jar", "-aot.jar")
         );
         return Files.exists(cached) ? cached : null;
     }
-    
-    /**
-     * Check if cached JAR is still valid.
-     */
+
     private boolean isValidCache(Path cachedJar, Path originalJar) {
         try (JarFile jar = new JarFile(cachedJar.toFile())) {
             Manifest manifest = jar.getManifest();
             if (manifest == null) return false;
-            
-            // Check AOT version
+
             String aotVersion = manifest.getMainAttributes().getValue(AOT_MANIFEST_KEY);
             if (!AOT_VERSION.equals(aotVersion)) return false;
 
-            // Check Retromod's self-hash: any change to Retromod's own classes (release
-            // bump OR dev iteration on the same snapshot) shifts the hash, so the cached
-            // jar's transforms are stale and we re-AOT. Old caches written before this
-            // field existed (no header) also invalidate, which is the right thing - they
-            // were generated by an older Retromod with possibly-different transform logic.
+            // Any change to Retromod's own classes shifts the self-hash, making the cached transforms stale.
+            // Caches written before this field existed (no header) also invalidate, which is correct.
             String selfHash = currentSelfHash();
             if (!selfHash.isEmpty()) {
                 String cachedSelfHash = manifest.getMainAttributes().getValue("Retromod-Self-Hash");
                 if (!selfHash.equals(cachedSelfHash)) return false;
             }
-            
-            // Check source hash
+
             String cachedHash = manifest.getMainAttributes().getValue("Retromod-Source-Hash");
             String currentHash = computeHash(originalJar);
-            
+
             return cachedHash != null && cachedHash.equals(currentHash);
-            
+
         } catch (Exception e) {
             return false;
         }
     }
-    
-    /**
-     * Compute SHA-256 hash of a file.
-     */
+
     private String computeHash(Path file) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] bytes = Files.readAllBytes(file);
             byte[] hash = digest.digest(bytes);
-            
+
             StringBuilder sb = new StringBuilder();
             for (byte b : hash) {
                 sb.append(String.format("%02x", b));
             }
             return sb.toString();
-            
+
         } catch (Exception e) {
             return "";
         }
     }
-    
-    /**
-     * Clear the AOT cache.
-     */
+
     public void clearCache() throws IOException {
         if (Files.exists(AOT_CACHE_DIR)) {
             Files.walk(AOT_CACHE_DIR)
@@ -900,17 +752,13 @@ public class AotCompiler {
         }
         Files.createDirectories(AOT_CACHE_DIR);
     }
-    
-    // --- Callback interfaces ---
-    
+
     @FunctionalInterface
     public interface ProgressCallback {
         void onProgress(int current, int total, String currentFile);
     }
-    
-    /**
-     * Result of AOT compilation for a single mod.
-     */
+
+    /** Result of AOT compilation for a single mod. */
     public record AotResult(
         Path originalJar,
         Path compiledJar,
@@ -927,9 +775,7 @@ public class AotCompiler {
         }
     }
 
-    /**
-     * Relax Fabric mod version constraints for 26.1+ compatibility.
-     */
+    /** Relax Fabric mod version constraints for 26.1+ compatibility. */
     private static byte[] relaxFabricModDependencies(byte[] jsonData) {
         try {
             String json = new String(jsonData, java.nio.charset.StandardCharsets.UTF_8);
@@ -951,9 +797,7 @@ public class AotCompiler {
         }
     }
 
-    /**
-     * Relax NeoForge/Forge mod version constraints for 26.1+ compatibility.
-     */
+    /** Relax NeoForge/Forge mod version constraints for 26.1+ compatibility. */
     private static byte[] relaxNeoForgeDependencies(byte[] tomlData) {
         try {
             String toml = new String(tomlData, java.nio.charset.StandardCharsets.UTF_8);

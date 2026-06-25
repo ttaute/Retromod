@@ -9,11 +9,9 @@ import com.retromod.core.VersionShim;
 import com.retromod.shim.common.Mc26_1To26_2CoreMoves;
 
 /**
- * Forge 26.1 → 26.2 shim - the shared Mojang-name class moves.
- *
- * <p>Registered ahead of a Forge 26.2 release (Forge doesn't ship snapshot
- * builds); the host-version gate keeps it inert until a 26.2 host actually
- * exists. Forge-API-level renames get added once that release is out.
+ * Forge 26.1 to 26.2 shim (shared Mojang-name class moves). Registered ahead of a Forge 26.2
+ * release; the host-version gate keeps it inactive until a 26.2 host exists. Forge-API renames
+ * follow when that release lands.
  */
 public class Forge_26_1_to_26_2 implements VersionShim {
 

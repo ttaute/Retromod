@@ -10,25 +10,10 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * CoFH Core / Thermal Foundation / Redstone Flux API compatibility shim.
+ * Maps the old CoFH RF (Redstone Flux) energy API to Forge Energy.
  *
- * The CoFH (Cult of the Full Hub) team created the original RF (Redstone Flux)
- * energy API used from Forge 1.7.10 through 1.12.2. This was THE standard
- * energy system that nearly all tech mods used (Thermal Expansion, EnderIO,
- * Mekanism, Actually Additions, etc.).
- *
- * In Forge 1.12+, the Forge Energy (FE) system was added as a built-in
- * capability based on the RF API. By 1.13+, the old CoFH RF API was
- * removed and all mods migrated to Forge Energy (IEnergyStorage).
- *
- * Key mappings:
- * - cofh.api.energy.IEnergyHandler -> net.minecraftforge.energy.IEnergyStorage
- * - cofh.api.energy.IEnergyReceiver -> IEnergyStorage (receive only)
- * - cofh.api.energy.IEnergyProvider -> IEnergyStorage (extract only)
- * - cofh.redstoneflux.api.IEnergyReceiver -> IEnergyStorage
- * - cofh.redstoneflux.api.IEnergyProvider -> IEnergyStorage
- * - cofh.api.energy.EnergyStorage -> net.minecraftforge.energy.EnergyStorage
- * - cofh.api.energy.IEnergyConnection -> IEnergyStorage (canConnect via non-zero capacity)
+ * RF was the tech-mod energy API on Forge 1.7.10-1.12.2; Forge 1.12+ folded it into
+ * built-in Forge Energy and the CoFH API was removed in 1.13+.
  */
 public class ThermalApiShim implements VersionShim {
 
@@ -54,21 +39,13 @@ public class ThermalApiShim implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // CoFH ENERGY API (cofh.api.energy) - Original 1.7.10/1.10.2 API
-        // ============================================================
-
-        // Old: cofh.api.energy.IEnergyHandler - combined send/receive interface
-        // Was the main interface tile entities implemented for RF support
-        // New: net.minecraftforge.energy.IEnergyStorage (Forge built-in)
+        // cofh.api.energy: the 1.7.10/1.10.2 API. IEnergyHandler maps to IEnergyStorage;
+        // its methods carry a facing param Forge dropped, so they route through ThermalShim.
         transformer.registerClassRedirect(
             "cofh/api/energy/IEnergyHandler",
             "net/minecraftforge/energy/IEnergyStorage"
         );
 
-        // Old: IEnergyHandler.receiveEnergy(facing, maxReceive, simulate)
-        // The facing parameter was an EnumFacing (now Direction), used for sided energy
-        // New: IEnergyStorage.receiveEnergy(maxReceive, simulate) - no facing param
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyHandler",
             "receiveEnergy",
@@ -78,8 +55,6 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Object;IZ)I"
         );
 
-        // Old: IEnergyHandler.extractEnergy(facing, maxExtract, simulate)
-        // New: IEnergyStorage.extractEnergy(maxExtract, simulate) - no facing param
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyHandler",
             "extractEnergy",
@@ -89,8 +64,6 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Object;IZ)I"
         );
 
-        // Old: IEnergyHandler.getEnergyStored(facing)
-        // New: IEnergyStorage.getEnergyStored() - no facing param
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyHandler",
             "getEnergyStored",
@@ -100,8 +73,6 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Object;)I"
         );
 
-        // Old: IEnergyHandler.getMaxEnergyStored(facing)
-        // New: IEnergyStorage.getMaxEnergyStored() - no facing param
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyHandler",
             "getMaxEnergyStored",
@@ -111,34 +82,22 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Object;)I"
         );
 
-        // ============================================================
-        // CoFH ENERGY RECEIVER / PROVIDER (cofh.api.energy)
-        // ============================================================
-
-        // Old: cofh.api.energy.IEnergyReceiver - receive-only interface
-        // New: IEnergyStorage (canReceive() returns true, canExtract() returns false)
+        // Receive/extract/connection interfaces all collapse onto IEnergyStorage.
         transformer.registerClassRedirect(
             "cofh/api/energy/IEnergyReceiver",
             "net/minecraftforge/energy/IEnergyStorage"
         );
 
-        // Old: cofh.api.energy.IEnergyProvider - extract-only interface
-        // New: IEnergyStorage (canExtract() returns true, canReceive() returns false)
         transformer.registerClassRedirect(
             "cofh/api/energy/IEnergyProvider",
             "net/minecraftforge/energy/IEnergyStorage"
         );
 
-        // Old: cofh.api.energy.IEnergyConnection - base interface for energy connectivity
-        // Had canConnectEnergy(facing) method
-        // New: IEnergyStorage (if capability is present, connection is possible)
         transformer.registerClassRedirect(
             "cofh/api/energy/IEnergyConnection",
             "net/minecraftforge/energy/IEnergyStorage"
         );
 
-        // Old: IEnergyConnection.canConnectEnergy(facing)
-        // New: Forge Energy uses capability presence instead
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyConnection",
             "canConnectEnergy",
@@ -148,19 +107,12 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Object;)Z"
         );
 
-        // ============================================================
-        // CoFH ENERGY STORAGE IMPLEMENTATION (cofh.api.energy)
-        // ============================================================
-
-        // Old: cofh.api.energy.EnergyStorage - reference implementation
-        // New: net.minecraftforge.energy.EnergyStorage
+        // Reference impl: the three constructors line up with Forge's EnergyStorage.
         transformer.registerClassRedirect(
             "cofh/api/energy/EnergyStorage",
             "net/minecraftforge/energy/EnergyStorage"
         );
 
-        // Old: new EnergyStorage(capacity)
-        // New: new EnergyStorage(capacity) - constructor is compatible
         transformer.registerMethodRedirect(
             "cofh/api/energy/EnergyStorage",
             "<init>",
@@ -170,8 +122,6 @@ public class ThermalApiShim implements VersionShim {
             "(I)V"
         );
 
-        // Old: new EnergyStorage(capacity, maxTransfer)
-        // New: new EnergyStorage(capacity, maxTransfer)
         transformer.registerMethodRedirect(
             "cofh/api/energy/EnergyStorage",
             "<init>",
@@ -181,8 +131,6 @@ public class ThermalApiShim implements VersionShim {
             "(II)V"
         );
 
-        // Old: new EnergyStorage(capacity, maxReceive, maxExtract)
-        // New: new EnergyStorage(capacity, maxReceive, maxExtract)
         transformer.registerMethodRedirect(
             "cofh/api/energy/EnergyStorage",
             "<init>",
@@ -192,41 +140,27 @@ public class ThermalApiShim implements VersionShim {
             "(III)V"
         );
 
-        // ============================================================
-        // REDSTONE FLUX API (cofh.redstoneflux.api) - 1.10/1.12 variant
-        // This was a standalone library separate from cofh.api.energy
-        // ============================================================
-
-        // Old: cofh.redstoneflux.api.IEnergyReceiver
-        // New: net.minecraftforge.energy.IEnergyStorage
+        // cofh.redstoneflux.api: the 1.10/1.12 standalone library, same shape as cofh.api.energy.
         transformer.registerClassRedirect(
             "cofh/redstoneflux/api/IEnergyReceiver",
             "net/minecraftforge/energy/IEnergyStorage"
         );
 
-        // Old: cofh.redstoneflux.api.IEnergyProvider
-        // New: net.minecraftforge.energy.IEnergyStorage
         transformer.registerClassRedirect(
             "cofh/redstoneflux/api/IEnergyProvider",
             "net/minecraftforge/energy/IEnergyStorage"
         );
 
-        // Old: cofh.redstoneflux.api.IEnergyStorage (RF's own storage interface)
-        // New: net.minecraftforge.energy.IEnergyStorage (Forge Energy)
         transformer.registerClassRedirect(
             "cofh/redstoneflux/api/IEnergyStorage",
             "net/minecraftforge/energy/IEnergyStorage"
         );
 
-        // Old: cofh.redstoneflux.api.IEnergyConnection
-        // New: net.minecraftforge.energy.IEnergyStorage
         transformer.registerClassRedirect(
             "cofh/redstoneflux/api/IEnergyConnection",
             "net/minecraftforge/energy/IEnergyStorage"
         );
 
-        // Old: IEnergyReceiver.receiveEnergy(facing, maxReceive, simulate) (RF variant)
-        // New: IEnergyStorage.receiveEnergy(maxReceive, simulate) - no facing
         transformer.registerMethodRedirect(
             "cofh/redstoneflux/api/IEnergyReceiver",
             "receiveEnergy",
@@ -236,8 +170,6 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Object;IZ)I"
         );
 
-        // Old: IEnergyProvider.extractEnergy(facing, maxExtract, simulate)
-        // New: IEnergyStorage.extractEnergy(maxExtract, simulate) - no facing
         transformer.registerMethodRedirect(
             "cofh/redstoneflux/api/IEnergyProvider",
             "extractEnergy",
@@ -247,8 +179,7 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/lang/Object;IZ)I"
         );
 
-        // Old: IEnergyStorage.getEnergyStored() (RF variant - no facing)
-        // New: IEnergyStorage.getEnergyStored() - directly compatible
+        // RF's no-facing IEnergyStorage methods are already signature-compatible.
         transformer.registerMethodRedirect(
             "cofh/redstoneflux/api/IEnergyStorage",
             "getEnergyStored",
@@ -258,8 +189,6 @@ public class ThermalApiShim implements VersionShim {
             "()I"
         );
 
-        // Old: IEnergyStorage.getMaxEnergyStored() (RF variant)
-        // New: IEnergyStorage.getMaxEnergyStored() - directly compatible
         transformer.registerMethodRedirect(
             "cofh/redstoneflux/api/IEnergyStorage",
             "getMaxEnergyStored",
@@ -269,20 +198,14 @@ public class ThermalApiShim implements VersionShim {
             "()I"
         );
 
-        // ============================================================
-        // CoFH CAPABILITY REGISTRATION
-        // ============================================================
-
-        // Old: cofh.api.energy.IEnergyContainerItem - energy items
-        // This was used by Thermal items for RF storage in ItemStacks
-        // New: Forge uses IEnergyStorage capability on ItemStacks
+        // Energy items: Thermal stored RF on ItemStacks. Forge exposes this as an
+        // IEnergyStorage capability, so the item methods route through ThermalShim,
+        // which pulls the capability off the stack.
         transformer.registerClassRedirect(
             "cofh/api/energy/IEnergyContainerItem",
             "com/retromod/shim/api/forge/embedded/ThermalShim$EnergyContainerItemCompat"
         );
 
-        // Old: IEnergyContainerItem.receiveEnergy(stack, maxReceive, simulate)
-        // New: Get IEnergyStorage capability from stack and call receiveEnergy
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyContainerItem",
             "receiveEnergy",
@@ -292,8 +215,6 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;IZ)I"
         );
 
-        // Old: IEnergyContainerItem.extractEnergy(stack, maxExtract, simulate)
-        // New: Get IEnergyStorage capability from stack and call extractEnergy
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyContainerItem",
             "extractEnergy",
@@ -303,8 +224,6 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;IZ)I"
         );
 
-        // Old: IEnergyContainerItem.getEnergyStored(stack)
-        // New: Get IEnergyStorage capability from stack and call getEnergyStored
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyContainerItem",
             "getEnergyStored",
@@ -314,8 +233,6 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;)I"
         );
 
-        // Old: IEnergyContainerItem.getMaxEnergyStored(stack)
-        // New: Get IEnergyStorage capability from stack and call getMaxEnergyStored
         transformer.registerMethodRedirect(
             "cofh/api/energy/IEnergyContainerItem",
             "getMaxEnergyStored",
@@ -325,13 +242,7 @@ public class ThermalApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/world/item/ItemStack;)I"
         );
 
-        // ============================================================
-        // EnumFacing -> Direction MIGRATION
-        // (Required since RF API used old EnumFacing parameter names)
-        // ============================================================
-
-        // Old: net.minecraft.util.EnumFacing (pre-1.13)
-        // New: net.minecraft.core.Direction (1.17+ mapped) / net.minecraft.util.Direction (1.13-1.16)
+        // 1.13 renamed EnumFacing to Direction.
         transformer.registerClassRedirect(
             "net/minecraft/util/EnumFacing",
             "net/minecraft/core/Direction"

@@ -16,18 +16,18 @@ import java.util.Set;
 
 /**
  * Detects classes that look like a Minecraft {@code BlockEntity} (old
- * {@code TileEntity}) - structural match based on NBT serialization + tick
+ * {@code TileEntity}): a structural match based on NBT serialization + tick
  * behaviour rather than exact inheritance.
  *
  * <h3>Match confidence</h3>
  * <p>Tiered:</p>
  * <ul>
- *   <li><b>0.9</b> - Class has an NBT-read method AND an NBT-write method AND
+ *   <li><b>0.9</b>: Class has an NBT-read method AND an NBT-write method AND
  *       extends a class with "BlockEntity" or "TileEntity" in its name.</li>
- *   <li><b>0.75</b> - NBT read + write + a tick-shaped method, but no
+ *   <li><b>0.75</b>: NBT read + write + a tick-shaped method, but no
  *       parent-name match. These are likely custom BlockEntity base classes
  *       or derived classes that use an indirect parent.</li>
- *   <li><b>null</b> - Missing any of the three signals.</li>
+ *   <li><b>null</b>: Missing any of the three signals.</li>
  * </ul>
  *
  * <h3>Signal heuristics</h3>
@@ -45,7 +45,7 @@ import java.util.Set;
  *
  * <h3>Why it matters</h3>
  * <p>BlockEntity is one of the most-refactored subsystems across MC versions.
- * Mods with custom block entities frequently break silently - data fails to
+ * Mods with custom block entities frequently break silently: data fails to
  * persist, ticking stops, save files corrupt. Detection lets us flag these
  * classes specifically so mod authors know to test them carefully after
  * transformation.</p>

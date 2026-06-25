@@ -40,9 +40,7 @@ public final class McReflect {
 
     private McReflect() {}
 
-    // =====================================================================
     // Class Resolution
-    // =====================================================================
 
     /**
      * Find a Minecraft class by trying multiple name variants.
@@ -96,9 +94,7 @@ public final class McReflect {
         return c;
     }
 
-    // =====================================================================
     // Method Resolution
-    // =====================================================================
 
     /**
      * Find a method by trying multiple name variants.
@@ -164,9 +160,7 @@ public final class McReflect {
         return findMethod(clazz, null, names);
     }
 
-    // =====================================================================
     // Field Resolution
-    // =====================================================================
 
     /**
      * Find a field by trying multiple name variants.
@@ -232,9 +226,7 @@ public final class McReflect {
         return null;
     }
 
-    // =====================================================================
     // Loader Detection
-    // =====================================================================
 
     /**
      * Check if a class exists on the classpath.
@@ -269,9 +261,7 @@ public final class McReflect {
         return classExists("net.minecraftforge.common.MinecraftForge");
     }
 
-    // =====================================================================
     // Fabric MappingResolver
-    // =====================================================================
 
     /**
      * Try to resolve a yarn class name to the runtime name using Fabric's MappingResolver.

@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
@@ -7,12 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Forge 1.16.5 to 1.17 shim - Tag system rework.
- * The tag system was restructured, removing the getAllTags() pattern
- * in favor of a new tag registry approach. Forge registry events
- * remained stable across this transition.
- */
+/** Forge 1.16.5 to 1.17: the tag rework dropped getAllTags(). */
 public class Forge_1_16_5_to_1_17 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.16.5 to 1.17"; }
@@ -34,7 +29,6 @@ public class Forge_1_16_5_to_1_17 implements VersionShim {
             "com/retromod/shim/forge/embedded/TagShim", "getItemTags",
             "()Ljava/lang/Object;"
         );
-        // Forge event handlers stable across this transition
         transformer.registerMethodRedirect(
             "net/minecraftforge/event/RegistryEvent$Register", "getRegistry",
             "()Lnet/minecraftforge/registries/IForgeRegistry;",

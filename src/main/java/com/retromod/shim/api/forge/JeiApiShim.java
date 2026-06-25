@@ -1,25 +1,13 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * JEI (Just Enough Items) API Compatibility Shim
  */
 package com.retromod.shim.api.forge;
 
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * JEI API compatibility shim.
- * 
- * JEI is the most popular recipe viewer for Forge/NeoForge.
- * API changes across versions:
- * - v7.x -> v8.x: Major API restructure
- * - v8.x -> v9.x: Plugin registration changes
- * - v9.x -> v10.x: Ingredient type changes
- * - v10.x -> v11.x: Recipe manager changes
- * - v11.x -> v15.x+: Further plugin changes, NeoForge support
- */
+/** JEI (Just Enough Items) recipe-viewer API, v7 through v15 for Forge/NeoForge. */
 public class JeiApiShim implements VersionShim {
     
     @Override
@@ -39,26 +27,12 @@ public class JeiApiShim implements VersionShim {
     
     @Override
     public String getModLoaderType() {
-        return "forge"; // Also applies to neoforge
+        return "forge"; // also applies to neoforge
     }
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PACKAGE CHANGES
-        // ============================================================
-        
-        // Old: mezz.jei.api
-        // Packages stayed mostly the same but some classes moved
-        
-        // ============================================================
-        // PLUGIN INTERFACE CHANGES
-        // ============================================================
-        
-        // Old: IModPlugin methods
-        // v7: registerItemSubtypes, registerRecipes, registerRecipeTransferHandlers
-        // v9+: consolidated into different methods
-        
+        // IModPlugin: v7's separate registration methods were consolidated in v9+.
         transformer.registerMethodRedirect(
             "mezz/jei/api/IModPlugin",
             "registerItemSubtypes",
@@ -67,12 +41,7 @@ public class JeiApiShim implements VersionShim {
             "registerItemSubtypes",
             "(Lmezz/jei/api/registration/ISubtypeRegistration;)V"
         );
-        
-        // ============================================================
-        // INGREDIENT TYPE CHANGES
-        // ============================================================
-        
-        // Old: IIngredientType<T> generics handling changed
+
         transformer.registerMethodRedirect(
             "mezz/jei/api/ingredients/VanillaTypes",
             "ITEM",
@@ -90,12 +59,8 @@ public class JeiApiShim implements VersionShim {
             "getFluidType",
             "()Lmezz/jei/api/ingredients/IIngredientType;"
         );
-        
-        // ============================================================
-        // RECIPE CATEGORY CHANGES
-        // ============================================================
-        
-        // Old: IRecipeCategory.getUid() -> getRecipeType()
+
+        // IRecipeCategory.getUid() became getRecipeType().
         transformer.registerMethodRedirect(
             "mezz/jei/api/recipe/category/IRecipeCategory",
             "getUid",
@@ -104,8 +69,7 @@ public class JeiApiShim implements VersionShim {
             "getCategoryUid",
             "(Ljava/lang/Object;)Lnet/minecraft/resources/ResourceLocation;"
         );
-        
-        // Old: IRecipeCategory.getRecipeClass()
+
         transformer.registerMethodRedirect(
             "mezz/jei/api/recipe/category/IRecipeCategory",
             "getRecipeClass",
@@ -114,13 +78,8 @@ public class JeiApiShim implements VersionShim {
             "getRecipeClass",
             "(Ljava/lang/Object;)Ljava/lang/Class;"
         );
-        
-        // ============================================================
-        // RECIPE REGISTRATION CHANGES
-        // ============================================================
-        
-        // Old: IRecipeRegistration.addRecipes(list, uid)
-        // New: IRecipeRegistration.addRecipes(recipeType, list)
+
+        // addRecipes(list, uid) became addRecipes(recipeType, list).
         transformer.registerMethodRedirect(
             "mezz/jei/api/registration/IRecipeRegistration",
             "addRecipes",
@@ -129,23 +88,14 @@ public class JeiApiShim implements VersionShim {
             "addRecipesLegacy",
             "(Ljava/lang/Object;Ljava/util/Collection;Lnet/minecraft/resources/ResourceLocation;)V"
         );
-        
-        // ============================================================
-        // GUI HANDLER CHANGES
-        // ============================================================
-        
-        // Old: IGuiHandler -> IGuiContainerHandler (renamed)
+
+        // IGuiHandler renamed to IGuiContainerHandler.
         transformer.registerClassRedirect(
             "mezz/jei/api/gui/IGuiHandler",
             "mezz/jei/api/gui/handlers/IGuiContainerHandler"
         );
-        
-        // ============================================================
-        // DRAWING CHANGES
-        // ============================================================
-        
-        // Old: IRecipeCategory.draw(recipe, matrixStack, ...)
-        // New: IRecipeCategory.draw(recipe, recipeSlotsView, guiGraphics, ...)
+
+        // draw() picked up a recipeSlotsView arg and switched PoseStack for GuiGraphics.
         transformer.registerMethodRedirect(
             "mezz/jei/api/recipe/category/IRecipeCategory",
             "draw",
@@ -154,19 +104,13 @@ public class JeiApiShim implements VersionShim {
             "drawLegacy",
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;DD)V"
         );
-        
-        // PoseStack -> GuiGraphics changes
+
         transformer.registerClassRedirect(
             "com/mojang/blaze3d/vertex/PoseStack",
             "net/minecraft/client/gui/GuiGraphics"
         );
-        
-        // ============================================================
-        // RECIPE SLOT CHANGES
-        // ============================================================
-        
-        // Old: IRecipeLayout.getItemStacks()
-        // New: Different slot system
+
+        // IRecipeLayout.getItemStacks() was replaced by a different slot system.
         transformer.registerMethodRedirect(
             "mezz/jei/api/gui/IRecipeLayout",
             "getItemStacks",
@@ -175,12 +119,8 @@ public class JeiApiShim implements VersionShim {
             "getItemStacks",
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // FOCUS CHANGES
-        // ============================================================
-        
-        // Old: IFocus<T> interface changes
+
+        // IFocus<T> getters.
         transformer.registerMethodRedirect(
             "mezz/jei/api/recipe/IFocus",
             "getValue",

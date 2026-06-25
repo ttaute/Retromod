@@ -30,7 +30,7 @@ import net.minecraftforge.forgespi.locating.IModLocator;
  * {@code META-INF/services/net.minecraftforge.forgespi.locating.IModLocator}. Forge's
  * {@code ModDirTransformerDiscoverer} walks {@code mods/} for jars declaring that
  * service, puts them on the SERVICE module layer, and {@code ModDiscoverer} then runs
- * {@code initArguments} + {@code scanMods} on each - the same shape as NeoForge's
+ * {@code initArguments} + {@code scanMods} on each, the same shape as NeoForge's
  * early-service scan, just a different SPI ({@code IModLocator.scanMods()} vs
  * NeoForge's {@code IModFileCandidateLocator.findCandidates}). Verified against Forge
  * forgespi 8.0.0 / fmlloader 26.2.
@@ -115,7 +115,7 @@ public final class RetromodForgeModLocator implements IModLocator {
         }
     }
 
-    // ── IModProvider - the files we return belong to the inner ModsFolderLocator
+    // ── IModProvider: the files we return belong to the inner ModsFolderLocator
     //    (their provider), so Forge calls these on it, not us; trivial impls suffice. ──
 
     @Override

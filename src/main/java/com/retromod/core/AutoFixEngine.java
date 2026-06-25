@@ -1,14 +1,6 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
- *
- * Automated crash analysis and fix system. Scans game/crash logs for known
- * error patterns, applies fixes (redirects, mixin stripping, interface
- * corrections), and marks mods for retransformation on next launch.
- *
- * This replaces the manual "launch -> read log -> fix -> repeat" cycle.
- * The engine runs AFTER initial transformation and does NOT relaunch the game;
- * it prepares fixes so the NEXT launch succeeds.
  */
 package com.retromod.core;
 
@@ -28,108 +20,50 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Automated crash analysis and fix engine for Retromod.
+ * Scans game logs and crash reports for known error patterns and registers
+ * targeted fixes on the transformer so the next launch succeeds. Runs after the
+ * initial transformation; it never relaunches the game.
  *
- * <h2>Overview</h2>
- * After the initial mod transformation, errors may still occur at runtime due to
- * edge cases that shims and the fuzzy resolver cannot cover. This engine scans
- * game logs and crash reports for known error patterns, then applies targeted
- * fixes to the transformer so that the NEXT launch succeeds.
+ * <p>A fix key dedupes within a run; a fix that gets applied but whose error
+ * recurs on the next run is blacklisted. At most {@value #MAX_FIXES_PER_RUN}
+ * fixes per run guard against runaway loops.
  *
- * <h2>How it works</h2>
- * <ol>
- *   <li>Read the game log (latest.log or crash-report)</li>
- *   <li>Match each line against a list of {@link ErrorPattern} instances</li>
- *   <li>For each match, extract error details and compute a fix</li>
- *   <li>Apply the fix to the transformer (register redirect, strip mixin, etc.)</li>
- *   <li>Persist applied fixes to {@code config/retromod/auto-fixes.json}</li>
- *   <li>On next launch, load persisted fixes BEFORE transformation</li>
- * </ol>
- *
- * <h2>Safety</h2>
- * <ul>
- *   <li>Never applies the same fix twice (tracked by fix key)</li>
- *   <li>If a fix was applied but the same error recurs, the fix is blacklisted</li>
- *   <li>All fixes are logged at INFO level for transparency</li>
- *   <li>A maximum of {@value #MAX_FIXES_PER_RUN} fixes per analysis run prevents runaway loops</li>
- * </ul>
- *
- * <p><b>IMPORTANT:</b> This class must NOT reference Fabric/NeoForge loader classes
- * directly because it is also used by the standalone CLI.</p>
+ * <p>Must not reference Fabric/NeoForge loader classes: the standalone CLI uses
+ * this too.
  */
 public class AutoFixEngine {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-AutoFix");
 
-    /**
-     * Where persisted fixes are saved between launches.
-     *
-     * SECURITY NOTE (MEDIUM): This is a relative path resolved against the working directory.
-     * If an attacker replaces config/retromod/ with a symlink pointing to a sensitive
-     * directory, writes would follow the symlink. This is mitigated by the fact that:
-     * 1. The attacker needs local filesystem access to the game directory
-     * 2. The file content is always valid JSON (fix descriptions, not executable code)
-     * 3. The game directory is typically user-owned with restricted permissions
-     * If stronger protection is needed, add a symlink check before writing.
-     */
+    // Relative to the working dir; symlink-guarded at write time in persistFixes.
     private static final Path FIXES_FILE = Path.of("config/retromod/auto-fixes.json");
 
-    /** Safety limit: maximum number of fixes applied in a single analysis run. */
     private static final int MAX_FIXES_PER_RUN = 50;
 
-    /** Gson instance for persisting fixes to JSON. */
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // ERROR PATTERNS - each pattern has a regex, a parser, and a fix action
-    // ═══════════════════════════════════════════════════════════════════════
 
     private final List<ErrorPattern> patterns = new ArrayList<>();
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // FIX TRACKING - prevents infinite loops and duplicate fixes
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /** All fixes applied during this analysis run. */
     private final List<AppliedFix> appliedFixes = new ArrayList<>();
 
-    /** Set of fix keys that have already been applied (prevents duplicates). */
     private final Set<String> appliedFixKeys = new HashSet<>();
 
-    /**
-     * Blacklist: fix keys whose fixes did NOT resolve the error.
-     * If a fix was applied but the same error recurs on the next run,
-     * the fix key is blacklisted and the fix will not be re-applied.
-     */
+    /** Fix keys that were applied but whose error came back, so they are not re-applied. */
     private final Set<String> blacklist = new HashSet<>();
 
-    /**
-     * Previously persisted fixes loaded from disk. Used to detect recurrence:
-     * if a fix from the previous run appears again, it failed and gets blacklisted.
-     */
+    /** Fix keys from the previous run, loaded from disk to detect recurrence. */
     private final Set<String> previousRunFixKeys = new HashSet<>();
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // CONSTRUCTOR - registers all known error patterns
-    // ═══════════════════════════════════════════════════════════════════════
 
     public AutoFixEngine() {
         registerAllPatterns();
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PUBLIC API
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * Main entry point: scan a log file and apply fixes to the transformer.
-     *
-     * <p>Reads every line of the log, matches against known error patterns,
-     * and applies the corresponding fix. Returns all fixes that were applied.</p>
+     * Scan a log file and apply the matching fixes to the transformer.
      *
      * @param logFile     path to the game log or crash report
      * @param transformer the transformer to register fixes on
-     * @return list of fixes that were applied (empty if no errors found)
+     * @return the fixes that were applied (empty if none)
      */
     public List<AppliedFix> analyzeAndFix(Path logFile, RetromodTransformer transformer) {
         if (logFile == null || !Files.exists(logFile)) {
@@ -137,14 +71,8 @@ public class AutoFixEngine {
             return Collections.emptyList();
         }
 
-        // Load previously applied fixes to detect recurrence
         loadPreviousFixes();
 
-        // SECURITY NOTE (MEDIUM): Reads the entire log file into memory. Very large logs
-        // (from long game sessions or verbose debug logging) could cause high memory usage.
-        // This is acceptable because: (1) game logs are local user files, (2) Minecraft's
-        // log rotation typically keeps latest.log under a few MB, (3) crash reports are tiny.
-        // If this becomes an issue, consider streaming with BufferedReader and a line limit.
         List<String> logLines;
         try {
             logLines = Files.readAllLines(logFile);
@@ -161,32 +89,27 @@ public class AutoFixEngine {
         for (int i = 0; i < logLines.size() && fixCount < MAX_FIXES_PER_RUN; i++) {
             String line = logLines.get(i);
 
-            // Some errors span multiple lines - gather context
-            // Look ahead up to 5 lines for stack trace context
+            // Errors can span lines; look ahead for stack-trace context.
             String context = buildContext(logLines, i, 5);
 
             for (ErrorPattern pattern : patterns) {
                 Matcher matcher = pattern.regex.matcher(line);
                 if (matcher.find()) {
-                    // Build a fix key to check for duplicates and blacklist
                     String fixKey = pattern.buildFixKey(matcher, line);
 
-                    // Skip if already applied this run or blacklisted
                     if (appliedFixKeys.contains(fixKey)) break;
                     if (blacklist.contains(fixKey)) {
                         LOGGER.debug("[AutoFix] Skipping blacklisted fix: {}", fixKey);
                         break;
                     }
 
-                    // If this fix was applied in a previous run but the error recurred,
-                    // it means the fix didn't work - blacklist it
+                    // Same fix already applied last run, yet the error is back: it didn't work.
                     if (previousRunFixKeys.contains(fixKey)) {
                         LOGGER.warn("[AutoFix] Fix '{}' was applied previously but error recurred - blacklisting", fixKey);
                         blacklist.add(fixKey);
                         break;
                     }
 
-                    // Apply the fix
                     AppliedFix fix = pattern.apply(matcher, line, context, transformer);
                     if (fix != null) {
                         fixes.add(fix);
@@ -200,7 +123,6 @@ public class AutoFixEngine {
             }
         }
 
-        // Persist fixes for next launch
         if (!fixes.isEmpty()) {
             persistFixes();
             LOGGER.info("[AutoFix] Applied {} fix(es). Retransform on next launch to take effect.", fixes.size());
@@ -212,11 +134,10 @@ public class AutoFixEngine {
     }
 
     /**
-     * Analyze a log file without applying fixes - just report what would be done.
-     * Used by the CLI {@code autofix} command for dry-run / analysis mode.
+     * Report what fixes would be applied without applying them (CLI {@code autofix} dry-run).
      *
      * @param logFile path to the log file
-     * @return list of suggested fixes (not applied)
+     * @return the suggested fixes
      */
     public List<AppliedFix> analyzeOnly(Path logFile) {
         if (logFile == null || !Files.exists(logFile)) {
@@ -259,9 +180,8 @@ public class AutoFixEngine {
     }
 
     /**
-     * Load previously persisted fixes and apply them to the transformer.
-     * Called during startup BEFORE transformation to re-apply fixes from
-     * the previous launch cycle.
+     * Re-apply fixes saved from the previous launch. Called at startup before
+     * transformation.
      *
      * @param transformer the transformer to apply saved fixes to
      * @return number of fixes loaded and applied
@@ -304,52 +224,32 @@ public class AutoFixEngine {
         }
     }
 
-    /**
-     * Get all fixes applied during this run.
-     */
     public List<AppliedFix> getAppliedFixes() {
         return Collections.unmodifiableList(appliedFixes);
     }
 
-    /**
-     * Get the blacklist of fix keys that failed.
-     */
     public Set<String> getBlacklist() {
         return Collections.unmodifiableSet(blacklist);
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PATTERN REGISTRATION - all 20 error patterns
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Register all known error patterns. Each pattern consists of:
-     * - A compiled regex that matches an error line in the log
-     * - A method to extract error details from the regex match
-     * - A method to compute and apply the fix
-     */
     private void registerAllPatterns() {
 
-        // ─────────────────────────────────────────────────────────────────
         // Pattern 1: NoSuchMethodError
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
         //   "NoSuchMethodError: 'void com.example.Foo.oldMethod(int)'"
-        // Parses: owner=com.example.Foo, method=oldMethod, desc=(I)V
-        // Action: Use FuzzyMethodResolver to find replacement, register redirect
+        // Resolve a replacement via heuristics/fuzzy and register a redirect.
         patterns.add(new ErrorPattern(
             "NoSuchMethodError",
             Pattern.compile("NoSuchMethodError:.*'(\\S+)\\s+(\\S+)\\.(\\w+)\\(([^)]*)\\)'"),
             (matcher, line, context, transformer) -> {
-                String returnType = matcher.group(1);    // e.g., "void"
-                String ownerDot = matcher.group(2);      // e.g., "com.example.Foo"
-                String methodName = matcher.group(3);    // e.g., "oldMethod"
-                String paramTypes = matcher.group(4);    // e.g., "int"
+                String returnType = matcher.group(1);
+                String ownerDot = matcher.group(2);
+                String methodName = matcher.group(3);
+                String paramTypes = matcher.group(4);
 
                 String owner = ownerDot.replace('.', '/');
                 String desc = buildDescriptor(paramTypes, returnType);
 
-                // Try pattern heuristics FIRST - faster and more reliable than fuzzy
+                // Heuristics first: faster and more reliable than fuzzy.
                 PatternHeuristics patterns = transformer.getPatternHeuristics();
                 if (patterns != null) {
                     PatternHeuristics.PatternResult patternMatch = patterns.resolveMethod(owner, methodName, desc);
@@ -369,8 +269,8 @@ public class AutoFixEngine {
                     }
                 }
 
-                // Check if this is a known bridge method (signature changed, not just renamed).
-                // If so, the BridgeAdapterGenerator will handle it at retransform time.
+                // Known bridge method (signature changed, not just renamed): BridgeAdapterGenerator
+                // handles it at retransform time.
                 if (BridgeAdapterGenerator.isKnownBridgeMethod(methodName)) {
                     String oldDesc = BridgeAdapterGenerator.getOldDescriptor(methodName);
                     String newDesc = BridgeAdapterGenerator.getNewDescriptor(methodName);
@@ -385,7 +285,6 @@ public class AutoFixEngine {
                     }
                 }
 
-                // Try fuzzy resolver as fallback
                 FuzzyMethodResolver fuzzy = transformer.getFuzzyResolver();
                 if (fuzzy != null) {
                     FuzzyMethodResolver.MethodInfo resolved = fuzzy.resolveMethod(owner, methodName, desc);
@@ -403,7 +302,7 @@ public class AutoFixEngine {
                         );
                     }
                 }
-                // No pattern, no bridge, no fuzzy match - log but can't fix
+                // No pattern, bridge, or fuzzy match: report it, can't fix.
                 return new AppliedFix(
                     "NoSuchMethodError",
                     ownerDot + "." + methodName + "(" + paramTypes + ")",
@@ -413,14 +312,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
         // Pattern 2: NoSuchFieldError
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
         //   "NoSuchFieldError: Class com.example.Foo does not have member field 'int bar'"
-        //   OR: "NoSuchFieldError: bar"
-        // Parses: owner class, field name, field type
-        // Action: Use FuzzyMethodResolver.resolveField(), register field redirect
+        //   or "NoSuchFieldError: 'int com.example.Foo.bar'"
         patterns.add(new ErrorPattern(
             "NoSuchFieldError",
             Pattern.compile("NoSuchFieldError:.*?(?:Class (\\S+) does not have member field '(\\S+)\\s+(\\w+)'|'(\\S+)\\s+(\\S+)\\.(\\w+)')"),
@@ -428,12 +322,10 @@ public class AutoFixEngine {
                 String ownerDot, fieldName, fieldType;
 
                 if (matcher.group(1) != null) {
-                    // Format: "Class X does not have member field 'Y Z'"
                     ownerDot = matcher.group(1);
                     fieldType = matcher.group(2);
                     fieldName = matcher.group(3);
                 } else {
-                    // Format: "'type owner.field'"
                     fieldType = matcher.group(4);
                     ownerDot = matcher.group(5);
                     fieldName = matcher.group(6);
@@ -442,7 +334,7 @@ public class AutoFixEngine {
                 String owner = ownerDot.replace('.', '/');
                 String desc = typeNameToDescriptor(fieldType);
 
-                // Try pattern heuristics FIRST - faster and more reliable than fuzzy
+                // Heuristics first: faster and more reliable than fuzzy.
                 PatternHeuristics patterns = transformer.getPatternHeuristics();
                 if (patterns != null) {
                     PatternHeuristics.PatternResult patternMatch = patterns.resolveField(owner, fieldName, desc);
@@ -461,7 +353,6 @@ public class AutoFixEngine {
                     }
                 }
 
-                // Fallback to fuzzy resolver
                 FuzzyMethodResolver fuzzy = transformer.getFuzzyResolver();
                 if (fuzzy != null) {
                     FuzzyMethodResolver.FieldInfo resolved = fuzzy.resolveField(owner, fieldName, desc);
@@ -488,14 +379,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 3: AbstractMethodError (missing implementation)
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "Missing implementation of resolved method 'abstract void
-        //    net.minecraft.X.extractContents(...)' in class com.example.MyBlock"
-        // Parses: class, method, descriptor
-        // Action: Log - injecting a no-op requires ASM and is deferred to retransform
+        // Pattern 3: AbstractMethodError / missing implementation.
+        //   "Missing implementation of resolved method 'abstract void net.minecraft.X.extractContents(...)' in class com.example.MyBlock"
+        // Report only; injecting a no-op stub needs ASM at retransform time.
         patterns.add(new ErrorPattern(
             "AbstractMethodError",
             Pattern.compile("(?:AbstractMethodError|Missing implementation of resolved method).*?'(?:abstract )?(?:(\\S+)\\s+)?(\\S+)\\.(\\w+)\\(([^)]*)\\)'"),
@@ -515,19 +401,12 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 4: VerifyError (bad type on operand stack)
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "VerifyError: Bad type on operand stack
-        //    Type 'net/minecraft/world/level/Level' is not assignable to 'net/minecraft/server/level/ServerLevel'"
-        // Parses: class, method, expected type, actual type
-        // Action: If caused by fuzzy match - blacklist. If field redirect - revert.
+        // Pattern 4: VerifyError (bad type on operand stack).
+        //   "Type 'net/minecraft/world/level/Level' is not assignable to 'net/minecraft/server/level/ServerLevel'"
         patterns.add(new ErrorPattern(
             "VerifyError",
             Pattern.compile("VerifyError.*(?:Bad type on operand stack|Bad return type)"),
             (matcher, line, context, transformer) -> {
-                // Look for type mismatch in context lines
                 Pattern typePat = Pattern.compile("Type '(\\S+)' .*(?:is not assignable to|not assignable to) '(\\S+)'");
                 Matcher typeMatcher = typePat.matcher(context);
 
@@ -549,28 +428,20 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 5: IncompatibleClassChangeError (class became interface)
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "IncompatibleClassChangeError: Method 'X' must be InterfaceMethodref constant"
-        //   OR: "Found class X, but interface was expected"
-        // Parses: the class that needs to be treated as an interface
-        // Action: Add the class to KNOWN_INTERFACES in RetromodTransformer
-        //         so INVOKEVIRTUAL is rewritten to INVOKEINTERFACE
+        // Pattern 5: IncompatibleClassChangeError (a class became an interface).
+        //   "Method 'X' must be InterfaceMethodref constant" / "interface was expected"
+        // The fix is adding the class to KNOWN_INTERFACES so INVOKEVIRTUAL becomes
+        // INVOKEINTERFACE; that set is static final, so we only report it here.
         patterns.add(new ErrorPattern(
             "IncompatibleClassChangeError",
             Pattern.compile("IncompatibleClassChangeError.*?(?:must be InterfaceMethodref|interface was expected|Expecting non-static method).*?(?:'(\\S+)'|(\\S+))"),
             (matcher, line, context, transformer) -> {
-                // Extract the class name from the error message
                 String rawRef = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
 
-                // The reference may be a full method ref like "net.minecraft.core.Registry.register"
-                // We need just the class part
+                // rawRef may be a full method ref (net.minecraft.core.Registry.register); keep just the class.
                 String ownerDot = rawRef;
                 int lastDot = rawRef.lastIndexOf('.');
                 if (lastDot > 0) {
-                    // Could be a method name after the last dot - check if it starts lowercase
                     String suffix = rawRef.substring(lastDot + 1);
                     if (suffix.length() > 0 && Character.isLowerCase(suffix.charAt(0))) {
                         ownerDot = rawRef.substring(0, lastDot);
@@ -579,10 +450,6 @@ public class AutoFixEngine {
 
                 String owner = ownerDot.replace('.', '/');
 
-                // The real fix for this is adding to KNOWN_INTERFACES. Since that's a
-                // static final Set, we can't modify it at runtime. Instead, we log the
-                // fix and note that the class should be added to the set in source code.
-                // The transformer already handles this check dynamically in visitMethodInsn.
                 return new AppliedFix(
                     "IncompatibleClassChangeError",
                     ownerDot + " needs InterfaceMethodref",
@@ -595,14 +462,10 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 6: Mixin transformation failed
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
+        // Pattern 6: Mixin transformation failed.
         //   "Mixin transformation of net.minecraft.client.gui.screens.TitleScreen failed"
-        //   OR: "Mixin apply failed ... in mixins.modid.json"
-        // Parses: target class, mixin config
-        // Action: Strip the mixin from the mod's mixin config JSON
+        //   or "Mixin apply failed ... in mixins.modid.json"
+        // Strip the failing mixin from the mod's mixin config.
         patterns.add(new ErrorPattern(
             "MixinTransformFailed",
             Pattern.compile("(?:Mixin (?:transformation|apply) (?:of|failed).*?((?:net\\.minecraft|com\\.mojang)\\S+)|Mixin apply.*?failed.*?(\\S+\\.json))"),
@@ -625,14 +488,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 7: InvalidMixinException (super class not found)
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "Super class 'net.minecraft.X' of com.example.mixin.MyMixin was not found
-        //    in the hierarchy of target class 'net.minecraft.Y'"
-        // Parses: mixin class
-        // Action: Remove the mixin class entry from the mixin config JSON
+        // Pattern 7: InvalidMixinException (super class not found).
+        //   "Super class 'net.minecraft.X' of com.example.mixin.MyMixin was not found ..."
+        // Remove the mixin class entry from the mixin config.
         patterns.add(new ErrorPattern(
             "InvalidMixinSuperClass",
             Pattern.compile("Super class '(\\S+)' of (\\S+) was not found"),
@@ -650,14 +508,8 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 8: InvalidAccessorException (@Invoker/@Accessor not found)
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "No candidates were found matching methodName(desc) in
-        //    net.minecraft.X for com.example.mixin.MyMixin"
-        // Parses: mixin class, target method
-        // Action: Already handled by required=false, log for debugging
+        // Pattern 8: InvalidAccessorException (@Invoker/@Accessor not found).
+        //   "No candidates were found matching methodName(desc) in net.minecraft.X for com.example.mixin.MyMixin"
         patterns.add(new ErrorPattern(
             "InvalidAccessorException",
             Pattern.compile("No candidates were found matching (\\w+)\\(([^)]*)\\).*?(?:in (\\S+) for (\\S+)|(\\S+))"),
@@ -679,14 +531,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 9: InvalidInjectionException (descriptor mismatch)
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "Invalid descriptor on ... Expected (Lnet/minecraft/X;)V
-        //    but found (Lnet/minecraft/Y;)V"
-        // Parses: mixin class, expected vs actual descriptor
-        // Action: Strip the @Inject method or the whole mixin
+        // Pattern 9: InvalidInjectionException (descriptor mismatch).
+        //   "Invalid descriptor on ... Expected (Lnet/minecraft/X;)V but found (Lnet/minecraft/Y;)V"
+        // Strip the @Inject method, or the whole mixin.
         patterns.add(new ErrorPattern(
             "InvalidInjectionException",
             Pattern.compile("Invalid (?:descriptor|injection).*?Expected \\(([^)]*)\\).*?(?:but )?found \\(([^)]*)\\)"),
@@ -694,7 +541,6 @@ public class AutoFixEngine {
                 String expected = matcher.group(1);
                 String actual = matcher.group(2);
 
-                // Try to extract the mixin class from context
                 String mixinClass = "unknown";
                 Pattern mixinPat = Pattern.compile("in (\\S+Mixin\\S*)");
                 Matcher mixinMatcher = mixinPat.matcher(context);
@@ -712,21 +558,15 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 10: ClassNotFoundException / NoClassDefFoundError
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
+        // Pattern 10: ClassNotFoundException / NoClassDefFoundError.
         //   "NoClassDefFoundError: com/teamresourceful/resourcefulconfig/api/ConfigEntry"
-        //   OR: "ClassNotFoundException: com.teamresourceful.resourcefulconfig.api.ConfigEntry"
-        // Parses: missing class
-        // Action: Log as missing dependency - cannot fix without the library
+        // Report as a missing dependency; can't fix without the library.
         patterns.add(new ErrorPattern(
             "ClassNotFound",
             Pattern.compile("(?:NoClassDefFoundError|ClassNotFoundException):\\s*'?(\\S+?)(?:'|$)"),
             (matcher, line, context, transformer) -> {
                 String missingClass = matcher.group(1).replace('/', '.');
 
-                // Determine if this is a mod dependency vs MC internal
                 boolean isMcClass = missingClass.startsWith("net.minecraft.") ||
                                     missingClass.startsWith("com.mojang.");
                 boolean isFabricApi = missingClass.startsWith("net.fabricmc.fabric.api.");
@@ -752,14 +592,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 11: IllegalAccessError (private field/method)
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
+        // Pattern 11: IllegalAccessError (member became private/protected).
         //   "IllegalAccessError: tried to access private field net.minecraft.X.Y from class Z"
-        //   OR: "IllegalAccessError: class Z tried to access private method 'void X.Y()'"
-        // Parses: owner, member name
-        // Action: Flag for reflection bridge generation using setAccessible(true)
+        // Flag for a reflection bridge using setAccessible(true).
         patterns.add(new ErrorPattern(
             "IllegalAccessError",
             Pattern.compile("IllegalAccessError:.*?(?:tried to access (?:private|protected) (?:field|method)).*?((?:net\\.minecraft|com\\.mojang)\\S+)\\.(\\w+)"),
@@ -778,14 +613,8 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 12: ClassCastException
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "ClassCastException: class net.minecraft.world.level.Level cannot
-        //    be cast to class net.minecraft.server.level.ServerLevel"
-        // Parses: source type, target type
-        // Action: If from constructor redirect CHECKCAST - fix the CHECKCAST type
+        // Pattern 12: ClassCastException.
+        //   "class net.minecraft.world.level.Level cannot be cast to class net.minecraft.server.level.ServerLevel"
         patterns.add(new ErrorPattern(
             "ClassCastException",
             Pattern.compile("ClassCastException:.*?(?:class )?(\\S+) cannot be cast to (?:class )?(\\S+)"),
@@ -804,19 +633,13 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 13: NegativeArraySizeException in ASM
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "NegativeArraySizeException... computeAllFrames"
-        //   OR: "NegativeArraySizeException in ClassWriter" (usually in stack trace)
-        // Parses: the class being processed
-        // Action: Strip the mixin causing frame computation to fail
+        // Pattern 13: NegativeArraySizeException during ASM frame computation.
+        //   "NegativeArraySizeException ... computeAllFrames"
+        // Strip the mixin whose frame computation fails.
         patterns.add(new ErrorPattern(
             "NegativeArraySizeException",
             Pattern.compile("NegativeArraySizeException"),
             (matcher, line, context, transformer) -> {
-                // Try to find the class being processed from the context
                 String targetClass = "unknown";
                 Pattern classPat = Pattern.compile("(?:processing|transforming|visiting)\\s+(\\S+)");
                 Matcher classMatcher = classPat.matcher(context);
@@ -835,13 +658,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 14: EntryPoint failure
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
+        // Pattern 14: entrypoint failure.
         //   "Could not execute entrypoint stage 'client' due to errors, provided by 'modid'"
-        // Parses: mod ID, entrypoint stage
-        // Action: Flag the entrypoint for try-catch wrapping if not already wrapped
+        // Flag the entrypoint for try-catch wrapping.
         patterns.add(new ErrorPattern(
             "EntryPointFailure",
             Pattern.compile("Could not execute entrypoint stage '(\\w+)'.*?provided by '(\\S+)'"),
@@ -860,17 +679,12 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 15: SoundEvent constructor removed
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "NoSuchMethodError: 'void net.minecraft.sounds.SoundEvent.<init>(net.minecraft.resources.Identifier)'"
-        // Action: Register constructor redirect to SoundEvent.createVariableRangeEvent()
+        // Pattern 15: SoundEvent(Identifier) constructor removed.
+        // Redirect to SoundEvent.createVariableRangeEvent(Identifier).
         patterns.add(new ErrorPattern(
             "SoundEventConstructor",
             Pattern.compile("NoSuchMethodError.*SoundEvent\\.<init>\\(.*(?:Identifier|ResourceLocation)"),
             (matcher, line, context, transformer) -> {
-                // SoundEvent(Identifier) -> SoundEvent.createVariableRangeEvent(Identifier)
                 transformer.registerConstructorRedirect(
                     "net/minecraft/sounds/SoundEvent",
                     "(Lnet/minecraft/resources/Identifier;)V",
@@ -889,13 +703,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 16: ResourceLocation constructor removed
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "NoSuchMethodError: 'void net.minecraft.resources.ResourceLocation.<init>(java.lang.String, java.lang.String)'"
-        //   OR: "NoSuchMethodError: ... Identifier.<init>(String)"
-        // Action: Register constructor redirect to fromNamespaceAndPath() or parse()
+        // Pattern 16: ResourceLocation/Identifier constructor removed.
+        //   "...ResourceLocation.<init>(java.lang.String, java.lang.String)" / "...Identifier.<init>(String)"
+        // Redirect to fromNamespaceAndPath() (two args) or parse() (one arg).
         patterns.add(new ErrorPattern(
             "ResourceLocationConstructor",
             Pattern.compile("NoSuchMethodError.*(?:ResourceLocation|Identifier)\\.<init>\\(.*String"),
@@ -905,7 +715,6 @@ public class AutoFixEngine {
                                   line.contains("String, String");
 
                 if (twoArgs) {
-                    // ResourceLocation(String, String) -> Identifier.fromNamespaceAndPath(String, String)
                     transformer.registerConstructorRedirect(
                         "net/minecraft/resources/Identifier",
                         "(Ljava/lang/String;Ljava/lang/String;)V",
@@ -913,7 +722,7 @@ public class AutoFixEngine {
                         "fromNamespaceAndPath",
                         "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
                     );
-                    // Also register for the old ResourceLocation name (pre-26.1 remapping)
+                    // Old ResourceLocation name too (pre-26.1 remapping).
                     transformer.registerConstructorRedirect(
                         "net/minecraft/resources/ResourceLocation",
                         "(Ljava/lang/String;Ljava/lang/String;)V",
@@ -928,7 +737,6 @@ public class AutoFixEngine {
                         "ctor_redirect:ResourceLocation:2arg"
                     );
                 } else {
-                    // ResourceLocation(String) -> Identifier.parse(String)
                     transformer.registerConstructorRedirect(
                         "net/minecraft/resources/Identifier",
                         "(Ljava/lang/String;)V",
@@ -953,12 +761,8 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 17: Registry.register InterfaceMethodref
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "IncompatibleClassChangeError: ... must be InterfaceMethodref... Registry.register"
-        // Action: Confirm Registry is in KNOWN_INTERFACES
+        // Pattern 17: Registry.register InterfaceMethodref.
+        //   "IncompatibleClassChangeError: ... must be InterfaceMethodref ... Registry.register"
         patterns.add(new ErrorPattern(
             "RegistryInterfaceMethodref",
             Pattern.compile("(?:IncompatibleClassChangeError|InterfaceMethodref).*Registry"),
@@ -974,21 +778,16 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 18: Namespace mismatch in accesswidener
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
+        // Pattern 18: access-widener namespace mismatch.
         //   "Namespace (intermediary) does not match current runtime namespace (official)"
-        // Parses: the namespace issue
-        // Action: Flag the mod's access widener for re-remapping
+        // Flag the mod's access widener for re-remapping.
         patterns.add(new ErrorPattern(
             "NamespaceMismatch",
             Pattern.compile("Namespace \\((\\w+)\\) does not match (?:current )?runtime namespace \\((\\w+)\\)"),
             (matcher, line, context, transformer) -> {
-                String modNamespace = matcher.group(1);   // e.g., "intermediary"
-                String runtimeNamespace = matcher.group(2); // e.g., "official"
+                String modNamespace = matcher.group(1);
+                String runtimeNamespace = matcher.group(2);
 
-                // Try to find the mod name from context
                 String modName = "unknown";
                 Pattern modPat = Pattern.compile("(?:for|from|in) (?:mod )?'?(\\S+?)'?(?:\\s|$|:)");
                 Matcher modMatcher = modPat.matcher(context);
@@ -1007,14 +806,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 19: Missing mod dependency
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
+        // Pattern 19: missing mod dependency.
         //   "Mod 'sodium' is a required dependency of 'iris' but it is not installed"
-        //   OR: "Unmet dependency: modid requires fabricapi >= 0.90.0"
-        // Parses: missing mod, requiring mod
-        // Action: Log - user must install the dependency
+        // Report only; the user must install the dependency.
         patterns.add(new ErrorPattern(
             "MissingModDependency",
             Pattern.compile("(?:'(\\S+)' is a (?:required )?dependency of '(\\S+)'.*not installed|Unmet dependency.*?(\\S+) requires (\\S+))"),
@@ -1039,19 +833,12 @@ public class AutoFixEngine {
             }
         ));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pattern 20: Util.backgroundExecutor removed
-        // ─────────────────────────────────────────────────────────────────
-        // Example input:
-        //   "NoSuchMethodError: 'java.util.concurrent.ExecutorService
-        //    net.minecraft.Util.backgroundExecutor()'"
-        // Action: Register redirect to a bridge method
+        // Pattern 20: Util.backgroundExecutor() removed.
+        // Redirect to Util.nonCriticalIoPool(), the closest equivalent in newer MC.
         patterns.add(new ErrorPattern(
             "UtilBackgroundExecutor",
             Pattern.compile("NoSuchMethodError.*Util\\.backgroundExecutor"),
             (matcher, line, context, transformer) -> {
-                // Redirect Util.backgroundExecutor() to a shim bridge
-                // The bridge creates a simple fixed thread pool as a replacement
                 transformer.registerMethodRedirect(
                     "net/minecraft/Util", "backgroundExecutor",
                     "()Ljava/util/concurrent/ExecutorService;",
@@ -1070,40 +857,26 @@ public class AutoFixEngine {
         ));
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PERSISTENCE - save/load fixes between launches
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Save all applied fixes to config/retromod/auto-fixes.json.
-     */
     private void persistFixes() {
         try {
-            // Ensure config directory exists
             Path configDir = FIXES_FILE.getParent();
             if (configDir != null) {
                 Files.createDirectories(configDir);
-                // Symlink guard: if config/retromod/ is a symlink into some
-                // sensitive location (e.g. ~/.ssh) a pre-planted target would
-                // get overwritten with our JSON. We explicitly reject that.
+                // Reject a symlinked config dir so we don't overwrite a pre-planted target.
                 com.retromod.util.ZipSecurity.validateNotSymlink(configDir);
             }
-            // Likewise if the fixes file itself is already a symlink, refuse
-            // to follow it. writeString() would otherwise clobber the target.
             if (Files.exists(FIXES_FILE)) {
                 com.retromod.util.ZipSecurity.validateNotSymlink(FIXES_FILE);
             }
 
             List<PersistedFix> toSave = new ArrayList<>();
 
-            // Save applied fixes
             for (AppliedFix fix : appliedFixes) {
                 toSave.add(new PersistedFix(
                     fix.fixKey, fix.errorType, fix.description, fix.action, false
                 ));
             }
 
-            // Save blacklisted keys
             for (String key : blacklist) {
                 toSave.add(new PersistedFix(key, "blacklisted", key, "blacklisted", true));
             }
@@ -1116,9 +889,6 @@ public class AutoFixEngine {
         }
     }
 
-    /**
-     * Load previously persisted fixes to detect recurrence.
-     */
     private void loadPreviousFixes() {
         if (!Files.exists(FIXES_FILE)) return;
 
@@ -1141,12 +911,8 @@ public class AutoFixEngine {
         }
     }
 
-    /**
-     * Apply a persisted fix to the transformer. Only handles fix types that
-     * directly register redirects; other fix types are informational only.
-     */
+    /** Re-applies the fix types that register redirects; others are informational. */
     private boolean applyPersistedFix(PersistedFix fix, RetromodTransformer transformer) {
-        // Only certain fix types can be mechanically re-applied
         if (fix.fixKey == null) return false;
 
         if (fix.fixKey.startsWith("ctor_redirect:SoundEvent")) {
@@ -1192,20 +958,12 @@ public class AutoFixEngine {
             return true;
         }
 
-        // Informational fixes (ClassNotFound, MissingModDependency, etc.)
-        // are logged but don't register redirects
+        // Informational fixes (ClassNotFound, MissingModDependency, ...) register no redirect.
         LOGGER.debug("[AutoFix] Persisted fix '{}' is informational only, not re-applied", fix.fixKey);
         return false;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // UTILITY METHODS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Build a context string from surrounding log lines (for multi-line errors).
-     * Includes the current line plus up to {@code lookAhead} lines after it.
-     */
+    /** The current line plus up to {@code lookAhead} following lines, for multi-line errors. */
     private String buildContext(List<String> lines, int currentIndex, int lookAhead) {
         StringBuilder sb = new StringBuilder();
         int end = Math.min(currentIndex + lookAhead + 1, lines.size());
@@ -1216,16 +974,8 @@ public class AutoFixEngine {
     }
 
     /**
-     * Convert human-readable Java type names to JVM descriptor format.
-     *
-     * Examples:
-     *   "int" -> "(I)V"
-     *   "int, java.lang.String" -> "(ILjava/lang/String;)V"
-     *   "void" return -> "V"
-     *
-     * @param paramTypes comma-separated parameter type names
-     * @param returnType return type name
-     * @return JVM method descriptor string
+     * Build a JVM method descriptor from human-readable type names, e.g.
+     * ("int, java.lang.String", "void") -> "(ILjava/lang/String;)V".
      */
     static String buildDescriptor(String paramTypes, String returnType) {
         StringBuilder desc = new StringBuilder("(");
@@ -1242,16 +992,10 @@ public class AutoFixEngine {
         return desc.toString();
     }
 
-    /**
-     * Convert a single Java type name to its JVM descriptor.
-     *
-     * Handles primitives (int->I, void->V, etc.), arrays (int[]->I[]),
-     * and reference types (com.example.Foo -> Lcom/example/Foo;).
-     */
+    /** Single Java type name to its JVM descriptor (primitives, arrays, reference types). */
     static String typeNameToDescriptor(String typeName) {
         if (typeName == null || typeName.isEmpty()) return "V";
 
-        // Handle arrays
         int arrayDepth = 0;
         String base = typeName;
         while (base.endsWith("[]")) {
@@ -1278,17 +1022,13 @@ public class AutoFixEngine {
         return baseDesc;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // DATA TYPES
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * Represents a fix that was applied (or suggested) by the auto-fix engine.
+     * A fix applied (or suggested) by the engine.
      *
-     * @param errorType   category of the error (e.g., "NoSuchMethodError")
-     * @param description human-readable description of the error
-     * @param action      what was done (or should be done) to fix it
-     * @param fixKey      unique key for deduplication and blacklisting
+     * @param errorType   error category, e.g. "NoSuchMethodError"
+     * @param description what the error was
+     * @param action      what was done (or should be done) about it
+     * @param fixKey      dedup/blacklist key
      */
     public record AppliedFix(String errorType, String description, String action, String fixKey) {
         @Override
@@ -1297,10 +1037,7 @@ public class AutoFixEngine {
         }
     }
 
-    /**
-     * Persisted fix stored in auto-fixes.json between launches.
-     * Uses a class (not record) for Gson deserialization compatibility.
-     */
+    /** Persisted fix in auto-fixes.json. A class, not a record, for Gson. */
     static class PersistedFix {
         String fixKey;
         String errorType;
@@ -1308,8 +1045,7 @@ public class AutoFixEngine {
         String action;
         boolean blacklisted;
 
-        /** No-arg constructor for Gson. */
-        PersistedFix() {}
+        PersistedFix() {} // for Gson
 
         PersistedFix(String fixKey, String errorType, String description,
                      String action, boolean blacklisted) {
@@ -1321,16 +1057,7 @@ public class AutoFixEngine {
         }
     }
 
-    /**
-     * An error pattern: a compiled regex plus a fix action.
-     *
-     * <p>Each pattern has:</p>
-     * <ul>
-     *   <li>{@code name} - human-readable name for logging</li>
-     *   <li>{@code regex} - compiled regex that matches the error line</li>
-     *   <li>{@code fixAction} - lambda that parses the match and applies a fix</li>
-     * </ul>
-     */
+    /** A named regex paired with the fix action to run on a match. */
     static class ErrorPattern {
         final String name;
         final Pattern regex;
@@ -1342,30 +1069,12 @@ public class AutoFixEngine {
             this.fixAction = fixAction;
         }
 
-        /**
-         * Build a unique key for this error match, used for deduplication
-         * and blacklisting. Defaults to name + matched text hash.
-         *
-         * NOTE (LOW): Using hashCode() has collision potential - two different
-         * error lines could hash to the same fix key, causing a legitimate fix
-         * to be skipped. In practice this is unlikely given the pattern-specific
-         * name prefix, but for maximum correctness consider using the matched
-         * text directly (truncated to a reasonable length) instead of its hash.
-         */
+        /** Dedup/blacklist key: pattern name plus the matched text's hash. */
         String buildFixKey(Matcher matcher, String line) {
-            // Use the full match as part of the key for uniqueness
             return name + ":" + matcher.group(0).hashCode();
         }
 
-        /**
-         * Apply the fix and return a description of what was done.
-         *
-         * @param matcher     the regex matcher with captured groups
-         * @param line        the full log line that matched
-         * @param context     surrounding lines for multi-line errors
-         * @param transformer the transformer to register fixes on
-         * @return the applied fix, or null if no fix could be computed
-         */
+        /** Run the fix action, returning the applied fix or null. */
         AppliedFix apply(Matcher matcher, String line, String context,
                          RetromodTransformer transformer) {
             try {
@@ -1379,19 +1088,13 @@ public class AutoFixEngine {
             return null;
         }
 
-        /**
-         * Describe what fix would be applied without actually applying it.
-         * Used for dry-run / CLI analysis mode.
-         */
+        /** Describe the fix without applying it (CLI dry-run). */
         AppliedFix describe(Matcher matcher, String line, String context) {
             try {
-                // Call the fix action with a null transformer - patterns that
-                // register redirects will produce an AppliedFix but the redirect
-                // won't actually be registered since transformer is null.
-                // Patterns that require the transformer will return a descriptive fix.
+                // Null transformer: redirect-registering patterns still build an AppliedFix
+                // but register nothing; transformer-dependent ones throw and fall through.
                 return fixAction.apply(matcher, line, context, null);
             } catch (NullPointerException e) {
-                // Expected for patterns that call transformer methods
                 return new AppliedFix(name, line.trim(), "Fix requires transformer (would apply at runtime)", name);
             } catch (Exception e) {
                 return new AppliedFix(name, line.trim(), "Analysis error: " + e.getMessage(), name);
@@ -1399,19 +1102,13 @@ public class AutoFixEngine {
         }
     }
 
-    /**
-     * Functional interface for the fix action lambda.
-     */
     @FunctionalInterface
     interface FixAction {
         /**
-         * Parse the error match and apply a fix.
+         * Parse the match and apply a fix.
          *
-         * @param matcher     regex matcher with captured groups
-         * @param line        full log line
-         * @param context     surrounding lines (current + next 5)
-         * @param transformer the transformer (may be null in dry-run mode)
-         * @return description of the fix, or null if no fix could be applied
+         * @param transformer the transformer (null in dry-run mode)
+         * @return the fix, or null if none could be applied
          */
         AppliedFix apply(Matcher matcher, String line, String context,
                          RetromodTransformer transformer);

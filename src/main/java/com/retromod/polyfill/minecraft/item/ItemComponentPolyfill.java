@@ -5,6 +5,7 @@
 package com.retromod.polyfill.minecraft.item;
 
 import com.retromod.core.RetromodTransformer;
+import com.retromod.core.RetromodVersion;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
@@ -16,6 +17,12 @@ import com.retromod.polyfill.PolyfillProvider;
  * embedded bridge class that uses reflection to access either the new
  * DataComponents.CUSTOM_DATA component or the old NBT API, depending on
  * what's available at runtime.
+ *
+ * <p><b>Host-gated to 1.20.5+.</b> Below 1.20.5 the NBT methods still exist on
+ * {@code ItemStack}, so redirecting them would replace a working call with the
+ * component-based bridge before components exist. The from-owner is the live
+ * Mojang {@code net/minecraft/world/item/ItemStack}, so on a pre-1.20.5 NeoForge
+ * host (Mojang-named mods) the redirect WOULD fire; gate it.
  *
  * Method redirects:
  * - ItemStack.getTag() / getTagCompound() → ItemStackNbtBridge.getTag(itemStack)
@@ -37,7 +44,7 @@ public class ItemComponentPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getRemovedClasses() {
-        // No classes were removed - the methods on ItemStack changed signature
+        // No classes were removed; the methods on ItemStack changed signature
         return new String[]{};
     }
 
@@ -50,14 +57,17 @@ public class ItemComponentPolyfill implements PolyfillProvider {
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
+        // host >= 1.20.5  <=>  "1.20.5" is NOT strictly greater than the target.
+        if (RetromodVersion.mcVersionExceeds("1.20.5", RetromodVersion.TARGET_MC_VERSION)) {
+            return; // ItemStack.getTag()/setTag()/... still exist below 1.20.5.
+        }
+
         // Register embedded shim classes so they get injected into transformed mod JARs
         for (String cls : getPolyfillClasses()) {
             transformer.registerEmbeddedShim(cls);
         }
 
-        // =====================================================================
         // ItemStack NBT method redirects (1.20.5+)
-        // =====================================================================
 
         // getTag() → ItemStackNbtBridge.getTag(itemStack)
         // Instance method on ItemStack becomes static call with itemStack as first arg
@@ -70,7 +80,7 @@ public class ItemComponentPolyfill implements PolyfillProvider {
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
 
-        // getTagCompound() - older Forge name for the same method
+        // getTagCompound(), the older Forge name for the same method
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/ItemStack",
             "getTagCompound",

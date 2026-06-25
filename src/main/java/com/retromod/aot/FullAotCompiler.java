@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.aot;
@@ -21,48 +21,29 @@ import java.util.jar.*;
 import java.util.zip.*;
 
 /**
- * Full AOT Pre-compilation Engine
- * 
- * This is a ONE-TIME heavy compilation that:
- * 1. Scans ALL classes in all mods
- * 2. Analyzes every code path
- * 3. Pre-compiles EVERYTHING that can be AOT compiled
- * 4. Saves the compiled bytecode to a cache
- * 5. Future launches use the cache = MUCH FASTER!
- * 
- * Think of it like:
- * - Normal mode: Compile as you go (some lag during gameplay)
- * - Full AOT mode: Compile everything upfront (slow once, fast forever)
- * 
- * The user triggers this by:
- * - Fabric: Toggle in first-launch dialog
- * - Forge/NeoForge: Button in GUI when adding mods
- * 
- * Progress is shown so the user knows it's working.
+ * One-time heavy compilation: transforms every class in the given mods upfront and caches the
+ * result, so later launches read cached bytecode instead of transforming on the fly. Triggered
+ * from the Fabric first-launch dialog or the Forge/NeoForge add-mods GUI.
  */
 public class FullAotCompiler {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-FullAOT");
-    
-    // Cache directory for pre-compiled classes
+
     private static final String CACHE_DIR = "retromod-cache/full-aot";
-    
-    // Singleton
+
     private static FullAotCompiler instance;
-    
+
     private final ShimRegistry shimRegistry;
     private final String targetVersion;
     private final Path cacheDir;
-    
-    // Progress tracking
+
     private volatile int totalClasses = 0;
     private volatile int compiledClasses = 0;
     private volatile String currentMod = "";
     private volatile String currentClass = "";
     private volatile boolean isRunning = false;
     private volatile boolean wasCancelled = false;
-    
-    // Listeners for progress updates
+
     private final List<ProgressListener> listeners = new CopyOnWriteArrayList<>();
     
     public interface ProgressListener {
@@ -90,17 +71,11 @@ public class FullAotCompiler {
         return instance;
     }
     
-    /**
-     * Check if full AOT cache exists for a mod.
-     */
     public boolean hasCachedCompilation(String modId) {
         Path modCache = cacheDir.resolve(modId + ".aot");
         return Files.exists(modCache);
     }
     
-    /**
-     * Get cached compiled class if available.
-     */
     public byte[] getCachedClass(String modId, String className) {
         Path classCache = cacheDir.resolve(modId).resolve(className.replace('/', '_') + ".class");
         
@@ -116,10 +91,7 @@ public class FullAotCompiler {
     }
     
     /**
-     * Run full AOT compilation on all mods in the input folder.
-     * 
-     * @param modsToCompile List of mod JAR paths
-     * @return Number of classes compiled
+     * Transform and cache every class in the given mod JARs. Returns the count of classes compiled.
      */
     public CompletableFuture<Integer> runFullCompilation(List<Path> modsToCompile) {
         if (isRunning) {
@@ -135,23 +107,16 @@ public class FullAotCompiler {
             long startTime = System.currentTimeMillis();
             
             try {
-                LOGGER.info("═══════════════════════════════════════════════════════════");
-                LOGGER.info("  FULL AOT PRE-COMPILATION STARTING");
-                LOGGER.info("═══════════════════════════════════════════════════════════");
-                LOGGER.info("  Mods to compile: {}", modsToCompile.size());
-                LOGGER.info("  This may take several minutes...");
-                LOGGER.info("  But future launches will be MUCH faster!");
-                LOGGER.info("═══════════════════════════════════════════════════════════");
-                
-                // Step 1: Count total classes
+                LOGGER.info("Full AOT pre-compilation starting, {} mods (may take several minutes)",
+                    modsToCompile.size());
+
                 LOGGER.info("Counting classes...");
                 for (Path modJar : modsToCompile) {
                     totalClasses += countClasses(modJar);
                 }
                 LOGGER.info("Total classes to compile: {}", totalClasses);
-                
-                // Step 2: Compile each mod using RetromodTransformer
-                com.retromod.core.RetromodTransformer transformer = 
+
+                com.retromod.core.RetromodTransformer transformer =
                     com.retromod.core.RetromodTransformer.getInstance();
                 
                 for (Path modJar : modsToCompile) {
@@ -167,14 +132,8 @@ public class FullAotCompiler {
                 }
                 
                 long elapsed = System.currentTimeMillis() - startTime;
-
-                LOGGER.info("═══════════════════════════════════════════════════════════");
-                LOGGER.info("  FULL AOT COMPILATION COMPLETE!");
-                LOGGER.info("═══════════════════════════════════════════════════════════");
-                LOGGER.info("  Classes compiled: {}", compiledClasses);
-                LOGGER.info("  Time: {} seconds", elapsed / 1000);
-                LOGGER.info("  Future launches will use cached bytecode!");
-                LOGGER.info("═══════════════════════════════════════════════════════════");
+                LOGGER.info("Full AOT compilation complete: {} classes in {}s",
+                    compiledClasses, elapsed / 1000);
 
                 return compiledClasses;
 
@@ -183,10 +142,7 @@ public class FullAotCompiler {
                 return compiledClasses;
             } finally {
                 isRunning = false;
-                // Notify in finally - on ANY exit (success, Exception, even an
-                // Error from bytecode work) listeners must hear onComplete, or
-                // the modal progress dialog is never disposed and sits at N%
-                // forever looking like it's still compiling.
+                // onComplete must fire on every exit path, else the modal progress dialog never disposes
                 long elapsed = System.currentTimeMillis() - startTime;
                 for (ProgressListener listener : listeners) {
                     try {
@@ -199,9 +155,6 @@ public class FullAotCompiler {
         });
     }
     
-    /**
-     * Count classes in a JAR.
-     */
     private int countClasses(Path jarPath) {
         int count = 0;
         try (JarFile jar = new JarFile(jarPath.toFile())) {
@@ -219,10 +172,7 @@ public class FullAotCompiler {
         return count;
     }
     
-    /**
-     * Compile all classes in a mod JAR.
-     * OPTIMIZED: Uses parallel processing for faster compilation.
-     */
+    /** Transform every class in a mod JAR in parallel and write the results to the mod's cache dir. */
     private void compileAllClassesInMod(Path jarPath, RetromodTransformer transformer) {
         String modId = extractModId(jarPath);
         if (modId == null) {
@@ -237,12 +187,10 @@ public class FullAotCompiler {
             return;
         }
         
-        // Use thread pool for parallel compilation
         int threads = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
         ExecutorService executor = Executors.newFixedThreadPool(threads);
-        
+
         try (JarFile jar = new JarFile(jarPath.toFile())) {
-            // Collect all class entries first (fast)
             List<JarEntry> classEntries = new ArrayList<>();
             var entries = jar.entries();
             while (entries.hasMoreElements()) {
@@ -253,7 +201,6 @@ public class FullAotCompiler {
                 }
             }
             
-            // Process classes in parallel batches
             int batchSize = Math.max(10, classEntries.size() / threads);
             List<Future<?>> futures = new ArrayList<>();
             final Path finalModCacheDir = modCacheDir;
@@ -276,27 +223,23 @@ public class FullAotCompiler {
                         currentClass = className;
                         
                         try {
-                            // Read original bytecode with buffered stream
                             byte[] original;
                             try (InputStream is = new BufferedInputStream(jar.getInputStream(entry))) {
                                 original = is.readAllBytes();
                             }
-                            
-                            // Transform it
+
                             byte[] transformed = transformer.transformClass(original, className);
-                            
+
                             if (transformed != null && transformed != original) {
-                                // Save to cache
                                 String cacheFileName = className.replace('.', '_') + ".class";
                                 Path cacheFile = finalModCacheDir.resolve(cacheFileName);
                                 Files.write(cacheFile, transformed);
-                                
+
                                 synchronized (this) {
                                     compiledClasses++;
                                 }
                             }
-                            
-                            // Notify listeners (batched - only every 10 classes)
+
                             if (compiledClasses % 10 == 0) {
                                 for (ProgressListener listener : listeners) {
                                     listener.onProgress(compiledClasses, totalClasses, currentMod, className);
@@ -310,7 +253,6 @@ public class FullAotCompiler {
                 }));
             }
             
-            // Wait for all batches to complete
             for (Future<?> future : futures) {
                 try {
                     future.get();
@@ -318,13 +260,11 @@ public class FullAotCompiler {
                     LOGGER.debug("Batch compilation error", e);
                 }
             }
-            
-            // Final progress update
+
             for (ProgressListener listener : listeners) {
                 listener.onProgress(compiledClasses, totalClasses, currentMod, "Complete");
             }
-            
-            // Mark mod as fully compiled
+
             Path marker = modCacheDir.resolve(".complete");
             Files.writeString(marker, String.valueOf(System.currentTimeMillis()));
             
@@ -338,12 +278,8 @@ public class FullAotCompiler {
         }
     }
     
-    /**
-     * Extract mod ID from JAR.
-     */
     private String extractModId(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
-            // Try fabric.mod.json
             ZipEntry fabricEntry = jar.getEntry("fabric.mod.json");
             if (fabricEntry != null) {
                 String content = new String(jar.getInputStream(fabricEntry).readAllBytes());
@@ -354,7 +290,6 @@ public class FullAotCompiler {
                 }
             }
             
-            // Try mods.toml
             ZipEntry forgeEntry = jar.getEntry("META-INF/mods.toml");
             if (forgeEntry != null) {
                 String content = new String(jar.getInputStream(forgeEntry).readAllBytes());
@@ -365,53 +300,36 @@ public class FullAotCompiler {
                 }
             }
         } catch (Exception e) {
-            // Ignore
+            // ignore
         }
         return null;
     }
-    
-    /**
-     * Cancel the running compilation.
-     */
+
     public void cancel() {
         wasCancelled = true;
     }
-    
-    /**
-     * Check if compilation is running.
-     */
+
     public boolean isRunning() {
         return isRunning;
     }
-    
-    /**
-     * Get current progress.
-     */
+
+    /** Percent of total classes compiled so far. */
     public int getProgress() {
         if (totalClasses == 0) return 0;
         return (int) ((compiledClasses * 100.0) / totalClasses);
     }
     
-    /**
-     * Add progress listener.
-     */
     public void addProgressListener(ProgressListener listener) {
         listeners.add(listener);
     }
-    
-    /**
-     * Remove progress listener.
-     */
+
     public void removeProgressListener(ProgressListener listener) {
         listeners.remove(listener);
     }
-    
-    /**
-     * Show GUI progress dialog.
-     */
+
+    /** Run compilation behind a Swing progress dialog, or headless if no GUI is available. */
     public void showProgressDialog(List<Path> modsToCompile) {
         if (!EnvironmentDetector.canShowGui()) {
-            // Just run without GUI on servers
             runFullCompilation(modsToCompile);
             return;
         }
@@ -426,13 +344,11 @@ public class FullAotCompiler {
             
             JPanel panel = new JPanel(new BorderLayout(10, 10));
             panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-            
-            // Title
+
             JLabel titleLabel = new JLabel("Pre-compiling mods for maximum performance...");
             titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD, 14f));
             panel.add(titleLabel, BorderLayout.NORTH);
-            
-            // Progress area
+
             JPanel progressPanel = new JPanel(new GridLayout(4, 1, 5, 5));
             
             JProgressBar progressBar = new JProgressBar(0, 100);
@@ -450,8 +366,7 @@ public class FullAotCompiler {
             progressPanel.add(statsLabel);
             
             panel.add(progressPanel, BorderLayout.CENTER);
-            
-            // Cancel button
+
             JButton cancelButton = new JButton("Cancel");
             cancelButton.addActionListener(e -> {
                 cancel();
@@ -466,8 +381,7 @@ public class FullAotCompiler {
             dialog.pack();
             dialog.setSize(450, 200);
             dialog.setLocationRelativeTo(null);
-            
-            // Add progress listener
+
             ProgressListener listener = new ProgressListener() {
                 @Override
                 public void onProgress(int compiled, int total, String mod, String className) {
@@ -510,7 +424,6 @@ public class FullAotCompiler {
                 
                 @Override
                 public void onError(String mod, String className, String error) {
-                    // Just log, don't interrupt
                     LOGGER.debug("Error compiling {}: {}", className, error);
                 }
                 
@@ -521,22 +434,16 @@ public class FullAotCompiler {
             };
             
             addProgressListener(listener);
-            
-            // Start compilation in background
-            // whenComplete, not thenRun: an exceptionally-completed future must
-            // still remove the listener or it leaks into the next compilation.
+
+            // whenComplete, not thenRun: a failed future must still drop the listener or it leaks
             runFullCompilation(modsToCompile).whenComplete((r, t) -> {
                 removeProgressListener(listener);
             });
-            
-            // Show dialog (blocks until closed)
+
             dialog.setVisible(true);
         });
     }
     
-    /**
-     * Clear the AOT cache.
-     */
     public void clearCache() {
         try {
             if (Files.exists(cacheDir)) {
@@ -555,9 +462,7 @@ public class FullAotCompiler {
         }
     }
     
-    /**
-     * Get cache size in bytes.
-     */
+    /** Total size of the cache directory in bytes. */
     public long getCacheSize() {
         try {
             if (!Files.exists(cacheDir)) return 0;

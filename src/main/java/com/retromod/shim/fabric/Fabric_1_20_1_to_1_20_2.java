@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.20.1 to run on 1.20.2.
- * Handles networking protocol refactor and configuration phase addition.
- */
+/** Fabric 1.20.1 mods on 1.20.2: networking protocol refactor and the new configuration phase. */
 public class Fabric_1_20_1_to_1_20_2 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.20.1 to 1.20.2"; }
@@ -20,14 +17,12 @@ public class Fabric_1_20_1_to_1_20_2 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Networking protocol refactored
         transformer.registerMethodRedirect(
             "net/minecraft/network/PacketByteBuf", "readIdentifier",
             "()Lnet/minecraft/util/Identifier;",
             "com/retromod/shim/fabric/embedded/NetworkShim", "readIdentifier",
             "(Ljava/lang/Object;)Lnet/minecraft/util/Identifier;"
         );
-        // Configuration phase added
         transformer.registerMethodRedirect(
             "net/minecraft/network/ClientConnection", "send",
             "(Lnet/minecraft/network/Packet;)V",

@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.core;
@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for {@link RetromodPreLaunch#isUnobfuscatedTarget(String)} - the gate
+ * Tests for {@link RetromodPreLaunch#isUnobfuscatedTarget(String)}: the gate
  * that decides whether the intermediary→Mojang remap (and 26.1 class moves) are
  * applied.
  *
@@ -74,7 +74,7 @@ class RetromodPreLaunchTest {
         assertFalse(RetromodPreLaunch.mcVersionExceeds("1.21.8", "1.21.8"));
         assertFalse(RetromodPreLaunch.mcVersionExceeds("1.20.6", "1.21.1")); // the ResourceLocation-ctor shim
         assertFalse(RetromodPreLaunch.mcVersionExceeds("1.16.5", "1.21.8"));
-        // On the published 26.1.2 host EVERY shim (max target 26.1) still applies - path unchanged.
+        // On the published 26.1.2 host EVERY shim (max target 26.1) still applies: path unchanged.
         assertFalse(RetromodPreLaunch.mcVersionExceeds("26.1", "26.1.2"));
         assertFalse(RetromodPreLaunch.mcVersionExceeds("1.21.11", "26.1.2"));
         // Unparseable → never over-exclude.
@@ -97,8 +97,8 @@ class RetromodPreLaunchTest {
         for (VersionShim s : java.util.ServiceLoader.load(VersionShim.class)) {
             targets.put(s.getClass().getSimpleName(), s.getTargetVersion());
         }
-        // The 1.21.11→26.1 shim - the one renaming Fabric API to 26.1-only names
-        // (BeforeExtract, ExtendedMenuProvider) - must be skipped on a 1.21.8 host (#31/#32/#35).
+        // The 1.21.11→26.1 shim, the one renaming Fabric API to 26.1-only names
+        // (BeforeExtract, ExtendedMenuProvider), must be skipped on a 1.21.8 host (#31/#32/#35).
         String t261 = targets.get("Fabric_1_21_11_to_26_1");
         assertNotNull(t261, "the 1.21.11→26.1 shim should be registered");
         assertTrue(RetromodPreLaunch.mcVersionExceeds(t261, "1.21.8"),

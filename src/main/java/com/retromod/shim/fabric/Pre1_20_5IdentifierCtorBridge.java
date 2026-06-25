@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.shim.fabric;
@@ -12,51 +12,18 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 
 /**
- * Pre-1.20.5 {@code Identifier} (ResourceLocation) constructor bridge
- * (Fabric, pre-26.1 hosts, intermediary namespace).
+ * Redirects pre-1.20.5 {@code Identifier} (ResourceLocation) constructor calls to the
+ * static factories that replaced them, for intermediary-namespace Fabric mods on pre-26.1 hosts.
  *
- * <h2>The problem</h2>
- * Up through 1.20.4 you constructed {@code Identifier}/{@code ResourceLocation} with
- * a public constructor:
- * <pre>
- *   new ResourceLocation("earth2java:bed_textures");        // (String)V
- *   new ResourceLocation("earth2java", "bed_textures");      // (String,String)V
- * </pre>
- * 1.20.5 deleted both ctors and routed everything through static factories:
- * {@code ResourceLocation.parse} and {@code ResourceLocation.fromNamespaceAndPath}.
- * Any Fabric mod compiled against ≤1.20.4 still emits {@code INVOKESPECIAL
- * class_2960.<init>(Ljava/lang/String;)V} (etc.), and on a 1.20.5+ host that's a
- * {@code NoSuchMethodError} the instant the call site is touched (Earth2Java's
- * {@code Earth2JavaClientMod.addBedTextureToAtlas} is one of dozens of hits).
+ * <p>1.20.5 deleted the public {@code class_2960} ctors in favor of {@code parse} and
+ * {@code fromNamespaceAndPath}; a mod compiled against &le;1.20.4 still emits
+ * {@code INVOKESPECIAL class_2960.<init>(...)}, a {@code NoSuchMethodError} on a 1.20.5+ host.
+ * {@code RegistryPolyfill} handles the Mojang-named classes, but the intermediary&rarr;Mojang
+ * remap is gated off on pre-26.1 Fabric hosts (#21), so the bytecode still says {@code class_2960}.
  *
- * <h2>Why this is its own bridge (not the existing polyfill)</h2>
- * {@link com.retromod.polyfill.minecraft.registry.RegistryPolyfill} already registers
- * the same ctor → factory redirects, but keyed on the <b>Mojang</b> names
- * ({@code net/minecraft/util/ResourceLocation}, {@code net/minecraft/resources/ResourceLocation}).
- * On a pre-26.1 Fabric host the intermediary→Mojang remap is gated OFF (#21/#29), so
- * the visitor sees {@code class_2960} in the bytecode and never matches those keys.
- * The mapper also installs intermediary-named ctor redirects via
- * {@code IntermediaryToMojangMapper.applyClassMovesOnly}, but those too are
- * 26.1+-gated - they fire under {@code isUnobfuscatedTarget(host)}, i.e. only when
- * the bytecode has already been renamed to Mojang names. So pre-26.1 Fabric was an
- * uncovered gap.
- *
- * <h2>Discovery</h2>
- * The intermediary IDs of {@code parse} / {@code fromNamespaceAndPath} drift between
- * MC versions ({@code method_60654/55} on 1.21.x, different numbers earlier). Rather
- * than ship a per-version table, the bridge reflectively probes the host's
- * {@code class_2960} at registration and looks for the matching signatures:
- * <ul>
- *   <li>static {@code (String) -> class_2960} → that's {@code parse}</li>
- *   <li>static {@code (String, String) -> class_2960} → {@code fromNamespaceAndPath}</li>
- * </ul>
- * The discovered method names are wired into the redirect. Whatever the host's
- * intermediary numbering happens to be, we hit it.
- *
- * <h2>Gating</h2>
- * Wired in alongside the model + InteractionResult bridges (pre-26.1 hosts only).
- * Self-gated as a no-op when either factory is absent - i.e. on a host where the
- * old ctors are still present and the registration would do nothing useful.
+ * <p>The factory intermediary IDs drift between MC versions, so the bridge reflectively probes
+ * the host's {@code class_2960} for its static {@code (String)} and {@code (String,String)}
+ * factories rather than carrying a per-version table.
  */
 public final class Pre1_20_5IdentifierCtorBridge {
 
@@ -68,7 +35,7 @@ public final class Pre1_20_5IdentifierCtorBridge {
 
     private Pre1_20_5IdentifierCtorBridge() {}
 
-    /** Wire constructor → factory redirects, auto-discovering the host's factory names. */
+    /** Wire constructor to factory redirects, discovering the host's factory names by reflection. */
     public static void register(RetromodTransformer transformer) {
         Class<?> identifier;
         try {
@@ -113,13 +80,8 @@ public final class Pre1_20_5IdentifierCtorBridge {
     }
 
     /**
-     * Find the single public-static method on {@code cls} whose signature is
-     * {@code (paramTypes...) -> cls}, returning its name (intermediary or Mojang -
-     * whichever the host exposes). Returns null if zero or multiple candidates
-     * exist; multiple is a deliberate fail-safe because rewriting to the wrong
-     * factory would silently corrupt every Identifier construction at every call
-     * site, and a clear startup log is much easier to debug than a half-broken
-     * runtime.
+     * Name of the one public-static {@code (paramTypes...) -> cls} method on {@code cls}, or null
+     * if there are zero or several. Don't guess: the wrong factory corrupts every Identifier built.
      */
     private static String findStaticFactory(Class<?> cls, Class<?>... paramTypes) {
         String match = null;

@@ -17,7 +17,7 @@ public class VirtualGameRegistry {
     private static final Map<String, Object> TILE_ENTITIES = new LinkedHashMap<>();
     private static final Map<String, Object> ENTITIES = new LinkedHashMap<>();
     
-    // Pending registrations queue - bridged to modern registry at runtime
+    // Pending registrations queue, bridged to modern registry at runtime
     private static final List<PendingRegistration> PENDING = new ArrayList<>();
     
     public static void registerBlock(Object block, String name) {

@@ -9,16 +9,7 @@ package com.retromod.shim.api.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Cloth Config API compatibility shim.
- * 
- * Cloth Config is the most popular configuration library for Fabric mods.
- * Major API changes:
- * - v4.x -> v5.x: Builder API changes
- * - v5.x -> v6.x: Entry builders refactored
- * - v6.x -> v11.x: ConfigBuilder changes
- * - Screen creation changes across versions
- */
+/** Cloth Config API shim (v4.x through v11.x): bridges Builder/entry-builder API changes. */
 public class ClothConfigApiShim implements VersionShim {
     
     @Override
@@ -43,12 +34,7 @@ public class ClothConfigApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PACKAGE RELOCATIONS
-        // ============================================================
-
-        // Old package: me.shedaniel.clothconfig2
-        // Some versions used different packages
+        // old package was me.shedaniel.clothconfig, now clothconfig2
         transformer.registerClassRedirect(
             "me/shedaniel/clothconfig/api/ConfigBuilder",
             "me/shedaniel/clothconfig2/api/ConfigBuilder"
@@ -64,20 +50,7 @@ public class ClothConfigApiShim implements VersionShim {
             "me/shedaniel/clothconfig2/api/ConfigEntryBuilder"
         );
 
-        // ============================================================
-        // CLOTH CONFIG v6.x COMPATIBILITY
-        // ============================================================
-        // v6.x was widely used with MC 1.17-1.19 and is a common
-        // dependency. Many mods pin "cloth-config >= 6.0" specifically.
-        //
-        // Key changes between v6.x and v11.x:
-        //   - ConfigScreen.Builder replaced ConfigBuilder in some flows
-        //   - getOrCreateCategory signature changed
-        //   - Tooltip handling changed (Optional<Text[]> -> varargs)
-        //   - SubCategoryBuilder was refactored
-        //   - AbstractConfigEntry generics changed
-
-        // v6.x ConfigBuilder.getOrCreateCategory used Text directly
+        // v6.x (MC 1.17-1.19) -> v11.x
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/ConfigBuilder",
             "getOrCreateCategory",
@@ -87,13 +60,12 @@ public class ClothConfigApiShim implements VersionShim {
             "(Ljava/lang/Object;Lnet/minecraft/text/Text;)Ljava/lang/Object;"
         );
 
-        // v6.x SubCategoryBuilder constructor took (Text, List) in some versions
         transformer.registerClassRedirect(
             "me/shedaniel/clothconfig2/gui/entries/SubCategoryListEntry$Builder",
             "me/shedaniel/clothconfig2/impl/builders/SubCategoryBuilder"
         );
 
-        // v6.x AbstractConfigEntry.setTooltipSupplier (removed in later versions)
+        // setTooltipSupplier was removed in later versions
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/AbstractConfigListEntry",
             "setTooltipSupplier",
@@ -103,7 +75,6 @@ public class ClothConfigApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/util/function/Supplier;)V"
         );
 
-        // v6.x used setErrorSupplier differently
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/AbstractConfigListEntry",
             "setErrorSupplier",
@@ -113,7 +84,6 @@ public class ClothConfigApiShim implements VersionShim {
             "(Ljava/lang/Object;Ljava/util/function/Supplier;)V"
         );
 
-        // v6.x ConfigBuilder.setSavingRunnable signature
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/ConfigBuilder",
             "setSavingRunnable",
@@ -122,13 +92,7 @@ public class ClothConfigApiShim implements VersionShim {
             "setSavingRunnableCompat",
             "(Ljava/lang/Object;Ljava/lang/Runnable;)V"
         );
-        
-        // ============================================================
-        // CONFIG BUILDER CHANGES
-        // ============================================================
-        
-        // Old: ConfigBuilder.create().setParentScreen(parent)
-        // Still works but method signatures changed
+
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/ConfigBuilder",
             "create",
@@ -137,12 +101,8 @@ public class ClothConfigApiShim implements VersionShim {
             "createBuilder",
             "()Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // ENTRY BUILDER CHANGES
-        // ============================================================
-        
-        // Old startStrField -> startTextField (renamed in some versions)
+
+        // startStrField was renamed to startTextField
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/ConfigEntryBuilder",
             "startStrField",
@@ -151,8 +111,7 @@ public class ClothConfigApiShim implements VersionShim {
             "startTextField",
             "(Lnet/minecraft/text/Text;Ljava/lang/String;)Lme/shedaniel/clothconfig2/impl/builders/StringFieldBuilder;"
         );
-        
-        // Old startBooleanToggle signature changes
+
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/ConfigEntryBuilder",
             "startBooleanToggle",
@@ -161,12 +120,8 @@ public class ClothConfigApiShim implements VersionShim {
             "startBooleanToggle",
             "(Ljava/lang/Object;Lnet/minecraft/text/Text;Z)Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // ABSTRACT CONFIG ENTRY CHANGES
-        // ============================================================
-        
-        // setTooltip changes (varargs vs single)
+
+        // setTooltip went from Optional to varargs
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/AbstractConfigListEntry",
             "setTooltip",
@@ -175,11 +130,7 @@ public class ClothConfigApiShim implements VersionShim {
             "setTooltipCompat",
             "(Ljava/lang/Object;Ljava/util/Optional;)V"
         );
-        
-        // ============================================================
-        // DROPDOWN BUILDER CHANGES
-        // ============================================================
-        
+
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/ConfigEntryBuilder",
             "startDropdownMenu",
@@ -188,11 +139,7 @@ public class ClothConfigApiShim implements VersionShim {
             "startDropdownMenu",
             "(Ljava/lang/Object;Lnet/minecraft/text/Text;Ljava/lang/Object;)Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // COLOR ENTRY CHANGES
-        // ============================================================
-        
+
         transformer.registerMethodRedirect(
             "me/shedaniel/clothconfig2/api/ConfigEntryBuilder",
             "startColorField",
@@ -201,13 +148,8 @@ public class ClothConfigApiShim implements VersionShim {
             "startColorField",
             "(Ljava/lang/Object;Lnet/minecraft/text/Text;I)Ljava/lang/Object;"
         );
-        
-        // ============================================================
-        // TEXT CLASS CHANGES
-        // ============================================================
-        
-        // Old: Text.literal() / Text.translatable()
-        // Very old: new LiteralText() / new TranslatableText()
+
+        // very old mods constructed LiteralText/TranslatableText directly
         transformer.registerClassRedirect(
             "net/minecraft/text/LiteralText",
             "com/retromod/shim/api/fabric/embedded/TextShim$LiteralTextShim"

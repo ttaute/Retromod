@@ -9,65 +9,36 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
- * Shim for FabricItemGroupBuilder which was removed in 1.19.3.
- * 
- * Old API:
- *   FabricItemGroupBuilder.create(id)
- *       .icon(() -> new ItemStack(Items.DIAMOND))
- *       .appendItems(stacks -> { ... })
- *       .build()
- * 
- * New API (1.19.3+):
- *   FabricItemGroup.builder()
- *       .icon(() -> new ItemStack(Items.DIAMOND))
- *       .displayName(Text.translatable("..."))
- *       .entries((context, entries) -> { ... })
- *       .build()
+ * Shim for FabricItemGroupBuilder, removed in 1.19.3. Adapts the old
+ * create/icon/appendItems/build chain onto FabricItemGroup.builder().
  */
 public class FabricItemGroupBuilderShim {
-    
+
     private Object identifier;
     private Supplier<?> iconSupplier;
     private Consumer<?> appendItemsConsumer;
-    
+
     private FabricItemGroupBuilderShim() {}
-    
-    /**
-     * Static factory method matching old FabricItemGroupBuilder.create(Identifier).
-     */
+
     public static FabricItemGroupBuilderShim create(Object identifier) {
         FabricItemGroupBuilderShim builder = new FabricItemGroupBuilderShim();
         builder.identifier = identifier;
         return builder;
     }
-    
-    /**
-     * Set the icon supplier.
-     */
+
     public FabricItemGroupBuilderShim icon(Supplier<?> iconSupplier) {
         this.iconSupplier = iconSupplier;
         return this;
     }
-    
-    /**
-     * Old appendItems method - takes Consumer<List<ItemStack>>.
-     */
+
     public FabricItemGroupBuilderShim appendItems(Consumer<?> appendItems) {
         this.appendItemsConsumer = appendItems;
         return this;
     }
-    
+
     /**
-     * Legacy static {@code FabricItemGroupBuilder.build(Identifier, Supplier<ItemStack>) → ItemGroup}
-     * (the form #57's callers hit - Earth2Java's {@code Earth2JavaMod.<clinit>} among others).
-     * Previously absent, so the class-redirect-rewritten call resolved to nothing and the mod
-     * hard-crashed with {@code NoSuchMethodError}. Delegates to the modern-API path used by
-     * {@link #build()} after wiring the id + icon supplier.
-     *
-     * <p>The MC types in this signature are compile-time stubs (see
-     * {@code src/main/java/net/minecraft/class_2960.java} and {@code class_1761.java}); they're
-     * stripped from the production jar so MC's real classes resolve at runtime - this is the
-     * same compile-only-stub trick the {@code @Mod} stubs use.
+     * Legacy static {@code build(Identifier, Supplier<ItemStack>)} form (#57). The MC types are
+     * compile-time stubs (class_2960, class_1761) stripped from the production jar.
      */
     public static net.minecraft.class_1761 build(net.minecraft.class_2960 id, Supplier<?> stack) {
         try {
@@ -76,77 +47,62 @@ public class FabricItemGroupBuilderShim {
             Object result = builder.build();
             return (net.minecraft.class_1761) result;
         } catch (Throwable t) {
-            // Best-effort: when neither the modern nor legacy Fabric ItemGroup API resolves on
-            // the host, returning null lets the caller's static init keep going (Earth2Java's
-            // {@code Earth2JavaMod.<clinit>}, #57). Items may end up ungrouped in creative tabs
-            // but the mod itself loads, which is strictly better than an ExceptionInInitializerError
-            // taking the whole entry point down.
+            // no ItemGroup API on the host: return null so the caller's static init survives
             return null;
         }
     }
 
-    /**
-     * Build the item group using the new API.
-     */
+    /** Build via FabricItemGroup.builder(), falling back to the old builder. */
     public Object build() {
         try {
-            // Try new FabricItemGroup.builder() API
             Class<?> fabricItemGroupClass = Class.forName("net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup");
             Method builderMethod = fabricItemGroupClass.getMethod("builder");
             Object builder = builderMethod.invoke(null);
             
             Class<?> builderClass = builder.getClass();
-            
-            // Set icon
+
             if (iconSupplier != null) {
                 Method iconMethod = findMethod(builderClass, "icon", Supplier.class);
                 if (iconMethod != null) {
                     builder = iconMethod.invoke(builder, iconSupplier);
                 }
             }
-            
-            // Set display name from identifier
+
             if (identifier != null) {
                 try {
                     Method displayNameMethod = findMethod(builderClass, "displayName");
                     if (displayNameMethod != null) {
-                        // Create Text from identifier
                         Object text = createDisplayName(identifier);
                         builder = displayNameMethod.invoke(builder, text);
                     }
                 } catch (Exception e) {
-                    // Ignore display name errors
+                    // ignore
                 }
             }
-            
-            // Convert appendItems to entries
+
+            // adapt old Consumer<List<ItemStack>> appendItems onto the new entries() BiConsumer
             if (appendItemsConsumer != null) {
                 try {
-                    // The new entries() takes a BiConsumer<DisplayContext, Entries>
-                    // We need to adapt the old Consumer<List<ItemStack>>
                     Method entriesMethod = findMethod(builderClass, "entries");
                     if (entriesMethod != null) {
                         Object entriesCallback = createEntriesCallback(appendItemsConsumer);
                         builder = entriesMethod.invoke(builder, entriesCallback);
                     }
                 } catch (Exception e) {
-                    // Ignore entries errors
+                    // ignore
                 }
             }
-            
-            // Build
+
             Method buildMethod = findMethod(builderClass, "build");
             return buildMethod.invoke(builder);
-            
+
         } catch (Exception e) {
-            // Try legacy API
             return tryLegacyBuild();
         }
     }
-    
+
     private Object tryLegacyBuild() {
         try {
-            // Try the actual old FabricItemGroupBuilder if it exists
             Class<?> oldBuilderClass = Class.forName("net.fabricmc.fabric.api.client.itemgroup.FabricItemGroupBuilder");
             Method createMethod = oldBuilderClass.getMethod("create", 
                 Class.forName("net.minecraft.util.Identifier"));
@@ -172,7 +128,6 @@ public class FabricItemGroupBuilderShim {
     
     private Object createDisplayName(Object identifier) {
         try {
-            // Create Text.translatable("itemGroup." + namespace + "." + path)
             Class<?> textClass = Class.forName("net.minecraft.text.Text");
             Method translatableMethod = textClass.getMethod("translatable", String.class);
             
@@ -187,19 +142,16 @@ public class FabricItemGroupBuilderShim {
     }
     
     private Object createEntriesCallback(Consumer<?> oldConsumer) {
-        // Create a lambda that adapts old API to new API
-        // This is complex - we return a proxy
+        // proxy the new entries interface: feed the old consumer a list, forward to Entries.add
         return java.lang.reflect.Proxy.newProxyInstance(
             getClass().getClassLoader(),
             new Class<?>[] { findEntriesInterface() },
             (proxy, method, args) -> {
                 if (method.getName().equals("accept") && args.length == 2) {
-                    // args[0] = DisplayContext, args[1] = Entries
-                    // Create a list and call old consumer
+                    // args: [0] DisplayContext, [1] Entries
                     java.util.List<Object> items = new java.util.ArrayList<>();
                     ((Consumer<java.util.List<Object>>) oldConsumer).accept(items);
-                    
-                    // Add items to new Entries object
+
                     Object entries = args[1];
                     Method addMethod = entries.getClass().getMethod("add", 
                         Class.forName("net.minecraft.item.ItemStack"));
@@ -235,7 +187,7 @@ public class FabricItemGroupBuilderShim {
                 }
             }
         } catch (Exception e) {
-            // Ignore
+            // ignore
         }
         return null;
     }

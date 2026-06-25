@@ -1,8 +1,6 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Create Mod API Compatibility Shim
  */
 package com.retromod.shim.api.common;
 
@@ -10,17 +8,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Create mod API compatibility shim.
- * 
- * Create is one of the most popular tech/automation mods.
- * Many addons depend on its API for kinetic systems, processing, etc.
- * 
- * Works on both Fabric and Forge/NeoForge.
- * 
- * API changes:
- * - 0.3.x -> 0.4.x: Package restructure
- * - 0.4.x -> 0.5.x: Kinetic API changes
- * - 0.5.x -> 0.6.x: 1.20+ adaptations
+ * Create mod API shim for the addons that depend on its kinetics/processing API.
+ * Covers the 0.3.x package restructure, 0.4.x kinetic API, and 0.5.x 1.20+ moves.
  */
 public class CreateModApiShim implements VersionShim {
     
@@ -46,37 +35,29 @@ public class CreateModApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PACKAGE CHANGES
-        // ============================================================
-        
-        // Old package locations
+        // package moves
         transformer.registerClassRedirect(
             "com/simibubi/create/content/contraptions/base/KineticTileEntity",
             "com/simibubi/create/content/kinetics/base/KineticBlockEntity"
         );
-        
+
         transformer.registerClassRedirect(
             "com/simibubi/create/content/contraptions/components/mixer/MixingRecipe",
             "com/simibubi/create/content/kinetics/mixer/MixingRecipe"
         );
-        
-        // TileEntity -> BlockEntity rename
+
+        // TileEntity -> BlockEntity
         transformer.registerClassRedirect(
             "com/simibubi/create/foundation/tileEntity/SmartTileEntity",
             "com/simibubi/create/foundation/blockEntity/SmartBlockEntity"
         );
-        
+
         transformer.registerClassRedirect(
             "com/simibubi/create/foundation/tileEntity/TileEntityBehaviour",
             "com/simibubi/create/foundation/blockEntity/behaviour/BlockEntityBehaviour"
         );
-        
-        // ============================================================
-        // KINETIC API CHANGES
-        // ============================================================
-        
-        // Old: KineticTileEntity.getSpeed()
+
+        // kinetic API
         transformer.registerMethodRedirect(
             "com/simibubi/create/content/contraptions/base/KineticTileEntity",
             "getSpeed",
@@ -85,8 +66,7 @@ public class CreateModApiShim implements VersionShim {
             "getSpeed",
             "()F"
         );
-        
-        // Stress calculations
+
         transformer.registerMethodRedirect(
             "com/simibubi/create/content/contraptions/base/KineticTileEntity",
             "calculateStressApplied",
@@ -95,44 +75,29 @@ public class CreateModApiShim implements VersionShim {
             "calculateStressApplied",
             "()F"
         );
-        
-        // ============================================================
-        // RECIPE CHANGES
-        // ============================================================
-        
-        // ProcessingRecipe changes
+
+        // processing recipes
         transformer.registerClassRedirect(
             "com/simibubi/create/content/contraptions/processing/ProcessingRecipe",
             "com/simibubi/create/content/processing/recipe/ProcessingRecipe"
         );
-        
+
         transformer.registerClassRedirect(
             "com/simibubi/create/content/contraptions/processing/ProcessingRecipeBuilder",
             "com/simibubi/create/content/processing/recipe/ProcessingRecipeBuilder"
         );
-        
-        // ============================================================
-        // FLUID HANDLING CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "com/simibubi/create/foundation/fluid/SmartFluidTank",
             "com/simibubi/create/foundation/fluid/SmartFluidTank"
         );
-        
-        // ============================================================
-        // PONDER (TUTORIAL) SYSTEM CHANGES
-        // ============================================================
-        
+
+        // ponder system
         transformer.registerClassRedirect(
             "com/simibubi/create/foundation/ponder/PonderRegistry",
             "com/simibubi/create/infrastructure/ponder/PonderIndex"
         );
-        
-        // ============================================================
-        // SCHEMATIC CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "com/simibubi/create/content/schematics/SchematicWorld",
             "com/simibubi/create/content/schematics/SchematicWorld"

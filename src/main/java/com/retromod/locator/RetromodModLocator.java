@@ -22,37 +22,27 @@ import net.neoforged.neoforgespi.locating.IncompatibleFileReporting;
 import net.neoforged.neoforgespi.locating.ModFileDiscoveryAttributes;
 
 /**
- * Feeds jars from a Retromod-owned folder ({@code mods/Retromod/}) into NeoForge's
- * mod discovery, so Retromod itself and its transformed {@code *-retromod.jar}
- * outputs can live <em>outside</em> the top-level {@code mods/} folder.
+ * Feeds jars from {@code mods/Retromod/} into NeoForge mod discovery, so Retromod and its
+ * transformed {@code *-retromod.jar} outputs can live outside the top-level {@code mods/} folder.
  *
- * <p><b>Why this exists (#78).</b> CurseForge rejects modpack <em>exports</em> that
- * contain jars not hosted on CurseForge, and both Retromod (on Modrinth and CurseForge) and
- * the mods it transforms are arbitrary jars. CurseForge <em>does</em> allow bundling
- * arbitrary files as pack "overrides". So a pack author puts those jars in
- * {@code mods/Retromod/} (an override directory, which CF export accepts) and this
- * locator hands them to the loader at discovery time - the
- * <a href="https://github.com/Sinytra/Connector">Sinytra Connector</a> model.
+ * <p>CurseForge rejects modpack exports containing jars it doesn't host, but allows bundling
+ * arbitrary files as pack "overrides". A pack author drops such jars in {@code mods/Retromod/}
+ * (an accepted override directory) and this locator hands them to the loader at discovery time,
+ * following the <a href="https://github.com/Sinytra/Connector">Sinytra Connector</a> model. (#78)
  *
- * <p><b>How NeoForge picks this up.</b> The class is registered in
- * {@code META-INF/services/net.neoforged.neoforgespi.locating.IModFileCandidateLocator}.
- * At startup FML's early-service discovery walks the {@code mods/} folder, finds any
- * jar declaring that service, loads it onto the early-service layer, and runs its
- * {@link #findCandidates} during mod discovery - <em>before</em> the module layer is
- * built, so the jars we add load like any other mod. The top-level
- * {@code ModsFolderLocator} scans {@code mods/} non-recursively, so it never sees the
- * {@code mods/Retromod/} subfolder on its own; this locator is what loads it.
+ * <p>Registered via {@code META-INF/services/net.neoforged.neoforgespi.locating.IModFileCandidateLocator}.
+ * FML's early-service discovery walks {@code mods/}, finds the declaring jar, and runs
+ * {@link #findCandidates} during mod discovery before the module layer is built, so the jars we add
+ * load like any other mod. The top-level {@code ModsFolderLocator} scans {@code mods/} non-recursively
+ * and never sees the {@code Retromod/} subfolder, so this locator is what loads it.
  *
- * <p><b>Loader scope.</b> NeoForge only (loader 10.x/11.x → MC 1.21.0 through 26.2,
- * which share this SPI). Forge uses a different locator SPI and Fabric has no
- * third-party extra-folder service - both are tracked separately. Jars placed here
- * should already be loader-correct (e.g. AOT-transformed via {@code retromod batch},
- * or a native NeoForge mod like Retromod): this locator only <em>discovers</em>, it
- * does not transform.
+ * <p>NeoForge only, across loader 4.x (MC 1.21.x) through 11.x (MC 26.x). The SPI spans that range, but
+ * {@code ILaunchContext.gameDirectory()} only exists on loader 11.x, so the game directory is resolved
+ * version-safely ({@link #resolveGameDir}). Jars placed here should already be loader-correct (AOT-transformed
+ * via {@code retromod batch}, or a native NeoForge mod like Retromod); this locator only discovers, never transforms.
  *
- * <p>Self-contained by design (JDK + SLF4J + the SPI only) so the same class can ship
- * in a minimal CurseForge "Retromod Loader" stub jar without dragging in the
- * transform engine.
+ * <p>Self-contained (JDK + SLF4J + the SPI) so the same class can ship in a minimal CurseForge
+ * "Retromod Loader" stub jar without the transform engine.
  */
 public final class RetromodModLocator implements IModFileCandidateLocator {
 
@@ -71,14 +61,13 @@ public final class RetromodModLocator implements IModFileCandidateLocator {
     public void findCandidates(ILaunchContext context, IDiscoveryPipeline pipeline) {
         final Path folder;
         try {
-            folder = resolveModFolder(context.gameDirectory());
+            folder = resolveModFolder(resolveGameDir(context));
         } catch (RuntimeException e) {
             LOGGER.warn("[Retromod] could not resolve the Retromod mods folder; skipping", e);
             return;
         }
 
-        // Create the folder if absent so users have an obvious place to drop jars.
-        // Best-effort: a read-only game dir must not break discovery.
+        // Create the folder if absent so users have a place to drop jars; a read-only game dir mustn't break discovery.
         if (!Files.isDirectory(folder)) {
             try {
                 Files.createDirectories(folder);
@@ -86,7 +75,7 @@ public final class RetromodModLocator implements IModFileCandidateLocator {
             } catch (IOException e) {
                 LOGGER.debug("[Retromod] mod folder {} is absent and could not be created: {}", folder, e.toString());
             }
-            return; // freshly created (or uncreatable) → nothing to load yet
+            return;
         }
 
         List<Path> jars = listJars(folder);
@@ -108,20 +97,17 @@ public final class RetromodModLocator implements IModFileCandidateLocator {
         LOGGER.info("[Retromod] offered {} jar(s) from {} to mod discovery", added, folder);
     }
 
-    // Priority is left at the SPI default: this folder never overlaps the top-level
-    // mods/ folder, and the pipeline already dedups already-located jars, so order
-    // relative to the default mods-folder locator carries no behavioural meaning.
-
     @Override
     public String toString() {
         return "retromod folder locator (" + SUBFOLDER + ")";
     }
 
-    // ── helpers (package-private for host-independent unit testing) ──────────────
+    // helpers are package-private for host-independent unit testing
 
     /**
-     * Resolve the folder to scan: the {@code retromod.modfolder} system property if
-     * set (absolute path), otherwise {@code <gameDir>/mods/Retromod}.
+     * Folder to scan: the {@code retromod.modfolder} system property (absolute path) if set,
+     * otherwise {@code <gameDir>/mods/Retromod}. {@code gameDirectory} may be null only when the
+     * override is set; otherwise a null here throws and the caller logs and skips.
      */
     static Path resolveModFolder(Path gameDirectory) {
         String override = System.getProperty(OVERRIDE_PROPERTY);
@@ -132,8 +118,34 @@ public final class RetromodModLocator implements IModFileCandidateLocator {
     }
 
     /**
+     * Resolve the game directory across NeoForge loader versions. {@code ILaunchContext.gameDirectory()}
+     * only exists on loader 11.x (MC 26.x); a direct call on loader 4.x (MC 1.21.x) throws
+     * {@code NoSuchMethodError} during discovery and crashes the server before any mod loads. So we
+     * reflect it off the {@code ILaunchContext} interface (not the impl, which may be a lambda/hidden
+     * class) and fall back to {@code FMLPaths.GAMEDIR}, present on every loader version. Returns null
+     * if neither resolves, leaving the caller to skip discovery instead of crashing.
+     */
+    private static Path resolveGameDir(ILaunchContext context) {
+        try {
+            Object dir = ILaunchContext.class.getMethod("gameDirectory").invoke(context);
+            if (dir instanceof Path p) return p;
+        } catch (ReflectiveOperationException | RuntimeException absentOnLoader4x) {
+            // gameDirectory() absent on this loader (MC 1.21.x); fall through to FMLPaths
+        }
+        try {
+            Class<?> fmlPaths = Class.forName("net.neoforged.fml.loading.FMLPaths");
+            Object gamedir = fmlPaths.getField("GAMEDIR").get(null);
+            Object dir = fmlPaths.getMethod("get").invoke(gamedir);
+            if (dir instanceof Path p) return p;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            LOGGER.warn("[Retromod] could not resolve the NeoForge game directory: {}", e.toString());
+        }
+        return null;
+    }
+
+    /**
      * List regular {@code *.jar} files directly in {@code folder} (non-recursive),
-     * sorted for deterministic load order. Never throws - returns empty on error.
+     * sorted for deterministic load order. Never throws; returns empty on error.
      */
     static List<Path> listJars(Path folder) {
         List<Path> out = new ArrayList<>();

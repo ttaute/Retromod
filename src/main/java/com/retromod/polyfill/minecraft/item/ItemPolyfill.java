@@ -55,15 +55,13 @@ public class ItemPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class and method redirects
+        // No embedded stubs needed; pure class and method redirects
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // Item class renames: net.minecraft.item.* -> net.minecraft.world.item.*
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/item/ItemBlock",
@@ -134,13 +132,11 @@ public class ItemPolyfill implements PolyfillProvider {
             "net/minecraft/item/ItemStack",
             "net/minecraft/world/item/ItemStack");
 
-        // =====================================================================
         // ItemStack method renames: pre-1.20.5 NBT API -> intermediate API
         // getTagCompound/setTagCompound/hasTagCompound were the very old names;
         // getTag/setTag/hasTag are the intermediate names before the 1.20.5
         // component system. The class redirect above handles the package move,
         // these method redirects handle the method name changes.
-        // =====================================================================
 
         // getTagCompound() -> getTag() (pre-component system)
         transformer.registerMethodRedirect(

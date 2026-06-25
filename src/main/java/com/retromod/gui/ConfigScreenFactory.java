@@ -43,7 +43,7 @@ public final class ConfigScreenFactory {
     /**
      * Boolean config keys in display order. The visible label for each row
      * comes from the translation key {@code retromod.settings.<key>}, so
-     * these are just the config.json keys - labels live in lang files.
+     * these are just the config.json keys; labels live in lang files.
      */
     private static final String[] TOGGLE_KEYS = {
         "use_aot",
@@ -60,9 +60,7 @@ public final class ConfigScreenFactory {
 
     private ConfigScreenFactory() {}
 
-    // ──────────────────────────────────────────────────────────────────────
     // PUBLIC API
-    // ──────────────────────────────────────────────────────────────────────
 
     /**
      * Open the config editor in-game. Returns to {@code parentScreen} on close.
@@ -90,9 +88,7 @@ public final class ConfigScreenFactory {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // WIDGET LAYOUT
-    // ──────────────────────────────────────────────────────────────────────
 
     /**
      * Called from the generated screen's init(). Adds one toggle row per
@@ -105,7 +101,6 @@ public final class ConfigScreenFactory {
             int width  = McReflect.getIntField(screen, screenClass, 854, "width");
             int height = McReflect.getIntField(screen, screenClass, 480, "height");
 
-            // ── LAYOUT (top-down, with reserved bottom for Done) ──────────
             // The bottom area is reserved for the Done button so toggle rows
             // can never overlap it. Available content height = whatever's
             // left between the top margin and the Done band. If the toggles
@@ -146,10 +141,9 @@ public final class ConfigScreenFactory {
                 rowSpacing = Math.max(1, unitsAvail - rowH);
             }
 
-            // (No action row - Add Mods / Open Mods Folder live in the
+            // (No action row: Add Mods / Open Mods Folder live in the
             // main Retromod screen; this is the settings-only screen.)
 
-            // ── TOGGLE ROWS ───────────────────────────────────────────────
             for (int i = 0; i < totalRows; i++) {
                 final String key = TOGGLE_KEYS[i];
                 int rowY = contentTop + i * (rowH + rowSpacing);
@@ -169,10 +163,9 @@ public final class ConfigScreenFactory {
                 addWidget(screen, toggleBtn);
             }
 
-            // ── AUTHENTICITY STATUS LINE (label-style row above Done) ─────
             // displayLine() is §-colored ("§aVerified build§r", …) and verify()
             // is cached after the startup verifyAndLog(), so no I/O happens on
-            // the render thread. Informational only - pressing does nothing.
+            // the render thread. Informational only; pressing does nothing.
             Object statusText = McI18n.literal(
                     com.retromod.security.SignatureVerifier.verify().displayLine());
             if (statusText != null) {
@@ -182,7 +175,6 @@ public final class ConfigScreenFactory {
                 addWidget(screen, statusRow);
             }
 
-            // ── DONE BUTTON (always at fixed bottom) ──────────────────────
             Object doneBtn = buildButton(McI18n.translatable("retromod.settings.done"),
                     makePressAction(() -> setScreen(parentScreen)),
                     width / 2 - 75, doneY, 150, doneHeight);
@@ -205,7 +197,7 @@ public final class ConfigScreenFactory {
         config.put(key, newVal);
         saveConfig(config);
 
-        // Re-open the screen to refresh button labels - runs on render thread
+        // Re-open the screen to refresh button labels; runs on render thread
         // because the press action is dispatched by MC on the render thread.
         Object title = McI18n.translatable("retromod.settings.title");
         Object fresh = ScreenClassGenerator.createScreen(
@@ -216,9 +208,7 @@ public final class ConfigScreenFactory {
         if (fresh != null) setScreen(fresh);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // BUTTON BUILDERS
-    // ──────────────────────────────────────────────────────────────────────
 
     /**
      * Build a button whose label is a pre-constructed Text/Component.
@@ -277,9 +267,7 @@ public final class ConfigScreenFactory {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // CONFIG I/O
-    // ──────────────────────────────────────────────────────────────────────
 
     static Map<String, Boolean> loadConfig() {
         Map<String, Boolean> config = new LinkedHashMap<>();
@@ -361,9 +349,7 @@ public final class ConfigScreenFactory {
         return json.substring(qStart + 1, qEnd);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
     // MC CLASS RESOLUTION
-    // ──────────────────────────────────────────────────────────────────────
 
     private static boolean resolveClasses() {
         if (resolved) return screenClass != null;

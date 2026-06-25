@@ -51,15 +51,13 @@ public class WorldPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class, method, and field redirects
+        // No embedded stubs needed: pure class, method, and field redirects
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // World class renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/world/WorldServer",
@@ -73,9 +71,7 @@ public class WorldPolyfill implements PolyfillProvider {
             "net/minecraft/world/World",
             "net/minecraft/world/level/Level");
 
-        // =====================================================================
         // Dimension renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/world/WorldProvider",
@@ -86,9 +82,7 @@ public class WorldPolyfill implements PolyfillProvider {
             "net/minecraft/world/DimensionType",
             "net/minecraft/world/level/dimension/DimensionType");
 
-        // =====================================================================
         // World storage renames
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/world/storage/WorldInfo",
@@ -98,9 +92,7 @@ public class WorldPolyfill implements PolyfillProvider {
             "net/minecraft/world/storage/WorldSavedData",
             "net/minecraft/world/level/saveddata/SavedData");
 
-        // =====================================================================
         // World-gen renames
-        // =====================================================================
 
         // WorldGenAbstractTree was removed entirely when tree generation became
         // data-driven (1.16.2+). We redirect to Object as a tombstone so mods
@@ -118,9 +110,7 @@ public class WorldPolyfill implements PolyfillProvider {
             "net/minecraft/world/biome/BiomeProvider",
             "net/minecraft/world/level/biome/BiomeSource");
 
-        // =====================================================================
         // World method redirects
-        // =====================================================================
 
         // World.setBlockState(BlockPos, IBlockState) -> Level.setBlock(BlockPos, BlockState, int)
         // The modern method requires a flags parameter (3 = NOTIFY_NEIGHBORS | BLOCK_UPDATE).
@@ -132,9 +122,7 @@ public class WorldPolyfill implements PolyfillProvider {
             "net/minecraft/world/level/Level", "setBlock",
             "(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;I)Z");
 
-        // =====================================================================
         // World field redirects
-        // =====================================================================
 
         // World.isRemote -> Level.isClientSide
         transformer.registerFieldRedirect(

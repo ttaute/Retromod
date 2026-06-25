@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
  */
 package com.retromod.compat;
@@ -15,20 +15,9 @@ import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
 /**
- * Special compatibility handler for OptiFine.
- * 
- * OptiFine is notoriously difficult to work with because:
- * - Closed source (can't see what it changes)
- * - Heavy bytecode manipulation of rendering code
- * - Conflicts with MANY mods (especially Sodium, Iris, Indium)
- * - Uses non-standard rendering paths
- * - Breaks frequently between Minecraft versions
- * 
- * Retromod provides LIMITED support for OptiFine:
- * - Detect when OptiFine is present
- * - Warn user about known issues
- * - Recommend alternatives (Sodium + Iris)
- * - Apply basic bytecode fixes where possible
+ * Limited OptiFine support: detect it, warn about known conflicts (Sodium/Iris/Indium and
+ * other rendering mods), and point users at alternatives. OptiFine is closed source and heavily
+ * rewrites rendering bytecode, so we don't attempt a real translation.
  */
 public class OptiFineCompat {
     
@@ -42,22 +31,20 @@ public class OptiFineCompat {
      */
     public static boolean isOptiFine(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
-            // OptiFine has a specific class structure
             ZipEntry entry = jar.getEntry("optifine/OptiFineTransformationService.class");
             if (entry != null) return true;
-            
+
             entry = jar.getEntry("net/optifine/Config.class");
             if (entry != null) return true;
-            
+
             entry = jar.getEntry("optifine/Installer.class");
             if (entry != null) return true;
-            
-            // Check filename
+
             String name = jarPath.getFileName().toString().toLowerCase();
             if (name.contains("optifine")) {
                 return true;
             }
-            
+
         } catch (Exception e) {
             LOGGER.debug("Could not check JAR for OptiFine: {}", e.getMessage());
         }
@@ -70,24 +57,21 @@ public class OptiFineCompat {
      */
     public static String getOptiFineVersion(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
-            // Try to read version from changelog
             ZipEntry entry = jar.getEntry("changelog.txt");
             if (entry != null) {
                 String content = new String(jar.getInputStream(entry).readAllBytes());
-                // First line usually has version
                 String firstLine = content.split("\n")[0];
                 if (firstLine.contains("OptiFine")) {
                     return firstLine.trim();
                 }
             }
-            
-            // Parse from filename
-            String name = jarPath.getFileName().toString();
+
             // OptiFine_1.20.4_HD_U_I7.jar -> 1.20.4_HD_U_I7
+            String name = jarPath.getFileName().toString();
             if (name.contains("OptiFine_")) {
                 return name.replace("OptiFine_", "").replace(".jar", "");
             }
-            
+
         } catch (Exception e) {
             LOGGER.debug("Could not get OptiFine version: {}", e.getMessage());
         }
@@ -96,8 +80,7 @@ public class OptiFineCompat {
     }
     
     /**
-     * Called when OptiFine is detected.
-     * Shows warning and offers alternatives.
+     * Warn about OptiFine and offer alternatives once it's been detected.
      */
     public static void handleOptiFineDetected(Path jarPath, boolean isServer) {
         optiFineDetected = true;
@@ -129,16 +112,13 @@ public class OptiFineCompat {
     }
     
     /**
-     * Show GUI warning about OptiFine.
-     *
-     * Blocks the calling (mod-transform) thread until the user picks an option,
-     * via invokeAndWait - the choice must come back to THIS thread so the
-     * "Cancel" RuntimeException reaches FabricModTransformer's cancelled-handler
-     * (thrown on the EDT it would vanish into AWT's exception handler).
+     * Show the OptiFine warning dialog, blocking the calling (mod-transform) thread via
+     * invokeAndWait so a "Cancel" RuntimeException is thrown on that thread and reaches
+     * FabricModTransformer's cancelled-handler. Thrown on the EDT it would be swallowed by AWT.
      */
     private static void showOptiFineWarningDialog() {
         if (GraphicsEnvironment.isHeadless()) {
-            return; // log warning already printed; nothing to show
+            return;
         }
 
         final int[] choiceHolder = {JOptionPane.CLOSED_OPTION};
@@ -199,7 +179,6 @@ public class OptiFineCompat {
 
         int choice = choiceHolder[0];
         if (choice == 0) {
-            // Open Sodium page
             try {
                 Desktop.getDesktop().browse(URI.create("https://modrinth.com/mod/sodium"));
             } catch (Exception e) {
@@ -209,29 +188,20 @@ public class OptiFineCompat {
                     JOptionPane.INFORMATION_MESSAGE));
             }
         } else if (choice == 2) {
-            // Cancel - don't transform
             throw new RuntimeException("User cancelled OptiFine installation");
         }
-        // choice == 1 (or dialog closed): Continue anyway
+        // choice == 1 or dialog closed: continue anyway
     }
-    
-    /**
-     * Check if OptiFine was detected in this session.
-     */
+
     public static boolean isOptiFinePresent() {
         return optiFineDetected;
     }
-    
-    /**
-     * Get detected OptiFine version.
-     */
+
     public static String getDetectedVersion() {
         return optiFineVersion;
     }
-    
-    /**
-     * List of mods known to conflict with OptiFine.
-     */
+
+    /** Mods known to conflict with OptiFine. */
     public static final String[] CONFLICTING_MODS = {
         "sodium",
         "iris",
@@ -248,7 +218,7 @@ public class OptiFineCompat {
      */
     public static boolean conflictsWithOptiFine(String modId) {
         if (!optiFineDetected) return false;
-        
+
         String lower = modId.toLowerCase();
         for (String conflict : CONFLICTING_MODS) {
             if (lower.contains(conflict)) {
@@ -257,10 +227,7 @@ public class OptiFineCompat {
         }
         return false;
     }
-    
-    /**
-     * Log conflict warning.
-     */
+
     public static void logConflict(String modId) {
         LOGGER.error("═══════════════════════════════════════════════════════════");
         LOGGER.error("  MOD CONFLICT DETECTED!");

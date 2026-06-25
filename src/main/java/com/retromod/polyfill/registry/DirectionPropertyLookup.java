@@ -27,10 +27,10 @@ import java.util.function.Predicate;
  * <p>The {@code BlockPropertyPolyfill} shim redirects the <em>type</em>
  * {@code DirectionProperty} → {@code EnumProperty} (that alone fixes the
  * {@code NoClassDefFoundError} a mod hits when its bytecode references the
- * removed type - see issue #24, where it surfaced from {@code Blocks.<clinit>}).
+ * removed type, see issue #24, where it surfaced from {@code Blocks.<clinit>}).
  * It then routes the four old {@code DirectionProperty.create(...)} factories
- * - which lack the {@code Class<Direction>} argument the modern
- * {@code EnumProperty.create} requires - through the bridges below. Each bridge
+ * (which lack the {@code Class<Direction>} argument the modern
+ * {@code EnumProperty.create} requires) through the bridges below. Each bridge
  * supplies {@code Direction.class} and calls the real factory reflectively.
  *
  * <p>These return {@code Object}; the transformer emits a {@code CHECKCAST} to
@@ -39,8 +39,8 @@ import java.util.function.Predicate;
  * {@code EnumProperty}-typed field/stack correctly.
  *
  * <p>MC classes are resolved reflectively (MC isn't on Retromod's compile
- * classpath) via a multi-classloader probe modeled on {@link RegistryRefLookup}
- * - the reliable anchor is the <em>caller's</em> classloader, which can see MC
+ * classpath) via a multi-classloader probe modeled on {@link RegistryRefLookup}.
+ * The reliable anchor is the <em>caller's</em> classloader, which can see MC
  * on every loader.
  */
 public final class DirectionPropertyLookup {
@@ -62,12 +62,10 @@ public final class DirectionPropertyLookup {
 
     private DirectionPropertyLookup() {}
 
-    // =====================================================================
-    // BRIDGES - one per historical DirectionProperty.create(...) overload.
+    // BRIDGES: one per historical DirectionProperty.create(...) overload.
     // Descriptors are chosen to match the post-class-remap call shapes
     // (EnumProperty.create with NO Class arg), which cannot collide with the
     // real EnumProperty.create(String, Class, ...) overloads.
-    // =====================================================================
 
     /** {@code DirectionProperty.create(String)} → all directions. */
     public static Object create(String name) {
@@ -79,7 +77,7 @@ public final class DirectionPropertyLookup {
     public static Object create(String name, Predicate<?> filter) {
         ensureResolved();
         if (mCreate3pred != null) return invoke(mCreate3pred, name, directionClass, filter);
-        // No filtered overload at runtime - fall back to all directions rather than crash.
+        // No filtered overload at runtime, so fall back to all directions rather than crash.
         return invoke(mCreate2, name, directionClass);
     }
 
@@ -101,9 +99,7 @@ public final class DirectionPropertyLookup {
         return invoke(mCreate2, name, directionClass);
     }
 
-    // =====================================================================
     // INTERNALS
-    // =====================================================================
 
     private static Object invoke(Method m, Object... args) {
         if (m == null) {

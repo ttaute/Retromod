@@ -58,19 +58,17 @@ public class FabricRegistryPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - class redirects handle these migrations
+        // No embedded stubs needed. Class redirects handle these migrations.
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // FabricBlockSettings -> AbstractBlock.Settings
         // FabricBlockSettings was a thin wrapper around vanilla settings that
         // added a few convenience methods. In 1.20.5+ it was deprecated and
         // mods should use AbstractBlock.Settings (or Block.Properties in Mojang
         // mappings) directly.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/object/builder/v1/block/FabricBlockSettings",
@@ -89,42 +87,34 @@ public class FabricRegistryPolyfill implements PolyfillProvider {
             "net/minecraft/world/level/block/state/BlockBehaviour$Properties", "ofFullCopy",
             "(Lnet/minecraft/world/level/block/state/BlockBehaviour;)Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;");
 
-        // =====================================================================
         // FabricEntityTypeBuilder -> EntityType.Builder
         // FabricEntityTypeBuilder was deprecated in favor of vanilla's
         // EntityType.Builder which now supports all the same features.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/object/builder/v1/entity/FabricEntityTypeBuilder",
             "net/minecraft/world/entity/EntityType$Builder");
 
-        // =====================================================================
         // FabricRegistryBuilder -> RegistryBuilder
         // The Fabric-specific registry builder was replaced by a vanilla-aligned
         // approach in 1.19.3+.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/event/registry/FabricRegistryBuilder",
             "net/minecraft/core/RegistrySetBuilder");
 
-        // =====================================================================
-        // RegistryEntryRemovedCallback - removed in 1.20.5
+        // RegistryEntryRemovedCallback (removed in 1.20.5)
         // No direct replacement; registry entries are no longer removable.
         // Redirect to RegistryEntryAddedCallback to prevent CNFE; runtime
         // behavior will differ but the mod won't crash at load time.
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/event/registry/RegistryEntryRemovedCallback",
             "net/fabricmc/fabric/api/event/registry/RegistryEntryAddedCallback");
 
-        // =====================================================================
         // RegistryEntryAddedCallback API changes
         // The event callback signature changed from (rawId, id, object) to
         // (registryEntry) in newer versions.
-        // =====================================================================
 
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/event/registry/RegistryEntryAddedCallback", "event",
@@ -132,12 +122,10 @@ public class FabricRegistryPolyfill implements PolyfillProvider {
             "net/fabricmc/fabric/api/event/registry/RegistryEntryAddedCallback", "event",
             "(Lnet/minecraft/core/Registry;)Lnet/fabricmc/fabric/api/event/Event;");
 
-        // =====================================================================
         // FuelRegistry API changes in 1.21
         // Old: FuelRegistry.INSTANCE.add(item, burnTime)
         // New: FuelRegistry.INSTANCE.add(item, burnTime) (stays but types changed)
         // The class itself stays, but parameter types use Mojang mappings now.
-        // =====================================================================
 
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/registry/FuelRegistry", "add",

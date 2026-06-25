@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.archive;
@@ -15,28 +15,19 @@ import java.util.concurrent.*;
 import java.util.jar.*;
 
 /**
- * API Archive Manager - Downloads and manages old Fabric/NeoForge API sources.
- * 
- * This class handles:
- * 1. Downloading archived mod loader JARs from Maven Central
- * 2. Extracting specific API classes from archives
- * 3. Caching downloaded archives locally
- * 4. Providing API classes for embedding into legacy mods
+ * Downloads, caches, and extracts old Fabric/NeoForge API JARs for embedding into legacy mods.
  */
 public class ApiArchiveManager {
-    
+
     private static final Logger LOGGER = LoggerFactory.getLogger("retromod-archive");
-    
-    // Archive storage directory
+
     private static final Path ARCHIVE_DIR = Path.of("config/retromod/api-archive");
-    
-    // Maven repository URLs
+
     private static final String FABRIC_MAVEN = "https://maven.fabricmc.net/";
     private static final String NEOFORGE_MAVEN = "https://maven.neoforged.net/releases/";
     private static final String FORGE_MAVEN = "https://maven.minecraftforge.net/";
     private static final String MAVEN_CENTRAL = "https://repo1.maven.org/maven2/";
-    
-    // Known Fabric API versions by Minecraft version
+
     private static final Map<String, String> FABRIC_API_VERSIONS = new LinkedHashMap<>() {{
         put("1.21", "0.100.0+1.21");
         put("1.21.1", "0.102.0+1.21.1");
@@ -51,8 +42,7 @@ public class ApiArchiveManager {
         put("1.21.10", "0.138.0+1.21.10");
         put("1.21.11", "0.141.0+1.21.11");
     }};
-    
-    // Known NeoForge versions by Minecraft version
+
     private static final Map<String, String> NEOFORGE_VERSIONS = new LinkedHashMap<>() {{
         put("1.21", "21.0.0-beta");
         put("1.21.1", "21.1.0");
@@ -66,13 +56,11 @@ public class ApiArchiveManager {
         put("1.21.10", "21.10.0");
         put("1.21.11", "21.11.0");
     }};
-    
-    // Cache of loaded archive contents
+
     private final Map<String, Map<String, byte[]>> archiveCache = new ConcurrentHashMap<>();
-    
-    // Executor for async downloads
+
     private final ExecutorService downloadExecutor = Executors.newFixedThreadPool(2);
-    
+
     public ApiArchiveManager() {
         try {
             Files.createDirectories(ARCHIVE_DIR);
@@ -82,19 +70,16 @@ public class ApiArchiveManager {
     }
     
     /**
-     * Get a class from an archived API version.
-     * Downloads the archive if not cached.
+     * Returns a class from an archived API version, loading the archive from disk if not cached.
      */
     public byte[] getArchivedClass(String loaderType, String mcVersion, String className) {
         String archiveKey = loaderType + "-" + mcVersion;
-        
-        // Check memory cache
+
         Map<String, byte[]> archive = archiveCache.get(archiveKey);
         if (archive != null && archive.containsKey(className)) {
             return archive.get(className);
         }
-        
-        // Load archive
+
         try {
             loadArchive(loaderType, mcVersion);
             archive = archiveCache.get(archiveKey);
@@ -109,27 +94,15 @@ public class ApiArchiveManager {
     }
     
     /**
-     * Load an archive into memory cache.
-     *
-     * <p><strong>Network policy:</strong> this method will NEVER initiate a
-     * download on its own. If the archive isn't already present on disk in
-     * {@link #ARCHIVE_DIR}, the call throws {@link IOException} explaining
-     * how to fetch the archive (via the explicit, user-confirmed
-     * {@link #downloadArchiveWithUserConsent(String, String, java.util.function.BooleanSupplier)}
-     * path or by manually placing a JAR in the archive directory).
-     *
-     * <p>This is Retromod's network policy: a tool that rewrites mod
-     * JARs shouldn't be quietly making outbound HTTP calls in the
-     * background. Auto-downloading on cache miss would do exactly that -
-     * the user runs {@code retromod transform} and the tool silently
-     * reaches out to Maven without asking. The explicit-consent path
-     * makes the user's permission the trigger, not a side effect.
+     * Loads an archive from disk into the memory cache. Never downloads: if the archive isn't already
+     * present it throws, pointing at {@link #downloadArchiveWithUserConsent}. We don't make outbound
+     * HTTP calls on a cache miss; downloads only happen through an explicit consent gate.
      */
     public void loadArchive(String loaderType, String mcVersion) throws IOException {
         String archiveKey = loaderType + "-" + mcVersion;
 
         if (archiveCache.containsKey(archiveKey)) {
-            return; // Already loaded
+            return;
         }
 
         Path archivePath = getArchivePath(loaderType, mcVersion);
@@ -143,7 +116,6 @@ public class ApiArchiveManager {
                 + "at the path above.");
         }
 
-        // Extract classes from archive
         Map<String, byte[]> classes = extractClasses(archivePath);
         archiveCache.put(archiveKey, classes);
 
@@ -151,34 +123,19 @@ public class ApiArchiveManager {
     }
 
     /**
-     * Explicit-consent download path for API archives.
+     * Downloads an archive only after the consent gate passes. The supplier is invoked after the URL is
+     * resolved and logged, so the user sees the destination before consenting. This is the only path
+     * that initiates an outbound HTTP request.
      *
-     * <p>Unlike the old auto-download from {@code loadArchive}, this method
-     * <em>requires</em> the caller to supply a {@code consentSupplier} that
-     * returns {@code true} only after the user has been informed of:
-     * <ul>
-     *   <li>What's being downloaded (loader + MC version)</li>
-     *   <li>The URL it's being downloaded from</li>
-     *   <li>Approximate size, if known</li>
-     * </ul>
-     * The supplier is invoked AFTER the URL has been resolved and logged,
-     * so the user sees the actual destination before consenting.
-     *
-     * <p>If the supplier returns {@code false}, no network activity occurs.
-     *
-     * <p>This is the only path that may initiate an outbound HTTP request
-     * from {@code ApiArchiveManager}. See {@link #loadArchive} for the
-     * network-policy rationale.
-     *
-     * @return {@code true} if the download succeeded; {@code false} if the
-     *         user declined, the file already existed, or download failed.
+     * @return true if the download succeeded; false if the user declined, the file already existed, or
+     *         the download failed.
      */
     public boolean downloadArchiveWithUserConsent(String loaderType, String mcVersion,
                                                     java.util.function.BooleanSupplier consentSupplier)
             throws IOException {
         Path archivePath = getArchivePath(loaderType, mcVersion);
         if (Files.exists(archivePath)) {
-            return false; // Already present - nothing to download
+            return false;
         }
 
         String url = getDownloadUrl(loaderType, mcVersion);
@@ -195,55 +152,48 @@ public class ApiArchiveManager {
     }
 
     /**
-     * Low-level HTTP download. Must not be called directly - callers go
-     * through {@link #downloadArchiveWithUserConsent(String, String,
-     * java.util.function.BooleanSupplier)} which enforces the consent
-     * contract. The method body itself is unchanged; the consent gate
-     * lives one frame up the call stack.
+     * Low-level HTTP download. Only call through {@link #downloadArchiveWithUserConsent}, which holds
+     * the consent gate.
      */
     private void downloadArchive(String loaderType, String mcVersion, Path targetPath)
             throws IOException {
-        
+
         String url = getDownloadUrl(loaderType, mcVersion);
-        
+
         LOGGER.info("Downloading archive: {}", url);
-        
+
         try {
             URL downloadUrl = URI.create(url).toURL();
             HttpURLConnection conn = (HttpURLConnection) downloadUrl.openConnection();
             conn.setRequestProperty("User-Agent", "Retromod/1.0");
             conn.setConnectTimeout(30000);
             conn.setReadTimeout(60000);
-            
+
             if (conn.getResponseCode() != 200) {
                 throw new IOException("Failed to download: HTTP " + conn.getResponseCode());
             }
-            
+
             try (InputStream in = conn.getInputStream();
                  OutputStream out = new BufferedOutputStream(new FileOutputStream(targetPath.toFile()))) {
-                
+
                 byte[] buffer = new byte[8192];
                 int read;
                 long total = 0;
-                
+
                 while ((read = in.read(buffer)) != -1) {
                     out.write(buffer, 0, read);
                     total += read;
                 }
-                
+
                 LOGGER.info("Downloaded {} bytes to {}", total, targetPath.getFileName());
             }
-            
+
         } catch (Exception e) {
-            // Clean up partial download
             Files.deleteIfExists(targetPath);
             throw new IOException("Download failed: " + url, e);
         }
     }
-    
-    /**
-     * Get the Maven download URL for an archive.
-     */
+
     private String getDownloadUrl(String loaderType, String mcVersion) {
         return switch (loaderType.toLowerCase()) {
             case "fabric" -> getFabricApiUrl(mcVersion);
@@ -258,9 +208,8 @@ public class ApiArchiveManager {
         if (apiVersion == null) {
             throw new IllegalArgumentException("No Fabric API version known for MC " + mcVersion);
         }
-        
-        // Maven path: net/fabricmc/fabric-api/fabric-api/{version}/fabric-api-{version}.jar
-        return FABRIC_MAVEN + 
+
+        return FABRIC_MAVEN +
                "net/fabricmc/fabric-api/fabric-api/" + apiVersion + 
                "/fabric-api-" + apiVersion + ".jar";
     }
@@ -270,39 +219,30 @@ public class ApiArchiveManager {
         if (nfVersion == null) {
             throw new IllegalArgumentException("No NeoForge version known for MC " + mcVersion);
         }
-        
-        // Maven path: net/neoforged/neoforge/{version}/neoforge-{version}.jar
-        return NEOFORGE_MAVEN + 
+
+        return NEOFORGE_MAVEN +
                "net/neoforged/neoforge/" + nfVersion + 
                "/neoforge-" + nfVersion + ".jar";
     }
     
     private String getForgeUrl(String mcVersion) {
-        // Forge uses different versioning
-        // For simplicity, we'll focus on NeoForge for 1.21+
         throw new UnsupportedOperationException(
             "Legacy Forge not supported for 1.21+. Use NeoForge instead.");
     }
-    
-    /**
-     * Get the local path for an archive.
-     */
+
     private Path getArchivePath(String loaderType, String mcVersion) {
         return ARCHIVE_DIR.resolve(loaderType + "-" + mcVersion + ".jar");
     }
-    
-    /**
-     * Extract all classes from a JAR archive.
-     */
+
     private Map<String, byte[]> extractClasses(Path jarPath) throws IOException {
         Map<String, byte[]> classes = new HashMap<>();
-        
+
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             Enumeration<JarEntry> entries = jar.entries();
-            
+
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
-                
+
                 if (entry.getName().endsWith(".class")) {
                     try (InputStream is = jar.getInputStream(entry)) {
                         String className = entry.getName().replace(".class", "");
@@ -311,27 +251,14 @@ public class ApiArchiveManager {
                 }
             }
         }
-        
+
         return classes;
     }
-    
+
     /**
-     * Pre-download archives for all known versions, ONLY after explicit
-     * user consent.
-     *
-     * <p>The {@code consentSupplier} is consulted once before any
-     * downloads kick off - it's expected to surface the full list of
-     * archives and their source URLs to the user and return {@code true}
-     * only if the user agrees. If consent is denied (or the supplier
-     * returns {@code false}), no network activity occurs and the future
-     * completes immediately.
-     *
-     * <p>Like {@link #downloadArchiveWithUserConsent(String, String,
-     * java.util.function.BooleanSupplier)}, this enforces Retromod's
-     * no-silent-network rule. The pre-existing parameterless overload
-     * would silently kick off ~22 downloads as soon as it was called,
-     * which is exactly the surprise behavior the consent gate exists
-     * to prevent.
+     * Pre-downloads archives for all known versions, but only if the consent gate passes. The supplier
+     * is consulted once before any download starts; on denial the future completes immediately with no
+     * network activity.
      */
     public CompletableFuture<Void> preloadAllArchives(java.util.function.BooleanSupplier consentSupplier) {
         if (!consentSupplier.getAsBoolean()) {
@@ -341,7 +268,6 @@ public class ApiArchiveManager {
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-        // Download Fabric API archives
         for (String mcVersion : FABRIC_API_VERSIONS.keySet()) {
             futures.add(CompletableFuture.runAsync(() -> {
                 try {
@@ -355,7 +281,6 @@ public class ApiArchiveManager {
             }, downloadExecutor));
         }
 
-        // Download NeoForge archives
         for (String mcVersion : NEOFORGE_VERSIONS.keySet()) {
             futures.add(CompletableFuture.runAsync(() -> {
                 try {
@@ -373,12 +298,12 @@ public class ApiArchiveManager {
     }
     
     /**
-     * Get a list of all classes in an API that match a pattern.
+     * Returns all classes in an API whose name starts with the given package prefix.
      */
     public List<String> findClasses(String loaderType, String mcVersion, String packagePattern) {
         String archiveKey = loaderType + "-" + mcVersion;
         Map<String, byte[]> archive = archiveCache.get(archiveKey);
-        
+
         if (archive == null) {
             try {
                 loadArchive(loaderType, mcVersion);
@@ -387,12 +312,12 @@ public class ApiArchiveManager {
                 return Collections.emptyList();
             }
         }
-        
+
         if (archive == null) return Collections.emptyList();
-        
+
         String pattern = packagePattern.replace('.', '/');
         List<String> matches = new ArrayList<>();
-        
+
         for (String className : archive.keySet()) {
             if (className.startsWith(pattern)) {
                 matches.add(className);
@@ -403,24 +328,23 @@ public class ApiArchiveManager {
     }
     
     /**
-     * Compare two versions to find API differences.
+     * Compares two API versions, returning the removed, added, and modified classes.
      */
-    public ApiDiff compareVersions(String loaderType, String oldVersion, String newVersion) 
+    public ApiDiff compareVersions(String loaderType, String oldVersion, String newVersion)
             throws IOException {
-        
+
         loadArchive(loaderType, oldVersion);
         loadArchive(loaderType, newVersion);
-        
+
         Map<String, byte[]> oldClasses = archiveCache.get(loaderType + "-" + oldVersion);
         Map<String, byte[]> newClasses = archiveCache.get(loaderType + "-" + newVersion);
-        
+
         Set<String> removed = new HashSet<>(oldClasses.keySet());
         removed.removeAll(newClasses.keySet());
-        
+
         Set<String> added = new HashSet<>(newClasses.keySet());
         added.removeAll(oldClasses.keySet());
-        
-        // Check for modified classes (same name, different content)
+
         Set<String> modified = new HashSet<>();
         for (String className : oldClasses.keySet()) {
             if (newClasses.containsKey(className)) {
@@ -434,10 +358,7 @@ public class ApiArchiveManager {
         
         return new ApiDiff(oldVersion, newVersion, removed, added, modified);
     }
-    
-    /**
-     * Shutdown the download executor.
-     */
+
     public void shutdown() {
         downloadExecutor.shutdown();
         try {
@@ -446,17 +367,12 @@ public class ApiArchiveManager {
             downloadExecutor.shutdownNow();
         }
     }
-    
-    /**
-     * Clear the archive cache.
-     */
+
     public void clearCache() {
         archiveCache.clear();
     }
-    
-    /**
-     * Get archive cache statistics.
-     */
+
+    /** Class count per loaded archive. */
     public Map<String, Integer> getCacheStats() {
         Map<String, Integer> stats = new HashMap<>();
         for (var entry : archiveCache.entrySet()) {
@@ -464,9 +380,7 @@ public class ApiArchiveManager {
         }
         return stats;
     }
-    
-    // --- Record classes ---
-    
+
     public record ApiDiff(
         String oldVersion,
         String newVersion,

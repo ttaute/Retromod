@@ -17,11 +17,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * The renamed-SAM event bridge batch (lambda-trap fixes): generator output is
- * structurally right (old SAM stays the only abstract method, new SAM is a
- * default forwarder, synthetic extends the new interface), the shim registers
- * every old name at 26.1, and nothing registers on a pre-26.1 host where the
- * old APIs are still alive (pitfall #9).
+ * Renamed-SAM bridges: old SAM stays the sole abstract method, new SAM forwards, every old
+ * name redirects at 26.1, none on a pre-26.1 host (#9).
  */
 class FabricRenamedSamBridgesTest {
 
@@ -60,7 +57,7 @@ class FabricRenamedSamBridgesTest {
         assertEquals(0, newSam.access & Opcodes.ACC_ABSTRACT, "new SAM is a default forwarder");
         assertEquals(oldSam.desc, newSam.desc, "same descriptor, only the name differs");
 
-        // exactly one abstract method - otherwise it's not a functional interface
+        // one abstract method keeps it a functional interface
         long abstracts = cn.methods.stream().filter(m -> (m.access & Opcodes.ACC_ABSTRACT) != 0).count();
         assertEquals(1, abstracts);
 
@@ -84,13 +81,10 @@ class FabricRenamedSamBridgesTest {
     }
 
     /**
-     * Loads AND initializes the generated synthetics in a real classloader -
-     * the JVM's verifier is the assertion. Catches the whole class of bug the
-     * first in-game run found: missing ACC_FINAL on interface fields
-     * (ClassFormatError 0x9) and missing stack-map frames in the try/catch
-     * {@code <clinit>} (VerifyError). {@code initialize=true} runs the
-     * reflective EVENT copy, whose owner is deliberately absent here, so the
-     * soft-fail catch path (the branchy bytecode) is executed too.
+     * Define and initialize the synthetics in a real classloader so the JVM verifier checks them:
+     * catches missing ACC_FINAL on interface fields (ClassFormatError 0x9) and missing stack-map
+     * frames in the try/catch {@code <clinit>} (VerifyError). The EVENT owner is absent, so this
+     * also hits the soft-fail catch path.
      */
     @Test
     void generatedSyntheticsLoadAndInitializeInARealClassLoader() throws Exception {
@@ -119,7 +113,7 @@ class FabricRenamedSamBridgesTest {
             }
         };
 
-        Class<?> iface = Class.forName("gen.OldIface", true, cl);  // true → <clinit> runs
+        Class<?> iface = Class.forName("gen.OldIface", true, cl);  // runs <clinit>
         assertTrue(iface.isInterface());
         assertEquals("gen.NewIface", iface.getInterfaces()[0].getName());
         assertNull(iface.getField("EVENT").get(null), "absent owner → soft-fail leaves EVENT null");
@@ -134,7 +128,7 @@ class FabricRenamedSamBridgesTest {
         RetromodTransformer t = RetromodTransformer.getInstance();
         String saved = RetromodVersion.TARGET_MC_VERSION;
         try {
-            // Pre-26.1 host: the old APIs are alive - nothing may be hijacked.
+            // pre-26.1 host: old APIs are alive, leave them be
             t.clearRedirectsForTesting();
             RetromodVersion.TARGET_MC_VERSION = "1.21.11";
             new FabricRenamedSamBridgesShim().registerRedirects(t);
@@ -143,7 +137,7 @@ class FabricRenamedSamBridgesTest {
                         old + " must NOT be redirected on a 1.21.11 host");
             }
 
-            // 26.1 host: every old name covered.
+            // 26.1 host: every old name covered
             t.clearRedirectsForTesting();
             RetromodVersion.TARGET_MC_VERSION = "26.1";
             new FabricRenamedSamBridgesShim().registerRedirects(t);
@@ -151,13 +145,13 @@ class FabricRenamedSamBridgesTest {
             for (String old : OLD_NAMES) {
                 assertTrue(r.containsKey(old), old + " must be redirected at 26.1");
             }
-            // Spot-check targets: lambda-trap ifaces go to synthetics, not the new API names
+            // lambda-trap ifaces redirect to synthetics, not the new API names
             assertTrue(r.get(OLD_NAMES[1]).startsWith("com/retromod/generated/legacyevents/"));
-            // The helper inner kept its SAM name → plain redirect to the live class
+            // helper inner kept its SAM name, so it redirects straight to the live class
             assertEquals(
                     "net/fabricmc/fabric/api/client/rendering/v1/LivingEntityRenderLayerRegistrationCallback$RegistrationHelper",
                     r.get("net/fabricmc/fabric/api/client/rendering/v1/LivingEntityFeatureRendererRegistrationCallback$RegistrationHelper"));
-            // ServerChunkEvents holder survives: field redirect, not a class redirect
+            // ServerChunkEvents holder gets a field redirect, not a class redirect
             assertFalse(r.containsKey("net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents"));
             var chunkField = t.getFieldRedirects().get(new RetromodTransformer.FieldKey(
                     "net/fabricmc/fabric/api/event/lifecycle/v1/ServerChunkEvents", "CHUNK_LEVEL_TYPE_CHANGE"));

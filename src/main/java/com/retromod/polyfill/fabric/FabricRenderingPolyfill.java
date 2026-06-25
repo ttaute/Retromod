@@ -41,7 +41,7 @@ public class FabricRenderingPolyfill implements PolyfillProvider {
     @Override
     public String[] getRemovedClasses() {
         return new String[]{
-            // Removed in 1.19.3 - atlas system was reworked
+            // Removed in 1.19.3 (atlas system was reworked)
             "net/fabricmc/fabric/api/event/client/ClientSpriteRegistryCallback",
             "net/fabricmc/fabric/api/event/client/ClientSpriteRegistryCallback$Registry",
 
@@ -55,39 +55,33 @@ public class FabricRenderingPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - class and method redirects handle these changes
+        // No embedded stubs needed. Class and method redirects handle these changes.
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
-        // ClientSpriteRegistryCallback - removed in 1.19.3
+        // ClientSpriteRegistryCallback (removed in 1.19.3)
         // The sprite atlas registration system was reworked. Old mods using
         // ClientSpriteRegistryCallback.event(BLOCK_ATLAS_TEXTURE).register(...)
         // need to use SpriteAtlasTexture events or data-driven approaches.
         // We redirect to a no-op event to prevent ClassNotFoundException.
-        // =====================================================================
 
         // No direct replacement class exists; these are truly removed APIs.
         // The class redirect prevents CNFE; runtime calls will be no-ops.
 
-        // =====================================================================
         // Model loading API migration
         // Old: ModelLoadingRegistry.INSTANCE.registerModelProvider(...)
         // New: ModelLoadingPlugin.register(...)
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/client/model/ModelLoadingRegistry",
             "net/fabricmc/fabric/api/client/model/loading/v1/ModelLoadingPlugin");
 
-        // =====================================================================
         // HudRenderCallback signature changed:
         // Old: void onHudRender(MatrixStack matrixStack, float tickDelta)
         // New: void onHudRender(DrawContext drawContext, RenderTickCounter tickCounter)
         // We redirect the method signature so old mods at least resolve.
-        // =====================================================================
 
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback", "onHudRender",
@@ -95,10 +89,8 @@ public class FabricRenderingPolyfill implements PolyfillProvider {
             "net/fabricmc/fabric/api/client/rendering/v1/HudRenderCallback", "onHudRender",
             "(Lnet/minecraft/client/gui/DrawContext;Lnet/minecraft/client/render/RenderTickCounter;)V");
 
-        // =====================================================================
         // FluidRenderHandler API changes
         // getFluidColor signature updated across versions
-        // =====================================================================
 
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/render/fluid/v1/FluidRenderHandler", "getFluidColor",
@@ -106,10 +98,8 @@ public class FabricRenderingPolyfill implements PolyfillProvider {
             "net/fabricmc/fabric/api/client/render/fluid/v1/FluidRenderHandler", "getFluidColor",
             "(Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/material/FluidState;)I");
 
-        // =====================================================================
         // WorldRenderEvents sub-event changes
         // BeforeBlockOutline context parameter type changed
-        // =====================================================================
 
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderEvents$BeforeBlockOutline", "beforeBlockOutline",
@@ -117,10 +107,8 @@ public class FabricRenderingPolyfill implements PolyfillProvider {
             "net/fabricmc/fabric/api/client/rendering/v1/WorldRenderEvents$BeforeBlockOutline", "beforeBlockOutline",
             "(Lnet/minecraft/client/render/WorldRenderContext;Lnet/minecraft/world/phys/HitResult;)Z");
 
-        // =====================================================================
         // ColorProviderRegistry API changes
         // Register method parameter types updated for Mojang mappings
-        // =====================================================================
 
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/rendering/v1/ColorProviderRegistry", "register",

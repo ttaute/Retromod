@@ -58,7 +58,7 @@ public class GuiComponentShim {
             blit = lookup.findVirtual(guiGraphicsClass, "blit",
                 MethodType.methodType(void.class, int.class, int.class, int.class, int.class, int.class, int.class));
         } catch (Exception e) {
-            // GuiGraphics not available - running on older MC version or dedicated server
+            // GuiGraphics not available; running on older MC version or dedicated server
         }
 
         GUI_GRAPHICS_FILL = fill;
@@ -71,7 +71,7 @@ public class GuiComponentShim {
      * Reimplements GuiComponent.fill(PoseStack, int, int, int, int, int).
      *
      * The poseStack parameter is accepted as Object because old bytecode passes
-     * a PoseStack, but we don't need it - GuiGraphics.fill() manages its own
+     * a PoseStack, but we don't need it. GuiGraphics.fill() manages its own
      * pose stack. If no GuiGraphics instance is available in the current context,
      * this becomes a no-op (the fill simply won't render).
      *
@@ -93,7 +93,7 @@ public class GuiComponentShim {
                 try {
                     GUI_GRAPHICS_FILL.invoke(guiGraphics, x1, y1, x2, y2, color);
                 } catch (Throwable t) {
-                    // Silently fail - better than crashing the game
+                    // Silently fail; better than crashing the game
                 }
             }
         }

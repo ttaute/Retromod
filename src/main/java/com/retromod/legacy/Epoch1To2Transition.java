@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Bownlux
  * 
  * EPOCH 1 → 2: Legacy (1.8-1.12) to Flattening (1.13)
- * This is the MOST COMPLEX transition - "The Flattening" changed everything
+ * This is the MOST COMPLEX transition: "The Flattening" changed everything
  */
 package com.retromod.legacy;
 

@@ -14,16 +14,11 @@ import org.objectweb.asm.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Positive-path coverage for the Fabric ClientPlayNetworking v1 raw-channel bridge (#51).
- *
- * <p>The host <i>gate</i> (registers nothing below 26.1) is covered by
- * {@link Fabric26ApiBridgeGateTest}. This test pins the 26.1+ behaviour: the removed static
- * entrypoints ({@code send}/{@code registerGlobalReceiver}/{@code canSend}) are redirected to
- * the reflective {@code ClientPlayNetworkingV1Bridge}, and the {@code PlayChannelHandler} SAM
- * is kept alive as a synthetic interface and class-redirected onto it.</p>
- *
- * <p>The actual packet round-trip is reflective and only resolves on a real 26.1 client, so it
- * is verified in-game - this locks the bytecode wiring against regressions.</p>
+ * Fabric ClientPlayNetworking v1 raw-channel bridge on 26.1+ (#51): {@code send}/
+ * {@code registerGlobalReceiver}/{@code canSend} redirect to {@code ClientPlayNetworkingV1Bridge},
+ * and the {@code PlayChannelHandler} SAM is kept as a synthetic interface and class-redirected onto
+ * it. The reflective packet round-trip only resolves on a 26.1 client, so it's verified in-game.
+ * Host gate lives in {@link Fabric26ApiBridgeGateTest}.
  */
 class FabricClientNetworkingV1ShimTest {
 
@@ -45,7 +40,7 @@ class FabricClientNetworkingV1ShimTest {
     @AfterEach
     void restore() {
         RetromodTransformer.getInstance().clearRedirectsForTesting();
-        RetromodVersion.TARGET_MC_VERSION = "26.1"; // other shim tests expect 26.1 ambient
+        RetromodVersion.TARGET_MC_VERSION = "26.1"; // other shim tests expect this default
     }
 
     @Test
@@ -78,8 +73,7 @@ class FabricClientNetworkingV1ShimTest {
 
     @Test
     void removedRegisterGlobalReceiverRedirectedToBridge() {
-        // The handler param is the old SAM; the class redirect rewrites it to NEW_SAM in the
-        // descriptor before the method redirect (keyed on NEW_SAM) matches - the realistic path.
+        // class redirect rewrites the old-SAM handler param to NEW_SAM before the method redirect (keyed on NEW_SAM) matches
         byte[] out = RetromodTransformer.getInstance()
                 .transformClass(fixtureCalling("registerGlobalReceiver", "(" + ID + "L" + OLD_SAM + ";)Z"),
                         "test/NetFixture");
@@ -93,7 +87,7 @@ class FabricClientNetworkingV1ShimTest {
         assertCallSite(out, "canSend");
     }
 
-    /** A {@code test/NetFixture} with {@code go()} that calls {@code ClientPlayNetworking.<name><desc>}. */
+    /** {@code test/NetFixture.go()} calling {@code ClientPlayNetworking.<name><desc>}. */
     private static byte[] fixtureCalling(String name, String desc) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "test/NetFixture", null, "java/lang/Object", null);

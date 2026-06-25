@@ -56,16 +56,14 @@ public class TileEntityPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class redirects
+        // No embedded stubs needed; pure class redirects
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // TileEntity -> BlockEntity renames
         // net.minecraft.tileentity.* -> net.minecraft.world.level.block.entity.*
-        // =====================================================================
 
         transformer.registerClassRedirect(
             "net/minecraft/tileentity/TileEntity",

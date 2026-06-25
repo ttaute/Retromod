@@ -13,18 +13,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Loader-agnostic Retromod configuration helper.
- *
- * <h2>Why this exists</h2>
- * The default {@code config/retromod/config.json} used to be generated only by
- * {@code Retromod} (the Fabric {@code ModInitializer}); the Forge and NeoForge
- * entry points create {@code retromod-input/} but never wrote the config, so a
- * Forge/NeoForge user saw an empty {@code config/retromod/} (just the AOT-cache
- * folder) and no editable config (#74). The generation logic lives here as
- * plain {@code static} methods on a class with <b>no loader supertype</b>, so
- * all three entry points can call it without dragging another loader's classes
- * in (the loader-isolation rule, CLAUDE.md pitfall #8 - same reason
- * {@code RetromodVersion} is loader-agnostic).
+ * Loader-agnostic config helper: static methods, no loader supertype, so all three
+ * entry points can write the default {@code config.json} without pulling in another
+ * loader's classes (#74).
  */
 public final class RetromodConfig {
 
@@ -35,10 +26,7 @@ public final class RetromodConfig {
     /** {@code config/retromod/config.json}. */
     public static final Path CONFIG_PATH = CONFIG_DIR.resolve("config.json");
 
-    /**
-     * The default config written when none exists. Kept here (not in a loader
-     * entry point) so every loader writes the identical file.
-     */
+    /** Written when no config exists; kept here so every loader writes the same file. */
     private static final String DEFAULT_CONFIG = """
             {
               "_comment": "Retromod Configuration - https://github.com/Bownlux/Retromod",
@@ -74,10 +62,8 @@ public final class RetromodConfig {
     private RetromodConfig() {}
 
     /**
-     * Ensure {@code config/retromod/} exists and contains a default
-     * {@code config.json}. Idempotent and best-effort: never throws, so a
-     * failure here can't break mod loading. Safe to call from any loader's
-     * entry point at startup.
+     * Create {@code config/retromod/} and write a default {@code config.json} if absent.
+     * Idempotent and best-effort: never throws.
      */
     public static void ensureDefaultConfig() {
         try {
@@ -98,9 +84,8 @@ public final class RetromodConfig {
     }
 
     /**
-     * Load the config as a {@link JsonObject}, generating the default first if
-     * it's missing. Returns {@code null} if the file can't be read or parsed
-     * (callers fall back to their hard-coded defaults).
+     * Load the config as a {@link JsonObject}, writing the default first if missing.
+     * Returns {@code null} if the file can't be read or parsed.
      */
     public static JsonObject loadOrNull() {
         ensureDefaultConfig();

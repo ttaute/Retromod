@@ -23,36 +23,21 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Curated rename table for high-impact mod-loader API changes that the
- * auto-indexed {@link McSymbolIndex} can't cover (because we don't have a
- * comprehensive loader-JAR index at transform time).
+ * Hand-curated rename table for high-impact mod-loader API changes that
+ * {@link McSymbolIndex} can't cover. Loader APIs (Fabric's ~40 independently
+ * versioned modules, etc.) have no single indexable artifact per MC version,
+ * so this table is maintained by hand and scoped to the renames that break
+ * mods in practice.
  *
- * <h3>Why hand-curated, not auto-indexed?</h3>
- * <p>The MC JAR is a single artifact per version - trivial to index. Loader
- * APIs are different: Fabric API is split into ~40 modules, each versioned
- * independently, and mod developers depend on an arbitrary subset. Building a
- * full symbol index would require knowing exactly which loader-API artifacts
- * correspond to the target MC version, which we don't have at CLI time.</p>
- *
- * <p>Instead, we maintain a small hand-curated table focused on the changes
- * that actually break mods in practice. The v1 scope rule: include a rename
- * only if it's used by &gt;10-20% of mods in the translatable ecosystem. If
- * the gap report later shows something we missed is actually common, we add
- * it. If something we included turns out to not matter, we drop it.</p>
- *
- * <h3>Data format</h3>
- * <p>The JSON file at {@code /retromod/loader-api-renames.json} has one section
- * per loader ({@code "fabric"}, {@code "neoforge"}, {@code "forge"}), each with:
+ * <p>The JSON at {@code /retromod/loader-api-renames.json} has one section per
+ * loader ({@code "fabric"}, {@code "neoforge"}, {@code "forge"}), each with:
  * <ul>
- *   <li>{@code renamed_classes} - map of old internal-name → new internal-name</li>
- *   <li>{@code renamed_methods} - map of {@code "owner#name desc"} → {@code "newOwner#newName newDesc"}</li>
- *   <li>{@code removed_classes} - list of internal-names that were deleted outright
- *       (no replacement available; the reference is just broken)</li>
+ *   <li>{@code renamed_classes}: old internal-name to new internal-name</li>
+ *   <li>{@code renamed_methods}: {@code "owner#name desc"} to {@code "newOwner#newName newDesc"}</li>
+ *   <li>{@code removed_classes}: internal-names deleted with no replacement</li>
  * </ul>
- * </p>
  *
- * <h3>Thread safety</h3>
- * <p>Instances are immutable after construction. Safe to share across threads.</p>
+ * <p>Instances are immutable after construction and safe to share across threads.
  */
 public final class LoaderApiRenames {
 
@@ -60,26 +45,16 @@ public final class LoaderApiRenames {
 
     private static final String RESOURCE_PATH = "/retromod/loader-api-renames.json";
 
-    /**
-     * Known loader keys in the JSON file. Matches the enum values of
-     * {@code com.retromod.api.platform.Loader} conceptually, but kept as strings
-     * here so this class has zero dependency on the rest of Retromod.
-     */
+    // kept as strings so this class has no dependency on the rest of Retromod
     private static final String[] LOADER_KEYS = {"fabric", "neoforge", "forge"};
 
-    /** Singleton loaded lazily on first use (guarded by double-checked locking). */
     private static volatile LoaderApiRenames instance;
 
-    /** Internal-name → internal-name, across all loaders, deduplicated. */
     private final Map<String, String> renamedClasses;
-
-    /** Fully-qualified member key → fully-qualified member key. */
     private final Map<String, String> renamedMethods;
-
-    /** Set of internal-names known to be removed outright. */
     private final Set<String> removedClasses;
 
-    /** Empty, always-returns-false instance used when the JSON fails to load. */
+    /** Returned when the JSON fails to load: every lookup misses. */
     private static final LoaderApiRenames EMPTY = new LoaderApiRenames(
             Collections.emptyMap(), Collections.emptyMap(), Collections.emptySet());
 
@@ -92,11 +67,9 @@ public final class LoaderApiRenames {
     }
 
     /**
-     * Returns the process-wide loader rename table. Loads from the bundled
-     * JSON resource on first call and caches the result. If the resource
-     * cannot be loaded, returns an empty table (every lookup returns null /
-     * empty) rather than throwing - a misconfigured data file shouldn't
-     * break transformation entirely.
+     * Process-wide loader rename table, loaded from the bundled JSON on first
+     * call and cached. A failed load yields an empty table rather than throwing,
+     * so a bad data file doesn't break transformation.
      */
     public static LoaderApiRenames getInstance() {
         LoaderApiRenames local = instance;
@@ -108,54 +81,32 @@ public final class LoaderApiRenames {
         }
     }
 
-    /**
-     * Check whether {@code oldInternalName} is a known loader-API class that
-     * was renamed to a new location.
-     *
-     * @return the new internal name if known, else {@code null}
-     */
+    /** @return the new internal name if {@code oldInternalName} was renamed, else {@code null} */
     public String getClassRename(String oldInternalName) {
         return renamedClasses.get(oldInternalName);
     }
 
     /**
-     * Check whether the given member was renamed.
-     *
-     * @param owner      JVM internal class name of the old location
-     * @param name       old method name
-     * @param descriptor old method descriptor
-     * @return a formatted key {@code "newOwner#newName newDesc"} if renamed,
-     *         else {@code null}. (Callers parse this key to extract components.)
+     * @return key {@code "newOwner#newName newDesc"} if the member was renamed,
+     *         else {@code null}. Callers parse the key to extract components.
      */
     public String getMethodRename(String owner, String name, String descriptor) {
         return renamedMethods.get(memberKey(owner, name, descriptor));
     }
 
-    /**
-     * @return {@code true} if the class was deleted outright with no
-     *         replacement (callers should flag this as a broken reference
-     *         that cannot be auto-fixed)
-     */
+    /** @return {@code true} if the class was deleted with no replacement (a broken reference) */
     public boolean isRemoved(String internalName) {
         return removedClasses.contains(internalName);
     }
 
-    /** Size of the rename table - for diagnostics/logging only. */
     public int size() {
         return renamedClasses.size() + renamedMethods.size() + removedClasses.size();
     }
 
-    /**
-     * Build the canonical member-key format used for method rename lookups.
-     * Package-private for tests.
-     */
+    /** Canonical member-key format for method rename lookups. Package-private for tests. */
     static String memberKey(String owner, String name, String descriptor) {
         return owner + "#" + name + " " + descriptor;
     }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // LOADING
-    // ═══════════════════════════════════════════════════════════════════════
 
     private static LoaderApiRenames loadFromResource() {
         try (InputStream in = LoaderApiRenames.class.getResourceAsStream(RESOURCE_PATH)) {
@@ -174,7 +125,6 @@ public final class LoaderApiRenames {
             LOGGER.warn("Failed to read loader API rename table: {}", e.getMessage());
             return EMPTY;
         } catch (Exception e) {
-            // Malformed JSON, unexpected structure - don't break the transformer
             LOGGER.warn("Loader API rename table is malformed: {}", e.getMessage());
             return EMPTY;
         }
@@ -185,27 +135,18 @@ public final class LoaderApiRenames {
         Map<String, String> methods = new HashMap<>();
         Set<String> removed = new HashSet<>();
 
-        // The "forge" section actually contains Forge → NeoForge migration
-        // renames (e.g. net/minecraftforge/fml/common/Mod →
-        // net/neoforged/fml/common/Mod). Those renames are correct only when
-        // the runtime IS NeoForge. On a Forge runtime they rewrite Forge
-        // mods to reference NeoForge classes that don't exist, and Forge
-        // dies with NoClassDefFoundError on every transformed mod's
-        // constructor. So skip the "forge" section when not on NeoForge.
+        // The "forge" section holds Forge to NeoForge migration renames, correct
+        // only on a NeoForge runtime. On Forge they rewrite mods to NeoForge
+        // classes that don't exist, crashing every mod's constructor.
         boolean skipForgeSection;
         try {
             skipForgeSection = !com.retromod.util.McReflect.isNeoForge();
         } catch (Throwable t) {
-            // McReflect not available (rare - happens in CLI / test contexts);
-            // fall back to including the section to preserve current CLI
-            // behavior. The runtime crash only matters in the in-game path.
+            // McReflect absent on the CLI / in tests: include the section there
             skipForgeSection = false;
         }
 
-        // Per-loader try-catch so a malformed section for one loader doesn't
-        // wipe out valid data from the others. One broken entry in the Forge
-        // section shouldn't also invalidate NeoForge renames - the biggest
-        // surface area.
+        // Per-loader try-catch so one malformed section doesn't wipe the others.
         for (String loader : LOADER_KEYS) {
             if (!root.has(loader)) continue;
             if ("forge".equals(loader) && skipForgeSection) {
@@ -215,20 +156,16 @@ public final class LoaderApiRenames {
             try {
                 JsonObject loaderSection = root.getAsJsonObject(loader);
 
-                // renamed_classes: { "old/internal/Name": "new/internal/Name" }
                 if (loaderSection.has("renamed_classes")) {
                     JsonObject classMap = loaderSection.getAsJsonObject("renamed_classes");
                     for (Map.Entry<String, ?> e : classMap.entrySet()) {
                         String oldName = e.getKey();
                         String newName = classMap.get(oldName).getAsString();
-                        // If two loaders disagree on a rename, first-wins. Shouldn't
-                        // happen with the curated data, but deterministic is better
-                        // than "last-wins" which depends on key iteration order.
+                        // first-wins on conflict: deterministic regardless of iteration order
                         classes.putIfAbsent(oldName, newName);
                     }
                 }
 
-                // renamed_methods: { "owner#name desc": "newOwner#newName newDesc" }
                 if (loaderSection.has("renamed_methods")) {
                     JsonObject methodMap = loaderSection.getAsJsonObject("renamed_methods");
                     for (Map.Entry<String, ?> e : methodMap.entrySet()) {
@@ -236,14 +173,11 @@ public final class LoaderApiRenames {
                     }
                 }
 
-                // removed_classes: [ "internal/Name", ... ]
                 if (loaderSection.has("removed_classes")) {
                     loaderSection.getAsJsonArray("removed_classes")
                             .forEach(el -> removed.add(el.getAsString()));
                 }
             } catch (Exception sectionError) {
-                // Log and continue - malformed data for one loader must not
-                // silently kill all loader-rename coverage.
                 LOGGER.warn("Loader-API rename section '{}' is malformed, skipping it: {}",
                         loader, sectionError.getMessage());
             }

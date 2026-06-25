@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
  * Covers the {@code getCommonSuperClass} fallback that fixes the forge-config-api-port
  * {@code ConfigTracker} {@code VerifyError} (#94 follow-up). When ASM can't resolve a
  * type during {@code COMPUTE_FRAMES} (e.g. a Fabric Jar-in-Jar exception), the fallback
- * must NOT collapse an exception merge to {@code Object} - that's what corrupts the
+ * must NOT collapse an exception merge to {@code Object}: that's what corrupts the
  * StackMapTable into a verifier failure. It must return {@code Throwable} whenever
  * either operand is one, and only fall back to {@code Object} otherwise.
  */

@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.fabric;
@@ -7,12 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.21.9 to run on 1.21.10.
- * 
- * This documents all known API changes between these versions and provides
- * redirects to maintain compatibility.
- */
+/** Redirects Fabric mods built for 1.21.9 onto 1.21.10. */
 public class Fabric_1_21_9_to_1_21_10 implements VersionShim {
     
     @Override
@@ -37,13 +32,6 @@ public class Fabric_1_21_9_to_1_21_10 implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // MINECRAFT API CHANGES
-        // ============================================================
-        
-        // Example: Entity method renames
-        // In 1.21.10, getWorld() was changed to getEntityWorld() 
-        // (hypothetical example - check actual mappings)
         transformer.registerMethodRedirect(
             "net/minecraft/entity/Entity", 
             "getWorld", 
@@ -52,8 +40,7 @@ public class Fabric_1_21_9_to_1_21_10 implements VersionShim {
             "getEntityWorld", 
             "()Lnet/minecraft/world/World;"
         );
-        
-        // Example: BlockState method change
+
         transformer.registerMethodRedirect(
             "net/minecraft/block/BlockState",
             "getBlock",
@@ -62,18 +49,8 @@ public class Fabric_1_21_9_to_1_21_10 implements VersionShim {
             "getBlockType",
             "()Lnet/minecraft/block/Block;"
         );
-        
-        // ============================================================
-        // FABRIC API CHANGES
-        // ============================================================
-        
-        // Example: ServerLifecycleEvents rename
-        // transformer.registerClassRedirect(
-        //     "net/fabricmc/fabric/api/event/lifecycle/v1/ServerLifecycleEvents",
-        //     "net/fabricmc/fabric/api/event/lifecycle/v2/ServerLifecycleEvents"
-        // );
-        
-        // Example: Removed utility method - redirect to shim
+
+        // NbtType.getType was removed from Fabric API; route to our shim.
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/util/NbtType",
             "getType",
@@ -82,21 +59,6 @@ public class Fabric_1_21_9_to_1_21_10 implements VersionShim {
             "getType",
             "(B)I"
         );
-        
-        // ============================================================
-        // YARN MAPPING CHANGES
-        // These handle when intermediary names get remapped differently
-        // ============================================================
-        
-        // Example: Method intermediary name changed
-        // transformer.registerMethodRedirect(
-        //     "net/minecraft/class_1234",
-        //     "method_5678",
-        //     "()V",
-        //     "net/minecraft/class_1234",
-        //     "method_5679",
-        //     "()V"
-        // );
     }
     
     @Override

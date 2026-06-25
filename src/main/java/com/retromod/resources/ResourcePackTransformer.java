@@ -62,7 +62,7 @@ public class ResourcePackTransformer {
         PACK_FORMATS.put("1.21.9", 46);
         PACK_FORMATS.put("1.21.10", 46);
         PACK_FORMATS.put("1.21.11", 46);
-        // Future versions - estimate
+        // Future versions (estimate)
         PACK_FORMATS.put("1.22", 50);
         PACK_FORMATS.put("26.1.0", 60);
     }
@@ -180,7 +180,7 @@ public class ResourcePackTransformer {
             
             // Transform texture paths if needed
             if (oldFormat < 4) {
-                // Pre-1.13 pack - needs path transforms
+                // Pre-1.13 pack: needs path transforms
                 transformTexturePaths(tempDir);
             }
             
@@ -286,7 +286,6 @@ public class ResourcePackTransformer {
         }
     }
     
-    // ========== Helper Methods ==========
     
     private String readPackMcmeta(Path packPath) throws IOException {
         if (Files.isDirectory(packPath)) {

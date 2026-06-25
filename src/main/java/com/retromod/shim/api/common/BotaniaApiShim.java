@@ -1,25 +1,13 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Botania API Compatibility Shim
  */
 package com.retromod.shim.api.common;
 
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Botania API compatibility shim.
- * 
- * Botania is a popular magic/tech mod with addon support.
- * Works on Fabric and Forge/NeoForge.
- * 
- * API changes:
- * - Mana system interface changes
- * - Flower/functional changes
- * - Lexica Botania integration changes
- */
+/** Botania (Fabric and Forge/NeoForge): mana, flower, corporea, brew, and wand API renames. */
 public class BotaniaApiShim implements VersionShim {
     
     @Override
@@ -44,21 +32,12 @@ public class BotaniaApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // PACKAGE CHANGES
-        // ============================================================
-        
-        // Main API package - vazkii.botania.api
         transformer.registerClassRedirect(
             "vazkii/botania/api/BotaniaAPI",
             "vazkii/botania/api/BotaniaAPI"
         );
-        
-        // ============================================================
-        // MANA SYSTEM CHANGES
-        // ============================================================
-        
-        // IManaReceiver/IManaProvider
+
+        // mana system: drop the I prefix
         transformer.registerClassRedirect(
             "vazkii/botania/api/mana/IManaReceiver",
             "vazkii/botania/api/mana/ManaReceiver"
@@ -83,8 +62,7 @@ public class BotaniaApiShim implements VersionShim {
             "vazkii/botania/api/mana/IManaItem",
             "vazkii/botania/api/mana/ManaItem"
         );
-        
-        // ManaItemHandler
+
         transformer.registerMethodRedirect(
             "vazkii/botania/api/mana/ManaItemHandler",
             "requestMana",
@@ -93,12 +71,8 @@ public class BotaniaApiShim implements VersionShim {
             "requestMana",
             "(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/entity/player/Player;IZ)I"
         );
-        
-        // ============================================================
-        // FLOWER SYSTEM CHANGES
-        // ============================================================
-        
-        // Functional flowers
+
+        // subtile.TileEntity*Flower -> block_entity.*FlowerBlockEntity
         transformer.registerClassRedirect(
             "vazkii/botania/api/subtile/TileEntityFunctionalFlower",
             "vazkii/botania/api/block_entity/FunctionalFlowerBlockEntity"
@@ -113,11 +87,7 @@ public class BotaniaApiShim implements VersionShim {
             "vazkii/botania/api/subtile/TileEntitySpecialFlower",
             "vazkii/botania/api/block_entity/SpecialFlowerBlockEntity"
         );
-        
-        // ============================================================
-        // CORPOREA SYSTEM CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "vazkii/botania/api/corporea/ICorporeaNode",
             "vazkii/botania/api/corporea/CorporeaNode"
@@ -132,11 +102,7 @@ public class BotaniaApiShim implements VersionShim {
             "vazkii/botania/api/corporea/ICorporeaRequestMatcher",
             "vazkii/botania/api/corporea/CorporeaRequestMatcher"
         );
-        
-        // ============================================================
-        // BREW SYSTEM CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "vazkii/botania/api/brew/Brew",
             "vazkii/botania/api/brew/Brew"
@@ -146,52 +112,32 @@ public class BotaniaApiShim implements VersionShim {
             "vazkii/botania/api/brew/IBrewContainer",
             "vazkii/botania/api/brew/BrewContainer"
         );
-        
-        // ============================================================
-        // RUNE SYSTEM CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "vazkii/botania/api/recipe/IRuneAltarRecipe",
             "vazkii/botania/api/recipe/RuneAltarRecipe"
         );
-        
-        // ============================================================
-        // ELVEN TRADE CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "vazkii/botania/api/recipe/IElvenTradeRecipe",
             "vazkii/botania/api/recipe/ElvenTradeRecipe"
         );
-        
-        // ============================================================
-        // BLOCK ENTITY CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "vazkii/botania/api/subtile/TileEntityBindableSpecialFlower",
             "vazkii/botania/api/block_entity/BindableSpecialFlowerBlockEntity"
         );
-        
-        // ============================================================
-        // WAND INTERFACE CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "vazkii/botania/api/wand/IWandable",
             "vazkii/botania/api/block/Wandable"
         );
-        
+
         transformer.registerClassRedirect(
             "vazkii/botania/api/wand/IWandBindable",
             "vazkii/botania/api/block/WandBindable"
         );
-        
-        // ============================================================
-        // LENS INTERFACE CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "vazkii/botania/api/mana/ILens",
             "vazkii/botania/api/mana/Lens"

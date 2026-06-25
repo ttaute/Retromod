@@ -61,12 +61,11 @@ public class CuriosShim {
             return curio.getClass().getMethod("getAttributeModifiers", Class.forName("top.theillusivec4.curios.api.SlotContext"), UUID.class)
                 .invoke(curio, context, UUID.randomUUID());
         } catch (Exception e) {
-            // Return empty Multimap via reflection (Guava available at runtime)
             try {
                 Class<?> multimapClass = Class.forName("com.google.common.collect.HashMultimap");
                 return multimapClass.getMethod("create").invoke(null);
             } catch (Exception ex) {
-                return new HashMap<>(); // Fallback
+                return new HashMap<>();
             }
         }
     }

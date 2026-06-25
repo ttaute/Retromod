@@ -7,11 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Forge 1.19 to 1.19.1 shim - Minor bugfix release.
- * No significant API breaks requiring bytecode-level redirects;
- * chat signing changes were internal to Mojang's protocol layer.
- */
+/** Forge 1.19 to 1.19.1: bugfix release, chat-signing changes stayed in Mojang's protocol layer, nothing to redirect. */
 public class Forge_1_19_to_1_19_1 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.19 to 1.19.1"; }
@@ -21,7 +17,6 @@ public class Forge_1_19_to_1_19_1 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Minor release with no significant API breaks requiring redirects
     }
 
     @Override

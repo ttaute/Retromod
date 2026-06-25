@@ -36,7 +36,7 @@ public class NeoForgeTransferPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded shims needed - redirects point to classes that exist
+        // No embedded shims needed: redirects point to classes that exist
         // in the modern NeoForge runtime (ResourceHandler, EnergyHandler)
         return new String[]{};
     }
@@ -61,8 +61,8 @@ public class NeoForgeTransferPolyfill implements PolyfillProvider {
             "net/neoforged/neoforge/energy/EnergyHandler"
         );
 
-        // FluidStack still exists but API changed - no class redirect needed,
-        // method-level redirects would be handled by version shims
+        // FluidStack still exists but API changed, so no class redirect needed.
+        // Method-level redirects would be handled by version shims
 
         for (String cls : getPolyfillClasses()) {
             transformer.registerEmbeddedShim(cls);

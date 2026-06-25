@@ -1,8 +1,6 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Sodium/Iris Rendering API Compatibility Shim
  */
 package com.retromod.shim.api.fabric;
 
@@ -10,16 +8,7 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Sodium and Iris rendering API compatibility shim.
- * 
- * Sodium is the most popular performance mod for Fabric.
- * Iris adds shader support on top of Sodium.
- * Many mods need compatibility with these.
- * 
- * API changes:
- * - Sodium 0.4.x -> 0.5.x: Major renderer rewrite
- * - Sodium 0.5.x -> 0.6.x: Further API changes for 1.21
- * - Iris 1.6.x -> 1.7.x: Shader pipeline changes
+ * Sodium 0.4-0.6 renamed packages and reworked the renderer; Iris 1.6-1.7 changed the shader pipeline.
  */
 public class SodiumIrisApiShim implements VersionShim {
     
@@ -45,12 +34,7 @@ public class SodiumIrisApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // SODIUM RENDERER API CHANGES
-        // ============================================================
-        
-        // Old: me.jellysquid.mods.sodium
-        // New: net.caffeinemc.mods.sodium (package rename in 0.5+)
+        // me.jellysquid.mods.sodium -> net.caffeinemc.mods.sodium (0.5+)
         transformer.registerClassRedirect(
             "me/jellysquid/mods/sodium/client/render/chunk/compile/buffers/ChunkModelBuilder",
             "net/caffeinemc/mods/sodium/client/render/chunk/compile/buffers/ChunkModelBuilder"
@@ -65,26 +49,17 @@ public class SodiumIrisApiShim implements VersionShim {
             "me/jellysquid/mods/sodium/client/render/chunk/data/ChunkRenderData",
             "net/caffeinemc/mods/sodium/client/render/chunk/data/BuiltSectionInfo"
         );
-        
-        // ============================================================
-        // SODIUM BLOCK RENDERER CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/jellysquid/mods/sodium/client/render/pipeline/BlockRenderer",
             "net/caffeinemc/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderer"
         );
-        
-        // Old: BlockRenderContext
+
         transformer.registerClassRedirect(
             "me/jellysquid/mods/sodium/client/render/pipeline/context/BlockRenderContext",
             "net/caffeinemc/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderContext"
         );
-        
-        // ============================================================
-        // SODIUM OPTIONS API
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/jellysquid/mods/sodium/client/gui/SodiumGameOptions",
             "net/caffeinemc/mods/sodium/client/gui/SodiumGameOptions"
@@ -98,25 +73,10 @@ public class SodiumIrisApiShim implements VersionShim {
             "options",
             "()Lnet/caffeinemc/mods/sodium/client/gui/SodiumGameOptions;"
         );
-        
-        // ============================================================
-        // FABRIC RENDERING API (FRAPI) - DELETED IDENTITY REDIRECTS
-        //
-        // The previous form registered identity redirects (`A → A`) for
-        // Renderer / MeshBuilder / QuadEmitter "for Indium/Sodium FRAPI compat,"
-        // but Map.put semantics meant they CLOBBERED legitimate redirects
-        // installed by FabricRendererApiShim (which actually moves these
-        // classes to `/client/renderer/v1/*` to match the relocation in
-        // Fabric API 0.110+). Net effect: every mod the audit ran through
-        // ended up with stale `v1/QuadEmitter` etc. references and an
-        // NoClassDefFoundError at first call. Removed; the relocation shim
-        // owns these mappings.
-        // ============================================================
-        
-        // ============================================================
-        // IRIS SHADER API CHANGES
-        // ============================================================
-        
+
+        // No FRAPI Renderer/MeshBuilder/QuadEmitter redirects here: FabricRendererApiShim relocates
+        // them to client/renderer/v1/*, and identity redirects here would clobber those and break Indium.
+
         transformer.registerClassRedirect(
             "net/coderbot/iris/api/v0/IrisApi",
             "net/irisshaders/iris/api/v0/IrisApi"
@@ -139,11 +99,7 @@ public class SodiumIrisApiShim implements VersionShim {
             "isShaderPackInUse",
             "()Z"
         );
-        
-        // ============================================================
-        // VERTEX FORMAT CHANGES
-        // ============================================================
-        
+
         transformer.registerClassRedirect(
             "me/jellysquid/mods/sodium/client/model/vertex/formats/ModelVertexSink",
             "net/caffeinemc/mods/sodium/client/render/vertex/VertexConsumer"

@@ -10,42 +10,22 @@ import java.lang.reflect.Proxy;
 import java.util.function.Function;
 
 /**
- * Runtime half of the removed Fabric <b>command v1</b> bridge
+ * Runtime half of the removed Fabric command v1 bridge
  * ({@code net.fabricmc.fabric.api.command.v1.CommandRegistrationCallback}).
  *
- * <p>The v1 server-command callback used a 2-arg SAM
- * {@code register(CommandDispatcher dispatcher, boolean dedicated)} and was
- * deleted long before 26.1; the surviving API is the v2 callback with a 3-arg SAM
- * {@code register(CommandDispatcher, CommandBuildContext, Commands$CommandSelection)}.
- * A plain class redirect can't fix this: the mod's handler is a {@code lambda}
- * whose {@code invokedynamic} hard-codes the v1 SAM, so it must keep linking
- * against an interface that still declares that exact 2-arg method
- * (see {@link com.retromod.shim.api.fabric.FabricCommandV1Shim}).</p>
+ * <p>v1's callback used a 2-arg SAM {@code register(CommandDispatcher, boolean dedicated)};
+ * the surviving v2 callback uses a 3-arg SAM. A class redirect can't fix it: the mod's handler
+ * is a lambda whose {@code invokedynamic} hard-codes the v1 SAM, so it must keep linking against
+ * an interface declaring that 2-arg method (see {@link com.retromod.shim.api.fabric.FabricCommandV1Shim}).
  *
- * <h2>What this class does</h2>
- * The synthetic v1 interface's {@code <clinit>} calls {@link #installEvent(Class)}
- * once, to fill its {@code EVENT} field. We:
- * <ol>
- *   <li>create a real Fabric {@code Event} bound to the synthetic v1 interface
- *       (via {@code EventFactory.createArrayBacked}), so the mod's
- *       {@code EVENT.register(handler)} works natively; and</li>
- *   <li>register one forwarder on the live {@code command/v2} {@code EVENT} that,
- *       whenever the game builds its commands, drives every v1 handler with the
- *       dispatcher and a {@code dedicated} boolean derived from the v2
- *       {@code CommandSelection} ({@code DEDICATED} → {@code true}).</li>
- * </ol>
+ * <p>The synthetic v1 interface's {@code <clinit>} calls {@link #installEvent(Class)} once to fill
+ * its {@code EVENT} field: builds a Fabric {@code Event} bound to the v1 interface and registers one
+ * forwarder on the v2 {@code EVENT} that drives every v1 handler when commands are built.
  *
- * <p>Everything is reflection + {@link Proxy} so this class carries no compile-time
- * dependency on Fabric API, brigadier, or Minecraft - it is embedded raw into each
- * transformed mod jar and resolves the real types from the mod's own classloader at
- * runtime. It fails soft: a reflective miss leaves command callbacks inert (logged)
- * rather than crashing the mod.</p>
- *
- * <p><b>STATUS - authored, not yet runtime-verified.</b> Contracts checked against
- * {@code fabric-api-0.145.4+26.1.2} ({@code EventFactory.createArrayBacked(Class,
- * Function)}, {@code Event.invoker()}, {@code Event.register(Object)},
- * {@code command/v2/CommandRegistrationCallback}). A real 26.1 launch that registers
- * a command through a v1 mod is still required.</p>
+ * <p>All reflection + {@link Proxy}, so no compile-time dependency on Fabric API, brigadier, or
+ * Minecraft; embedded raw into each transformed mod jar and resolves types from the mod's own
+ * classloader. A reflective miss logs and leaves command callbacks inert. Checked against
+ * {@code fabric-api-0.145.4+26.1.2}.
  */
 public final class CommandRegistrationV1Bridge {
 
@@ -57,13 +37,9 @@ public final class CommandRegistrationV1Bridge {
     private static final String V2_CALLBACK   = "net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback";
 
     /**
-     * Build the v1 {@code Event} and wire it to the live v2 callback. Called once
-     * from the synthetic v1 interface's static initializer.
-     *
-     * @param v1Type the synthetic v1 {@code CommandRegistrationCallback} interface
-     * @return a Fabric {@code Event} bound to {@code v1Type}, or {@code null} if the
-     *         core event machinery couldn't be reached (mod's {@code EVENT} is then
-     *         null - unavoidable, but rare; EventFactory is core Fabric API)
+     * Build the v1 {@code Event} and wire it to the v2 callback. Called once from the synthetic v1
+     * interface's static initializer. Returns the {@code Event} bound to {@code v1Type}, or {@code null}
+     * if the event machinery couldn't be reached.
      */
     public static Object installEvent(Class<?> v1Type) {
         try {
@@ -73,7 +49,7 @@ public final class CommandRegistrationV1Bridge {
             Method createArrayBacked = eventFactory.getMethod(
                     "createArrayBacked", Class.class, Function.class);
 
-            // invokerFactory: T[] listeners -> a single T that fans out to each.
+            // T[] listeners -> one T that fans out to each
             Function<Object, Object> invokerFactory = (listenersObj) -> {
                 final Object[] listeners = (Object[]) listenersObj;
                 return Proxy.newProxyInstance(cl, new Class<?>[]{v1Type}, (proxy, method, args) -> {
@@ -103,28 +79,20 @@ public final class CommandRegistrationV1Bridge {
         }
     }
 
-    /**
-     * Register a single v2 callback that replays each invocation onto the v1 event's
-     * combined invoker, translating the 3-arg v2 SAM down to the 2-arg v1 SAM.
-     */
+    /** v2 callback that replays onto the v1 event's invoker, dropping the 3-arg v2 SAM to the 2-arg v1 SAM. */
     private static void wireV2Forwarder(ClassLoader cl, Class<?> v1Type, Object v1Event) throws Exception {
         Class<?> v2Type = Class.forName(V2_CALLBACK, true, cl);
         Object v2Event = v2Type.getField("EVENT").get(null);
 
-        // v1 SAM: register(CommandDispatcher, boolean) - the only 2-arg method.
         Method v1Register = findByNameArity(v1Type, "register", 2);
-        // Resolve Event methods against the PUBLIC Event interface, never the
-        // runtime class - the impl (fabric.impl.base.event.ArrayBackedEvent) is
-        // not public, so Methods looked up on it throw IllegalAccessException
-        // even though the members are public (caught in the snapshot.3 in-game
-        // pass: "could not wire the v2 forwarder").
+        // Resolve against the public Event interface; the impl (ArrayBackedEvent) isn't public,
+        // so lookups on it throw IllegalAccessException even though the members are public.
         Class<?> eventIface = Class.forName("net.fabricmc.fabric.api.event.Event", false, cl);
         Method invokerM = eventIface.getMethod("invoker");
 
         Object v2Forwarder = Proxy.newProxyInstance(cl, new Class<?>[]{v2Type}, (proxy, method, args) -> {
             if (isSam(method)) {
-                // v2 SAM: register(CommandDispatcher dispatcher, CommandBuildContext ctx,
-                //                  Commands$CommandSelection selection)
+                // v2 SAM: register(dispatcher, buildContext, commandSelection)
                 Object dispatcher = args[0];
                 boolean dedicated = isDedicated(args[args.length - 1]);
                 Object v1Invoker = invokerM.invoke(v1Event);
@@ -134,17 +102,11 @@ public final class CommandRegistrationV1Bridge {
             return objectMethod(proxy, method, args);
         });
 
-        // Event.register(T) erases to register(Object) - on the public interface.
         eventIface.getMethod("register", Object.class).invoke(v2Event, v2Forwarder);
     }
 
-    /**
-     * v1 {@code dedicated} ⇐ the v2 {@code CommandSelection} is {@code DEDICATED}.
-     * Keyed on {@code Enum.name()} (final, never overridden) via a plain
-     * {@code instanceof java.lang.Enum} - no reflection per invocation, and we never
-     * touch the package-private {@code includeDedicated} field (module-locked under
-     * {@code net.minecraft}).
-     */
+    // Keyed on Enum.name() rather than the package-private includeDedicated field
+    // (module-locked under net.minecraft).
     private static boolean isDedicated(Object selection) {
         return selection instanceof Enum<?> e && "DEDICATED".equals(e.name());
     }
@@ -165,7 +127,7 @@ public final class CommandRegistrationV1Bridge {
         throw new IllegalStateException("no " + name + "/" + arity + " on " + type.getName());
     }
 
-    /** Invoke and unwrap {@link InvocationTargetException} so a mod's own error surfaces normally. */
+    /** Invoke, unwrapping {@link InvocationTargetException} so the mod's own error surfaces. */
     private static void invokeUnwrapped(Method m, Object target, Object[] args) throws Throwable {
         try {
             m.invoke(target, args);

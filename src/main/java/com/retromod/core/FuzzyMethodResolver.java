@@ -2,7 +2,7 @@
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
- * Fuzzy method/field resolver - last-resort fallback for unresolved references.
+ * Fuzzy method/field resolver: last-resort fallback for unresolved references.
  * Indexes the target MC JAR and scores candidates to find probable matches.
  */
 package com.retromod.core;
@@ -21,58 +21,16 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 /**
- * Fuzzy matching resolver for unresolved method and field references.
+ * Last-resort fuzzy resolver for method/field references that no shim redirect covers.
+ * Scans the target MC JAR and scores candidates by class, name, and parameter similarity.
+ * It only fires when every explicit lookup has failed and never overrides a hardcoded redirect.
  *
- * <h2>Purpose</h2>
- * When a mod references a method or field that has no hardcoded redirect in
- * RetromodTransformer, this resolver scans the target Minecraft JAR to find
- * probable matches using a weighted scoring algorithm. This covers edge cases
- * where methods were renamed, signatures slightly changed, or fields moved
- * between minor MC versions without explicit shim coverage.
- *
- * <h2>Usage</h2>
- * This is a FALLBACK only. Hardcoded redirects registered by version shims
- * always take priority. The fuzzy resolver only fires when all explicit
- * lookups fail. It will NEVER override a hardcoded redirect.
- *
- * <h2>Scoring algorithm (methods)</h2>
- * Each candidate method in the target class is scored against the unresolved
- * reference on four axes:
- * <ol>
- *   <li><b>Class match (0-40 pts):</b> Exact owner match scores highest.
- *       Superclasses/interfaces of the owner also count.</li>
- *   <li><b>Name similarity (0-30 pts):</b> Exact match, Levenshtein distance,
- *       substring containment, and common prefix/suffix.</li>
- *   <li><b>Parameter count (0-15 pts):</b> Same count scores highest.
- *       Off-by-one (common for parameter injection) still scores.</li>
- *   <li><b>Parameter types (0-15 pts):</b> Exact type match of all parameters
- *       scores highest. Partial matches (>50%) also score.</li>
- * </ol>
- * Maximum possible score: 100 points.
- *
- * <h2>Confidence thresholds</h2>
- * <ul>
- *   <li>70+ = Apply automatically and log at INFO level</li>
- *   <li>50-69 = Log warning but do NOT apply (developer should add explicit redirect)</li>
- *   <li>&lt;50 = Silently ignored</li>
- * </ul>
- *
- * <h2>Thread safety</h2>
- * The resolve cache uses {@link ConcurrentHashMap}. The index maps are populated
- * once during {@link #indexJar(Path)} and are read-only thereafter. The
- * {@code indexed} flag is volatile to ensure visibility across threads.
- *
- * <p><b>IMPORTANT:</b> This class must NOT reference {@code Retromod} directly
- * (which implements ModInitializer) because it is also used by the standalone
- * CLI where Fabric classes are not on the classpath.</p>
+ * <p>Must not reference {@code Retromod} (which implements ModInitializer): this also runs
+ * in the standalone CLI where Fabric classes aren't on the classpath.</p>
  */
 public class FuzzyMethodResolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Fuzzy");
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SCORING CONSTANTS - weights for each axis of the matching algorithm
-    // ═══════════════════════════════════════════════════════════════════════
 
     /** Points awarded when the candidate method is on the exact same class. */
     private static final int SCORE_EXACT_CLASS = 40;
@@ -98,89 +56,34 @@ public class FuzzyMethodResolver {
     /** Points when >50% of parameter types match. */
     private static final int SCORE_MOST_PARAMS_MATCH = 8;
 
-    /** Minimum score to auto-apply the redirect. */
-    // Raised from 70 to 85 - lower thresholds caused VerifyErrors by matching
-    // methods with incompatible return types (e.g., MutableComponent vs GuiMessageTag)
+    /** Minimum score to auto-apply the redirect. Below 85, mismatched return types (MutableComponent vs GuiMessageTag) slipped through and caused VerifyErrors. */
     private static final int THRESHOLD_AUTO_APPLY = 85;
     /** Minimum score to log a warning (but not apply). */
     private static final int THRESHOLD_LOG_WARNING = 50;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // INDEX STRUCTURES - populated once by indexJar(), read-only thereafter
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Index of all methods in the target MC JAR.
-     * Key: JVM internal class name (e.g., "net/minecraft/world/level/Level")
-     * Value: list of (methodName, descriptor) tuples for that class
-     */
+    /** Key: JVM internal class name. Value: methods declared on it. */
     private final Map<String, List<MethodInfo>> methodIndex = new HashMap<>();
 
-    /**
-     * Index of all fields in the target MC JAR.
-     * Key: JVM internal class name
-     * Value: list of (fieldName, descriptor) tuples for that class
-     */
+    /** Key: JVM internal class name. Value: fields declared on it. */
     private final Map<String, List<FieldInfo>> fieldIndex = new HashMap<>();
 
-    /**
-     * Superclass/interface relationships for inheritance-aware matching.
-     * Key: JVM internal class name
-     * Value: list of parent classes and implemented interfaces
-     */
+    /** Key: JVM internal class name. Value: its superclass plus implemented interfaces. */
     private final Map<String, List<String>> classHierarchy = new HashMap<>();
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // RESOLVE CACHES - avoid repeated scoring for the same unresolved ref
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Maximum number of entries in the resolve caches. Once this limit is reached,
-     * the cache is cleared to prevent unbounded memory growth. A mod with thousands
-     * of unique unresolved references could otherwise cause OOM in long-running sessions.
-     *
-     * 10,000 entries is generous - a typical mod has ~50-200 unresolved references.
-     * The Minecraft JAR has ~8,000 classes total, so even a worst-case scenario
-     * (every method in every class is unresolved) would fit within this limit.
-     */
+    /** Cap on resolve-cache entries; once hit, the cache is cleared. A typical mod has ~50-200 unresolved refs. */
     private static final int MAX_CACHE_SIZE = 10_000;
 
-    /**
-     * Cache of resolved method matches.
-     * Key: "owner.name.desc" (the unresolved reference)
-     * Value: resolved MethodInfo, or EMPTY_METHOD_INFO sentinel for "no match"
-     *
-     * Using ConcurrentHashMap for thread-safe access during class loading.
-     * Bounded by MAX_CACHE_SIZE to prevent unbounded memory growth.
-     */
+    /** Key: "owner.name.desc". Value: the resolved match, or EMPTY_METHOD_INFO for "no match". */
     private final Map<String, MethodInfo> methodResolveCache = new ConcurrentHashMap<>();
 
-    /**
-     * Cache of resolved field matches.
-     * Key: "owner.name.desc" (the unresolved reference)
-     * Value: resolved FieldInfo, or EMPTY_FIELD_INFO sentinel for "no match"
-     *
-     * Bounded by MAX_CACHE_SIZE to prevent unbounded memory growth.
-     */
+    /** Key: "owner.name.desc". Value: the resolved match, or EMPTY_FIELD_INFO for "no match". */
     private final Map<String, FieldInfo> fieldResolveCache = new ConcurrentHashMap<>();
 
-    /** Sentinel value indicating "we looked and found nothing" - avoids re-scanning. */
+    /** Cached "looked and found nothing" so we don't re-scan. */
     private static final MethodInfo EMPTY_METHOD_INFO = new MethodInfo("", "", "", -1);
-    /** Sentinel value for "no field match found". */
     private static final FieldInfo EMPTY_FIELD_INFO = new FieldInfo("", "", "", -1);
 
-    /**
-     * Put a value into a bounded cache. If the cache exceeds MAX_CACHE_SIZE,
-     * it is cleared first to reclaim memory. This is a simple eviction strategy
-     * that trades occasional cache misses for bounded memory usage.
-     *
-     * <p>The clear-on-overflow approach is chosen over LRU because:
-     * <ul>
-     *   <li>ConcurrentHashMap has no built-in LRU eviction</li>
-     *   <li>The cache is a performance optimization, not a correctness requirement</li>
-     *   <li>Overflow only happens with pathologically many unique unresolved refs</li>
-     * </ul>
-     */
+    /** Clear-on-overflow eviction (ConcurrentHashMap has no LRU). The cache is an optimization, not correctness. */
     private <V> void boundedCachePut(Map<String, V> cache, String key, V value) {
         if (cache.size() >= MAX_CACHE_SIZE) {
             LOGGER.debug("Resolve cache reached {} entries, clearing to prevent unbounded growth",
@@ -190,54 +93,31 @@ public class FuzzyMethodResolver {
         cache.put(key, value);
     }
 
-    /** Whether the JAR has been indexed. Volatile for cross-thread visibility. */
+    /** Volatile for cross-thread visibility. */
     private volatile boolean indexed = false;
 
-    /** Total number of classes indexed (for logging). */
     private volatile int indexedClassCount = 0;
-
-    /** Total number of methods indexed (for logging). */
     private volatile int indexedMethodCount = 0;
-
-    /** Total number of fields indexed (for logging). */
     private volatile int indexedFieldCount = 0;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // DATA RECORDS
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * A method found in the target MC JAR.
+     * A method in the target MC JAR. {@code score} is -1 in the index, set when returned as a fuzzy match.
      *
-     * @param owner      JVM internal name of the class that declares this method
-     * @param name       method name
-     * @param descriptor JVM method descriptor (e.g., "(IIF)V")
-     * @param score      match score when used as a fuzzy result (-1 when in the index)
+     * @param descriptor JVM method descriptor, e.g. "(IIF)V"
      */
     public record MethodInfo(String owner, String name, String descriptor, int score) {}
 
     /**
-     * A field found in the target MC JAR.
+     * A field in the target MC JAR. {@code score} is -1 in the index, set when returned as a fuzzy match.
      *
-     * @param owner      JVM internal name of the class that declares this field
-     * @param name       field name
-     * @param descriptor JVM field descriptor (e.g., "Ljava/lang/String;")
-     * @param score      match score when used as a fuzzy result (-1 when in the index)
+     * @param descriptor JVM field descriptor, e.g. "Ljava/lang/String;"
      */
     public record FieldInfo(String owner, String name, String descriptor, int score) {}
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // INDEXING - scans the target MC JAR to build lookup structures
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * Index all classes, methods, and fields in the given MC JAR.
-     * This must be called once during startup before any resolve calls.
+     * Index every {@code net/minecraft/} and {@code com/mojang/} class, method, and field in the JAR.
+     * Call once at startup before any resolve call.
      *
-     * <p>Only indexes {@code net/minecraft/} classes and their inner classes.
-     * Skips non-class entries (assets, data, etc.) for performance.</p>
-     *
-     * @param mcJar path to the Minecraft client JAR
      * @throws IOException if the JAR cannot be read
      */
     public void indexJar(Path mcJar) throws IOException {
@@ -264,8 +144,7 @@ public class FuzzyMethodResolver {
                 JarEntry entry = entries.nextElement();
                 String entryName = entry.getName();
 
-                // Only index .class files in the net/minecraft package tree
-                // and com/mojang (Mojang's shared libraries like DFU, brigadier)
+                // net/minecraft plus com/mojang (DFU, brigadier, etc.)
                 if (!entryName.endsWith(".class")) continue;
                 if (!entryName.startsWith("net/minecraft/") &&
                     !entryName.startsWith("com/mojang/")) {
@@ -276,12 +155,10 @@ public class FuzzyMethodResolver {
                     byte[] classBytes = is.readAllBytes();
                     ClassReader reader = new ClassReader(classBytes);
 
-                    // Extract class name, superclass, interfaces
                     String className = reader.getClassName();
                     String superName = reader.getSuperName();
                     String[] interfaces = reader.getInterfaces();
 
-                    // Build hierarchy entry
                     List<String> parents = new ArrayList<>();
                     if (superName != null && !superName.equals("java/lang/Object")) {
                         parents.add(superName);
@@ -291,8 +168,7 @@ public class FuzzyMethodResolver {
                     }
                     classHierarchy.put(className, parents);
 
-                    // Collect methods and fields with a lightweight visitor
-                    // (SKIP_CODE + SKIP_DEBUG for speed - we only need signatures)
+                    // Signatures only: SKIP_CODE + SKIP_DEBUG for speed.
                     List<MethodInfo> classMethods = new ArrayList<>();
                     List<FieldInfo> classFields = new ArrayList<>();
 
@@ -300,12 +176,11 @@ public class FuzzyMethodResolver {
                         @Override
                         public MethodVisitor visitMethod(int access, String name,
                                 String descriptor, String signature, String[] exceptions) {
-                            // Skip constructors and class initializers - they are not
-                            // candidates for fuzzy matching (use constructor redirects instead)
+                            // Constructors/initializers aren't fuzzy-match candidates (use constructor redirects).
                             if (!"<init>".equals(name) && !"<clinit>".equals(name)) {
                                 classMethods.add(new MethodInfo(className, name, descriptor, -1));
                             }
-                            return null; // don't visit method body
+                            return null;
                         }
 
                         @Override
@@ -327,7 +202,6 @@ public class FuzzyMethodResolver {
                     classes++;
 
                 } catch (Exception e) {
-                    // Skip unparseable classes (shouldn't happen with valid MC JARs)
                     LOGGER.debug("Could not index class {}: {}", entryName, e.getMessage());
                 }
             }
@@ -343,54 +217,29 @@ public class FuzzyMethodResolver {
                 classes, methods, fields, elapsed);
     }
 
-    /**
-     * Check whether the resolver has been initialized with a JAR index.
-     */
     public boolean isIndexed() {
         return indexed;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // EXACT MEMBERSHIP CHECKS - for ReferenceVerifier & ReflectionStringRemapper
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // These are "does this exact class/method/field exist in the target MC JAR?"
-    // queries - distinct from the fuzzy resolve* methods below, which return
-    // best-match candidates. The verifier uses these to decide whether a reference
-    // is broken (so no match → report unresolved); the remapper uses them to
-    // check whether a rewritten reflection string target actually exists.
+    // Exact "does this class/member exist?" checks, as opposed to the fuzzy resolve* methods below.
+    // Used by ReferenceVerifier (to flag broken references) and ReflectionStringRemapper.
 
     /**
-     * Exact class existence check against the indexed MC JAR.
-     *
-     * @param internalName JVM internal class name (e.g., "net/minecraft/core/BlockPos")
-     * @return {@code true} if the class exists in the target MC JAR,
-     *         {@code false} if the index has no record of it (or if the resolver
-     *         isn't indexed - callers should check {@link #isIndexed()} first if
-     *         they need to distinguish those cases)
+     * Whether the class exists in the indexed MC JAR. Returns false when not indexed, so callers
+     * that need to distinguish the two cases should check {@link #isIndexed()} first.
      */
     public boolean hasClass(String internalName) {
         if (!indexed || internalName == null) return false;
-        // classHierarchy is populated for every class we indexed, even ones with
-        // no methods/fields, so it's the authoritative existence oracle.
+        // classHierarchy has an entry for every indexed class, even those with no members.
         return classHierarchy.containsKey(internalName);
     }
 
     /**
-     * Exact method existence check against the indexed MC JAR, including
-     * inherited methods from superclasses and interfaces.
-     *
-     * @param owner      JVM internal class name
-     * @param name       method name
-     * @param descriptor method descriptor (e.g., "(IIF)V")
-     * @return {@code true} if a matching method is declared on {@code owner}
-     *         or any of its ancestors
+     * Whether {@code owner} or any ancestor declares this method. Walks the hierarchy so a reference
+     * compiled against an inherited method (e.g. Level#getBlockState) isn't a false negative.
      */
     public boolean hasMethod(String owner, String name, String descriptor) {
         if (!indexed || owner == null) return false;
-        // Walk class hierarchy to find inherited methods too. A reference to
-        // Level#getBlockState may compile against a method declared on a parent,
-        // so a direct-only check would produce false-negatives.
         return hasMemberInHierarchy(owner, parent -> {
             List<MethodInfo> methods = methodIndex.get(parent);
             if (methods == null) return false;
@@ -403,14 +252,7 @@ public class FuzzyMethodResolver {
         });
     }
 
-    /**
-     * Exact field existence check against the indexed MC JAR, including
-     * inherited fields from superclasses.
-     *
-     * @param owner      JVM internal class name
-     * @param name       field name
-     * @param descriptor field descriptor (e.g., "Ljava/lang/String;")
-     */
+    /** Whether {@code owner} or any ancestor declares this field. */
     public boolean hasField(String owner, String name, String descriptor) {
         if (!indexed || owner == null) return false;
         return hasMemberInHierarchy(owner, parent -> {
@@ -426,10 +268,8 @@ public class FuzzyMethodResolver {
     }
 
     /**
-     * Name-only method existence (hierarchy-aware), ignoring the descriptor. Used by the
-     * gap report to detect a signature change vs an outright removal (BAD_SIGNATURE vs
-     * MISSING_METHOD). Walks the same hierarchy as {@link #hasMethod} so an inherited
-     * member under the same name is treated consistently.
+     * Name-only method existence (hierarchy-aware), ignoring the descriptor. Lets the gap report
+     * tell a signature change (BAD_SIGNATURE) from an outright removal (MISSING_METHOD).
      */
     public boolean hasMethodName(String owner, String name) {
         if (!indexed || owner == null) return false;
@@ -443,7 +283,7 @@ public class FuzzyMethodResolver {
         });
     }
 
-    /** Name-only field existence (hierarchy-aware), ignoring the descriptor. See {@link #hasMethodName}. */
+    /** Name-only field existence (hierarchy-aware), ignoring the descriptor. */
     public boolean hasFieldName(String owner, String name) {
         if (!indexed || owner == null) return false;
         return hasMemberInHierarchy(owner, parent -> {
@@ -457,12 +297,8 @@ public class FuzzyMethodResolver {
     }
 
     /**
-     * Walk the class hierarchy (including superclasses and interfaces) upward
-     * from {@code start}, returning {@code true} as soon as {@code predicate}
-     * matches any level in the hierarchy.
-     *
-     * <p>Terminates cleanly even if the hierarchy contains cycles (shouldn't
-     * happen with well-formed bytecode, but defensive against malformed input).</p>
+     * Walk up from {@code start} (superclasses and interfaces), returning true as soon as
+     * {@code predicate} matches. The visited set keeps it terminating even on a cyclic hierarchy.
      */
     private boolean hasMemberInHierarchy(String start, java.util.function.Predicate<String> predicate) {
         Set<String> visited = new HashSet<>();
@@ -483,60 +319,41 @@ public class FuzzyMethodResolver {
     }
 
     /**
-     * Unmodifiable view of every class name present in the index. Used by
-     * {@code FuzzyBackedSymbolIndex.suggestClassAlternatives} to scan for
-     * simple-name matches (e.g., "BlockPos" in old package → "BlockPos" in
-     * new package).
-     *
-     * <p>Returns an empty set if not indexed.</p>
+     * Unmodifiable view of every indexed class name, empty if not indexed. Used by
+     * {@code FuzzyBackedSymbolIndex.suggestClassAlternatives} to find simple-name matches
+     * across packages (a class moved from an old package to a new one).
      */
     public Set<String> getIndexedClassNames() {
         if (!indexed) return Collections.emptySet();
-        // classHierarchy is our authoritative class-existence map (every indexed
-        // class has an entry, even ones with no methods/fields).
         return Collections.unmodifiableSet(classHierarchy.keySet());
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // METHOD RESOLUTION - fuzzy match an unresolved method call
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * Attempt to resolve an unresolved method reference by fuzzy matching
-     * against methods in the target MC JAR.
-     *
-     * <p>Returns the best match if its score is >= THRESHOLD_AUTO_APPLY (70).
-     * Logs a warning (but returns null) for scores in the 50-69 range.
-     * Returns null silently for scores < 50.</p>
+     * Fuzzy-match an unresolved method reference against the target MC JAR. Returns the best match
+     * at or above {@link #THRESHOLD_AUTO_APPLY}; warns (returning null) in the 50-84 band; null below.
      *
      * @param owner      JVM internal name of the class the method was called on
      * @param name       the method name that wasn't found
      * @param descriptor the JVM method descriptor of the call
-     * @return the best matching method, or null if no confident match was found
      */
     public MethodInfo resolveMethod(String owner, String name, String descriptor) {
         if (!indexed) return null;
 
-        // Check cache first
         String cacheKey = owner + "." + name + "." + descriptor;
         MethodInfo cached = methodResolveCache.get(cacheKey);
         if (cached != null) {
-            // Return null for the "no match" sentinel
             return cached == EMPTY_METHOD_INFO ? null : cached;
         }
 
-        // Gather candidate methods from the owner class and its parents
         List<MethodInfo> candidates = gatherMethodCandidates(owner);
         if (candidates.isEmpty()) {
             boundedCachePut(methodResolveCache, cacheKey, EMPTY_METHOD_INFO);
             return null;
         }
 
-        // Score each candidate and find the best match
         MethodInfo bestMatch = null;
         int bestScore = 0;
 
-        // Parse the unresolved descriptor for parameter comparison
         List<String> unresolvedParams = parseParameterTypes(descriptor);
         String unresolvedReturn = parseReturnType(descriptor);
 
@@ -555,17 +372,11 @@ public class FuzzyMethodResolver {
             }
         }
 
-        // Apply threshold logic
         if (bestMatch != null && bestScore >= THRESHOLD_AUTO_APPLY) {
-            // STACK-SAFETY GUARD: name+arity scoring can pick a method whose
-            // parameter TYPE changed incompatibly between versions - e.g.
-            // AnimationUtils.swingWeaponDown(…,Mob,…) became (…,HumanoidArm,…) in
-            // 1.21.11. Rewriting the call keeps the bytecode pushing the OLD type
-            // (Mob) into a slot typed for the NEW one (HumanoidArm) → VerifyError
-            // at class load, which kills the whole mod (e.g. blocks render-layer
-            // registration). Leaving the call alone instead degrades to a far
-            // milder latent NoSuchMethodError (often never hit). So refuse a
-            // redirect that wouldn't verify. (#51)
+            // Name+arity scoring can pick a method whose param TYPE changed incompatibly between
+            // versions (AnimationUtils.swingWeaponDown Mob -> HumanoidArm in 1.21.11). Redirecting
+            // there pushes the old type into a slot typed for the new one -> VerifyError at load.
+            // Refusing the redirect degrades to a much milder latent NoSuchMethodError instead.
             if (!isRedirectStackSafe(unresolvedParams, unresolvedReturn, bestMatch.descriptor())) {
                 LOGGER.debug("[Retromod-Fuzzy] Suppressed type-incompatible redirect "
                         + "{}.{}{} -> {}.{}{} (would VerifyError; left unresolved)",
@@ -593,26 +404,19 @@ public class FuzzyMethodResolver {
                     bestScore);
         }
 
-        // Cache the "no match" result to avoid re-scoring
         boundedCachePut(methodResolveCache, cacheKey, EMPTY_METHOD_INFO);
         return null;
     }
 
-    /**
-     * Gather all candidate methods from the given class and its parents.
-     * Walks up the class hierarchy (superclasses + interfaces) to find
-     * methods that might be inherited matches.
-     */
+    /** Methods on {@code owner} plus all inherited from its superclasses and interfaces. */
     private List<MethodInfo> gatherMethodCandidates(String owner) {
         List<MethodInfo> candidates = new ArrayList<>();
 
-        // Methods directly on the owner class
         List<MethodInfo> ownerMethods = methodIndex.get(owner);
         if (ownerMethods != null) {
             candidates.addAll(ownerMethods);
         }
 
-        // Walk up the hierarchy: superclasses and interfaces
         Set<String> visited = new HashSet<>();
         Queue<String> queue = new ArrayDeque<>();
         visited.add(owner);
@@ -632,7 +436,6 @@ public class FuzzyMethodResolver {
             if (parentMethods != null) {
                 candidates.addAll(parentMethods);
             }
-            // Continue walking up
             List<String> grandparents = classHierarchy.get(current);
             if (grandparents != null) {
                 for (String gp : grandparents) {
@@ -646,18 +449,7 @@ public class FuzzyMethodResolver {
         return candidates;
     }
 
-    /**
-     * Score how well a candidate method matches the unresolved reference.
-     * Returns a score from 0 to 100.
-     *
-     * @param unresolvedOwner  the class the unresolved method was called on
-     * @param unresolvedName   the unresolved method name
-     * @param unresolvedDesc   the full unresolved method descriptor
-     * @param unresolvedParams parsed parameter types from the descriptor
-     * @param unresolvedReturn parsed return type from the descriptor
-     * @param candidate        the candidate method to score
-     * @return score from 0 (no match) to 100 (perfect match)
-     */
+    /** Score a candidate against the unresolved reference, 0 (no match) to 100 (perfect). */
     private int scoreMethodMatch(
             String unresolvedOwner, String unresolvedName, String unresolvedDesc,
             List<String> unresolvedParams, String unresolvedReturn,
@@ -665,37 +457,26 @@ public class FuzzyMethodResolver {
 
         int score = 0;
 
-        // === AXIS 1: Class match (0-40 points) ===
+        // Axis 1: class match (0-40). An unrelated class scores nothing, capping the
+        // total at 60 (name + params) so it can't reach the auto-apply threshold.
         if (candidate.owner().equals(unresolvedOwner)) {
-            // Exact class match - highest confidence
             score += SCORE_EXACT_CLASS;
         } else if (isRelatedClass(unresolvedOwner, candidate.owner())) {
-            // Candidate is on a superclass or interface of the owner
             score += SCORE_RELATED_CLASS;
-        } else {
-            // Candidate is on a completely unrelated class - very unlikely match.
-            // Don't add any class points, which effectively caps the score at 60
-            // (name + params), making it very hard to reach auto-apply threshold.
         }
 
-        // === AXIS 2: Name similarity (0-30 points) ===
+        // Axis 2: name similarity (0-30).
         String candidateName = candidate.name();
         if (candidateName.equals(unresolvedName)) {
-            // Exact name match - this is the strongest signal
             score += SCORE_EXACT_NAME;
         } else {
-            // Try Levenshtein distance (catches typos and minor renames)
             int editDistance = levenshteinDistance(unresolvedName, candidateName);
             if (editDistance <= 3) {
                 score += SCORE_LEVENSHTEIN_CLOSE;
-            }
-            // Try substring containment (e.g., "setBlock" contains "Block")
-            else if (candidateName.toLowerCase().contains(unresolvedName.toLowerCase()) ||
+            } else if (candidateName.toLowerCase().contains(unresolvedName.toLowerCase()) ||
                      unresolvedName.toLowerCase().contains(candidateName.toLowerCase())) {
                 score += SCORE_SUBSTRING_MATCH;
-            }
-            // Try common prefix/suffix of at least 4 characters
-            else {
+            } else {
                 int commonPrefix = commonPrefixLength(unresolvedName, candidateName);
                 int commonSuffix = commonSuffixLength(unresolvedName, candidateName);
                 if (commonPrefix >= 4 || commonSuffix >= 4) {
@@ -704,36 +485,30 @@ public class FuzzyMethodResolver {
             }
         }
 
-        // === AXIS 3: Parameter count (0-15 points) ===
+        // Axis 3: parameter count (0-15). Off-by-one covers an added/removed param between versions.
         List<String> candidateParams = parseParameterTypes(candidate.descriptor());
         int paramCountDiff = Math.abs(unresolvedParams.size() - candidateParams.size());
         if (paramCountDiff == 0) {
             score += SCORE_PARAM_COUNT_EXACT;
         } else if (paramCountDiff == 1) {
-            // Off by one - common when a parameter is added/removed between versions
             score += SCORE_PARAM_COUNT_OFF_BY_ONE;
         }
-        // Off by 2+ - no points
 
-        // === AXIS 4: Parameter type matching (0-15 points) ===
+        // Axis 4: parameter types (0-15).
         if (!unresolvedParams.isEmpty() && !candidateParams.isEmpty()) {
             int matchCount = countMatchingParams(unresolvedParams, candidateParams);
             int minSize = Math.min(unresolvedParams.size(), candidateParams.size());
             if (matchCount == minSize && paramCountDiff == 0) {
-                // All parameter types match exactly
                 score += SCORE_ALL_PARAMS_MATCH;
             } else if (minSize > 0 && matchCount > minSize / 2) {
-                // More than half the parameters match
                 score += SCORE_MOST_PARAMS_MATCH;
             }
         } else if (unresolvedParams.isEmpty() && candidateParams.isEmpty()) {
-            // Both are no-arg methods - full type match
             score += SCORE_ALL_PARAMS_MATCH;
         }
 
-        // === RETURN TYPE COMPATIBILITY CHECK ===
-        // If the return type category changes (primitive vs object, or different
-        // primitive type), this is almost certainly a wrong match. Penalize heavily.
+        // Return-type check: a mismatched return type would VerifyError, so reject outright
+        // unless both are objects with near-identical names (a type rename, not a different method).
         String candidateReturn = candidate.descriptor().substring(
             candidate.descriptor().lastIndexOf(')') + 1);
         if (!unresolvedReturn.equals(candidateReturn)) {
@@ -741,64 +516,43 @@ public class FuzzyMethodResolver {
             boolean candidatePrimitive = !candidateReturn.startsWith("L") && !candidateReturn.startsWith("[");
 
             if (unresolvedPrimitive != candidatePrimitive) {
-                // One returns primitive, other returns object - incompatible stack types
-                // This would cause VerifyError, so reject entirely
-                return 0;
+                return 0; // primitive vs object
             }
             if (unresolvedPrimitive && candidatePrimitive && !unresolvedReturn.equals(candidateReturn)) {
-                // Different primitive types (e.g., long vs int) - reject
-                return 0;
+                return 0; // two different primitives
             }
-            // Both return objects but completely different types - heavy penalty.
-            // Different return types cause VerifyError (e.g., MutableComponent vs GuiMessageTag).
-            // Only allow if the names are very similar (likely a type rename, not a different method).
             if (levenshteinDistance(unresolvedReturn, candidateReturn) > 10) {
-                // Completely unrelated return types - reject
-                return 0;
+                return 0; // unrelated object types
             }
-            // Somewhat similar return types - significant penalty
-            score -= 20;
+            score -= 20; // similar object types: penalize
         }
 
         return score;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // FIELD RESOLUTION - fuzzy match an unresolved field access
-    // ═══════════════════════════════════════════════════════════════════════
-
     /**
-     * Attempt to resolve an unresolved field reference by fuzzy matching.
-     *
-     * <p>Checks two scenarios:</p>
-     * <ol>
-     *   <li>Field was renamed: same type, different name, same class</li>
-     *   <li>Field moved to a superclass or related class</li>
-     * </ol>
+     * Fuzzy-match an unresolved field reference: a rename (same type, new name) or a move to a
+     * superclass. Same thresholds as {@link #resolveMethod}.
      *
      * @param owner      JVM internal name of the class the field was accessed on
      * @param name       the field name that wasn't found
      * @param descriptor the JVM field descriptor (type)
-     * @return the best matching field, or null if no confident match was found
      */
     public FieldInfo resolveField(String owner, String name, String descriptor) {
         if (!indexed) return null;
 
-        // Check cache first
         String cacheKey = owner + "." + name + "." + descriptor;
         FieldInfo cached = fieldResolveCache.get(cacheKey);
         if (cached != null) {
             return cached == EMPTY_FIELD_INFO ? null : cached;
         }
 
-        // Gather candidate fields from the owner class and its parents
         List<FieldInfo> candidates = gatherFieldCandidates(owner);
         if (candidates.isEmpty()) {
             boundedCachePut(fieldResolveCache, cacheKey, EMPTY_FIELD_INFO);
             return null;
         }
 
-        // Score each candidate
         FieldInfo bestMatch = null;
         int bestScore = 0;
 
@@ -814,7 +568,6 @@ public class FuzzyMethodResolver {
             }
         }
 
-        // Apply threshold logic (same thresholds as methods)
         if (bestMatch != null && bestScore >= THRESHOLD_AUTO_APPLY) {
             LOGGER.debug("[Retromod-Fuzzy] Resolved field {}.{} {} -> {}.{} {} (confidence: {}%)",
                     owner, name, descriptor,
@@ -834,19 +587,15 @@ public class FuzzyMethodResolver {
         return null;
     }
 
-    /**
-     * Gather candidate fields from the owner class and its class hierarchy.
-     */
+    /** Fields on {@code owner} plus all inherited from its hierarchy. */
     private List<FieldInfo> gatherFieldCandidates(String owner) {
         List<FieldInfo> candidates = new ArrayList<>();
 
-        // Fields directly on the owner class
         List<FieldInfo> ownerFields = fieldIndex.get(owner);
         if (ownerFields != null) {
             candidates.addAll(ownerFields);
         }
 
-        // Walk up the hierarchy
         Set<String> visited = new HashSet<>();
         Queue<String> queue = new ArrayDeque<>();
         visited.add(owner);
@@ -880,31 +629,22 @@ public class FuzzyMethodResolver {
     }
 
     /**
-     * Score how well a candidate field matches the unresolved field reference.
-     * Uses the same 100-point scale as method matching:
-     * - Class match: 0-40 points
-     * - Name similarity: 0-30 points
-     * - Type match: 0-30 points (replaces param count + param types axes)
-     *
-     * @param unresolvedOwner the class the field was accessed on
-     * @param unresolvedName  the field name that wasn't found
-     * @param unresolvedDesc  the JVM field descriptor (type)
-     * @param candidate       the candidate field to score
-     * @return score from 0 to 100
+     * Score a candidate field, 0 to 100: class match (0-40), name similarity (0-30),
+     * type match (0-30, in place of the method axes for param count and types).
      */
     private int scoreFieldMatch(String unresolvedOwner, String unresolvedName,
             String unresolvedDesc, FieldInfo candidate) {
 
         int score = 0;
 
-        // === Class match (0-40 points) ===
+        // Class match (0-40).
         if (candidate.owner().equals(unresolvedOwner)) {
             score += SCORE_EXACT_CLASS;
         } else if (isRelatedClass(unresolvedOwner, candidate.owner())) {
             score += SCORE_RELATED_CLASS;
         }
 
-        // === Name similarity (0-30 points) ===
+        // Name similarity (0-30).
         if (candidate.name().equals(unresolvedName)) {
             score += SCORE_EXACT_NAME;
         } else {
@@ -923,13 +663,11 @@ public class FuzzyMethodResolver {
             }
         }
 
-        // === Type match (0-30 points) ===
-        // For fields, the descriptor IS the type. Exact type match is strong evidence.
+        // Type match (0-30). For a field the descriptor is the type; an exact match means
+        // a rename with the type unchanged, a related type is weaker evidence.
         if (candidate.descriptor().equals(unresolvedDesc)) {
-            // Same type - very strong signal (field renamed but type unchanged)
             score += 30;
         } else {
-            // Different type - check if types are related (e.g., same base class)
             String unresolvedType = extractTypeFromDescriptor(unresolvedDesc);
             String candidateType = extractTypeFromDescriptor(candidate.descriptor());
             if (unresolvedType != null && candidateType != null &&
@@ -941,36 +679,23 @@ public class FuzzyMethodResolver {
         return score;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // HELPER METHODS - string comparison, descriptor parsing, hierarchy
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Check if two classes are related via the indexed class hierarchy.
-     * Returns true if classB is a superclass or interface of classA
-     * (or vice versa), walking up to 5 levels deep.
-     */
+    /** Whether one of the two classes is an ancestor of the other, within 5 levels. */
     private boolean isRelatedClass(String classA, String classB) {
-        // Direct relationship check (A extends/implements B)
         if (isAncestor(classA, classB, 5)) return true;
-        // Reverse check (B extends/implements A)
         if (isAncestor(classB, classA, 5)) return true;
         return false;
     }
 
     /**
-     * Whether rewriting a call to {@code candDescriptor} is stack-safe given the
-     * caller's original parameter types {@code origParams} and return
-     * {@code origReturn}. The rewritten bytecode still pushes arguments of the
-     * ORIGINAL types, so the arities must match, each original arg type must be
-     * assignable to the candidate's parameter type, and the candidate's return
-     * must be assignable to where the original return is expected. Package-private
-     * for testing. (#51)
+     * Whether redirecting a call to {@code candDescriptor} is stack-safe. The rewritten bytecode
+     * still pushes args of the original types, so arities must match, each original arg type must be
+     * assignable to the candidate's param type, and the candidate's return assignable to the original
+     * return. Package-private for testing. (#51)
      */
     boolean isRedirectStackSafe(List<String> origParams, String origReturn, String candDescriptor) {
         List<String> candParams = parseParameterTypes(candDescriptor);
         if (origParams.size() != candParams.size()) {
-            return false; // differing arg count => stack-depth mismatch => VerifyError
+            return false;
         }
         for (int i = 0; i < origParams.size(); i++) {
             if (!isTypeAssignable(origParams.get(i), candParams.get(i))) return false;
@@ -979,32 +704,26 @@ public class FuzzyMethodResolver {
     }
 
     /**
-     * Can a value of JVM descriptor type {@code from} stand in where {@code to}
-     * is expected (is {@code from} a subtype of {@code to})? Conservative: when
-     * assignability can't be proven (unindexed class, differing primitive, mixed
-     * array/object), returns false so the caller declines the redirect rather
-     * than risk a VerifyError. Package-private for testing.
+     * Whether a value of descriptor type {@code from} can stand in where {@code to} is expected
+     * (is {@code from} a subtype of {@code to}). Returns false when it can't be proven, so the
+     * caller declines the redirect rather than risk a VerifyError. Package-private for testing.
      */
     boolean isTypeAssignable(String from, String to) {
         if (from.equals(to)) return true;
         if (from.isEmpty() || to.isEmpty()) return false;
         boolean fromRef = from.charAt(0) == 'L' || from.charAt(0) == '[';
         boolean toRef   = to.charAt(0) == 'L'   || to.charAt(0) == '[';
-        if (fromRef != toRef) return false;   // primitive vs reference - never stack-compatible
-        if (!fromRef) return false;           // two DIFFERENT primitives - not stack-equal
-        if (from.charAt(0) == '[' || to.charAt(0) == '[') return false; // arrays: require exact (handled above)
+        if (fromRef != toRef) return false;   // primitive vs reference
+        if (!fromRef) return false;           // two different primitives
+        if (from.charAt(0) == '[' || to.charAt(0) == '[') return false; // arrays need exact match (above)
         String f = from.substring(1, from.length() - 1); // strip 'L' .. ';'
         String t = to.substring(1, to.length() - 1);
         if (f.equals(t)) return true;
-        if (t.equals("java/lang/Object")) return true;   // everything is an Object
-        return isAncestor(f, t, 6);            // f extends/implements t  =>  f <: t
+        if (t.equals("java/lang/Object")) return true;
+        return isAncestor(f, t, 6);
     }
 
-    /**
-     * Walk the class hierarchy upward from {@code child} to check if
-     * {@code ancestor} appears anywhere. Bounded by maxDepth to avoid
-     * excessive traversal on deep hierarchies.
-     */
+    /** Whether {@code ancestor} appears above {@code child} in the hierarchy, within maxDepth levels. */
     private boolean isAncestor(String child, String ancestor, int maxDepth) {
         if (maxDepth <= 0) return false;
 
@@ -1018,19 +737,13 @@ public class FuzzyMethodResolver {
         return false;
     }
 
-    /**
-     * Compute the Levenshtein (edit) distance between two strings.
-     * Used for fuzzy name matching - a distance of 1-3 suggests a rename.
-     *
-     * Uses the standard dynamic programming approach with O(min(m,n)) space.
-     */
+    /** Levenshtein edit distance, two-row DP in O(min(m,n)) space. A distance of 1-3 suggests a rename. */
     static int levenshteinDistance(String a, String b) {
         if (a.equals(b)) return 0;
         if (a.isEmpty()) return b.length();
         if (b.isEmpty()) return a.length();
 
-        // Ensure a is the shorter string for space optimization
-        if (a.length() > b.length()) {
+        if (a.length() > b.length()) { // keep a the shorter one
             String tmp = a;
             a = b;
             b = tmp;
@@ -1039,7 +752,6 @@ public class FuzzyMethodResolver {
         int[] prev = new int[a.length() + 1];
         int[] curr = new int[a.length() + 1];
 
-        // Initialize base case: distance from empty string
         for (int i = 0; i <= a.length(); i++) {
             prev[i] = i;
         }
@@ -1053,7 +765,6 @@ public class FuzzyMethodResolver {
                         prev[i - 1] + cost
                 );
             }
-            // Swap arrays
             int[] tmp = prev;
             prev = curr;
             curr = tmp;
@@ -1062,9 +773,6 @@ public class FuzzyMethodResolver {
         return prev[a.length()];
     }
 
-    /**
-     * Count how many characters at the start of both strings match.
-     */
     private int commonPrefixLength(String a, String b) {
         int len = Math.min(a.length(), b.length());
         int count = 0;
@@ -1078,9 +786,6 @@ public class FuzzyMethodResolver {
         return count;
     }
 
-    /**
-     * Count how many characters at the end of both strings match.
-     */
     private int commonSuffixLength(String a, String b) {
         int lenA = a.length();
         int lenB = b.length();
@@ -1096,10 +801,7 @@ public class FuzzyMethodResolver {
         return count;
     }
 
-    /**
-     * Parse parameter types from a JVM method descriptor.
-     * Example: "(ILjava/lang/String;F)V" -> ["I", "Ljava/lang/String;", "F"]
-     */
+    /** Parameter types of a method descriptor: "(ILjava/lang/String;F)V" -> ["I", "Ljava/lang/String;", "F"]. */
     static List<String> parseParameterTypes(String descriptor) {
         List<String> params = new ArrayList<>();
         int i = 1; // skip the opening '('
@@ -1108,18 +810,16 @@ public class FuzzyMethodResolver {
             char c = descriptor.charAt(i);
             switch (c) {
                 case 'L' -> {
-                    // Object type: read until ';'
                     int end = descriptor.indexOf(';', i);
-                    if (end < 0) return params; // malformed - 'break' here only exits the SWITCH, leaving i stuck and the while spinning
+                    if (end < 0) return params; // malformed; a 'break' would leave i stuck and spin the while
                     params.add(descriptor.substring(start, end + 1));
                     i = end + 1;
                 }
                 case '[' -> {
-                    // Array type: skip all '[' then parse the element type
                     while (i < descriptor.length() && descriptor.charAt(i) == '[') i++;
                     if (i < descriptor.length() && descriptor.charAt(i) == 'L') {
                         int end = descriptor.indexOf(';', i);
-                        if (end < 0) return params; // malformed - same switch-break trap
+                        if (end < 0) return params; // malformed
                         params.add(descriptor.substring(start, end + 1));
                         i = end + 1;
                     } else if (i < descriptor.length()) {
@@ -1128,7 +828,6 @@ public class FuzzyMethodResolver {
                     }
                 }
                 default -> {
-                    // Primitive type: single character
                     params.add(String.valueOf(c));
                     i++;
                 }
@@ -1137,10 +836,7 @@ public class FuzzyMethodResolver {
         return params;
     }
 
-    /**
-     * Parse the return type from a JVM method descriptor.
-     * Example: "(IF)Ljava/lang/String;" -> "Ljava/lang/String;"
-     */
+    /** Return type of a method descriptor: "(IF)Ljava/lang/String;" -> "Ljava/lang/String;". */
     private String parseReturnType(String descriptor) {
         int closeParenIdx = descriptor.indexOf(')');
         if (closeParenIdx < 0 || closeParenIdx + 1 >= descriptor.length()) {
@@ -1149,10 +845,7 @@ public class FuzzyMethodResolver {
         return descriptor.substring(closeParenIdx + 1);
     }
 
-    /**
-     * Count how many parameter types match between two lists (ordered comparison).
-     * Compares position by position up to the length of the shorter list.
-     */
+    /** How many parameter types match by position, up to the length of the shorter list. */
     private int countMatchingParams(List<String> paramsA, List<String> paramsB) {
         int count = 0;
         int minLen = Math.min(paramsA.size(), paramsB.size());
@@ -1164,11 +857,7 @@ public class FuzzyMethodResolver {
         return count;
     }
 
-    /**
-     * Extract the class name from a JVM field descriptor.
-     * "Ljava/lang/String;" -> "java/lang/String"
-     * "I" -> null (primitive, no class to extract)
-     */
+    /** Class name of a field descriptor, or null for a primitive: "Ljava/lang/String;" -> "java/lang/String", "I" -> null. */
     private String extractTypeFromDescriptor(String descriptor) {
         if (descriptor == null || descriptor.isEmpty()) return null;
         if (descriptor.startsWith("L") && descriptor.endsWith(";")) {
@@ -1177,23 +866,11 @@ public class FuzzyMethodResolver {
         return null;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // MC JAR DETECTION - find the Minecraft JAR on the classpath or disk
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Attempt to find the Minecraft client JAR from the JVM classpath.
-     * During Fabric Loader startup, the MC JAR is always on the classpath.
-     *
-     * <p>Searches for paths containing "minecraft" and ending in ".jar".
-     * Handles both Prism Launcher and vanilla launcher layouts.</p>
-     *
-     * @return path to the MC JAR, or null if not found
-     */
+    /** Locate the Minecraft client JAR from the running JVM, or null if not found. */
     public static Path findMcJarFromClasspath() {
-        // 1) Most reliable, esp. on NeoForge where MC is a JPMS module and NOT on
-        //    java.class.path: the code source of an already-loaded MC class IS
-        //    the (patched) MC jar. SharedConstants exists on every MC version.
+        // The code source of an already-loaded MC class is the (patched) MC jar. Most reliable,
+        // esp. on NeoForge where MC is a JPMS module and not on java.class.path. SharedConstants
+        // exists on every MC version.
         try {
             Class<?> mc = Class.forName("net.minecraft.SharedConstants", false,
                     Thread.currentThread().getContextClassLoader());
@@ -1205,13 +882,11 @@ public class FuzzyMethodResolver {
                 }
             }
         } catch (Throwable ignored) {
-            // MC not loaded here, or a non-file (union/memory) code source - fall through.
+            // MC not loaded here, or a non-file (union/memory) code source; fall through.
         }
 
-        // 2) Fall back to a classpath scan. Match on the JAR FILE NAME, not the
-        //    whole path - the old "path contains 'minecraft'" check false-matched
-        //    library jars under .../net/minecraftforge/... (e.g. srgutils), which
-        //    then indexed 0 MC classes.
+        // Classpath scan, matching on the jar FILE NAME. Matching on the whole path false-matched
+        // library jars under .../net/minecraftforge/... (srgutils), which then indexed 0 MC classes.
         String classpath = System.getProperty("java.class.path");
         if (classpath == null || classpath.isEmpty()) {
             return null;
@@ -1222,9 +897,8 @@ public class FuzzyMethodResolver {
             String name = jarPath.getFileName() == null
                     ? "" : jarPath.getFileName().toString().toLowerCase();
             if (!name.endsWith(".jar")) continue;
-            // Real MC client jars: minecraft-<ver>-client.jar, minecraft-client-<ver>.jar,
-            //   minecraft-client-patched-<ver>.jar, or vanilla <ver>.jar lives in
-            //   .../versions/<ver>/. Exclude forge/neoforge/library jars.
+            // MC client jars look like minecraft-<ver>-client.jar (and variants) or a bare vanilla
+            // <ver>.jar under .../versions/<ver>/. Exclude forge/neoforge/library jars.
             boolean looksLikeMc =
                     (name.startsWith("minecraft") && name.contains("client"))
                     || name.matches("\\d[\\w.\\-]*\\.jar"); // bare version jar (vanilla)
@@ -1238,11 +912,9 @@ public class FuzzyMethodResolver {
     }
 
     /**
-     * Attempt to find the Minecraft JAR for a specific version from known
-     * launcher locations on disk.
+     * Locate the Minecraft JAR for a version from known launcher locations on disk, or null.
      *
-     * @param mcVersion the Minecraft version to find (e.g., "26.1")
-     * @return path to the MC JAR, or null if not found
+     * @param mcVersion the Minecraft version to find, e.g. "26.1"
      */
     public static Path findMcJarByVersion(String mcVersion) {
         if (mcVersion == null || mcVersion.isEmpty()) return null;
@@ -1253,15 +925,11 @@ public class FuzzyMethodResolver {
         List<Path> candidates = new ArrayList<>();
 
         if (os.contains("mac")) {
-            // macOS paths
-            // Prism Launcher
             candidates.add(Path.of(home, "Library/Application Support/PrismLauncher/libraries",
                     "com/mojang/minecraft", mcVersion, "minecraft-" + mcVersion + "-client.jar"));
-            // Vanilla launcher
             candidates.add(Path.of(home, "Library/Application Support/minecraft/versions",
                     mcVersion, mcVersion + ".jar"));
         } else if (os.contains("win")) {
-            // Windows paths
             String appdata = System.getenv("APPDATA");
             if (appdata == null) appdata = home;
             candidates.add(Path.of(appdata, "PrismLauncher/libraries",
@@ -1269,7 +937,6 @@ public class FuzzyMethodResolver {
             candidates.add(Path.of(appdata, ".minecraft/versions",
                     mcVersion, mcVersion + ".jar"));
         } else {
-            // Linux paths
             candidates.add(Path.of(home, ".local/share/PrismLauncher/libraries",
                     "com/mojang/minecraft", mcVersion, "minecraft-" + mcVersion + "-client.jar"));
             candidates.add(Path.of(home, ".minecraft/versions",
@@ -1285,39 +952,27 @@ public class FuzzyMethodResolver {
         return null;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // DIAGNOSTICS - cache stats and index info
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /** Get the number of cached method resolution results. */
     public int getMethodCacheSize() {
         return methodResolveCache.size();
     }
 
-    /** Get the number of cached field resolution results. */
     public int getFieldCacheSize() {
         return fieldResolveCache.size();
     }
 
-    /** Get the total number of indexed classes. */
     public int getIndexedClassCount() {
         return indexedClassCount;
     }
 
-    /** Get the total number of indexed methods. */
     public int getIndexedMethodCount() {
         return indexedMethodCount;
     }
 
-    /** Get the total number of indexed fields. */
     public int getIndexedFieldCount() {
         return indexedFieldCount;
     }
 
-    /**
-     * Clear both resolve caches. Useful after the JAR index is rebuilt
-     * or when redirect maps change significantly.
-     */
+    /** Clear both resolve caches; call after rebuilding the index or changing redirect maps. */
     public void clearCaches() {
         methodResolveCache.clear();
         fieldResolveCache.clear();

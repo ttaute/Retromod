@@ -24,11 +24,11 @@ import java.util.Set;
  * <h3>Why aggregate?</h3>
  * <p>A per-mod report tells you "this mod is broken." The cross-mod view tells
  * you "these 20 missing references account for 80% of all breakage in the
- * ecosystem - write polyfills for them and most mods start working." That's
+ * ecosystem: write polyfills for them and most mods start working." That's
  * the data that drives shim/polyfill prioritization decisions.</p>
  *
  * <h3>Aggregation key</h3>
- * <p>References are grouped by {@link UnresolvedReference#identityKey()} -
+ * <p>References are grouped by {@link UnresolvedReference#identityKey()},
  * which includes kind + owner + name + descriptor, but NOT source location.
  * The same method-not-found reference from 50 different mods collapses into
  * one entry with {@code count=50}.</p>
@@ -51,7 +51,7 @@ import java.util.Set;
  * iteration is ever parallelized, callers must either use one aggregator
  * per worker thread and merge them afterward, OR externally synchronize
  * every {@code merge} call. Per-class work inside a single mod is already
- * parallelized - that concurrency is contained within the per-mod
+ * parallelized; that concurrency is contained within the per-mod
  * {@link VerificationReport}, which IS thread-safe.</p>
  */
 public final class CrossModGapReport {
@@ -80,7 +80,7 @@ public final class CrossModGapReport {
 
         // Aggregate pattern matches by pattern name. The per-pattern count tells
         // us which class shapes are common across the ecosystem (e.g., "47 mods
-        // have at least one Mixin class" - useful for prioritizing the
+        // have at least one Mixin class", useful for prioritizing the
         // MixinTargetPattern's handling completeness).
         for (Map.Entry<String, List<PatternMatch>> entry : report.patternMatches().entrySet()) {
             patternAggregation.computeIfAbsent(entry.getKey(), k -> new PatternAggregation(k))
@@ -166,7 +166,7 @@ public final class CrossModGapReport {
     /**
      * Cross-mod summary for a single pattern: how many distinct mods produced
      * any match for this pattern, and the total count of matches across all
-     * mods. Both numbers are useful - "47 mods had Mixin classes" vs
+     * mods. Both numbers are useful: "47 mods had Mixin classes" vs
      * "47 mods had 312 Mixin classes between them" answer different questions
      * about code shape prevalence.
      */
@@ -192,7 +192,7 @@ public final class CrossModGapReport {
 
     /**
      * One reference plus the set of mods that hit it. Count is derived from the
-     * set size - using a set ensures the same mod reporting the same miss from
+     * set size; using a set ensures the same mod reporting the same miss from
      * 10 call sites doesn't inflate the count to 10.
      */
     public static final class AggregatedEntry {

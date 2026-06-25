@@ -16,19 +16,14 @@ import org.objectweb.asm.tree.MethodNode;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Structural checks for {@link FabricEntityModelLayerShim} (the 18-mod
- * {@code EntityModelLayerRegistry} provider bridge). Verifies the synthetic holder +
- * provider SAM bytecode and the redirects; the reflective wrap needs a 26.1 launch.
- */
+/** Structural checks on {@link FabricEntityModelLayerShim}'s generated holder, provider SAM, and redirects. */
 class FabricEntityModelLayerShimTest {
 
     private static final String PROVIDER = "com/retromod/generated/legacymodellayer/TexturedModelDataProvider";
 
     @BeforeAll
     static void pinHostTo26_1() {
-        // The shim self-gates to 26.1+ hosts (pre-26.1, EntityModelLayerRegistry is
-        // still alive) - pin the detected host so registerRedirects runs in tests.
+        // shim gates to 26.1+, so pin the host or registerRedirects no-ops
         RetromodVersion.TARGET_MC_VERSION = "26.1";
     }
 
@@ -53,7 +48,7 @@ class FabricEntityModelLayerShimTest {
     }
 
     @Test
-    @DisplayName("provider SAM keeps createModelData with the (unchanged) LayerDefinition return")
+    @DisplayName("provider SAM keeps createModelData returning LayerDefinition")
     void providerSam() {
         ClassNode cn = read(FabricEntityModelLayerShim.generateProvider());
         assertTrue((cn.access & Opcodes.ACC_INTERFACE) != 0);

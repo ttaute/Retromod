@@ -59,7 +59,7 @@ class FabricEpoch_1_16_to_1_17 extends BaseEpochTransition {
     @Override public int targetEpoch() { return 103; }
     
     public FabricEpoch_1_16_to_1_17() {
-        // Copper, Amethyst, etc. - mostly additive
+        // Copper, Amethyst, etc., mostly additive
         // World height preparation
         
         addShim("com.retromod.legacy.shim.fabric.WorldHeightShim");
@@ -157,7 +157,7 @@ class FabricEpoch_1_20_5_to_1_21 extends BaseEpochTransition {
     @Override public int targetEpoch() { return 108; }
     
     public FabricEpoch_1_20_5_to_1_21() {
-        // Mostly additive - new content
+        // Mostly additive, new content
         // Component system refinements
     }
 }

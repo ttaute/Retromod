@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
@@ -7,10 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Village & Pillage update. More class renames as Mojang continued the cleanup
- * started in the Flattening.
- */
+/** Village & Pillage: more class renames following the Flattening. */
 public class Forge_1_13_2_to_1_14_4 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.13.2 to 1.14.4"; }
@@ -20,7 +17,6 @@ public class Forge_1_13_2_to_1_14_4 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Renderer renames
         transformer.registerClassRedirect(
             "net/minecraft/client/renderer/entity/RenderLivingBase",
             "net/minecraft/client/renderer/entity/LivingRenderer"
@@ -33,12 +29,10 @@ public class Forge_1_13_2_to_1_14_4 implements VersionShim {
             "net/minecraft/client/renderer/entity/Render",
             "net/minecraft/client/renderer/entity/EntityRenderer"
         );
-        // Village restructuring
         transformer.registerClassRedirect(
             "net/minecraft/entity/passive/EntityVillager",
             "net/minecraft/entity/merchant/villager/VillagerEntity"
         );
-        // Block constructor changes
         transformer.registerMethodRedirect(
             "net/minecraft/block/Block", "<init>",
             "(Lnet/minecraft/block/Block$Properties;)V",

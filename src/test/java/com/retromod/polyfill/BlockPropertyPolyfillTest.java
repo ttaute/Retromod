@@ -1,11 +1,14 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
- * Copyright (c) 2026 Bownlux
+ * Copyright (c) 2026 Bownlux. MIT License.
  */
 package com.retromod.polyfill;
 
 import com.retromod.core.RetromodTransformer;
+import com.retromod.core.RetromodVersion;
 import com.retromod.polyfill.minecraft.world.BlockPropertyPolyfill;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -17,8 +20,13 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * Verifies the polyfill registers the type redirect to the surviving
  * {@code EnumProperty} and bridges all four removed {@code create(...)}
- * factories - keyed on the post-class-remap call shape (no {@code Class} arg),
+ * factories, keyed on the post-class-remap call shape (no {@code Class} arg),
  * which must not collide with the real {@code EnumProperty.create} overloads.
+ *
+ * <p>DirectionProperty was removed in 26.1, so the polyfill is host-gated: these
+ * tests run with the host pinned to 26.1, and {@link #gatedOffBelowRemoval()}
+ * covers the pre-26.1 host where the class still exists and must NOT be hijacked
+ * (the NeoForge runtime now loads these polyfills against Mojang-named mods).
  */
 class BlockPropertyPolyfillTest {
 
@@ -31,8 +39,24 @@ class BlockPropertyPolyfillTest {
     private static final String LOOKUP =
             "com/retromod/polyfill/registry/DirectionPropertyLookup";
 
+    private String savedVersion;
+
+    @BeforeEach
+    void setUp() {
+        savedVersion = RetromodVersion.TARGET_MC_VERSION;
+        // 26.1: the host where DirectionProperty is removed, so the polyfill is active.
+        RetromodVersion.TARGET_MC_VERSION = "26.1";
+        RetromodTransformer.getInstance().clearRedirectsForTesting();
+    }
+
+    @AfterEach
+    void tearDown() {
+        RetromodVersion.TARGET_MC_VERSION = savedVersion;
+        RetromodTransformer.getInstance().clearRedirectsForTesting();
+    }
+
     @Test
-    @DisplayName("Polyfill reports DirectionProperty as a removed class")
+    @DisplayName("Polyfill reports DirectionProperty as a removed class (on 26.1+)")
     void reportsRemovedClass() {
         BlockPropertyPolyfill p = new BlockPropertyPolyfill();
         assertEquals("minecraft_vanilla", p.getCategory());
@@ -78,11 +102,30 @@ class BlockPropertyPolyfillTest {
     void doesNotShadowRealOverloads() {
         RetromodTransformer t = RetromodTransformer.getInstance();
         new BlockPropertyPolyfill().registerPolyfills(t);
-        // The genuine 26.1 factory takes a Class<Direction> 2nd arg - must be untouched.
+        // The genuine 26.1 factory takes a Class<Direction> 2nd arg, so it must be untouched.
         var realKey = new RetromodTransformer.MethodKey(
                 ENUM_PROPERTY, "create",
                 "(Ljava/lang/String;Ljava/lang/Class;)" + ENUM_DESC);
         assertNull(t.getMethodRedirects().get(realKey),
                 "the real EnumProperty.create(String, Class) must not be redirected");
+    }
+
+    @Test
+    @DisplayName("Host-gated: no redirect on a pre-26.1 host (DirectionProperty still exists)")
+    void gatedOffBelowRemoval() {
+        RetromodTransformer t = RetromodTransformer.getInstance();
+        BlockPropertyPolyfill p = new BlockPropertyPolyfill();
+
+        // 1.21.1: DirectionProperty is alive; the type/factory redirects must NOT fire,
+        // or a NeoForge mod's working DirectionProperty references get hijacked.
+        RetromodVersion.TARGET_MC_VERSION = "1.21.1";
+        p.registerPolyfills(t);
+        assertFalse(t.getClassRedirects().containsKey(DIRECTION_PROPERTY),
+                "DirectionProperty exists pre-26.1; the polyfill must not hijack it");
+        assertNull(t.getMethodRedirects().get(new RetromodTransformer.MethodKey(
+                        ENUM_PROPERTY, "create", "(Ljava/lang/String;)" + ENUM_DESC)),
+                "no create() bridge below 26.1");
+        assertEquals(0, p.getRemovedClasses().length,
+                "manifest must not claim DirectionProperty bridged below 26.1");
     }
 }

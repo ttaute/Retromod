@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
@@ -7,12 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Forge 1.17.1 to 1.18 shim - World generation and height changes.
- * The world height was extended to -64 through 320, requiring changes
- * to world generation structures, biome sources, and chunk handling.
- * StructureFeature was renamed to Structure.
- */
+/** Forge 1.17.1 to 1.18: extended world height (-64..320) plus the StructureFeature/Structure rename. */
 public class Forge_1_17_1_to_1_18 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.17.1 to 1.18"; }
@@ -42,13 +37,12 @@ public class Forge_1_17_1_to_1_18 implements VersionShim {
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
 
-        // RenderWorldLastEvent renamed to RenderLevelLastEvent in 1.18
-        // (reflects the World→Level rename throughout the codebase)
+        // World->Level rename
         transformer.registerClassRedirect(
             "net/minecraftforge/client/event/RenderWorldLastEvent",
             "net/minecraftforge/client/event/RenderLevelLastEvent"
         );
-        // fmllegacy package removed in Forge 1.18; RegistryObject moved back to registries package
+        // fmllegacy dropped in 1.18; RegistryObject moved back to registries
         transformer.registerClassRedirect(
             "net/minecraftforge/fmllegacy/RegistryObject",
             "net/minecraftforge/registries/RegistryObject"

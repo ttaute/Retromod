@@ -60,17 +60,15 @@ public class GeckoLibBridgePolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed - pure class redirects to GeckoLib 4.x
+        // No embedded stubs needed: pure class redirects to GeckoLib 4.x
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // =====================================================================
         // Package rename: software.bernie.geckolib3 -> software.bernie.geckolib
         // Plus class renames within the new package structure.
         // Only REMOVED/RENAMED classes are redirected here.
-        // =====================================================================
 
         // AnimationBuilder -> RawAnimation (core animation definition class)
         transformer.registerClassRedirect(

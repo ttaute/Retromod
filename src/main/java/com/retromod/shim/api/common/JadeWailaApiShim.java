@@ -1,8 +1,6 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Jade/WTHIT/WAILA Tooltip API Compatibility Shim
  */
 package com.retromod.shim.api.common;
 
@@ -10,16 +8,8 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
 /**
- * Jade/WTHIT/WAILA tooltip API compatibility shim.
- * 
- * These mods provide block/entity tooltip information.
- * WAILA was the original, HWYLA was a fork, and now Jade and WTHIT are popular.
- * Many mods implement IWailaPlugin or similar interfaces.
- * 
- * API changes:
- * - WAILA -> HWYLA: Package changes
- * - HWYLA -> Jade: Major API restructure
- * - WTHIT has its own separate API
+ * Block/entity tooltip API shim: WAILA -> HWYLA -> Jade renamed packages and restructured the API,
+ * while WTHIT keeps its own.
  */
 public class JadeWailaApiShim implements VersionShim {
     
@@ -45,83 +35,56 @@ public class JadeWailaApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // ============================================================
-        // WAILA -> HWYLA -> JADE PACKAGE CHANGES
-        // ============================================================
-        
-        // Old WAILA package
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/IWailaPlugin",
             "snownee/jade/api/IWailaPlugin"
         );
-        
-        // HWYLA package
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/IComponentProvider",
             "snownee/jade/api/IBlockComponentProvider"
         );
-        
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/IEntityComponentProvider",
             "snownee/jade/api/IEntityComponentProvider"
         );
-        
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/IWailaConfigHandler",
             "snownee/jade/api/config/IWailaConfig"
         );
-        
-        // ============================================================
-        // JADE INTERFACE CHANGES
-        // ============================================================
-        
-        // IWailaPlugin is still IWailaPlugin in Jade 11.x - no rename needed
-        // (IWailaClientPlugin does not exist in Jade 11.x)
-        
-        // IBlockComponentProvider
+
         transformer.registerClassRedirect(
             "snownee/jade/api/IBlockComponentProvider",
             "snownee/jade/api/IBlockComponentProvider"
         );
-        
-        // Tooltip interface
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/ITooltip",
             "snownee/jade/api/ITooltip"
         );
-        
-        // ============================================================
-        // ACCESSOR CHANGES
-        // ============================================================
-        
-        // BlockAccessor
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/IDataAccessor",
             "snownee/jade/api/BlockAccessor"
         );
-        
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/BlockAccessor",
             "snownee/jade/api/BlockAccessor"
         );
-        
-        // EntityAccessor
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/EntityAccessor",
             "snownee/jade/api/EntityAccessor"
         );
-        
-        // ============================================================
-        // REGISTRATION CHANGES
-        // ============================================================
-        
-        // Old: IRegistrar interface
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/IRegistrar",
             "snownee/jade/api/IWailaClientRegistration"
         );
-        
-        // Old registration methods
+
         transformer.registerMethodRedirect(
             "mcp/mobius/waila/api/IRegistrar",
             "registerComponentProvider",
@@ -139,12 +102,7 @@ public class JadeWailaApiShim implements VersionShim {
             "registerEntityProvider",
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Class;)V"
         );
-        
-        // ============================================================
-        // TOOLTIP METHODS
-        // ============================================================
-        
-        // Old: tooltip.add(component)
+
         transformer.registerMethodRedirect(
             "mcp/mobius/waila/api/ITooltip",
             "add",
@@ -153,7 +111,7 @@ public class JadeWailaApiShim implements VersionShim {
             "add",
             "(Lnet/minecraft/network/chat/Component;)V"
         );
-        
+
         transformer.registerMethodRedirect(
             "mcp/mobius/waila/api/ITooltip",
             "addLine",
@@ -162,22 +120,13 @@ public class JadeWailaApiShim implements VersionShim {
             "add",
             "(Lnet/minecraft/network/chat/Component;)V"
         );
-        
-        // ============================================================
-        // WTHIT COMPATIBILITY
-        // ============================================================
-        
-        // WTHIT uses different package
+
+        // WTHIT keeps the mcp/mobius package
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/IWailaPlugin",
             "mcp/mobius/waila/api/IWailaPlugin"
         );
-        
-        // ============================================================
-        // DATA ACCESSOR CHANGES
-        // ============================================================
-        
-        // getBlockEntity changes
+
         transformer.registerMethodRedirect(
             "mcp/mobius/waila/api/IDataAccessor",
             "getTileEntity",
@@ -186,8 +135,7 @@ public class JadeWailaApiShim implements VersionShim {
             "getBlockEntity",
             "()Lnet/minecraft/world/level/block/entity/BlockEntity;"
         );
-        
-        // getBlockState
+
         transformer.registerMethodRedirect(
             "mcp/mobius/waila/api/IDataAccessor",
             "getBlockState",
@@ -196,8 +144,7 @@ public class JadeWailaApiShim implements VersionShim {
             "getBlockState",
             "()Lnet/minecraft/world/level/block/state/BlockState;"
         );
-        
-        // getPlayer
+
         transformer.registerMethodRedirect(
             "mcp/mobius/waila/api/IDataAccessor",
             "getPlayer",
@@ -206,12 +153,7 @@ public class JadeWailaApiShim implements VersionShim {
             "getPlayer",
             "()Lnet/minecraft/world/entity/player/Player;"
         );
-        
-        // ============================================================
-        // NBT DATA CHANGES
-        // ============================================================
-        
-        // Old: IServerDataProvider
+
         transformer.registerClassRedirect(
             "mcp/mobius/waila/api/IServerDataProvider",
             "snownee/jade/api/IServerDataProvider"

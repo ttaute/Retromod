@@ -7,10 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.17.1 to run on 1.18.
- * Handles world generation overhaul and world height changes from -64 to 320.
- */
+/** Fabric 1.17.1 mods on 1.18: worldgen overhaul plus the -64..320 world-height change. */
 public class Fabric_1_17_1_to_1_18 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.17.1 to 1.18"; }
@@ -20,7 +17,6 @@ public class Fabric_1_17_1_to_1_18 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // World height changes
         transformer.registerMethodRedirect(
             "net/minecraft/world/World", "getBottomY", "()I",
             "com/retromod/shim/fabric/embedded/WorldHeightShim", "getBottomY",
@@ -31,17 +27,14 @@ public class Fabric_1_17_1_to_1_18 implements VersionShim {
             "com/retromod/shim/fabric/embedded/WorldHeightShim", "getTopY",
             "(Ljava/lang/Object;)I"
         );
-        // Structure feature renamed
         transformer.registerClassRedirect(
             "net/minecraft/world/gen/feature/StructureFeature",
             "net/minecraft/world/gen/structure/Structure"
         );
-        // Biome source changes
         transformer.registerClassRedirect(
             "net/minecraft/world/biome/source/VanillaLayeredBiomeSource",
             "net/minecraft/world/biome/source/MultiNoiseBiomeSource"
         );
-        // Chunk status changes
         transformer.registerMethodRedirect(
             "net/minecraft/world/chunk/Chunk", "getHighestNonEmptySection",
             "()Lnet/minecraft/world/chunk/ChunkSection;",
@@ -49,14 +42,11 @@ public class Fabric_1_17_1_to_1_18 implements VersionShim {
             "(Ljava/lang/Object;)Ljava/lang/Object;"
         );
 
-        // --- 1.18 world generation overhaul: class renames and system replacements ---
-
-        // NoiseSlideSettings renamed to NoiseSlider
+        // 1.18 worldgen overhaul: surface builders became SurfaceRules, decorators became PlacementModifiers
         transformer.registerClassRedirect(
             "net/minecraft/world/level/levelgen/NoiseSlideSettings",
             "net/minecraft/world/level/levelgen/NoiseSlider"
         );
-        // Surface builder system completely replaced by SurfaceRules in 1.18
         transformer.registerClassRedirect(
             "net/minecraft/world/level/levelgen/surfacebuilders/SurfaceBuilder",
             "net/minecraft/world/level/levelgen/SurfaceRules"
@@ -69,7 +59,6 @@ public class Fabric_1_17_1_to_1_18 implements VersionShim {
             "net/minecraft/world/level/levelgen/surfacebuilders/SurfaceBuilderBaseConfiguration",
             "net/minecraft/world/level/levelgen/SurfaceRules"
         );
-        // Placement decorator system replaced by PlacementModifier in 1.18
         transformer.registerClassRedirect(
             "net/minecraft/world/level/levelgen/placement/ConfiguredDecorator",
             "net/minecraft/world/level/levelgen/placement/PlacementModifier"
@@ -78,17 +67,12 @@ public class Fabric_1_17_1_to_1_18 implements VersionShim {
             "net/minecraft/world/level/levelgen/placement/FeatureDecorator",
             "net/minecraft/world/level/levelgen/placement/PlacementModifier"
         );
-        // OverworldBiomeSource merged into MultiNoiseBiomeSource in 1.18
         transformer.registerClassRedirect(
             "net/minecraft/world/level/biome/OverworldBiomeSource",
             "net/minecraft/world/level/biome/MultiNoiseBiomeSource"
         );
 
-        // --- 1.18 method renames ---
-
-        // BlockEntity.save() renamed to saveAdditional() with return type change
-        // NOTE: Return type changed from CompoundTag to void. Callers that chain
-        // the return value will need additional handling beyond this redirect.
+        // save() -> saveAdditional(); return type changed CompoundTag -> void, so callers that chain it need more than this redirect
         transformer.registerMethodRedirect(
             "net/minecraft/world/level/block/entity/BlockEntity",
             "save",
@@ -97,7 +81,7 @@ public class Fabric_1_17_1_to_1_18 implements VersionShim {
             "saveAdditional",
             "(Lnet/minecraft/nbt/CompoundTag;)V"
         );
-        // RenderSystem.color() renamed to setShaderColor() in 1.18 rendering pipeline overhaul
+        // RenderSystem.color -> setShaderColor (1.18 render pipeline)
         transformer.registerMethodRedirect(
             "com/mojang/blaze3d/systems/RenderSystem",
             "color", "(FFFF)V",

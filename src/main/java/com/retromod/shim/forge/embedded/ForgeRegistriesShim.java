@@ -9,17 +9,9 @@ package com.retromod.shim.forge.embedded;
 import java.lang.reflect.*;
 import java.util.*;
 
-/**
- * Shim for net.minecraftforge.registries.ForgeRegistries
- * 
- * Bridges old Forge registry access patterns to NeoForge.
- * 
- * Old usage: ForgeRegistries.ITEMS.getValue(location)
- * New usage: BuiltInRegistries.ITEM.get(location)
- */
+/** Bridges old ForgeRegistries access to NeoForge/vanilla BuiltInRegistries. */
 public final class ForgeRegistriesShim {
-    
-    // Registry instances (lazily initialized)
+
     private static Object ITEMS;
     private static Object BLOCKS;
     private static Object ENTITY_TYPES;
@@ -45,22 +37,18 @@ public final class ForgeRegistriesShim {
         initialized = true;
         
         try {
-            // Try NeoForge registries first
             Class<?> neoRegistries = Class.forName(
                 "net.neoforged.neoforge.registries.NeoForgeRegistries"
             );
-            
-            // If NeoForge exists, we're on NeoForge
             initNeoForgeRegistries(neoRegistries);
-            
+
         } catch (ClassNotFoundException e) {
             try {
-                // Fall back to vanilla BuiltInRegistries
                 Class<?> builtIn = Class.forName(
                     "net.minecraft.core.registries.BuiltInRegistries"
                 );
                 initVanillaRegistries(builtIn);
-                
+
             } catch (ClassNotFoundException e2) {
                 System.err.println("Retromod: Could not find registry classes");
             }
@@ -68,7 +56,7 @@ public final class ForgeRegistriesShim {
     }
     
     private static void initNeoForgeRegistries(Class<?> neoRegistries) throws ClassNotFoundException {
-        // NeoForge uses BuiltInRegistries for most vanilla registries
+        // NeoForge keeps most vanilla registries in BuiltInRegistries.
         Class<?> builtIn = Class.forName("net.minecraft.core.registries.BuiltInRegistries");
         
         try {
@@ -106,8 +94,6 @@ public final class ForgeRegistriesShim {
             System.err.println("Retromod: Failed to initialize vanilla registries: " + e);
         }
     }
-    
-    // Accessor methods that match old ForgeRegistries API
     
     public static Object getItems() {
         initialize();
@@ -164,20 +150,15 @@ public final class ForgeRegistriesShim {
         return MOB_EFFECTS;
     }
     
-    /**
-     * Get a value from a registry by location.
-     * Bridges ForgeRegistries.X.getValue(location) to Registry.get(location)
-     */
+    /** ForgeRegistries.X.getValue(location) to Registry.get(location). */
     public static Object getValue(Object registry, Object location) {
         if (registry == null || location == null) return null;
-        
+
         try {
-            // Try get() method (vanilla Registry)
             Method getMethod = registry.getClass().getMethod("get", location.getClass());
             return getMethod.invoke(registry, location);
         } catch (NoSuchMethodException e) {
             try {
-                // Try getValue() method (old Forge)
                 Method getValueMethod = registry.getClass().getMethod("getValue", location.getClass());
                 return getValueMethod.invoke(registry, location);
             } catch (Exception e2) {
@@ -190,13 +171,10 @@ public final class ForgeRegistriesShim {
         return null;
     }
     
-    /**
-     * Get the key (ResourceLocation) for a registry value.
-     * Bridges ForgeRegistries.X.getKey(value) to Registry.getKey(value)
-     */
+    /** ForgeRegistries.X.getKey(value) to Registry.getKey(value). */
     public static Object getKey(Object registry, Object value) {
         if (registry == null || value == null) return null;
-        
+
         try {
             Method getKeyMethod = registry.getClass().getMethod("getKey", Object.class);
             return getKeyMethod.invoke(registry, value);
@@ -207,24 +185,17 @@ public final class ForgeRegistriesShim {
         return null;
     }
     
-    /**
-     * Check if a registry contains a key.
-     */
     public static boolean containsKey(Object registry, Object location) {
         if (registry == null || location == null) return false;
-        
+
         try {
             Method containsKeyMethod = registry.getClass().getMethod("containsKey", location.getClass());
             return (boolean) containsKeyMethod.invoke(registry, location);
         } catch (Exception e) {
-            // Fallback: try to get and check null
             return getValue(registry, location) != null;
         }
     }
-    
-    /**
-     * Get all keys in a registry.
-     */
+
     @SuppressWarnings("unchecked")
     public static Set<Object> getKeys(Object registry) {
         if (registry == null) return Collections.emptySet();
@@ -238,24 +209,20 @@ public final class ForgeRegistriesShim {
         }
     }
     
-    /**
-     * Get all values in a registry.
-     */
     @SuppressWarnings("unchecked")
     public static Collection<Object> getValues(Object registry) {
         if (registry == null) return Collections.emptyList();
-        
+
         try {
-            // Try stream() or forEach approach
             Method iteratorMethod = registry.getClass().getMethod("iterator");
             Iterator<Object> iter = (Iterator<Object>) iteratorMethod.invoke(registry);
-            
+
             List<Object> values = new ArrayList<>();
             while (iter.hasNext()) {
                 values.add(iter.next());
             }
             return values;
-            
+
         } catch (Exception e) {
             System.err.println("Retromod: Could not get registry values: " + e);
             return Collections.emptyList();

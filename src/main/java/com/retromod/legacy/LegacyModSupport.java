@@ -9,38 +9,38 @@
  * Minecraft Version Epochs:
  * ─────────────────────────────────────────────────────────────────────────────
  * 
- * EPOCH 1: Legacy Era (1.8 - 1.12.2) - Java 8
+ * EPOCH 1: Legacy Era (1.8 - 1.12.2), Java 8
  *   - Forge-only modding
  *   - MCP obfuscation mappings
  *   - Numeric block/item IDs
  *   - Old event system
  *   - Old registry system
  * 
- * EPOCH 2: The Flattening (1.13 - 1.13.2) - Java 8
+ * EPOCH 2: The Flattening (1.13 - 1.13.2), Java 8
  *   - MASSIVE API changes
  *   - Block states replaced numeric IDs
  *   - All block/item names changed
  *   - New command system
  *   - Very few mods exist for this version
  * 
- * EPOCH 3: Modern Foundation (1.14 - 1.16.5) - Java 8/11
+ * EPOCH 3: Modern Foundation (1.14 - 1.16.5), Java 8/11
  *   - Fabric mod loader appears (1.14)
  *   - Forge modernizes event system
  *   - Mojang mappings become available (1.14.4)
  *   - Dimensions can be added dynamically (1.16)
  * 
- * EPOCH 4: Caves & Cliffs Era (1.17 - 1.18.2) - Java 16/17
+ * EPOCH 4: Caves & Cliffs Era (1.17 - 1.18.2), Java 16/17
  *   - Java 16+ required (major bytecode changes)
  *   - World height expanded (-64 to 320)
  *   - New world generation system
  *   - Chunk format changes
  * 
- * EPOCH 5: Data-Driven Era (1.19 - 1.20.4) - Java 17
+ * EPOCH 5: Data-Driven Era (1.19 - 1.20.4), Java 17
  *   - Data-driven features expand
  *   - Component system introduced
  *   - Registry freeze mechanism
  * 
- * EPOCH 6: Modern Era (1.20.5 - 1.21.x) - Java 21
+ * EPOCH 6: Modern Era (1.20.5 - 1.21.x), Java 21
  *   - Java 21 required
  *   - NeoForge splits from Forge
  *   - Component system mandatory
@@ -244,7 +244,7 @@ public class LegacyModSupport {
             while (entries.hasMoreElements()) {
                 JarEntry entry = entries.nextElement();
 
-                // Sanitize entry name - even though we're writing to another JAR
+                // Sanitize entry name. Even though we're writing to another JAR
                 // (not to disk here), downstream tools may extract the output
                 // and be vulnerable to zip-slip. Reject traversal / absolute paths.
                 String safeName;
@@ -298,7 +298,7 @@ public class LegacyModSupport {
                         outputStream.closeEntry();
 
                     } else {
-                        // Copy unchanged - stream with a byte counter so a giant
+                        // Copy unchanged, streaming with a byte counter so a giant
                         // asset entry can't blow up the total budget silently.
                         outputStream.putNextEntry(new JarEntry(safeName));
                         byte[] buf = new byte[8192];
@@ -378,9 +378,7 @@ public class LegacyModSupport {
         }
     }
     
-    // ─────────────────────────────────────────────────────────────────────────
     // DETECTION METHODS
-    // ─────────────────────────────────────────────────────────────────────────
     
     private ModLoaderType detectModLoader(JarFile jar) {
         // Check for NeoForge
@@ -486,7 +484,7 @@ public class LegacyModSupport {
                     // to heuristic detection.
                 }
                 case UNKNOWN -> {
-                    // Loader-detect said "don't know" - skip the metadata path
+                    // Loader-detect said "don't know", so skip the metadata path
                     // and let heuristic detection take over below.
                 }
             }
@@ -592,14 +590,12 @@ public class LegacyModSupport {
         return "Very High";
     }
     
-    // ─────────────────────────────────────────────────────────────────────────
     // HELPER METHODS
-    // ─────────────────────────────────────────────────────────────────────────
     
     private String extractFabricVersion(InputStream is) throws IOException {
         // Parse fabric.mod.json
         String json = new String(is.readAllBytes());
-        // Simple extraction - look for "minecraft" dependency
+        // Simple extraction: look for "minecraft" dependency
         int idx = json.indexOf("\"minecraft\"");
         if (idx > 0) {
             int start = json.indexOf("\"", idx + 11) + 1;
@@ -725,9 +721,7 @@ public class LegacyModSupport {
         virtualLoader.embedComponents(out, analysis.modLoader, analysis.sourceEpoch);
     }
     
-    // ─────────────────────────────────────────────────────────────────────────
     // INNER CLASSES
-    // ─────────────────────────────────────────────────────────────────────────
     
     /**
      * Scanner for @Mod annotations.

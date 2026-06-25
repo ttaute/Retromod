@@ -7,12 +7,7 @@ package com.retromod.shim.neoforge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * NeoForge 1.20.4 to 1.20.5 shim - MASSIVE component and capability rework.
- * The item component system replaces NBT-based item data entirely.
- * The capability system was reworked, moving from LazyOptional to standard Optional.
- * FoodProperties and AttributeModifier APIs were also restructured.
- */
+/** NeoForge 1.20.4 to 1.20.5: NBT item data became components, LazyOptional became Optional. */
 public class NeoForge_1_20_4_to_1_20_5 implements VersionShim {
 
     @Override public String getShimName() { return "NeoForge 1.20.4 to 1.20.5"; }
@@ -22,7 +17,7 @@ public class NeoForge_1_20_4_to_1_20_5 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Item component system replaces NBT
+        // NBT item tags route through the component bridge
         transformer.registerMethodRedirect(
             "net/minecraft/world/item/ItemStack", "getTag",
             "()Lnet/minecraft/nbt/CompoundTag;",
@@ -47,7 +42,7 @@ public class NeoForge_1_20_4_to_1_20_5 implements VersionShim {
             "com/retromod/shim/neoforge/embedded/ComponentBridgeShim", "hasTag",
             "(Lnet/minecraft/world/item/ItemStack;)Z"
         );
-        // Capability system reworked
+        // capabilities moved package, LazyOptional became Optional
         transformer.registerClassRedirect(
             "net/neoforged/neoforge/common/capabilities/ICapabilityProvider",
             "net/neoforged/neoforge/capabilities/ICapabilityProvider"
@@ -56,14 +51,12 @@ public class NeoForge_1_20_4_to_1_20_5 implements VersionShim {
             "net/neoforged/neoforge/common/util/LazyOptional",
             "java/util/Optional"
         );
-        // FoodProperties changes
         transformer.registerMethodRedirect(
             "net/minecraft/world/food/FoodProperties$Builder", "nutrition",
             "(I)Lnet/minecraft/world/food/FoodProperties$Builder;",
             "com/retromod/shim/neoforge/embedded/FoodPropertiesShim", "nutrition",
             "(Ljava/lang/Object;I)Ljava/lang/Object;"
         );
-        // Attribute changes
         transformer.registerMethodRedirect(
             "net/minecraft/world/entity/ai/attributes/AttributeModifier", "<init>",
             "(Ljava/util/UUID;Ljava/lang/String;DLnet/minecraft/world/entity/ai/attributes/AttributeModifier$Operation;)V",

@@ -21,14 +21,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.objectweb.asm.Opcodes.*;
 
 /**
- * 26.2 collapsed the 16-per-color block families into {@code ColorCollection<Block>}
- * fields and DELETED the per-color static fields ({@code Blocks.WHITE_CANDLE}, …). A
- * 1.21.x mod that reads such a field hits {@code NoSuchFieldError} on 26.2 - and it
- * can't be a field-to-field redirect because the replacement is a method call
- * ({@code Blocks.DYED_CANDLE.pick(DyeColor.WHITE)}). The new
- * {@code registerStaticFieldAccessor} mechanism rewrites the GETSTATIC into that
- * accessor sequence; the 26.1→26.2 core shim registers all 4 families × 16 colours.
- * Real case: YUNG's Extras ({@code SwampFeatureProcessor} builds a candle list).
+ * 26.2 collapsed the per-color block families into {@code ColorCollection<Block>} fields and removed
+ * the per-color statics, so a 1.21.x mod reading {@code Blocks.WHITE_CANDLE} hits NoSuchFieldError.
+ * The replacement is a call, {@code Blocks.DYED_CANDLE.pick(DyeColor.WHITE)}, so the GETSTATIC is
+ * rewritten into that accessor sequence rather than a field-to-field redirect.
  */
 class DyedBlockAccessorTest {
 
@@ -38,18 +34,15 @@ class DyedBlockAccessorTest {
     private static final String BLOCK = "net/minecraft/world/level/block/Block";
     private static final String BLOCK_DESC = "Lnet/minecraft/world/level/block/Block;";
 
-    /** A class whose methods read the removed per-color fields directly. */
     private static byte[] classReadingRemovedFields() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(V17, ACC_PUBLIC, "test/candle/UsesDyed", null, "java/lang/Object", null);
-        // Block whiteCandle() { return Blocks.WHITE_CANDLE; }
         MethodVisitor a = cw.visitMethod(ACC_PUBLIC, "whiteCandle", "()" + BLOCK_DESC, null, null);
         a.visitCode();
         a.visitFieldInsn(GETSTATIC, BLOCKS, "WHITE_CANDLE", BLOCK_DESC);
         a.visitInsn(ARETURN);
         a.visitMaxs(1, 1);
         a.visitEnd();
-        // Block blackShulker() { return Blocks.BLACK_SHULKER_BOX; }
         MethodVisitor b = cw.visitMethod(ACC_PUBLIC, "blackShulker", "()" + BLOCK_DESC, null, null);
         b.visitCode();
         b.visitFieldInsn(GETSTATIC, BLOCKS, "BLACK_SHULKER_BOX", BLOCK_DESC);
@@ -65,7 +58,7 @@ class DyedBlockAccessorTest {
     }
 
     @Test
-    @DisplayName("all 4 dyed-block families × 16 colours register as static-field accessors")
+    @DisplayName("all 4 dyed-block families x 16 colours register as static-field accessors")
     void allFamiliesRegistered() {
         RetromodTransformer t = RetromodTransformer.getInstance();
         t.clearRedirectsForTesting();
@@ -97,23 +90,21 @@ class DyedBlockAccessorTest {
     }
 
     private static void assertWhiteCandle(MethodNode m) {
-        // The removed field must be gone.
         assertFalse(hasField(m, GETSTATIC, BLOCKS, "WHITE_CANDLE"),
-                "the removed Blocks.WHITE_CANDLE access must be rewritten away");
-        // The accessor sequence must be present, with the WHITE color.
-        assertTrue(hasField(m, GETSTATIC, BLOCKS, "DYED_CANDLE"), "must load Blocks.DYED_CANDLE");
-        assertTrue(hasField(m, GETSTATIC, DYE_COLOR, "WHITE"), "must load DyeColor.WHITE");
-        assertTrue(hasMethod(m, INVOKEVIRTUAL, COLOR_COLLECTION, "pick"), "must call ColorCollection.pick");
-        assertTrue(hasCast(m, BLOCK), "must checkcast the Object result back to Block");
+                "Blocks.WHITE_CANDLE access should be rewritten away");
+        assertTrue(hasField(m, GETSTATIC, BLOCKS, "DYED_CANDLE"), "should load Blocks.DYED_CANDLE");
+        assertTrue(hasField(m, GETSTATIC, DYE_COLOR, "WHITE"), "should load DyeColor.WHITE");
+        assertTrue(hasMethod(m, INVOKEVIRTUAL, COLOR_COLLECTION, "pick"), "should call ColorCollection.pick");
+        assertTrue(hasCast(m, BLOCK), "should checkcast the result back to Block");
     }
 
     private static void assertBlackShulker(MethodNode m) {
         assertFalse(hasField(m, GETSTATIC, BLOCKS, "BLACK_SHULKER_BOX"),
-                "the removed Blocks.BLACK_SHULKER_BOX access must be rewritten away");
-        assertTrue(hasField(m, GETSTATIC, BLOCKS, "DYED_SHULKER_BOX"), "must load the right family collection");
-        assertTrue(hasField(m, GETSTATIC, DYE_COLOR, "BLACK"), "must load the right colour");
-        assertTrue(hasMethod(m, INVOKEVIRTUAL, COLOR_COLLECTION, "pick"), "must call ColorCollection.pick");
-        assertTrue(hasCast(m, BLOCK), "must checkcast back to Block");
+                "Blocks.BLACK_SHULKER_BOX access should be rewritten away");
+        assertTrue(hasField(m, GETSTATIC, BLOCKS, "DYED_SHULKER_BOX"), "should load Blocks.DYED_SHULKER_BOX");
+        assertTrue(hasField(m, GETSTATIC, DYE_COLOR, "BLACK"), "should load DyeColor.BLACK");
+        assertTrue(hasMethod(m, INVOKEVIRTUAL, COLOR_COLLECTION, "pick"), "should call ColorCollection.pick");
+        assertTrue(hasCast(m, BLOCK), "should checkcast back to Block");
     }
 
     private static boolean hasField(MethodNode m, int op, String owner, String name) {

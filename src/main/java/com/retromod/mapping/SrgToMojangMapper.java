@@ -23,7 +23,7 @@ import java.util.Map;
  * <h3>Why this exists</h3>
  * <p>Forge mods built before MC ~1.20.5 (and any build still running
  * ForgeGradle's {@code reobfJar} task) reference MC members by Forge's SRG
- * names - fields like {@code Blocks.f_50069_} (= STONE) and methods like
+ * names: fields like {@code Blocks.f_50069_} (= STONE) and methods like
  * {@code Component.m_237113_(String)} (= literal). Forge's runtime
  * classloader used to remap these to the actual MC names at class load
  * time. <strong>Forge 64.x for MC 26.1+ dropped the SRG remap layer</strong>
@@ -49,7 +49,7 @@ import java.util.Map;
  * <p>Lines starting with {@code #} are comments. Blank lines are ignored.
  * KIND is one of {@code FIELD} or {@code METHOD}.
  *
- * <p>The bundled data is a <strong>starter set</strong> - the highest-value
+ * <p>The bundled data is a <strong>starter set</strong>: the highest-value
  * symbols (common Block/Item statics, Component factory methods,
  * ResourceLocation helpers) that the test mod and common Forge mods like
  * Jade and JEI rely on. The full SRG name space is in the tens of
@@ -60,7 +60,7 @@ import java.util.Map;
  * <p>SRG remap is primarily relevant on Forge runtimes for old reobf'd
  * Forge mods. NeoForge dropped SRG natively but cross-loader scenarios
  * (running a Forge SRG-baked mod on NeoForge) benefit too. Fabric never
- * used SRG. The mapper is loader-agnostic at the transformer level - it
+ * used SRG. The mapper is loader-agnostic at the transformer level: it
  * activates whenever input bytecode has SRG-pattern names, regardless of
  * which loader registered it.
  */
@@ -175,7 +175,7 @@ public final class SrgToMojangMapper {
                         case "FIELD" -> { fields.put(srgName, mojangName); parsed++; }
                         case "METHOD" -> { methods.put(srgName, mojangName); parsed++; }
                         default -> {
-                            // Unknown kind - log once-per-line at debug, don't spam
+                            // Unknown kind: log once-per-line at debug, don't spam
                             LOGGER.debug("Skipping unknown SRG mapping kind '{}' at line {}",
                                     kind, lineNumber);
                             skipped++;

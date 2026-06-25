@@ -22,206 +22,117 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Core ASM bytecode transformer that rewrites class/method/field references at load time.
  *
- * <h2>What it does</h2>
- * When old mods reference Minecraft classes, methods, or fields that have been renamed,
- * moved, or removed in newer versions, this transformer rewrites that bytecode so the
- * references point to the correct modern targets. It handles:
- * <ol>
- *   <li><b>Method renames</b> (e.g., {@code getWorld} -> {@code getEntityWorld})</li>
- *   <li><b>Method removals</b> (redirect to embedded shim bridge methods)</li>
- *   <li><b>Class relocations</b> (package changes between MC versions)</li>
- *   <li><b>Signature changes</b> (parameter/return type modifications)</li>
- *   <li><b>Constructor-to-factory</b> ({@code new Foo(args)} -> {@code Foo.create(args)})</li>
- *   <li><b>Field accessor wrapping</b> (public field -> getter/setter method)</li>
- *   <li><b>Intermediary name remapping</b> ({@code method_XXXX} -> Mojang official names)</li>
- * </ol>
+ * <p>When old mods reference Minecraft classes, methods, or fields that were renamed, moved,
+ * or removed in newer versions, this rewrites the bytecode to point at the modern targets:
+ * method renames/removals, class relocations, signature changes, constructor-to-factory,
+ * field accessor wrapping, and intermediary ({@code method_XXXX}) to Mojang remapping.
  *
- * <h2>ASM visitor chain</h2>
- * The transformation pipeline uses a chain of ASM visitors:
- * <pre>
- *   ClassReader
- *     -> ClassRemapper (handles class renames + intermediary->Mojang name mapping)
- *       -> RetromodClassVisitor (handles method/field/constructor redirects, superclass rewrites)
- *         -> ClassWriter (outputs the final bytecode)
- * </pre>
- * The ClassRemapper runs FIRST so that by the time RetromodClassVisitor sees method calls,
- * all class names are already in their Mojang-official form. This is why classRedirects feed
- * into the Remapper (bulk class rename) while methodRedirects are checked manually in
- * RetromodClassVisitor (they need owner+name+descriptor matching, not just name mapping).
+ * <p>Visitor chain: {@code ClassReader -> ClassRemapper -> RetromodClassVisitor -> ClassWriter}.
+ * ClassRemapper runs first (bulk class renames + intermediary to Mojang) so RetromodClassVisitor
+ * sees Mojang names by the time it does owner+name+descriptor method-redirect matching.
  *
- * <h2>Thread safety</h2>
- * All redirect maps use {@link ConcurrentHashMap} because shims register redirects from
- * ServiceLoader threads while the transformer may already be processing classes.
+ * <p>Redirect maps are {@link ConcurrentHashMap}: shims register from ServiceLoader threads
+ * while the transformer is already processing classes.
  *
- * <p><b>IMPORTANT:</b> This class must NOT reference {@code Retromod} directly (which
- * implements ModInitializer) because the transformer is also used by the standalone CLI
- * where Fabric classes are not on the classpath.</p>
+ * <p>Must not reference {@code Retromod} directly (it implements ModInitializer); the transformer
+ * also runs in the standalone CLI where Fabric classes aren't on the classpath.
  */
 public class RetromodTransformer implements ClassFileTransformer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Transformer");
     private static final RetromodTransformer INSTANCE = new RetromodTransformer();
-    
-    // ═══════════════════════════════════════════════════════════════════════
-    // REDIRECT MAPS - populated by version shims and polyfill providers
-    // These are checked during bytecode transformation to rewrite references.
-    // All use ConcurrentHashMap for thread-safe registration during class loading.
-    // ═══════════════════════════════════════════════════════════════════════
 
-    // Method redirects: when bytecode calls oldOwner.oldName(oldDesc),
-    // rewrite to newOwner.newName(newDesc). Checked manually in visitMethodInsn
-    // because matching requires owner+name+descriptor (not just name).
+    // Redirect maps below are populated by version shims and polyfill providers and read
+    // during transformation. ConcurrentHashMap because shims register while classes load.
+
+    // oldOwner.oldName(oldDesc) -> newOwner.newName(newDesc). Checked manually in
+    // visitMethodInsn since matching needs owner+name+descriptor, not just name.
     private final Map<MethodKey, MethodTarget> methodRedirects = new ConcurrentHashMap<>(256);
 
-    // Removed-method NEUTRALIZATION (Tier 2 render-state soft-fail). A call to a
-    // method that no longer exists on the host is rewritten in place to "discard
-    // the args (and receiver), push a default return" instead of being left to
-    // crash with NoSuchMethodError. The canonical case: the imperative
-    // RenderSystem state setters (enableBlend/blendFunc/depthMask/…) deleted in
-    // the 26.x GpuDevice/RenderPipeline refactor - there is no surviving method
-    // to redirect *to* (state is declared on immutable pipeline objects now), so
-    // the only non-crashing option is to make the dead call inert. The mod LOADS
-    // and runs; the neutralized state-call has no effect (soft-fail, same
-    // boundary VulkanMod hits). Keyed on exact owner+name+desc so only the dead
-    // overload is touched - a live method that happens to share an owner is never
-    // neutralized. Owners tracked separately for an O(1) fast-path skip.
+    // Calls to a method deleted on the host are rewritten in place to discard the args
+    // (and receiver) and push a default return, so the mod loads instead of hitting
+    // NoSuchMethodError. The RenderSystem state setters (enableBlend/blendFunc/depthMask)
+    // removed in the 26.x GpuDevice/RenderPipeline refactor have no method to redirect to,
+    // so the dead call is made inert (soft-fail). Keyed on exact owner+name+desc so a live
+    // overload sharing the owner is untouched; owners tracked separately for an O(1) skip.
     private final Set<MethodKey> neutralizedMethods = ConcurrentHashMap.newKeySet();
     private final Set<String> neutralizedMethodOwners = ConcurrentHashMap.newKeySet();
 
-    // Class redirects: oldClassName -> newClassName (JVM internal names with /).
-    // Fed into ASM's ClassRemapper for bulk renaming - this handles class references
-    // everywhere in bytecode (type descriptors, signatures, annotations, etc.)
-    // without needing to manually visit each location.
+    // oldClassName -> newClassName (JVM internal names). Fed into ClassRemapper, which
+    // rewrites class refs everywhere (descriptors, signatures, annotations).
     private final Map<String, String> classRedirects = new ConcurrentHashMap<>(64);
 
-    // Field redirects: oldOwner.oldName -> newOwner.newName.
-    // Can also redirect a field access to a static method call (field-to-method)
-    // when newDesc starts with "(" - used when a field is removed and replaced
-    // with a method in newer MC versions.
+    // oldOwner.oldName -> newOwner.newName. When newDesc starts with "(" this is a
+    // field-to-method redirect (the field was removed and replaced with a method).
     private final Map<FieldKey, FieldTarget> fieldRedirects = new ConcurrentHashMap<>(64);
 
-    // Intermediary name mappings: method_XXXX/field_XXXX -> Mojang official names.
-    // MC 26.1 removed all obfuscation, so Fabric mods using intermediary names
-    // (e.g., method_1234) must be remapped to plain Mojang names (e.g., tick).
-    // These are applied by the ClassRemapper's mapMethodName/mapFieldName overrides.
+    // method_XXXX/field_XXXX -> Mojang names. 26.1 removed obfuscation, so Fabric mods
+    // using intermediary names must be remapped. Applied via the ClassRemapper overrides.
     private final Map<String, String> intermediaryMethodNames = new ConcurrentHashMap<>(40000);
     private final Map<String, String> intermediaryFieldNames = new ConcurrentHashMap<>(40000);
 
-    // SRG name mappings: m_NNNNNN_ / f_NNNNN_ -> Mojang official names.
-    // Forge mods compiled with ForgeGradle's reobfJar (pre-1.20.5 or any
-    // version where the build still does the SRG conversion) reference
-    // members by SRG names like Blocks.f_50069_ instead of Blocks.STONE.
-    // Forge 64.x for MC 26.1+ dropped its SRG → Mojang runtime remap layer
-    // entirely (since 26.1 has no obfuscation), so those references now
-    // hit NoSuchFieldError / NoSuchMethodError on every reobf'd Forge mod.
-    // Retromod takes over that remap responsibility via these maps.
-    //
-    // Same global-key shape as the intermediary maps: SRG names are unique
-    // strings independent of the owning class, so a flat name -> Mojang
-    // dictionary is sufficient.
+    // m_NNNNNN_ / f_NNNNN_ -> Mojang names. Forge mods reobf'd by ForgeGradle ship SRG
+    // names (Blocks.f_50069_); Forge 64.x dropped its SRG->Mojang runtime remap on 26.1+,
+    // so without this they hit NoSuchFieldError/NoSuchMethodError. SRG names are globally
+    // unique, so a flat name -> Mojang map suffices (same shape as the intermediary maps).
     private final Map<String, String> srgMethodNames = new ConcurrentHashMap<>(8000);
     private final Map<String, String> srgFieldNames = new ConcurrentHashMap<>(8000);
 
-    // Vanilla Mojang->Mojang method renames, keyed "owner#name" -> newName. For 26.x
-    // method renames on a kept class (e.g. ResourceKey.location -> identifier). Keyed by
-    // owner+name (NOT a global dictionary like the intermediary/SRG maps - the names are
-    // ordinary words, so the rename must be scoped to the one owner). Applied via the
-    // ClassRemapper's mapMethodName, so it rewrites BOTH direct calls AND method
-    // references (e.g. ResourceKey::location in a codec), which the manual methodRedirects
-    // pass can't reach. Populated only for 26.1+ targets, where the old name is gone.
+    // Mojang->Mojang method renames on a kept class, keyed "owner#name" -> newName (e.g.
+    // ResourceKey.location -> identifier on 26.x). Owner-scoped, not a global dictionary,
+    // since the names are ordinary words. Applied via the ClassRemapper's mapMethodName so
+    // it also rewrites method references (ResourceKey::location), which methodRedirects
+    // can't reach. Only for 26.1+ targets, where the old name is gone.
     private final Map<String, String> mojangMethodRenames = new ConcurrentHashMap<>(16);
 
-    // Superclass redirects: for class-to-interface migrations.
-    // When a class becomes an interface in newer MC (e.g., Explosion), mods that
-    // extend it need their superclass changed to a bridge class + the interface added.
+    // Class-to-interface migrations: when a class becomes an interface in newer MC,
+    // mods extending it get their superclass changed to a bridge plus the interface added.
     private final Map<String, SuperclassRedirect> superclassRedirects = new ConcurrentHashMap<>(16);
 
-    // Constructor-to-factory redirects: converts `new Foo(args)` to `Foo.factory(args)`.
-    // Used when constructors are removed and replaced with static factory methods
-    // (e.g., new ResourceLocation(s) -> Identifier.parse(s) in 26.1).
+    // new Foo(args) -> Foo.factory(args), for constructors replaced by static factories
+    // (e.g. new ResourceLocation(s) -> Identifier.parse(s) in 26.1).
     private final Map<ConstructorKey, FactoryTarget> constructorRedirects = new ConcurrentHashMap<>(16);
 
-    // Field accessor redirects: GETFIELD -> getter(), PUTFIELD -> setter().
-    // For fields that became private in newer MC but have getter/setter methods.
+    // GETFIELD -> getter(), PUTFIELD -> setter(), for fields that became private.
     private final Map<FieldKey, FieldAccessorTarget> fieldAccessorRedirects = new ConcurrentHashMap<>(16);
     /** GETSTATIC of a removed static field -> a (collection-field + optional enum-arg + accessor-call + cast) sequence. */
     private final Map<FieldKey, StaticFieldAccessor> staticFieldAccessors = new ConcurrentHashMap<>(64);
 
-    // Super constructor descriptor changes: when a parent class constructor gains
-    // new required parameters in newer MC. Pushes extra args before INVOKESPECIAL.
-    // Example: Button gained a CreateNarration parameter in newer versions.
+    // Super constructor descriptor changes: a parent ctor gained required params in newer
+    // MC; pushes extra args before INVOKESPECIAL (e.g. Button gained CreateNarration).
     private final Map<ConstructorKey, SuperCtorRedirect> superCtorRedirects = new ConcurrentHashMap<>(8);
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // TRANSFORMATION CONTROL - determines what gets transformed
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Only classes in these packages get transformed (mod code, not MC itself)
+    // Only classes in these packages get transformed (mod code, not MC itself).
     private final Set<String> transformablePackages = ConcurrentHashMap.newKeySet();
 
-    // Shim classes that are embedded into mod JARs during transformation
+    // Shim classes embedded into mod JARs during transformation.
     private final Set<String> embeddedShimClasses = ConcurrentHashMap.newKeySet();
 
-    // Synthetic classes generated via ASM bytecode generation (for polyfills
-    // that need MC-typed fields/methods which can't be compiled from Java source
-    // since MC isn't on the compile classpath)
+    // ASM-generated classes for polyfills needing MC-typed members that can't be compiled
+    // from Java source (MC isn't on the compile classpath).
     private final Map<String, byte[]> syntheticClasses = new ConcurrentHashMap<>();
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // FUZZY RESOLVER - last-resort fallback for unresolved references
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // The fuzzy resolver indexes the target MC JAR and scores candidate methods/fields
-    // when no hardcoded redirect is found. It will NEVER override a hardcoded redirect.
-    // Initialized lazily via initFuzzyResolver() - volatile for thread-safe publication.
+    // Indexes the target MC JAR and scores candidate methods/fields when no hardcoded
+    // redirect is found. Never overrides a hardcoded redirect. Lazily initialized.
     private volatile FuzzyMethodResolver fuzzyResolver;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // PATTERN HEURISTICS - checked BEFORE fuzzy resolver for better performance
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Pattern-based heuristics for resolving method/class/field references that
-    // are not in the shim redirect tables. These encode deterministic naming
-    // convention shifts (e.g., render* -> extract* in 26.1) and are faster and
-    // more reliable than fuzzy matching. Volatile for thread-safe publication.
+    // Deterministic naming-convention rules (e.g. render* -> extract* in 26.1) for refs not
+    // in the redirect tables. Checked before the fuzzy resolver: faster and more reliable.
     private volatile PatternHeuristics patternHeuristics;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // BRIDGE ADAPTER GENERATOR - handles method signature changes
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Generates bridge methods when MC changes a method's parameter types
-    // (e.g., mouseClicked(double,double,int) -> mouseClicked(MouseButtonEvent,boolean)).
-    // Instantiated per-class in the visitor pipeline, so no shared instance needed here.
-    // This field provides a reference for AutoFixEngine to use static lookup methods.
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // PERFORMANCE OPTIMIZATIONS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Cache the ASM Remapper to avoid recreating it for every class.
-    // Invalidated when classRedirects or intermediary mappings change.
+    // Cached ASM Remapper, rebuilt for every class otherwise. Invalidated when
+    // classRedirects or the intermediary mappings change.
     private volatile Remapper cachedRemapper;
     private final AtomicInteger classRedirectsVersion = new AtomicInteger(0);
 
-    // Fast-path: set of class owners that have method redirects.
-    // In visitMethodInsn, if the call's owner isn't in this set, we skip
-    // the more expensive ConcurrentHashMap lookup on methodRedirects.
+    // Owners that have method redirects. visitMethodInsn skips the methodRedirects lookup
+    // when the call's owner isn't here.
     private final Set<String> methodRedirectOwners = ConcurrentHashMap.newKeySet();
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ITERATIVE TRANSFORMATION LOOP
-    // ═══════════════════════════════════════════════════════════════════════
-    //
-    // A single transform pass visits every instruction once. If pass N rewrites
-    // X.foo() -> Y.bar(), the visitor has already moved past that instruction
-    // and won't see that Y.bar() is itself registered for redirection to Z.baz().
-    // We loop until the bytecode stabilizes (two consecutive passes produce
-    // identical bytes) so chained redirects are all resolved.
-    //
-    // Cap prevents infinite loops from cyclic redirect chains (e.g., A -> B -> A).
-    // Configurable via -Dretromod.transform.maxIterations=N (default 5).
-
+    // A single pass visits each instruction once: if it rewrites X.foo() -> Y.bar() it has
+    // already moved past that instruction and won't see Y.bar()'s own redirect to Z.baz().
+    // So transformClass loops until the bytes stabilize. The cap bounds cyclic chains
+    // (A -> B -> A). Configurable via -Dretromod.transform.maxIterations=N.
     private static final int MAX_TRANSFORM_ITERATIONS =
         Integer.parseInt(System.getProperty("retromod.transform.maxIterations", "5"));
 
@@ -231,7 +142,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     /** Classes that stabilized only after 2+ passes (i.e., chained redirects fired). */
     private final AtomicInteger classesNeedingMultiplePasses = new AtomicInteger();
 
-    /** Classes that hit MAX_TRANSFORM_ITERATIONS - possible redirect cycle. */
+    /** Classes that hit MAX_TRANSFORM_ITERATIONS, a possible redirect cycle. */
     private final AtomicInteger classesHittingIterationCap = new AtomicInteger();
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -240,12 +151,12 @@ public class RetromodTransformer implements ClassFileTransformer {
     //
     // After the iterative loop stabilizes, two optional post-steps run:
     //
-    //   1. ReflectionStringRemapper - rewrites MC-typed string constants passed
+    //   1. ReflectionStringRemapper: rewrites MC-typed string constants passed
     //      to reflection APIs (Class.forName, getDeclaredMethod, etc.) that the
     //      main bytecode-level redirect pipeline can't see because strings are
     //      opaque data. ON by default; disable with -Dretromod.remapReflection=false.
     //
-    //   2. ReferenceVerifier - scans transformed bytecode for MC references that
+    //   2. ReferenceVerifier: scans transformed bytecode for MC references that
     //      don't exist in the target MC JAR, accumulating them into a per-mod
     //      VerificationReport that callers render as a "gap report." OFF by
     //      default; enable with -Dretromod.verifyTransforms=true.
@@ -262,7 +173,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     private static final boolean REFERENCE_VERIFY_ENABLED =
         Boolean.parseBoolean(System.getProperty("retromod.verifyTransforms", "true"));
 
-    /** ON by default. Bridge synthesis is narrow-scope and low-risk - the worst case
+    /** ON by default. Bridge synthesis is narrow-scope and low-risk; the worst case
      *  is a skipped bridge (not a broken class). Disable via
      *  {@code -Dretromod.synthesizeBridges=false} if debugging suggests it's the culprit. */
     private static final boolean BRIDGE_SYNTH_ENABLED =
@@ -282,26 +193,26 @@ public class RetromodTransformer implements ClassFileTransformer {
     /** Lazily-initialized reference verifier. Built once the symbol index is available. */
     private volatile com.retromod.core.verify.ReferenceVerifier referenceVerifier;
 
-    /** Counter for classes that went through reflection remapping - for diagnostics. */
+    /** Counter for classes that went through reflection remapping, for diagnostics. */
     private final AtomicInteger reflectionRemapPassesPerformed = new AtomicInteger();
 
     /** Lazily-initialized bridge method synthesizer. */
     private volatile com.retromod.core.bridge.BridgeMethodSynthesizer bridgeSynthesizer;
 
-    /** Lazily-initialized pattern matcher - uses the default library. */
+    /** Lazily-initialized pattern matcher; uses the default library. */
     private volatile com.retromod.core.pattern.ClassShapeMatcher classShapeMatcher;
 
     /**
      * Target MC version, used only in diagnostic output (gap report headers).
      * Populated by {@link #setTargetMcVersion} from the main Retromod initializer.
-     * "unknown" until set - never null, so downstream callers don't NPE.
+     * "unknown" until set, never null, so downstream callers don't NPE.
      */
     private volatile String targetMcVersion = "unknown";
 
     private RetromodTransformer() {
         // Register default shim package as transformable
         transformablePackages.add("com/retromod/shim/");
-        // Initialize pattern heuristics - deterministic rules checked before fuzzy matching
+        // Initialize pattern heuristics: deterministic rules checked before fuzzy matching
         this.patternHeuristics = new PatternHeuristics();
     }
     
@@ -314,7 +225,7 @@ public class RetromodTransformer implements ClassFileTransformer {
      * The resolver indexes all classes, methods, and fields in the JAR so it can
      * fuzzy-match unresolved references during bytecode transformation.
      *
-     * <p>This is a FALLBACK mechanism - hardcoded redirects registered by shims
+     * <p>This is a FALLBACK mechanism; hardcoded redirects registered by shims
      * always take priority. Call this once during startup after shims are loaded.</p>
      *
      * @param mcJarPath path to the Minecraft client JAR, or null to auto-detect
@@ -419,7 +330,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     /**
      * Register a removed method to be <b>neutralized</b> at every call site:
      * the call is dropped and replaced with stack-balanced pops (args + receiver)
-     * plus a default value for the return type - so a mod that calls a method
+     * plus a default value for the return type, so a mod that calls a method
      * deleted on the host LOADS instead of dying with {@code NoSuchMethodError}.
      *
      * <p>Use this only when there is genuinely <b>no equivalent to redirect to</b>.
@@ -427,7 +338,7 @@ public class RetromodTransformer implements ClassFileTransformer {
      * setters ({@code enableBlend()}, {@code blendFunc(II)}, {@code depthMask(Z)},
      * …) removed in the 26.x GpuDevice/RenderPipeline refactor: state moved onto
      * immutable pipeline objects, so the call has no modern method form. The
-     * neutralized call is <b>inert</b> - the mod runs, but that bit of manual GL
+     * neutralized call is <b>inert</b>: the mod runs, but that bit of manual GL
      * state is lost (soft-fail). Prefer {@link #registerMethodRedirect} whenever a
      * real target exists.
      *
@@ -461,7 +372,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     /**
      * Register a class redirect (for relocated/renamed classes).
      *
-     * <p>Identity redirects ({@code A → A}) are explicitly ignored - they were
+     * <p>Identity redirects ({@code A → A}) are explicitly ignored; they were
      * historically used in older shim files as "this class is part of our compat
      * surface" placeholders, but {@code Map.put} semantics meant they silently
      * <b>overwrote</b> legitimate redirects from other shims. Concrete case the
@@ -476,12 +387,12 @@ public class RetromodTransformer implements ClassFileTransformer {
      * <p>Rather than chase down and delete every offending registration site
      * (40+ across legacy shims), the guard here makes them no-ops. Callers
      * that genuinely need an entry "exist in the map" can still use a real
-     * second target - but identity has no semantic meaning at the remapper
+     * second target, but identity has no semantic meaning at the remapper
      * level and is always a bug.</p>
      */
     public void registerClassRedirect(String oldClass, String newClass) {
         if (oldClass.equals(newClass)) {
-            // Identity redirect - see method javadoc for the rationale.
+            // Identity redirect; see method javadoc for the rationale.
             LOGGER.debug("Ignored identity class-redirect registration for: {}", oldClass);
             return;
         }
@@ -628,7 +539,7 @@ public class RetromodTransformer implements ClassFileTransformer {
      * {@code INVOKEVIRTUAL methodOwner.methodName(methodDesc)}, and an optional
      * {@code CHECKCAST castType}. Used for 26.2's `ColorCollection` consolidation, where
      * the per-color block fields (e.g. {@code Blocks.WHITE_CANDLE}) were deleted in favour
-     * of {@code Blocks.DYED_CANDLE.pick(DyeColor.WHITE)} - a field access that has to
+     * of {@code Blocks.DYED_CANDLE.pick(DyeColor.WHITE)}, a field access that has to
      * become a method call, which a plain field-to-field redirect can't express.
      *
      * @param argField pass null for a no-argument accessor (then argOwner/argDesc ignored)
@@ -712,13 +623,13 @@ public class RetromodTransformer implements ClassFileTransformer {
     /**
      * Rebase a class's superclass from {@code oldSuperclass} to {@code newSuperclass}
      * (both <b>classes</b>), rewriting the {@code extends} clause <i>and</i> any
-     * {@code super(...)} constructor calls to the old base - but <b>nothing else</b>.
+     * {@code super(...)} constructor calls to the old base, but <b>nothing else</b>.
      *
      * <p>Use this when the new base provides the old base's constructors so subclasses
      * keep linking (e.g. the pre-1.17 model bridge's {@code LegacyModelBase_*}). Unlike a
-     * plain {@link #registerClassRedirect} - which rewrites <i>every</i> reference to the
+     * plain {@link #registerClassRedirect} (which rewrites <i>every</i> reference to the
      * old type, including a modern mod's mixin {@code @Inject} handler that merely captures
-     * it as a parameter (the #70 Arcanus crash) - this only touches the inheritance edge,
+     * it as a parameter, the #70 Arcanus crash), this only touches the inheritance edge,
      * so a mod that doesn't actually extend the base is unaffected. Other references stay
      * as the old type, which is correct because the new base is a subtype of it.
      */
@@ -731,7 +642,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     /**
      * TEST-ONLY: wipe all registered redirect state (class/method/field/constructor/
      * superclass redirects, synthetic classes, embedded shims) so a test can assert on
-     * the <i>absence</i> of registrations - e.g. that a host-gated shim registers
+     * the <i>absence</i> of registrations, e.g. that a host-gated shim registers
      * nothing on a pre-26.1 host. The singleton accumulates state across the whole
      * JVM otherwise, which makes absence assertions meaningless.
      *
@@ -886,7 +797,7 @@ public class RetromodTransformer implements ClassFileTransformer {
         // - ASM is deterministic: same input + same redirects = same output bytes.
         //   So byte-equality is a reliable stability signal.
         // - Occasional false positives (constant-pool reordering triggering one extra
-        //   pass) are harmless - the iteration cap bounds the worst case.
+        //   pass) are harmless; the iteration cap bounds the worst case.
         byte[] current = originalBytes;
         for (int pass = 1; pass <= MAX_TRANSFORM_ITERATIONS; pass++) {
             byte[] next = singleTransformPass(current, className);
@@ -898,8 +809,8 @@ public class RetromodTransformer implements ClassFileTransformer {
                 // Counter semantics: activePasses = number of passes that actually
                 // changed bytes. pass=1 stable means "no transforms applied at all"
                 // (0 active). pass=2 stable means "pass 1 did work, pass 2 verified"
-                // (1 active - the normal single-redirect case). pass>=3 stable means
-                // pass 2+ produced changes on top of pass 1 - that's chaining.
+                // (1 active, the normal single-redirect case). pass>=3 stable means
+                // pass 2+ produced changes on top of pass 1, which is chaining.
                 int activePasses = pass - 1;
                 if (activePasses >= 2) {
                     classesNeedingMultiplePasses.incrementAndGet();
@@ -912,7 +823,7 @@ public class RetromodTransformer implements ClassFileTransformer {
         }
 
         // Hit the iteration cap. Most likely a cycle in redirect chains (A -> B -> A).
-        // We use the last pass's output as a best-effort - it's at least as transformed
+        // We use the last pass's output as a best-effort; it's at least as transformed
         // as any earlier pass, and the cycle means no single output is "correct" anyway.
         classesHittingIterationCap.incrementAndGet();
         LOGGER.warn("Transform loop hit cap ({} passes) for class {}. " +
@@ -926,14 +837,14 @@ public class RetromodTransformer implements ClassFileTransformer {
      * Run post-loop transforms (reflection remapping) on the stabilized bytecode.
      *
      * <p>Separate from the iterative loop because these passes are <b>not</b>
-     * bytecode-level redirects - they operate on string constants that ASM's
+     * bytecode-level redirects; they operate on string constants that ASM's
      * {@code ClassRemapper} doesn't see. Running them as part of the iterative
-     * loop would be wasteful (they're idempotent - a second call produces the
+     * loop would be wasteful (they're idempotent, a second call produces the
      * same output) and complicates the stability-detection semantics.</p>
      *
      * <p>Keeping them out of {@link #singleTransformPass} also means they run
      * <b>once per class</b> regardless of how many iterative passes the class
-     * needed - the natural place for one-shot work.</p>
+     * needed, the natural place for one-shot work.</p>
      */
     private byte[] postProcess(byte[] stableBytes, String className) {
         if (!REFLECTION_REMAP_ENABLED) return stableBytes;
@@ -947,7 +858,7 @@ public class RetromodTransformer implements ClassFileTransformer {
             }
             return remapped;
         } catch (Exception e) {
-            // Reflection remapping is advisory - a failure shouldn't break the
+            // Reflection remapping is advisory; a failure shouldn't break the
             // whole transformation. Log and return the pre-remap bytes.
             LOGGER.debug("Reflection remap skipped for {}: {}", className, e.getMessage());
             return stableBytes;
@@ -985,7 +896,7 @@ public class RetromodTransformer implements ClassFileTransformer {
         // CLI gaps) calls this method concurrently. Without a proper
         // double-checked lock, two workers can both observe `cachedRemapper ==
         // null`, each allocate a fresh Remapper, and one's write clobbers the
-        // other - harmless when the redirect state is stable, but if the
+        // other (harmless when the redirect state is stable), but if the
         // losing thread's Remapper already saw a redirect that arrived after
         // the winner's allocation, the winner's state is stale and the loser's
         // Remapper gets discarded. Synchronize the construct-and-publish so
@@ -1106,7 +1017,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                 if (classRemapper != null) {
                     fallbackVisitor = new ClassRemapper(fallbackVisitor, classRemapper);
                 }
-                // Don't skip frames - preserve existing StackMapTable entries
+                // Don't skip frames; preserve existing StackMapTable entries
                 reader.accept(fallbackVisitor, 0);
                 byte[] result = fallbackWriter.toByteArray();
                 if (hasClassRemaps) {
@@ -1145,7 +1056,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     /**
      * Number of classes that hit {@link #MAX_TRANSFORM_ITERATIONS} without
      * stabilizing. A non-zero value here indicates a cycle in registered
-     * redirects (e.g., A → B → A) and should be investigated - the class's
+     * redirects (e.g., A → B → A) and should be investigated; the class's
      * output will be the last pass before the cap, which may be inconsistent.
      */
     public int getClassesHittingIterationCap() {
@@ -1164,7 +1075,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // REFLECTION REMAPPING + REFERENCE VERIFICATION - PUBLIC API
+    // REFLECTION REMAPPING + REFERENCE VERIFICATION: PUBLIC API
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -1174,7 +1085,7 @@ public class RetromodTransformer implements ClassFileTransformer {
      * <p><b>Assumption:</b> shim/polyfill redirects are populated during startup
      * before the first class is transformed. Once the remapper is built we don't
      * rebuild it, even if new redirects arrive later. For the current codebase
-     * this is true - {@code Retromod.onInitialize} loads all shims synchronously
+     * this is true: {@code Retromod.onInitialize} loads all shims synchronously
      * before any class ever passes through {@link #transformClass}. If that
      * invariant changes, call {@link #invalidateReflectionRemapper()} after
      * registering the new redirects.</p>
@@ -1221,7 +1132,7 @@ public class RetromodTransformer implements ClassFileTransformer {
      *
      * @param classBytes    transformed class bytecode (post-iterative-loop)
      * @param className     JVM internal name (for diagnostic logging)
-     * @param modOwnClasses classes defined by the mod itself - references to
+     * @param modOwnClasses classes defined by the mod itself; references to
      *                      these are skipped so we don't report mod-internal
      *                      references as "missing from MC"
      * @param report        report to accumulate findings into
@@ -1244,7 +1155,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     /**
      * Lazily construct the reference verifier once the fuzzy resolver has been
      * initialized with a target MC JAR. Returns null (and logs once) if the
-     * resolver isn't indexed yet - verification can't run without it.
+     * resolver isn't indexed yet; verification can't run without it.
      */
     private com.retromod.core.verify.ReferenceVerifier getReferenceVerifier() {
         com.retromod.core.verify.ReferenceVerifier local = referenceVerifier;
@@ -1287,7 +1198,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // BRIDGE METHOD SYNTHESIS (#4) - PUBLIC API
+    // BRIDGE METHOD SYNTHESIS (#4): PUBLIC API
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -1324,7 +1235,7 @@ public class RetromodTransformer implements ClassFileTransformer {
             if (bridgeSynthesizer != null) return bridgeSynthesizer;
             // Build a rename-lookup from the existing method-redirect table.
             // Only renames that preserve the owner class AND the descriptor
-            // are safe for bridge synthesis (v1 scope - see BridgeMethodSynthesizer
+            // are safe for bridge synthesis (v1 scope; see BridgeMethodSynthesizer
             // javadoc for why). We filter those out in the lambda.
             var lookup = com.retromod.core.bridge.BridgeMethodSynthesizer.buildLookupFrom(
                     methodRedirects,
@@ -1352,7 +1263,7 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // PATTERN MATCHING (#3) - PUBLIC API
+    // PATTERN MATCHING (#3): PUBLIC API
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
@@ -1460,7 +1371,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                 String key = name + descriptor;
                 if (duplicates.contains(key)) {
                     if (emitted.contains(key)) {
-                        // Already emitted the preferred copy - skip this one
+                        // Already emitted the preferred copy; skip this one
                         return null;
                     }
                     Integer best = bestAccess.get(key);
@@ -1504,10 +1415,10 @@ public class RetromodTransformer implements ClassFileTransformer {
             try {
                 return super.getCommonSuperClass(type1, type2);
             } catch (Exception | LinkageError e) {
-                // A type isn't resolvable via Class.forName - common in modded MC, and
+                // A type isn't resolvable via Class.forName, common in modded MC, and
                 // especially when a type lives in a Fabric Jar-in-Jar (META-INF/jars/*),
                 // is a mod class, or was remapped to a name not on the transform
-                // classpath. Don't blindly fall back to Object - see commonSuperFallback.
+                // classpath. Don't blindly fall back to Object; see commonSuperFallback.
                 return commonSuperFallback(type1, type2);
             }
         }
@@ -1518,7 +1429,7 @@ public class RetromodTransformer implements ClassFileTransformer {
      * a type via {@code Class.forName} (it lives in a Fabric Jar-in-Jar, is a mod class,
      * or was remapped off the transform classpath).
      *
-     * <p>The old behaviour - always {@code java/lang/Object} - silently corrupts the
+     * <p>The old behaviour (always {@code java/lang/Object}) silently corrupts the
      * recomputed {@code StackMapTable} when the real merge is two exception types: ASM
      * then types the caught value as {@code Object} at a catch-handler join where the
      * consumer needs a {@code Throwable}, producing a {@code VerifyError} at class load.
@@ -1539,14 +1450,14 @@ public class RetromodTransformer implements ClassFileTransformer {
      * True if {@code internalName} is {@code java/lang/Throwable} or a subclass,
      * determined by reading class bytes through classpath resources rather than
      * {@code Class.forName} (which is what failed above). Returns false if any link in
-     * the superclass chain can't be read (e.g. a JiJ/mod class) - i.e. "unknown, assume
+     * the superclass chain can't be read (e.g. a JiJ/mod class), i.e. "unknown, assume
      * not a Throwable", preserving the Object fallback for genuine non-exception merges.
      */
     private static boolean isThrowable(String internalName) {
         if (internalName == null) {
             return false;
         }
-        // 1) Classloading handles the common case - JDK exceptions (IOException, …) and
+        // 1) Classloading handles the common case: JDK exceptions (IOException, …) and
         //    anything on the transform classpath. This must come FIRST: under the Java
         //    9+ module system getResourceAsStream does NOT return JDK classes, so a
         //    byte-walk alone would miss java/io/IOException. Catches its own failures.
@@ -1555,11 +1466,11 @@ public class RetromodTransformer implements ClassFileTransformer {
                     Class.forName(internalName.replace('/', '.'), false,
                             RetromodTransformer.class.getClassLoader()));
         } catch (Throwable ignored) {
-            // not loadable via forName - fall through to a byte-level superclass walk
+            // not loadable via forName; fall through to a byte-level superclass walk
         }
         // 2) Walk the superclass chain from class bytes, for types readable as a resource
         //    but not loadable via forName. Returns false if any link can't be read
-        //    (e.g. a JiJ/mod class) - "unknown, assume not a Throwable".
+        //    (e.g. a JiJ/mod class), "unknown, assume not a Throwable".
         String name = internalName;
         for (int guard = 0; guard < 64 && name != null && !"java/lang/Object".equals(name); guard++) {
             if ("java/lang/Throwable".equals(name)) {
@@ -1606,7 +1517,7 @@ public class RetromodTransformer implements ClassFileTransformer {
         //   net.minecraft.network.chat.Component, but class was expected
         // Surfaced by retromod-test-mod's Test 5 (Text.copy().append).
         "net/minecraft/network/chat/Component"
-        // NOTE: MutableComponent is NOT in this list - it's still a *class*
+        // NOTE: MutableComponent is NOT in this list; it's still a *class*
         // (extends nothing useful, implements Component). Adding it here was
         // a mistake in an earlier pass; it caused the opposite verifier
         // error: "Found class MutableComponent, but interface was expected"
@@ -1617,7 +1528,7 @@ public class RetromodTransformer implements ClassFileTransformer {
 
     private class RetromodClassVisitor extends ClassVisitor {
 
-        // Bridge adapter generator for this class - handles method signature changes
+        // Bridge adapter generator for this class; handles method signature changes
         // (e.g., mouseClicked(double,double,int) -> mouseClicked(MouseButtonEvent,boolean)).
         // Reset for each class in visit(). Bounded by BridgeAdapterGenerator.BRIDGES size.
         private final BridgeAdapterGenerator bridgeGenerator = new BridgeAdapterGenerator();
@@ -1712,7 +1623,7 @@ public class RetromodTransformer implements ClassFileTransformer {
         public MethodVisitor visitMethod(int access, String name, String descriptor,
                 String signature, String[] exceptions) {
 
-            // BridgeAdapterGenerator disabled - causes VerifyErrors by renaming methods
+            // BridgeAdapterGenerator disabled: causes VerifyErrors by renaming methods
             // that already have the correct signature. Needs more work before enabling.
             // TODO: Only apply bridges when the method ACTUALLY has the old descriptor
 
@@ -1731,7 +1642,7 @@ public class RetromodTransformer implements ClassFileTransformer {
 
         @Override
         public void visitEnd() {
-            // BridgeAdapterGenerator disabled - see TODO in visitMethod
+            // BridgeAdapterGenerator disabled; see TODO in visitMethod
             super.visitEnd();
         }
     }
@@ -1761,7 +1672,7 @@ public class RetromodTransformer implements ClassFileTransformer {
      */
     private class RetromodMethodVisitor extends MethodVisitor {
 
-        // Buffered NEW instruction - held until we see the matching <init> to decide
+        // Buffered NEW instruction, held until we see the matching <init> to decide
         // whether to redirect to a factory or emit normally
         private String pendingNewClass = null;
         private boolean pendingDup = false;
@@ -1812,7 +1723,7 @@ public class RetromodTransformer implements ClassFileTransformer {
             // Parse parameter types from the descriptor
             Type[] paramTypes = Type.getArgumentTypes(constructorDesc);
             if (paramTypes.length == 0) {
-                // No args on stack - simple flush is fine
+                // No args on stack; simple flush is fine
                 flushPendingNew();
                 return;
             }
@@ -1829,12 +1740,12 @@ public class RetromodTransformer implements ClassFileTransformer {
                 slot += paramTypes[i].getSize(); // 1 for int/float/object, 2 for long/double
             }
 
-            // Store args from stack to temp locals (reverse order - top of stack first)
+            // Store args from stack to temp locals (reverse order, top of stack first)
             for (int i = paramTypes.length - 1; i >= 0; i--) {
                 super.visitVarInsn(paramTypes[i].getOpcode(Opcodes.ISTORE), paramSlots[i]);
             }
 
-            // Now the stack is clear of args - emit the deferred NEW + DUP
+            // Now the stack is clear of args; emit the deferred NEW + DUP
             super.visitTypeInsn(Opcodes.NEW, pendingNewClass);
             pendingNewClass = null;
             if (pendingDup) {
@@ -1853,7 +1764,7 @@ public class RetromodTransformer implements ClassFileTransformer {
 
         /**
          * Push default values for parameter types described in a JVM descriptor fragment.
-         * Used when a constructor gains new parameters - we insert defaults for them.
+         * Used when a constructor gains new parameters; we insert defaults for them.
          * E.g., "Ljava/lang/String;[Ljava/lang/Object;" → push ACONST_NULL, then empty Object[]
          */
         private void pushDefaultsForDescriptor(String paramFragment) {
@@ -1901,12 +1812,12 @@ public class RetromodTransformer implements ClassFileTransformer {
          * Neutralize a call to a removed method: emit NO call, instead discard
          * the arguments (and the receiver for instance calls) and push a default
          * value for the return type. Turns a would-be {@code NoSuchMethodError}
-         * into a silent no-op so the mod loads (soft-fail - the call's side
+         * into a silent no-op so the mod loads (soft-fail; the call's side
          * effect is lost). Only ever applied to methods that genuinely don't
          * exist on the host, registered via {@link #registerRemovedMethodNeutralize}.
          *
-         * <p>These are plain pops/pushes inside a single basic block - no new
-         * branches - so no stack-map frames are introduced; {@code COMPUTE_MAXS}
+         * <p>These are plain pops/pushes inside a single basic block (no new
+         * branches), so no stack-map frames are introduced; {@code COMPUTE_MAXS}
          * absorbs the (net non-increasing) stack delta.
          */
         private void neutralizeCall(int opcode, String descriptor) {
@@ -1979,7 +1890,7 @@ public class RetromodTransformer implements ClassFileTransformer {
          * fixup if needed.
          *
          * <p>The JVM verifier requires that {@code INVOKESPECIAL} on a non-{@code <init>}
-         * method target a <i>direct</i> supertype of the calling class - either the
+         * method target a <i>direct</i> supertype of the calling class: either the
          * direct superclass, a directly-declared superinterface, or {@code this} class
          * itself (for private methods). Anything else fails verification with:
          *
@@ -2041,7 +1952,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                 }
             }
             // Non-NEW TypeInsns (ANEWARRAY, CHECKCAST, INSTANCEOF, etc.) may appear
-            // as part of constructor arguments - don't flush the pending NEW
+            // as part of constructor arguments; don't flush the pending NEW
             super.visitTypeInsn(opcode, type);
         }
 
@@ -2051,7 +1962,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                 pendingDup = true;
                 return;
             }
-            // Don't flush - instructions like ICONST_0, ACONST_NULL can be constructor args
+            // Don't flush; instructions like ICONST_0, ACONST_NULL can be constructor args
             super.visitInsn(opcode);
         }
 
@@ -2127,7 +2038,7 @@ public class RetromodTransformer implements ClassFileTransformer {
             if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name) && pendingNewClass != null) {
                 // Resolve owner through classRedirects (we see pre-remap names like class_2960)
                 String resolvedOwner = classRedirects.getOrDefault(owner, owner);
-                // Also resolve the descriptor - class refs in the descriptor (e.g., intermediary
+                // Also resolve the descriptor: class refs in the descriptor (e.g., intermediary
                 // class_3702$class_3703) need to be mapped to Mojang names (InputConstants$Type)
                 // to match constructor redirects registered with Mojang names.
                 String resolvedDesc = resolveDescriptor(descriptor);
@@ -2150,7 +2061,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                             factory.factoryMethod(), factory.factoryDesc(), false);
                     // If factory returns Object but the original class is specific,
                     // emit CHECKCAST to satisfy the JVM verifier.
-                    // We cast to the ORIGINAL class - the factory must return a compatible type.
+                    // We cast to the ORIGINAL class; the factory must return a compatible type.
                     String factoryReturnType = factory.factoryDesc().substring(
                             factory.factoryDesc().lastIndexOf(')') + 1);
                     if (factoryReturnType.equals("Ljava/lang/Object;")) {
@@ -2158,16 +2069,16 @@ public class RetromodTransformer implements ClassFileTransformer {
                     }
                     return;
                 }
-                // Not a redirect for this descriptor - flush the buffered NEW+DUP.
+                // Not a redirect for this descriptor; flush the buffered NEW+DUP.
                 // Args are already on the stack (emitted during deferral), so we need
                 // to reorder: store args → emit NEW+DUP → reload args.
                 flushPendingNewBeforeArgs(descriptor);
             } else if (pendingNewClass != null && opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)) {
-                // Different class <init> (nested constructor) - don't flush, let it through
+                // Different class <init> (nested constructor); don't flush, let it through
                 super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
                 return;
             } else {
-                // Non-<init> method calls are fine as constructor args - don't flush
+                // Non-<init> method calls are fine as constructor args; don't flush
             }
 
             // Check for super() constructor descriptor changes (no pending NEW = super call)
@@ -2204,11 +2115,11 @@ public class RetromodTransformer implements ClassFileTransformer {
                 }
             }
 
-            // #70: rebased superclass - rewrite the super(...) <init> owner to the new base.
+            // #70: rebased superclass; rewrite the super(...) <init> owner to the new base.
             // Scoped to the DIRECT super() call (owner == the class's original superclass,
             // and pendingNewClass == null so it's not a `new`), so it never touches other
             // references to the base type (e.g. a mixin @Inject handler capturing it as a
-            // param - the Arcanus crash). Only fires for class→class rebases that opted in.
+            // param, the Arcanus crash). Only fires for class→class rebases that opted in.
             if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)
                     && pendingNewClass == null
                     && classSuperNameOriginal != null && owner.equals(classSuperNameOriginal)
@@ -2225,8 +2136,8 @@ public class RetromodTransformer implements ClassFileTransformer {
 
             // Removed-method NEUTRALIZATION (soft-fail): if this exact call
             // targets a method deleted on the host (e.g. a removed RenderSystem
-            // state setter), drop it - pop the args (and receiver, for instance
-            // calls) and push a default return - so the mod loads instead of
+            // state setter), drop it: pop the args (and receiver, for instance
+            // calls) and push a default return, so the mod loads instead of
             // hitting NoSuchMethodError. Checked before the redirect fast-path
             // because neutralized owners are tracked in their own set.
             if (!neutralizedMethods.isEmpty()
@@ -2237,11 +2148,11 @@ public class RetromodTransformer implements ClassFileTransformer {
                 return;
             }
 
-            // OPTIMIZATION: Fast path - skip if owner not in our redirect set.
+            // OPTIMIZATION: Fast path, skip if owner not in our redirect set.
             // But still try pattern heuristics and fuzzy resolution for unresolved
             // references, since they cover the entire MC API surface.
             if (!methodRedirectOwners.contains(owner)) {
-                // Try pattern heuristics FIRST - faster and more reliable than fuzzy
+                // Try pattern heuristics FIRST; faster and more reliable than fuzzy
                 PatternHeuristics patterns = patternHeuristics;
                 if (patterns != null) {
                     PatternHeuristics.PatternResult patternMatch = patterns.resolveMethod(owner, name, descriptor);
@@ -2302,8 +2213,8 @@ public class RetromodTransformer implements ClassFileTransformer {
                         target.owner, target.name, target.desc);
 
                 // AUTO-DEVIRTUALIZE: an instance call whose redirect target takes
-                // exactly one extra parameter can only mean "receiver becomes arg 0"
-                // - an instance call cannot grow a parameter any other way (nothing
+                // exactly one extra parameter can only mean "receiver becomes arg 0";
+                // an instance call cannot grow a parameter any other way (nothing
                 // here pushes extra args). Dozens of bridge redirects were registered
                 // through the 6-arg form without the devirtualize flag; emitting them
                 // as INVOKEVIRTUAL pops receiver+arg where only the receiver was
@@ -2353,7 +2264,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     }
                 }
             } else {
-                // No hardcoded redirect found - try pattern heuristics first (fast, deterministic),
+                // No hardcoded redirect found; try pattern heuristics first (fast, deterministic),
                 // then fuzzy resolver as last resort (slower, probabilistic).
                 // Neither will EVER override a hardcoded redirect (we only get here if none matched).
 
@@ -2381,7 +2292,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     FuzzyMethodResolver.MethodInfo fuzzyMatch =
                             resolver.resolveMethod(owner, name, descriptor);
                     if (fuzzyMatch != null) {
-                        // Fuzzy match found with confidence >= 70% - apply the redirect
+                        // Fuzzy match found with confidence >= 70%; apply the redirect
                         LOGGER.debug("[Retromod-Fuzzy] Resolved {}.{}{} -> {}.{}{} (confidence: {}%)",
                                 owner, name, descriptor,
                                 fuzzyMatch.owner(), fuzzyMatch.name(), fuzzyMatch.descriptor(),
@@ -2394,9 +2305,9 @@ public class RetromodTransformer implements ClassFileTransformer {
                     }
                 }
 
-                // No redirect and no fuzzy match - pass through with opcode fixup.
+                // No redirect and no fuzzy match; pass through with opcode fixup.
                 // The invokespecial-on-non-direct-supertype fixup is handled by
-                // emitMethodInsn() - see its javadoc for the full reasoning.
+                // emitMethodInsn(); see its javadoc for the full reasoning.
                 int fixedOpcode = fixClassToInterfaceOpcode(opcode, owner);
 
                 // For KNOWN_INTERFACES (classes that became interfaces like DataResult):
@@ -2410,13 +2321,13 @@ public class RetromodTransformer implements ClassFileTransformer {
         
         @Override
         public void visitVarInsn(int opcode, int varIndex) {
-            // Don't flush - ALOAD/ILOAD etc. are constructor arguments
+            // Don't flush; ALOAD/ILOAD etc. are constructor arguments
             super.visitVarInsn(opcode, varIndex);
         }
 
         @Override
         public void visitLdcInsn(Object value) {
-            // Don't flush - LDC is commonly a constructor argument
+            // Don't flush; LDC is commonly a constructor argument
             super.visitLdcInsn(value);
         }
 
@@ -2437,7 +2348,7 @@ public class RetromodTransformer implements ClassFileTransformer {
          */
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
-            // Don't flush - field accesses can be constructor arguments
+            // Don't flush; field accesses can be constructor arguments
             FieldKey key = new FieldKey(owner, name);
 
             // Removed static field -> accessor-call sequence (26.2 ColorCollection:
@@ -2514,7 +2425,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     super.visitFieldInsn(opcode, target.owner, target.name, newDescriptor);
                 }
             } else {
-                // No hardcoded field redirect - try fuzzy resolver as last resort.
+                // No hardcoded field redirect; try fuzzy resolver as last resort.
                 FuzzyMethodResolver resolver = fuzzyResolver;
                 if (resolver != null && resolver.isIndexed()) {
                     FuzzyMethodResolver.FieldInfo fuzzyMatch =
@@ -2530,14 +2441,14 @@ public class RetromodTransformer implements ClassFileTransformer {
                     }
                 }
 
-                // No redirect and no fuzzy match - pass through unchanged
+                // No redirect and no fuzzy match; pass through unchanged
                 super.visitFieldInsn(opcode, owner, name, descriptor);
             }
         }
     }
     
     // ═══════════════════════════════════════════════════════════════════════
-    // KEY/TARGET RECORDS - used as map keys and values for redirect lookups.
+    // KEY/TARGET RECORDS: used as map keys and values for redirect lookups.
     // Records give us free equals()/hashCode() which is critical for HashMap
     // performance since these are looked up on every method/field instruction.
     // ═══════════════════════════════════════════════════════════════════════

@@ -11,17 +11,14 @@ import org.objectweb.asm.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression for the {@code FMLEnvironment.dist} field → {@code getDist()} method rewrite
- * in the NeoForge 1.21.11→26.1 shim. 26.x removed the static {@code dist} field; the
- * ubiquitous client/server check {@code FMLEnvironment.dist} must become
- * {@code INVOKESTATIC FMLEnvironment.getDist()} or NeoForge/Forge mods NoSuchFieldError.
+ * 26.x dropped the static {@code FMLEnvironment.dist} field, so the shim must rewrite reads of it
+ * to {@code INVOKESTATIC FMLEnvironment.getDist()}.
  */
 class FmlEnvironmentDistTest {
 
     private static final String FML = "net/neoforged/fml/loading/FMLEnvironment";
     private static final String DIST = "Lnet/neoforged/api/distmarker/Dist;";
 
-    /** A method that reads {@code FMLEnvironment.dist} and returns it. */
     private static byte[] fixtureReadingDist() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "test/FmlUser", null, "java/lang/Object", null);
@@ -44,7 +41,7 @@ class FmlEnvironmentDistTest {
 
         byte[] out = t.transformClass(fixtureReadingDist(), "test/FmlUser");
 
-        boolean[] hit = {false, false}; // [0]=INVOKESTATIC getDist, [1]=leftover GETSTATIC dist
+        boolean[] hit = {false, false}; // [0] getDist call, [1] leftover dist field read
         new ClassReader(out).accept(new ClassVisitor(Opcodes.ASM9) {
             @Override public MethodVisitor visitMethod(int a, String n, String d, String s, String[] e) {
                 return new MethodVisitor(Opcodes.ASM9) {

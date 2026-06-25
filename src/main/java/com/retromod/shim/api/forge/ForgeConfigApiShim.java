@@ -1,8 +1,6 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux. Licensed under MIT License.
- * 
- * Forge Config API Compatibility Shim
  */
 package com.retromod.shim.api.forge;
 
@@ -13,15 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Forge Config API compatibility shim.
- * 
- * Handles changes in Forge's built-in configuration system.
- * Changes between Forge and NeoForge versions.
- * 
- * API changes:
- * - ForgeConfigSpec changes
- * - Config loading event changes
- * - Path handling changes
+ * Forge -> NeoForge config API migration (ForgeConfigSpec, ModConfig, config events).
  */
 public class ForgeConfigApiShim implements VersionShim {
 
@@ -49,18 +39,12 @@ public class ForgeConfigApiShim implements VersionShim {
     
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // All redirects below are Forge → NeoForge - only valid on NeoForge
-        // runtime. See sibling Forge*ApiShim files for the same pattern.
+        // redirect targets only exist on NeoForge
         if (!McReflect.isNeoForge()) {
             LOGGER.debug("Skipping Forge → NeoForge config API migration (runtime is not NeoForge)");
             return;
         }
 
-        // ============================================================
-        // FORGE -> NEOFORGE CONFIG CHANGES
-        // ============================================================
-        
-        // ForgeConfigSpec -> NeoForgeConfigSpec
         transformer.registerClassRedirect(
             "net/minecraftforge/common/ForgeConfigSpec",
             "net/neoforged/neoforge/common/ModConfigSpec"
@@ -101,10 +85,6 @@ public class ForgeConfigApiShim implements VersionShim {
             "net/neoforged/neoforge/common/ModConfigSpec$EnumValue"
         );
         
-        // ============================================================
-        // MOD CONFIG CHANGES
-        // ============================================================
-        
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/config/ModConfig",
             "net/neoforged/fml/config/ModConfig"
@@ -114,10 +94,6 @@ public class ForgeConfigApiShim implements VersionShim {
             "net/minecraftforge/fml/config/ModConfig$Type",
             "net/neoforged/fml/config/ModConfig$Type"
         );
-        
-        // ============================================================
-        // CONFIG LOADING EVENT CHANGES
-        // ============================================================
         
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/event/config/ModConfigEvent",
@@ -133,10 +109,6 @@ public class ForgeConfigApiShim implements VersionShim {
             "net/minecraftforge/fml/event/config/ModConfigEvent$Reloading",
             "net/neoforged/fml/event/config/ModConfigEvent$Reloading"
         );
-        
-        // ============================================================
-        // MOD LOADING CONTEXT CHANGES
-        // ============================================================
         
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/ModLoadingContext",

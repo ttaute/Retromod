@@ -1,12 +1,8 @@
 /*
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
- * 
- * Shim for Forge's Network system that bridges to NeoForge.
- * 
- * The networking API changed significantly:
- * - Forge used SimpleChannel with packet registration
- * - NeoForge uses PayloadChannel with codec-based registration
+ *
+ * Bridges Forge's SimpleChannel networking to NeoForge's codec-based PayloadRegistrar.
  */
 package com.retromod.shim.forge.embedded;
 
@@ -14,19 +10,14 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.*;
 
-/**
- * Shim for net.minecraftforge.network.NetworkRegistry and SimpleChannel
- * 
- * Bridges old Forge networking patterns to NeoForge's new system.
- */
+/** Shim for net.minecraftforge.network.NetworkRegistry and SimpleChannel. */
 public final class NetworkShim {
-    
+
     private static Class<?> payloadRegistrarClass;
     private static Class<?> simpleChannelClass;
     private static boolean isNeoForge = false;
     private static boolean initialized = false;
-    
-    // Track registered channels
+
     private static final Map<String, Object> registeredChannels = new HashMap<>();
     
     private NetworkShim() {}
@@ -36,15 +27,13 @@ public final class NetworkShim {
         initialized = true;
         
         try {
-            // Try NeoForge networking
             payloadRegistrarClass = Class.forName(
                 "net.neoforged.neoforge.network.registration.PayloadRegistrar"
             );
             isNeoForge = true;
-            
+
         } catch (ClassNotFoundException e) {
             try {
-                // Fall back to Forge SimpleChannel
                 simpleChannelClass = Class.forName(
                     "net.minecraftforge.network.simple.SimpleChannel"
                 );
@@ -54,31 +43,18 @@ public final class NetworkShim {
         }
     }
     
-    /**
-     * Create a new network channel.
-     * 
-     * Old Forge pattern:
-     *   NetworkRegistry.newSimpleChannel(
-     *     new ResourceLocation(MODID, "main"),
-     *     () -> PROTOCOL_VERSION,
-     *     PROTOCOL_VERSION::equals,
-     *     PROTOCOL_VERSION::equals
-     *   );
-     */
-    public static Object newSimpleChannel(Object resourceLocation, 
+    /** Mirrors NetworkRegistry.newSimpleChannel. */
+    public static Object newSimpleChannel(Object resourceLocation,
             Supplier<String> networkProtocolVersion,
             Predicate<String> clientAcceptedVersions,
             Predicate<String> serverAcceptedVersions) {
         
         initialize();
-        
+
         if (isNeoForge) {
-            // NeoForge uses a different registration pattern
-            // We create a wrapper that tracks packet registrations
             return new SimpleChannelWrapper(resourceLocation, networkProtocolVersion.get());
         }
-        
-        // Try old Forge
+
         if (simpleChannelClass != null) {
             try {
                 Class<?> registryClass = Class.forName(
@@ -91,10 +67,10 @@ public final class NetworkShim {
                     Predicate.class,
                     Predicate.class
                 );
-                
-                return newChannel.invoke(null, resourceLocation, 
+
+                return newChannel.invoke(null, resourceLocation,
                     networkProtocolVersion, clientAcceptedVersions, serverAcceptedVersions);
-                    
+
             } catch (Exception e) {
                 System.err.println("Retromod: Could not create SimpleChannel: " + e);
             }
@@ -103,10 +79,7 @@ public final class NetworkShim {
         return new SimpleChannelWrapper(resourceLocation, "1");
     }
     
-    /**
-     * Wrapper class that mimics SimpleChannel for NeoForge.
-     * Collects packet registrations and replays them during mod setup.
-     */
+    /** Collects packet registrations and replays them against PayloadRegistrar at mod setup. */
     public static class SimpleChannelWrapper {
         private final Object resourceLocation;
         private final String protocolVersion;
@@ -119,81 +92,58 @@ public final class NetworkShim {
             registeredChannels.put(resourceLocation.toString(), this);
         }
         
-        /**
-         * Register a packet.
-         * 
-         * Old pattern:
-         *   channel.registerMessage(id, MyPacket.class, MyPacket::encode, 
-         *       MyPacket::decode, MyPacket::handle);
-         */
+        /** Mirrors SimpleChannel.registerMessage. */
         public <T> void registerMessage(int id, Class<T> messageType,
                 BiConsumer<T, Object> encoder,
                 Function<Object, T> decoder,
                 BiConsumer<T, Object> messageConsumer) {
-            
+
             registrations.add(new PacketRegistration<>(
                 id, messageType, encoder, decoder, messageConsumer
             ));
         }
-        
-        /**
-         * Register a packet with automatic ID assignment.
-         */
+
         public <T> MessageBuilder<T> messageBuilder(Class<T> type, int id) {
             return new MessageBuilder<>(this, type, id);
         }
-        
-        /**
-         * Send a packet to the server.
-         */
+
         public void sendToServer(Object message) {
-            // NeoForge: PacketDistributor.sendToServer(payload)
             try {
                 Class<?> distributorClass = Class.forName(
                     "net.neoforged.neoforge.network.PacketDistributor"
                 );
                 
                 Method sendToServer = distributorClass.getMethod("sendToServer", Object.class);
-                
-                // Wrap the message as a payload
+
                 Object payload = wrapAsPayload(message);
                 sendToServer.invoke(null, payload);
-                
+
             } catch (Exception e) {
                 System.err.println("Retromod: Could not send to server: " + e);
             }
         }
-        
-        /**
-         * Send a packet to a specific player.
-         */
+
         public void send(Object target, Object message) {
             try {
                 Class<?> distributorClass = Class.forName(
                     "net.neoforged.neoforge.network.PacketDistributor"
                 );
-                
-                // Determine target type and get appropriate method
+
                 Object payload = wrapAsPayload(message);
-                
-                // PacketDistributor.sendToPlayer(player, payload)
-                Method sendToPlayer = distributorClass.getMethod("sendToPlayer", 
+
+                Method sendToPlayer = distributorClass.getMethod("sendToPlayer",
                     Class.forName("net.minecraft.server.level.ServerPlayer"),
                     Object.class
                 );
-                
+
                 sendToPlayer.invoke(null, target, payload);
-                
+
             } catch (Exception e) {
                 System.err.println("Retromod: Could not send packet: " + e);
             }
         }
-        
-        /**
-         * Wrap a Forge-style message as a NeoForge payload.
-         */
+
         private Object wrapAsPayload(Object message) {
-            // Create a wrapper payload that holds the original message
             return new PayloadWrapper(resourceLocation, message, this);
         }
         
@@ -206,9 +156,7 @@ public final class NetworkShim {
         }
     }
     
-    /**
-     * Message builder for fluent registration.
-     */
+    /** Fluent packet registration builder. */
     public static class MessageBuilder<T> {
         private final SimpleChannelWrapper channel;
         private final Class<T> type;
@@ -216,7 +164,7 @@ public final class NetworkShim {
         private BiConsumer<T, Object> encoder;
         private Function<Object, T> decoder;
         private BiConsumer<T, Object> consumer;
-        
+
         public MessageBuilder(SimpleChannelWrapper channel, Class<T> type, int id) {
             this.channel = channel;
             this.type = type;
@@ -243,9 +191,6 @@ public final class NetworkShim {
         }
     }
     
-    /**
-     * Record for storing packet registration info.
-     */
     public record PacketRegistration<T>(
         int id,
         Class<T> messageType,
@@ -254,9 +199,7 @@ public final class NetworkShim {
         BiConsumer<T, Object> consumer
     ) {}
     
-    /**
-     * Wrapper that holds a Forge-style message as a NeoForge payload.
-     */
+    /** Holds a Forge-style message as a NeoForge payload. */
     public static class PayloadWrapper {
         private final Object channelId;
         private final Object message;
@@ -271,19 +214,14 @@ public final class NetworkShim {
         public Object getChannelId() { return channelId; }
         public Object getMessage() { return message; }
         public SimpleChannelWrapper getChannel() { return channel; }
-        
-        /**
-         * Get the payload type ID (for NeoForge registration).
-         */
+
+        /** Payload type id for NeoForge registration. */
         public Object type() {
             return channelId;
         }
     }
-    
-    /**
-     * PacketDistributor compatibility.
-     * Provides target specifications for packet sending.
-     */
+
+    /** Target specifications for packet sending, matching Forge's PacketDistributor. */
     public static class PacketDistributor {
         
         public static Object PLAYER(Object player) {
@@ -297,15 +235,15 @@ public final class NetworkShim {
         public static Object SERVER() {
             return new PacketTarget("SERVER", null);
         }
-        
+
         public static Object TRACKING_ENTITY(Object entity) {
             return new PacketTarget("TRACKING_ENTITY", entity);
         }
-        
+
         public static Object TRACKING_CHUNK(Object chunk) {
             return new PacketTarget("TRACKING_CHUNK", chunk);
         }
-        
+
         public static Object NEAR(Object pos, double distance, Object dimension) {
             return new PacketTarget("NEAR", new Object[]{pos, distance, dimension});
         }
@@ -313,17 +251,11 @@ public final class NetworkShim {
         public record PacketTarget(String type, Object data) {}
     }
     
-    /**
-     * Get all registered channels (for debugging).
-     */
     public static Map<String, Object> getRegisteredChannels() {
         return Collections.unmodifiableMap(registeredChannels);
     }
-    
-    /**
-     * Replay registrations to NeoForge's PayloadRegistrar.
-     * Called during mod initialization.
-     */
+
+    /** Replays collected registrations against NeoForge's PayloadRegistrar at mod init. */
     public static void replayRegistrations(Object registrar) {
         for (Object channel : registeredChannels.values()) {
             if (channel instanceof SimpleChannelWrapper wrapper) {
@@ -334,18 +266,13 @@ public final class NetworkShim {
         }
     }
     
-    private static void registerWithNeoForge(Object registrar, 
+    private static void registerWithNeoForge(Object registrar,
             SimpleChannelWrapper channel, PacketRegistration<?> reg) {
-        
-        // NeoForge uses codec-based registration
-        // This is a simplified bridge - full implementation would create proper codecs
+        // a full bridge would build codecs and call registrar.playToServer/playToClient
         try {
-            // registrar.playToServer(type, codec, handler)
-            // or registrar.playToClient(type, codec, handler)
-            
-            System.out.println("Retromod: Would register packet " + reg.messageType().getSimpleName() 
+            System.out.println("Retromod: Would register packet " + reg.messageType().getSimpleName()
                 + " on channel " + channel.getResourceLocation());
-                
+
         } catch (Exception e) {
             System.err.println("Retromod: Could not replay registration: " + e);
         }

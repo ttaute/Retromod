@@ -57,7 +57,7 @@ public class RetromodScreen {
     }
 
     /**
-     * Open the Retromod manager - shows a file picker and transforms mods.
+     * Open the Retromod manager: shows a file picker and transforms mods.
      */
     public void open() {
         // Run file picker on background thread to avoid freezing Minecraft

@@ -16,16 +16,16 @@ import java.util.Set;
  *
  * <h3>What's inside</h3>
  * <ul>
- *   <li>{@code modOwnClasses} - classes defined by the mod. Patterns that want
+ *   <li>{@code modOwnClasses}: classes defined by the mod. Patterns that want
  *       to distinguish "mod code" from "MC or JDK code" query this. Never null.</li>
- *   <li>{@code loaderRenames} - the curated loader-API rename table. Patterns
+ *   <li>{@code loaderRenames}: the curated loader-API rename table. Patterns
  *       that look at annotations/types from Fabric/NeoForge/Forge consult this
  *       to recognize both old and renamed forms. Never null (empty when
  *       not configured).</li>
- *   <li>{@code mcIndex} - symbol index for the target MC JAR. Patterns that
+ *   <li>{@code mcIndex}: symbol index for the target MC JAR. Patterns that
  *       need to verify a referenced class actually exists in MC (e.g.,
  *       "does this class extend a real BlockEntity?") query this. May be
- *       in an unavailable state (see {@link McSymbolIndex#isAvailable()}) -
+ *       in an unavailable state (see {@link McSymbolIndex#isAvailable()}), so
  *       patterns must handle that gracefully.</li>
  * </ul>
  *
@@ -47,7 +47,7 @@ public record MatchContext(
     }
 
     /**
-     * Empty context - a context with no mod classes and no loader/MC data.
+     * Empty context: a context with no mod classes and no loader/MC data.
      * Useful for unit tests of patterns that don't care about any of those
      * signals.
      */

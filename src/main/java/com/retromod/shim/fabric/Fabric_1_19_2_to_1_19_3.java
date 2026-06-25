@@ -7,11 +7,7 @@ package com.retromod.shim.fabric;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Compatibility shim for Fabric mods built for 1.19.2 to run on 1.19.3.
- * Handles the major registry package move, creative tab API rework, screen rendering
- * changes with DrawContext introduction, and feature flag additions.
- */
+/** Fabric 1.19.2 to 1.19.3: registry package move, creative tab rework, DrawContext, feature flags. */
 public class Fabric_1_19_2_to_1_19_3 implements VersionShim {
 
     @Override public String getShimName() { return "Fabric 1.19.2 to 1.19.3"; }
@@ -45,7 +41,7 @@ public class Fabric_1_19_2_to_1_19_3 implements VersionShim {
             "com/retromod/shim/fabric/embedded/ItemGroupShim", "builder",
             "(Ljava/lang/Object;I)Ljava/lang/Object;"
         );
-        // Screen rendering changes - DrawContext introduced
+        // DrawContext replaced the MatrixStack arg
         transformer.registerMethodRedirect(
             "net/minecraft/client/gui/screen/Screen", "renderBackground",
             "(Lnet/minecraft/client/util/math/MatrixStack;)V",
@@ -58,12 +54,12 @@ public class Fabric_1_19_2_to_1_19_3 implements VersionShim {
             "net/minecraft/world/flag/FeatureFlags"
         );
 
-        // Widget renamed to Renderable (1.19.3 rendering interface rename)
+        // Widget renamed to Renderable
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/components/Widget",
             "net/minecraft/client/gui/components/Renderable"
         );
-        // Loot table class renames - split into sub-providers
+        // Loot table classes split into sub-providers
         transformer.registerClassRedirect(
             "net/minecraft/data/loot/BlockLoot",
             "net/minecraft/data/loot/BlockLootSubProvider"

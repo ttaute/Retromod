@@ -14,16 +14,8 @@ import java.util.jar.*;
 import java.util.regex.*;
 
 /**
- * Transforms Quilt mods to work on newer Minecraft versions.
- * 
- * Quilt is a fork of Fabric with high compatibility:
- * - Uses quilt.mod.json instead of fabric.mod.json
- * - Same bytecode format as Fabric
- * - Same Mixin system
- * - Most Fabric mods work on Quilt unchanged
- * 
- * This transformer reuses FabricModTransformer for bytecode,
- * but handles quilt.mod.json metadata separately.
+ * Transforms Quilt mods for newer Minecraft versions. Quilt shares Fabric's bytecode and Mixin
+ * system, so this reuses FabricModTransformer and only handles quilt.mod.json separately.
  */
 public class QuiltModTransformer {
     
@@ -37,9 +29,6 @@ public class QuiltModTransformer {
         this.fabricTransformer = new FabricModTransformer(targetMcVersion);
     }
     
-    /**
-     * Check if a JAR is a Quilt mod.
-     */
     public static boolean isQuiltMod(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             return jar.getEntry("quilt.mod.json") != null;
@@ -48,16 +37,12 @@ public class QuiltModTransformer {
         }
     }
     
-    /**
-     * Transform a Quilt mod JAR.
-     * Uses Fabric transformer for bytecode, then updates quilt.mod.json.
-     */
+    /** Runs the Fabric bytecode transform, then patches quilt.mod.json. */
     public Path transformMod(Path sourceJar, Path outputDir) throws IOException {
         String originalName = sourceJar.getFileName().toString();
-        
+
         LOGGER.info("Transforming Quilt mod: {}", originalName);
-        
-        // Check if native version
+
         String modMcVersion = extractMinecraftVersion(sourceJar);
         if (isNativeVersion(modMcVersion)) {
             LOGGER.info("  {} is already for {} - passing through", originalName, targetMcVersion);
@@ -65,33 +50,22 @@ public class QuiltModTransformer {
             Files.copy(sourceJar, directCopy, StandardCopyOption.REPLACE_EXISTING);
             return directCopy;
         }
-        
-        // Use Fabric transformer for the heavy lifting (bytecode transformation)
-        // Quilt and Fabric bytecode is identical
+
         Path transformed = fabricTransformer.transformMod(sourceJar, outputDir);
-        
+
         if (transformed != null && Files.exists(transformed)) {
-            // Now update quilt.mod.json in the transformed JAR
             updateQuiltModJson(transformed);
         }
-        
+
         return transformed;
     }
     
-    /**
-     * Update quilt.mod.json in a JAR to support target version.
-     */
     private void updateQuiltModJson(Path jarPath) {
         try {
-            // Read JAR, update quilt.mod.json, write back
             Path tempDir = Files.createTempDirectory("retromod-quilt-");
-            
-            // Extract.
-            // Use bounded extraction (ZipSecurity.copyBounded) rather than
-            // Files.copy(is, …): a Quilt mod JAR is user-supplied content,
-            // and an entry that lies about its declared size in the central
-            // directory could expand to gigabytes during Files.copy. Counting
-            // actual decompressed bytes catches that.
+
+            // Bounded extraction: a mod JAR is user content, and an entry can lie about its
+            // declared size, so count actual decompressed bytes to catch a zip bomb.
             long quiltTotalSize = 0;
             try (JarFile jar = new JarFile(jarPath.toFile())) {
                 var entries = jar.entries();
@@ -117,33 +91,23 @@ public class QuiltModTransformer {
                 }
             }
             
-            // Update quilt.mod.json
             Path quiltJson = tempDir.resolve("quilt.mod.json");
             if (Files.exists(quiltJson)) {
                 String content = Files.readString(quiltJson);
                 content = updateVersionInQuiltJson(content);
                 Files.writeString(quiltJson, content);
             }
-            
-            // Repack
+
             repackJar(tempDir, jarPath);
-            
-            // Cleanup
             deleteDirectory(tempDir);
-            
+
         } catch (Exception e) {
             LOGGER.debug("Could not update quilt.mod.json: {}", e.getMessage());
         }
     }
     
-    /**
-     * Update Minecraft version in quilt.mod.json content.
-     */
     private String updateVersionInQuiltJson(String content) {
-        // Quilt format: "minecraft": ">=1.20.1" or "minecraft": "1.20.1"
-        // Update to target version
-        
-        // Pattern for "minecraft": "version" or "minecraft": ">=version"
+        // Matches "minecraft": "1.20.1" or "minecraft": ">=1.20.1".
         Pattern p = Pattern.compile("(\"minecraft\"\\s*:\\s*\")([^\"]+)(\")");
         Matcher m = p.matcher(content);
         
@@ -157,9 +121,6 @@ public class QuiltModTransformer {
         return content;
     }
     
-    /**
-     * Extract Minecraft version from quilt.mod.json.
-     */
     private String extractMinecraftVersion(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             var entry = jar.getEntry("quilt.mod.json");
@@ -172,23 +133,18 @@ public class QuiltModTransformer {
                 }
             }
         } catch (Exception e) {
-            // Ignore
+            // ignore
         }
         return null;
     }
-    
-    /**
-     * Check if version is native (no transform needed).
-     */
+
+    /** True when the mod already targets the host version, so no transform is needed. */
     private boolean isNativeVersion(String version) {
         if (version == null) return false;
         String clean = version.replace(">=", "").replace("~", "").replace("^", "").trim();
         return clean.equals(targetMcVersion) || version.contains(targetMcVersion);
     }
     
-    /**
-     * Repack directory into JAR.
-     */
     private void repackJar(Path sourceDir, Path targetJar) throws IOException {
         Files.deleteIfExists(targetJar);
         
@@ -203,22 +159,19 @@ public class QuiltModTransformer {
                         Files.copy(path, jos);
                         jos.closeEntry();
                     } catch (Exception e) {
-                        // Ignore
+                        // ignore
                     }
                 });
             }
         }
     }
-    
-    /**
-     * Delete directory recursively.
-     */
+
     private void deleteDirectory(Path dir) {
         try (var stream = Files.walk(dir)) {
             stream.sorted((a, b) -> -a.compareTo(b))
                   .forEach(p -> { try { Files.delete(p); } catch (Exception e) {} });
         } catch (Exception e) {
-            // Ignore
+            // ignore
         }
     }
 }

@@ -69,7 +69,7 @@ public class ComponentBridgeShim {
                 }
             }
         } catch (Exception e) {
-            // Old system - components don't exist
+            // Old system: components don't exist
             useNewSystem = false;
         }
         
@@ -248,7 +248,7 @@ class WorldHeightShim {
             maxY = (int) getTopY.invoke(world);
             height = (int) getHeight.invoke(world);
         } catch (Exception e) {
-            // Old API - use defaults
+            // Old API: use defaults
             minY = 0;
             maxY = 256;
             height = 256;
@@ -284,7 +284,7 @@ class WorldHeightShim {
      */
     public static int convertYCoordinate(int oldY) {
         if (minY < 0) {
-            // New world - shift coordinates
+            // New world: shift coordinates
             return oldY + minY;
         }
         return oldY;
@@ -457,7 +457,7 @@ class TextShim {
             if (useNewApi) {
                 return literalMethod.invoke(null, text);
             } else {
-                // Old API - use LiteralText constructor
+                // Old API: use LiteralText constructor
                 Class<?> literalTextClass = Class.forName("net.minecraft.text.LiteralText");
                 return literalTextClass.getConstructor(String.class).newInstance(text);
             }
@@ -481,7 +481,7 @@ class TextShim {
                     return m.invoke(null, key, args);
                 }
             } else {
-                // Old API - use TranslatableText constructor
+                // Old API: use TranslatableText constructor
                 Class<?> translatableTextClass = Class.forName("net.minecraft.text.TranslatableText");
                 if (args.length == 0) {
                     return translatableTextClass.getConstructor(String.class).newInstance(key);

@@ -1,5 +1,5 @@
 /*
- * Retromod - Backwards Compatibility Layer for Minecraft Mods
+ * Retromod: Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  */
 package com.retromod.shim.forge;
@@ -7,11 +7,7 @@ package com.retromod.shim.forge;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.VersionShim;
 
-/**
- * Forge 1.18.1 to 1.18.2 shim - Minor feature registration changes.
- * PlacedFeature placement API was adjusted, changing the method
- * signature for the place() method.
- */
+/** Forge 1.18.1 to 1.18.2: PlacedFeature.place() signature changed. */
 public class Forge_1_18_1_to_1_18_2 implements VersionShim {
 
     @Override public String getShimName() { return "Forge 1.18.1 to 1.18.2"; }
@@ -21,7 +17,6 @@ public class Forge_1_18_1_to_1_18_2 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // PlacedFeature changes
         transformer.registerMethodRedirect(
             "net/minecraft/world/level/levelgen/placement/PlacedFeature", "place",
             "(Lnet/minecraft/world/level/WorldGenLevel;Lnet/minecraft/world/level/chunk/ChunkGenerator;Ljava/util/Random;Lnet/minecraft/core/BlockPos;)Z",
