@@ -34,7 +34,7 @@ public class AotCompiler {
     private static final String AOT_MANIFEST_KEY = "Retromod-AOT-Version";
 
     // bump when shims change
-    private static final String AOT_VERSION = "1.2.0-snapshot.4";
+    private static final String AOT_VERSION = "1.2.0-snapshot.5";
 
     // Self-hash of the running Retromod jar, stamped on every cache entry so any change to Retromod's
     // own classes invalidates stale caches (AOT_VERSION alone only catches version bumps). Empty hash

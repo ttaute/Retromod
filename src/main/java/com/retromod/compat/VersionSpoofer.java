@@ -25,29 +25,6 @@ import java.util.Optional;
 
 /**
  * Reports a faked dependency version to mods that do their own in-code version check.
- *
- * <p>Relaxing {@code "depends"} metadata stops Fabric Loader from blocking mods at
- * load time, but some mods (REI, old tech mods) also query the loader at init for an
- * installed dependency version and compare it against a hard-coded range. If the
- * installed version is newer than the range they pop a "your X is unsupported" error
- * and refuse to work. REI 14 on Cloth Config 15 reads
- * {@code getModContainer("cloth-config").get().getMetadata().getVersion().getFriendlyString()},
- * sees {@code "15.0.140"}, and bails.
- *
- * <p>The transformer redirects {@code FabricLoader.getModContainer(modId)} in
- * transformed mods to {@link #getModContainer(Object, String)}. Mods in the spoof
- * table get a {@link Proxy}-wrapped container whose version chain returns the spoofed
- * string; everything else, and every non-version accessor, passes through to the real
- * objects so authors/description/dependencies stay accurate.
- *
- * <p>The rules live in {@code /retromod/version-spoofs.json}, each spoofed version
- * picked to satisfy the widest practical range for that mod family (Cloth Config maps
- * to {@code "13.999.999"}, which clears REI 14's {@code ">=13.0.0 <14.0.0"} and most
- * other "cloth-config 13-something" checks).
- *
- * <p>Parameters are typed {@code Object} rather than the Fabric interfaces: Retromod
- * also runs in the CLI without Fabric Loader on the classpath, so the spoofer reaches
- * the Fabric types reflectively and no-ops when they are absent.
  */
 public final class VersionSpoofer {
 

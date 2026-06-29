@@ -91,7 +91,7 @@ public class OptiFineCompat {
         LOGGER.warn("═══════════════════════════════════════════════════════════");
         LOGGER.warn("  Version: {}", optiFineVersion);
         LOGGER.warn("");
-        LOGGER.warn("  ⚠️  OptiFine has LIMITED support in Retromod!");
+        LOGGER.warn("  ⚠️  OptiFine has LIMITED support in Retromod! And Has MUCH better alternative's");
         LOGGER.warn("");
         LOGGER.warn("  KNOWN ISSUES:");
         LOGGER.warn("  - May crash with other rendering mods");
@@ -110,12 +110,8 @@ public class OptiFineCompat {
             showOptiFineWarningDialog();
         }
     }
-    
-    /**
-     * Show the OptiFine warning dialog, blocking the calling (mod-transform) thread via
-     * invokeAndWait so a "Cancel" RuntimeException is thrown on that thread and reaches
-     * FabricModTransformer's cancelled-handler. Thrown on the EDT it would be swallowed by AWT.
-     */
+
+
     private static void showOptiFineWarningDialog() {
         if (GraphicsEnvironment.isHeadless()) {
             return;

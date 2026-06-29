@@ -23,35 +23,6 @@ import java.util.jar.Manifest;
 /**
  * Checks whether the running Retromod build still matches the published
  * release hash, that the bytecode hasn't changed since it was shipped.
- *
- * <h2>How it works</h2>
- * The build embeds a SHA-256 of Retromod's own compiled classes
- * ({@link #EXPECTED_SELF_HASH}). At startup this class re-hashes its own
- * bytecode and compares: a match reports {@link Status#VERIFIED} (the bytecode
- * is unchanged from the published release); a mismatch fires a fork notice in
- * the log.
- *
- * <h2>Why "verified" and not "official"</h2>
- * A match means the hash lines up, <b>not</b> that this is provably the genuine
- * official build. There is <b>no secret key</b>, so a determined attacker who
- * edits the bytecode can recompute the embedded hash (or strip this class) and
- * still show a match. We deliberately report {@link Status#VERIFIED} ("the hash
- * checks out") rather than claiming officialness the in-jar hash can't prove.
- * What it reliably catches is
- * <b>accidental corruption</b> (a truncated/garbled download) and
- * <b>casual modification</b> (a repack that didn't bother to update the hash):
- * for those, a build that <i>quietly</i> differs from official stands out.
- *
- * <p>For real verification, compare the JAR's SHA-256 against the value
- * <b>published on the official releases page</b> (Modrinth / GitHub show one for
- * every file). That reference lives out-of-band, where a tamperer can't change
- * it, which is the part an in-jar hash can't provide.
- *
- * <p>Verification never blocks: an unmodified, modified, or forked build all run
- * identically. The MIT license guarantees that. This is purely informational.
- *
- * <p>(Class name kept as {@code SignatureVerifier} for compatibility; it no
- * longer uses JAR signatures.)
  */
 public final class SignatureVerifier {
 
@@ -73,7 +44,7 @@ public final class SignatureVerifier {
      * This class is excluded from the hash, so re-embedding doesn't invalidate
      * it. See {@code docs/authenticity.md}.
      */
-    private static final String EXPECTED_SELF_HASH = "8430839C7371F8240051104F494A4A5596AEEF0D8E9D74B1EB077F9D61E515E1";
+    private static final String EXPECTED_SELF_HASH = "";
 
     /** This class's own jar entry, excluded from the hash (it carries the hash). */
     private static final String SELF_ENTRY = "com/retromod/security/SignatureVerifier.class";
