@@ -3,12 +3,11 @@
  * Copyright (c) 2026 Bownlux
  *
  * Pattern-based heuristics for resolving unknown API changes between MC versions.
- * Each rule encodes a documented, repeatable naming-convention shift observed
- * across version transitions.
+ * Each rule encodes a repeatable naming-convention shift seen across versions.
  *
  * Resolution order: shim redirect tables (exact match), then these patterns,
- * then FuzzyMethodResolver (similarity search). Patterns run before fuzzy
- * resolution because string comparisons are cheaper and deterministic.
+ * then FuzzyMethodResolver. Patterns run before fuzzy resolution because string
+ * comparisons are cheaper and deterministic.
  */
 package com.retromod.core;
 
@@ -22,13 +21,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Resolves method, class, and field references not covered by the shim redirect
  * tables, using known naming-pattern transformations.
  *
- * <p>Rules live in immutable arrays built at construction and are checked in
- * registration order; the first match wins. Each carries a confidence score
- * (0.0-1.0): roughly 0.95-0.99 for exact verified renames, 0.85-0.90 for broad
- * patterns with known exceptions, and 0.60-0.70 for heuristic guesses.</p>
+ * <p>Rules are checked in registration order; the first match wins. Each carries
+ * a confidence score (0.0-1.0): 0.95-0.99 for verified renames, 0.85-0.90 for
+ * broad patterns with known exceptions, 0.60-0.70 for heuristic guesses.</p>
  *
- * <p>Thread-safe: the rule arrays never change after construction, and match
- * counters are {@link AtomicInteger}s.</p>
+ * <p>Thread-safe: the rule arrays are fixed after construction and match counters
+ * are {@link AtomicInteger}s.</p>
  *
  * <p>Must not reference {@code Retromod} directly: the standalone CLI uses this
  * without Fabric on the classpath.</p>
@@ -56,16 +54,11 @@ public class PatternHeuristics {
         String explanation
     ) {}
 
-    // Arrays, not Lists: the rule set is fixed after construction.
     private final PatternRule[] methodRules;
     private final ClassPatternRule[] classRules;
     private final PatternRule[] fieldRules;
 
-    /**
-     * Renames GuiGraphics to GuiGraphicsExtractor without double-applying it: a
-     * plain replace would also match the prefix of an already-renamed
-     * GuiGraphicsExtractor and produce GuiGraphicsExtractorExtractor.
-     */
+    /** Renames GuiGraphics to GuiGraphicsExtractor, skipping already-renamed strings. */
     private static String renameGuiGraphics(String s) {
         if (s == null || !s.contains("GuiGraphics")) return s;
         if (s.contains("GuiGraphicsExtractor")) return s;
@@ -140,11 +133,11 @@ public class PatternHeuristics {
     }
 
     /**
-     * Try to resolve an unknown field reference using pattern heuristics.
+     * Resolves an unknown field reference using pattern heuristics.
      *
      * @param owner      the class containing the field (JVM internal name)
      * @param name       the field name
-     * @param descriptor the field descriptor (e.g., "J" for long)
+     * @param descriptor the field descriptor ("J" for long, etc.)
      * @return the pattern match result, or null if no pattern applies
      */
     public PatternResult resolveField(String owner, String name, String descriptor) {
@@ -195,8 +188,7 @@ public class PatternHeuristics {
             return null;
         });
 
-        // Generic render*() -> extract*() for GUI classes (tooltips, backgrounds,
-        // etc). Scoped to the gui/ hierarchy, so confidence is only 0.7.
+        // Generic render*() -> extract*() across the gui/ hierarchy (confidence 0.7).
         rules.add((owner, name, desc) -> {
             if (name.startsWith("render") && name.length() > 6
                 && Character.isUpperCase(name.charAt(6))
@@ -270,8 +262,8 @@ public class PatternHeuristics {
         });
 
         // displayClientMessage(Component, boolean) split into sendSystemMessage
-        // (chat) and sendOverlayMessage (action bar). Default to sendSystemMessage
-        // as the common case; 0.8 because the overlay case also exists.
+        // (chat) and sendOverlayMessage (action bar). Default to the common chat
+        // case; 0.8 since the overlay case also exists.
         rules.add((owner, name, desc) -> {
             if (name.equals("displayClientMessage") && owner.contains("player/Player")) {
                 return new PatternResult(owner, "sendSystemMessage",
@@ -312,7 +304,7 @@ public class PatternHeuristics {
         });
 
         // 26.1 turned some Blaze3D classes into records, so getX() becomes x().
-        // Catch-all for the Blaze3D package, so confidence is only 0.6.
+        // Catch-all for the Blaze3D package (confidence 0.6).
         rules.add((owner, name, desc) -> {
             if (name.startsWith("get") && name.length() > 3
                 && Character.isUpperCase(name.charAt(3))
@@ -415,8 +407,8 @@ public class PatternHeuristics {
             return null;
         });
 
-        // Generic World -> Level in Fabric API class names. Not all were renamed,
-        // so confidence is only 0.7.
+        // Generic World -> Level in Fabric API class names; not all were renamed
+        // (confidence 0.7).
         rules.add(className -> {
             if (className.contains("fabricmc/fabric/") && className.contains("World")
                 && !className.contains("Level")) {

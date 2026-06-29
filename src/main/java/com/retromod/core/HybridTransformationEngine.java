@@ -210,8 +210,8 @@ public class HybridTransformationEngine {
     private void scanModsFolder(Path modsFolder, String targetVersion) {
         if (!Files.exists(modsFolder)) return;
 
-        try {
-            Files.list(modsFolder)
+        try (var stream = Files.list(modsFolder)) {
+            stream
                 .filter(p -> p.toString().endsWith(".jar"))
                 .filter(p -> !p.getFileName().toString().contains("-retromod"))
                 .forEach(jarPath -> {
@@ -308,7 +308,10 @@ public class HybridTransformationEngine {
                 pendingAotClasses.add(className);
 
                 try {
-                    byte[] original = jar.getInputStream(entry).readAllBytes();
+                    byte[] original;
+                    try (var in = jar.getInputStream(entry)) {
+                        original = in.readAllBytes();
+                    }
                     byte[] transformed = jitTransformer.transformClass(original, className);
 
                     if (transformed != null) {

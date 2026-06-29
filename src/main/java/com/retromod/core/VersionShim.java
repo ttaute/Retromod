@@ -5,16 +5,13 @@
 package com.retromod.core;
 
 /**
- * Interface for version-specific compatibility shims.
- * 
- * Each implementation handles transformations for a specific version transition
- * (e.g., 1.21.9 -> 1.21.10).
- * 
- * Shims are discovered via ServiceLoader, so external shim packs can be added.
+ * A version-specific compatibility shim. Each implementation handles one version
+ * transition (1.21.9 to 1.21.10) and is discovered via ServiceLoader, so external
+ * shim packs can be added.
  *
- * <p><b>Public Addon API.</b> This is a stable extension point for third-party
- * addons (see {@code docs/addons.md}). Across the 1.x line new methods will be
- * added only as {@code default}s, so existing signatures won't break.
+ * <p><b>Public Addon API.</b> Stable extension point for third-party addons (see
+ * {@code docs/addons.md}). Across the 1.x line new methods are added only as
+ * {@code default}s, so existing signatures stay intact.
  */
 public interface VersionShim {
     
@@ -40,24 +37,23 @@ public interface VersionShim {
     
     /**
      * Register all method/field/class redirects for this version transition.
-     * 
+     *
      * @param transformer The transformer to register redirects with
      */
     void registerRedirects(RetromodTransformer transformer);
-    
+
     /**
-     * Get a list of classes that provide shim implementations.
-     * These are classes containing replacement code for removed methods.
-     * 
+     * Classes that provide replacement code for removed methods.
+     *
      * @return Array of fully qualified class names
      */
     default String[] getShimClasses() {
         return new String[0];
     }
-    
+
     /**
-     * Check if this shim applies to a given mod based on its metadata.
-     * 
+     * Whether this shim applies to a mod, based on its metadata.
+     *
      * @param modId The mod's ID
      * @param modVersion The mod's version
      * @param targetMcVersion The MC version the mod targets

@@ -295,7 +295,9 @@ public class ResourcePackTransformer {
             try (ZipFile zip = new ZipFile(packPath.toFile())) {
                 var entry = zip.getEntry("pack.mcmeta");
                 if (entry != null) {
-                    return new String(zip.getInputStream(entry).readAllBytes());
+                    try (InputStream is = zip.getInputStream(entry)) {
+                        return new String(is.readAllBytes());
+                    }
                 }
             }
         }

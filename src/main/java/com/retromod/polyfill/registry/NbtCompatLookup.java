@@ -13,36 +13,27 @@ import java.util.Optional;
 /**
  * Polyfill for the MC 1.21.5+ NBT getter signature change.
  *
- * <p>In older MC, {@code CompoundTag.getString(String key)} returned
- * {@code String} directly (defaulting to empty string on miss). In MC
- * 1.21.5+ that signature is gone. The same method now returns
- * {@code Optional<String>}, and to get the underlying primitive you call
- * {@code .orElse("")}. {@code getInt}, {@code getDouble}, etc. follow the
- * same pattern. {@code ListTag.getString(int)} got the same treatment.
+ * <p>Before 1.21.5 {@code CompoundTag.getString(String)} returned {@code String}
+ * directly (empty string on miss); 1.21.5+ returns {@code Optional<String>}.
+ * {@code getInt}, {@code getDouble}, and {@code ListTag.getString(int)} changed
+ * the same way. Mods built against the old shape hit {@code NoSuchMethodError}.
  *
- * <p>Mods compiled against the old shape do
- * {@code INVOKEVIRTUAL CompoundTag.getString(String)String} and crash
- * with {@code NoSuchMethodError} at runtime on the new MC.
- *
- * <p>Fix: route those calls through the static helpers below. Each helper
- * takes the receiver as its first argument (since the call shape becomes
- * {@code INVOKESTATIC} via {@code devirtualize=true}), looks up the
- * runtime method via reflection on whichever signature is actually
- * present, and unwraps the {@code Optional} when needed. Default-on-miss
- * matches the legacy behavior: empty string, zero, false.
+ * <p>Each helper takes the receiver as its first argument (the call is
+ * devirtualized to {@code INVOKESTATIC}), resolves whichever signature the
+ * runtime has via reflection, and unwraps the {@code Optional} when present.
+ * Default-on-miss matches legacy behavior: empty string, zero, false.
  */
 public final class NbtCompatLookup {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-NbtCompat");
 
-    /** Resolved methods cached after first lookup, keyed by reflective method ID. */
+    /** Resolved methods cached after first lookup. */
     private static final java.util.concurrent.ConcurrentHashMap<String, Method> METHOD_CACHE =
             new java.util.concurrent.ConcurrentHashMap<>();
 
     private NbtCompatLookup() {}
 
-    // CompoundTag: replaces the legacy direct-return getters with helpers
-    // that adapt to the new Optional-returning signatures.
+    // CompoundTag getters
 
     public static String compoundGetString(Object compound, String key) {
         Object v = unwrap(invokeGetter(compound, "getString", String.class, key));
@@ -74,7 +65,7 @@ public final class NbtCompatLookup {
         return v instanceof Boolean b && b;
     }
 
-    // ListTag: same pattern, but the key is an int index.
+    // ListTag getters, keyed by int index
 
     public static String listGetString(Object list, int index) {
         Object v = unwrap(invokeIndexedGetter(list, "getString", String.class, index));
@@ -86,11 +77,7 @@ public final class NbtCompatLookup {
         return v instanceof Number n ? n.intValue() : 0;
     }
 
-    /**
-     * If the runtime returned an {@code Optional}, unwrap it; otherwise pass
-     * through. Matches both the modern Optional-returning signature and the
-     * legacy direct-returning one in a single helper.
-     */
+    /** Unwrap an {@code Optional} result, or pass through a direct one. */
     private static Object unwrap(Object result) {
         if (result == null) return null;
         if (result instanceof Optional<?> opt) {
@@ -99,18 +86,12 @@ public final class NbtCompatLookup {
         return result;
     }
 
-    // INTERNALS
-
-    /**
-     * Try the modern Optional-returning signature first, then the legacy
-     * direct-returning one. Whichever resolves at runtime wins.
-     */
+    /** Try the modern Optional-returning signature first, then the legacy direct one. */
     private static Object invokeGetter(Object receiver, String methodName,
                                        Class<?> legacyReturn, String key) {
         if (receiver == null) return null;
         Class<?> cls = receiver.getClass();
 
-        // Modern: returns Optional<X>
         Method modern = resolveCachedMethod(cls, methodName, String.class, Optional.class);
         if (modern != null) {
             try {
@@ -120,7 +101,6 @@ public final class NbtCompatLookup {
             }
         }
 
-        // Legacy: returns the primitive/String directly
         Method legacy = resolveCachedMethod(cls, methodName, String.class, legacyReturn);
         if (legacy != null) {
             try {
@@ -158,11 +138,9 @@ public final class NbtCompatLookup {
     }
 
     /**
-     * Look up a method by (class, name, paramType, returnType). Cached.
-     * Walks the class hierarchy and only matches methods whose return type
-     * is exactly {@code returnType}. That lets us pick between the
-     * modern Optional-returning and legacy direct-returning overloads
-     * deterministically.
+     * Look up and cache a method by (class, name, paramType, returnType), walking
+     * the class hierarchy. Matching on return type picks between the Optional and
+     * direct overloads deterministically.
      */
     private static Method resolveCachedMethod(Class<?> cls, String name,
                                               Class<?> paramType, Class<?> returnType) {

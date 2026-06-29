@@ -8,19 +8,10 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
- * Polyfill for network/packet API class renames across major MC versions.
- *
- * Covers two major refactoring waves:
- * 1. The Flattening (1.13): PacketBuffer → FriendlyByteBuf, all packet classes
- *    moved from net.minecraft.network.play.{client,server} to
- *    net.minecraft.network.protocol.game with Serverbound/Clientbound naming.
- * 2. 1.17+ packet splits: Some compound packets (e.g., SPacketWorldBorder) were
- *    split into multiple specialized packets. For these, we redirect to the
- *    most commonly used successor.
- *
- * Note: SPacketWorldBorder was split into multiple packets in 1.17
- * (ClientboundSetBorderSizePacket, ClientboundSetBorderCenterPacket, etc.).
- * We redirect to ClientboundInitializeBorderPacket as the closest general equivalent.
+ * Redirects network/packet API class renames across major MC versions: the 1.13 Flattening
+ * (PacketBuffer to FriendlyByteBuf, play.client/server packets to protocol.game with
+ * Serverbound/Clientbound naming) and 1.17+ packet splits, where a compound packet is
+ * pointed at its closest successor.
  */
 public class NetworkPolyfill implements PolyfillProvider {
 
@@ -39,11 +30,9 @@ public class NetworkPolyfill implements PolyfillProvider {
         return new String[]{
             "net/minecraft/network/PacketBuffer",
 
-            // Client → Server packets
             "net/minecraft/network/play/client/CPacketPlayer",
             "net/minecraft/network/play/client/CPacketChatMessage",
 
-            // Server → Client packets
             "net/minecraft/network/play/server/SPacketChat",
             "net/minecraft/network/play/server/SPacketSpawnObject",
             "net/minecraft/network/play/server/SPacketEntityMetadata",
@@ -59,20 +48,15 @@ public class NetworkPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // Pure class redirects, no stub implementations needed.
-        // All old packet classes map directly to modern Mojang-named equivalents.
+        // pure class redirects, no stubs
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // Core networking
-
         transformer.registerClassRedirect(
             "net/minecraft/network/PacketBuffer",
             "net/minecraft/network/FriendlyByteBuf");
-
-        // Client → Server packets (CPacket* → Serverbound*Packet)
 
         transformer.registerClassRedirect(
             "net/minecraft/network/play/client/CPacketPlayer",
@@ -80,8 +64,6 @@ public class NetworkPolyfill implements PolyfillProvider {
         transformer.registerClassRedirect(
             "net/minecraft/network/play/client/CPacketChatMessage",
             "net/minecraft/network/protocol/game/ServerboundChatPacket");
-
-        // Server → Client packets (SPacket* → Clientbound*Packet)
 
         transformer.registerClassRedirect(
             "net/minecraft/network/play/server/SPacketChat",
@@ -111,11 +93,7 @@ public class NetworkPolyfill implements PolyfillProvider {
             "net/minecraft/network/play/server/SPacketPlayerAbilities",
             "net/minecraft/network/protocol/game/ClientboundPlayerAbilitiesPacket");
 
-        // SPacketWorldBorder was split into multiple packets in 1.17:
-        // ClientboundSetBorderSizePacket, ClientboundSetBorderCenterPacket,
-        // ClientboundSetBorderLerpSizePacket, ClientboundSetBorderWarningDistancePacket,
-        // ClientboundSetBorderWarningDelayPacket, ClientboundInitializeBorderPacket.
-        // Redirect to InitializeBorder as the closest general-purpose equivalent.
+        // SPacketWorldBorder split into several packets in 1.17; InitializeBorder is the closest catch-all
         transformer.registerClassRedirect(
             "net/minecraft/network/play/server/SPacketWorldBorder",
             "net/minecraft/network/protocol/game/ClientboundInitializeBorderPacket");

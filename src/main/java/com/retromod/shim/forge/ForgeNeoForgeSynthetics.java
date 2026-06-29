@@ -20,7 +20,7 @@ import static org.objectweb.asm.Opcodes.*;
  * ASM bridges for classes NeoForge deleted that 1.20.1-1.21.x Forge/NeoForge mods still
  * reference (#85). Each is registered with {@link RetromodTransformer#registerSyntheticClass} and
  * embedded per-mod, under a unique {@code com/retromod/embedded/<mod>/} package, by
- * {@link com.retromod.core.SyntheticEmbedder} (split-package-safe; CLAUDE.md #13).
+ * {@link com.retromod.core.SyntheticEmbedder}.
  *
  * <ul>
  *   <li>FMLJavaModLoadingContext: {@code get().getModEventBus()} bridges to
@@ -28,20 +28,19 @@ import static org.objectweb.asm.Opcodes.*;
  *   <li>DeferredSpawnEggItem: 26.2's {@code SpawnEggItem} takes only {@code Item.Properties}
  *       (entity type moved to a data component). The bridge's old
  *       {@code (Supplier,int,int,Item.Properties)} ctor sets the type via
- *       {@code Item.Properties.spawnEgg(EntityType)} (supplier resolved in a try/catch so
- *       registration ordering can't crash construct) then calls super.</li>
- *   <li>IForgeRegistry: empty marker interface for the rarer cases where the type lingers as a
- *       standalone reference (a method parameter, a field declaration). The common uses are
- *       re-pointed by {@link com.retromod.shim.api.forge.ForgeRegistryApiShim}; it carries no
- *       members, so invoking IForgeRegistry methods through such a variable is out of v1 scope.</li>
+ *       {@code Item.Properties.spawnEgg(EntityType)} (supplier resolved in a try/catch) then
+ *       calls super.</li>
+ *   <li>IForgeRegistry: empty marker interface for references that linger as a standalone type
+ *       (method parameter, field declaration). Common uses are re-pointed by
+ *       {@link com.retromod.shim.api.forge.ForgeRegistryApiShim}; it carries no members.</li>
  *   <li>DistExecutor: all-static helper for client/server-split execution. Each method delegates
  *       to {@code FMLEnvironment.getDist()} and runs the action only on a matching dist; the
  *       {@code safe*} variants' serializable SAMs are companion marker interfaces. The migration
- *       shim package-renames {@code Dist} to NeoForge's before this applies.</li>
+ *       shim renames {@code Dist} to NeoForge's before this applies.</li>
  * </ul>
  *
- * <p>Each synthetic is registered only when its original class is absent on the host; otherwise
- * embedding the bridge would shadow the real one.
+ * <p>Each synthetic is registered only when its original class is absent on the host, to avoid
+ * shadowing the real one.
  */
 public final class ForgeNeoForgeSynthetics {
 
@@ -96,7 +95,7 @@ public final class ForgeNeoForgeSynthetics {
     }
 
     private static void registerIfAbsent(RetromodTransformer t, String internalName, Supplier<byte[]> gen) {
-        if (classExists(internalName)) return; // original still present, don't shadow it
+        if (classExists(internalName)) return; // don't shadow the real class
         try {
             t.registerSyntheticClass(internalName, gen.get());
             LOGGER.info("Registered synthetic bridge for deleted class {}", internalName);
@@ -218,8 +217,7 @@ public final class ForgeNeoForgeSynthetics {
         return cw.toByteArray();
     }
 
-    // Marker interface (Forge's IForgeRegistry was an interface; a mod may implement it or use it
-    // as a generic bound). No members: it only needs to exist for type resolution.
+    // Empty interface so IForgeRegistry resolves as a type (implements/generic bound).
     static byte[] generateIForgeRegistry() {
         ClassWriter cw = newWriter();
         cw.visit(V17, ACC_PUBLIC | ACC_ABSTRACT | ACC_INTERFACE, IFORGE_REGISTRY, null,
@@ -228,9 +226,9 @@ public final class ForgeNeoForgeSynthetics {
         return cw.toByteArray();
     }
 
-    // Nine methods reduce to three bodies: run* (Supplier<Runnable>), call* (Supplier<Callable>),
-    // and *ForDist (pick the client/server Supplier<Supplier>). The safe* variants take serializable
-    // SAMs that extend the plain JDK type, so each cast is identical and shares the body.
+    // Nine methods, three bodies: run* (Supplier<Runnable>), call* (Supplier<Callable>),
+    // *ForDist (pick the client/server Supplier<Supplier>). The safe* variants' SAMs extend the
+    // plain JDK type, so they share the same cast and body.
     static byte[] generateDistExecutor() {
         ClassWriter cw = newWriter();
         cw.visit(V17, ACC_PUBLIC | ACC_FINAL, DIST_EXECUTOR, null, "java/lang/Object", null);

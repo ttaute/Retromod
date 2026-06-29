@@ -9,15 +9,16 @@ import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 
 /**
- * Limited OptiFine support: detect it, warn about known conflicts (Sodium/Iris/Indium and
- * other rendering mods), and point users at alternatives. OptiFine is closed source and heavily
- * rewrites rendering bytecode, so we don't attempt a real translation.
+ * Limited OptiFine support: detect it, warn about conflicts (Sodium/Iris/Indium and other
+ * rendering mods), and point users at alternatives. OptiFine is closed source and rewrites
+ * rendering bytecode, so we don't translate it.
  */
 public class OptiFineCompat {
     
@@ -26,9 +27,7 @@ public class OptiFineCompat {
     private static boolean optiFineDetected = false;
     private static String optiFineVersion = null;
     
-    /**
-     * Check if a JAR is OptiFine.
-     */
+    /** Check if a JAR is OptiFine. */
     public static boolean isOptiFine(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             ZipEntry entry = jar.getEntry("optifine/OptiFineTransformationService.class");
@@ -52,17 +51,17 @@ public class OptiFineCompat {
         return false;
     }
     
-    /**
-     * Get OptiFine version from JAR.
-     */
+    /** Get OptiFine version from JAR. */
     public static String getOptiFineVersion(Path jarPath) {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             ZipEntry entry = jar.getEntry("changelog.txt");
             if (entry != null) {
-                String content = new String(jar.getInputStream(entry).readAllBytes());
-                String firstLine = content.split("\n")[0];
-                if (firstLine.contains("OptiFine")) {
-                    return firstLine.trim();
+                try (InputStream in = jar.getInputStream(entry)) {
+                    String content = new String(in.readAllBytes());
+                    String firstLine = content.split("\n")[0];
+                    if (firstLine.contains("OptiFine")) {
+                        return firstLine.trim();
+                    }
                 }
             }
 
@@ -79,9 +78,7 @@ public class OptiFineCompat {
         return "Unknown";
     }
     
-    /**
-     * Warn about OptiFine and offer alternatives once it's been detected.
-     */
+    /** Warn about OptiFine and offer alternatives once it's been detected. */
     public static void handleOptiFineDetected(Path jarPath, boolean isServer) {
         optiFineDetected = true;
         optiFineVersion = getOptiFineVersion(jarPath);
@@ -209,9 +206,7 @@ public class OptiFineCompat {
         "phosphor"
     };
     
-    /**
-     * Check if a mod ID conflicts with OptiFine.
-     */
+    /** Check if a mod ID conflicts with OptiFine. */
     public static boolean conflictsWithOptiFine(String modId) {
         if (!optiFineDetected) return false;
 

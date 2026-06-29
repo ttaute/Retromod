@@ -22,10 +22,8 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for the {@link ClassShapeMatcher} + the three bundled patterns.
- *
- * <p>Each test builds a small synthetic class via ASM that embodies (or
- * violates) one of the patterns, and verifies the matcher flags it correctly.</p>
+ * Tests for {@link ClassShapeMatcher} and the bundled patterns. Each test builds a
+ * synthetic class via ASM that fits (or violates) one pattern and checks the result.
  */
 class ClassShapeMatcherTest {
 
@@ -95,7 +93,7 @@ class ClassShapeMatcherTest {
         assertEquals(1, matches.size());
         PatternMatch match = matches.get(0);
         assertEquals("BlockEntityLike", match.patternName());
-        // Parent name contains "BlockEntity" → high-confidence tier (0.9)
+        // parent name contains "BlockEntity", so high-confidence tier (0.9)
         assertEquals(0.9, match.confidence(), 0.001);
         assertEquals(true, match.metadata().get("hasNbtRead"));
         assertEquals(true, match.metadata().get("hasNbtWrite"));
@@ -105,7 +103,7 @@ class ClassShapeMatcherTest {
     @Test
     @DisplayName("MC/JDK classes are never matched (modOwnClasses filter)")
     void scopeFilterRejectsMcClasses() {
-        // Same shape as the Forge event listener, but the class isn't in modOwnClasses
+        // same shape as the Forge listener, but the class isn't in modOwnClasses
         byte[] cls = classWithSubscribeEventMethod(
                 "net/minecraft/server/Main",
                 "net/minecraftforge/eventbus/api/SubscribeEvent",
@@ -127,14 +125,14 @@ class ClassShapeMatcherTest {
                 "(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;");
 
         List<PatternMatch> matches = matcher.matchAll(cls, ctxFor("com/example/mod/SomeHelper"));
-        // May be multiple patterns matching; we're looking for the specific one here
+        // several patterns may match; pull out the one we care about
         PatternMatch fingerprint = matches.stream()
                 .filter(m -> m.patternName().equals("ApiUsageFingerprint"))
                 .findFirst()
                 .orElse(null);
         assertNotNull(fingerprint, "ApiUsageFingerprint should have matched");
         assertEquals(0.6, fingerprint.confidence(), 0.001);
-        // At least some MC refs counted (method owner + parameter types all count)
+        // method owner and parameter types all count as MC refs
         int total = (int) fingerprint.metadata().get("totalMcRefs");
         assertTrue(total >= 1, "Should have counted at least one MC ref, got " + total);
     }
@@ -171,10 +169,6 @@ class ClassShapeMatcherTest {
                 ctxFor("com/example/mod/Empty"));
         assertTrue(matches.isEmpty());
     }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // HELPERS
-    // ═══════════════════════════════════════════════════════════════════════
 
     private static MatchContext ctxFor(String modClass) {
         return new MatchContext(

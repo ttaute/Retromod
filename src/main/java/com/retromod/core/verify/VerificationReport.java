@@ -16,23 +16,13 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Aggregated result of verifying every transformed class in a single mod.
- * Holds the list of {@link UnresolvedReference}s the verifier found, plus
- * summary counts, and knows how to render itself for both human-readable
- * (console / log file) and machine-readable output.
+ * Aggregated result of verifying every transformed class in a single mod: the
+ * {@link UnresolvedReference}s found plus summary counts, with rendering for
+ * both human-readable and machine-readable output.
  *
- * <h3>Lifecycle</h3>
- * <p>A fresh report is created per mod at the start of transformation.
- * {@link #add(UnresolvedReference)} is called for every miss found. At the end
- * of the mod, the report is rendered (to logs, to disk) and optionally merged
- * into a {@link CrossModGapReport} for cross-mod aggregation.</p>
- *
- * <h3>Thread safety</h3>
- * <p>Not thread-safe. Callers must ensure single-threaded writes per report
- * instance, or externally synchronize. In the typical CLI batch flow,
- * transformation of a mod's classes is sequential, so this is not an issue.
- * For parallel transformation (if added later), each thread should use its
- * own report and merge at the end.</p>
+ * <p>One report per mod, created at the start of transformation.
+ * {@link #add(UnresolvedReference)} is called for every miss, then the report
+ * is rendered and optionally merged into a {@link CrossModGapReport}.</p>
  */
 public final class VerificationReport {
 
@@ -45,24 +35,17 @@ public final class VerificationReport {
     private final List<UnresolvedReference> missingFields = new ArrayList<>();
     private final List<UnresolvedReference> badSignatures = new ArrayList<>();
 
-    /**
-     * Pattern matches accumulated during verification. Keyed by pattern name
-     * so the report can group matches by pattern type. Insertion-ordered so
-     * patterns are emitted in the order they first matched.
-     */
+    /** Pattern matches keyed by pattern name, insertion-ordered so output groups by pattern type. */
     private final Map<String, List<PatternMatch>> patternMatches = new LinkedHashMap<>();
 
-    /**
-     * Count of bridge methods synthesized for this mod (for the summary line).
-     * Incremented by callers; zero if bridge synthesis is disabled.
-     */
+    /** Bridge methods synthesized for this mod; zero if bridge synthesis is disabled. */
     private int bridgesSynthesized = 0;
 
     /**
      * @param modId            the mod's identifier (from {@code fabric.mod.json}
-     *                         or {@code mods.toml}); used in report headers
+     *                         or {@code mods.toml})
      * @param targetMcVersion  the MC version we verified against
-     * @param classesScanned   how many mod classes were scanned (for the header line)
+     * @param classesScanned   how many mod classes were scanned
      */
     public VerificationReport(String modId, String targetMcVersion, int classesScanned) {
         this.modId = Objects.requireNonNullElse(modId, "<unknown-mod>");
@@ -74,14 +57,7 @@ public final class VerificationReport {
     public String targetMcVersion() { return targetMcVersion; }
     public int classesScanned() { return classesScanned; }
 
-    /**
-     * Add an unresolved reference to the report, bucketed by {@link UnresolvedReference.Kind}.
-     *
-     * <p>Thread-safe via per-report synchronization: concurrent calls from
-     * multiple worker threads during parallel verification won't corrupt the
-     * bucket lists. Callers never read from the lists while add() can be in
-     * flight (results are read only after {@code matchAllClasses} completes).</p>
-     */
+    /** Add an unresolved reference, bucketed by {@link UnresolvedReference.Kind}. Synchronized for parallel verification. */
     public synchronized void add(UnresolvedReference ref) {
         if (ref == null) return;
         switch (ref.kind()) {
@@ -97,28 +73,13 @@ public final class VerificationReport {
     public List<UnresolvedReference> missingFields() { return Collections.unmodifiableList(missingFields); }
     public List<UnresolvedReference> badSignatures() { return Collections.unmodifiableList(badSignatures); }
 
-    /**
-     * Add a pattern match to the report. Matches are grouped by
-     * {@link PatternMatch#patternName()} so the output is sectioned by
-     * pattern type.
-     *
-     * <p>Thread-safe via per-report synchronization (see
-     * {@link #add(UnresolvedReference)} for the rationale).</p>
-     */
+    /** Add a pattern match, grouped by {@link PatternMatch#patternName()} so output is sectioned by pattern type. */
     public synchronized void addPatternMatch(PatternMatch match) {
         if (match == null) return;
         patternMatches.computeIfAbsent(match.patternName(), k -> new ArrayList<>()).add(match);
     }
 
-    /**
-     * Unmodifiable view of pattern matches grouped by pattern name.
-     *
-     * <p>Reads the {@code patternMatches} map under the report monitor (the
-     * same lock {@link #addPatternMatch} writes under) to establish a
-     * happens-before relationship between concurrent writers and this reader.
-     * Without this, a reader could observe a partially published map in the
-     * JMM.</p>
-     */
+    /** Unmodifiable view of pattern matches grouped by pattern name. */
     public synchronized Map<String, List<PatternMatch>> patternMatches() {
         Map<String, List<PatternMatch>> copy = new LinkedHashMap<>();
         for (var e : patternMatches.entrySet()) {
@@ -176,13 +137,8 @@ public final class VerificationReport {
     }
 
     /**
-     * Render the full report to a text form. Suitable for writing to
-     * {@code config/retromod/reports/<modid>-gaps.txt} or printing at WARN
-     * level when there are unresolved refs.
-     *
-     * <p>The output is stable (same input produces same bytes), so it can
-     * be diffed across runs to see whether new gaps appeared after a Retromod
-     * update.</p>
+     * Render the full report as text, for {@code config/retromod/reports/<modid>-gaps.txt}
+     * or WARN-level logging. Output is stable across runs so it can be diffed.
      */
     public void writeTo(Appendable out) throws IOException {
         out.append("=== Retromod verification - ").append(modId).append(" ===\n");
@@ -210,19 +166,13 @@ public final class VerificationReport {
         }
     }
 
-    /**
-     * Write the pattern-matches section. One subsection per pattern type,
-     * sorted by insertion order (which matches pattern-library order, i.e.,
-     * most-confident patterns first).
-     */
+    /** One subsection per pattern type, in insertion order (most-confident patterns first). */
     private void writePatternMatches(Appendable out) throws IOException {
         if (patternMatches.isEmpty()) return;
 
         out.append("PATTERN MATCHES (").append(Integer.toString(totalPatternMatches())).append("):\n");
         for (Map.Entry<String, List<PatternMatch>> entry : patternMatches.entrySet()) {
-            List<PatternMatch> matches = entry.getValue();
-            // Stable per-pattern ordering by class name for diffability
-            List<PatternMatch> sorted = new ArrayList<>(matches);
+            List<PatternMatch> sorted = new ArrayList<>(entry.getValue());
             sorted.sort(Comparator.comparing(PatternMatch::className));
             out.append("  ")
                .append(entry.getKey())

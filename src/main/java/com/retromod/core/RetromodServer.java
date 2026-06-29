@@ -57,8 +57,8 @@ public class RetromodServer implements DedicatedServerModInitializer {
             LOGGER.warn("Could not initialize hybrid engine: {}", e.getMessage());
         }
 
-        try {
-            long modCount = java.nio.file.Files.list(modsFolder)
+        try (java.util.stream.Stream<Path> s = java.nio.file.Files.list(modsFolder)) {
+            long modCount = s
                 .filter(p -> p.toString().endsWith(".jar"))
                 .count();
             LOGGER.info("Found {} mod JARs in mods folder", modCount);

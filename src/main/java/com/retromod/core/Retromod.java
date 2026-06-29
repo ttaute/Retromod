@@ -44,7 +44,7 @@ public class Retromod implements ModInitializer {
                 RetromodVersion.TARGET_MC_VERSION = mcVersion;
             }
         } catch (Exception e) {
-            // Not Fabric; try NeoForge via reflection
+            // not Fabric; try NeoForge via reflection
             try {
                 Class<?> fmlLoader = Class.forName("net.neoforged.fml.loading.FMLLoader");
                 Object versionInfo = fmlLoader.getMethod("versionInfo").invoke(null);
@@ -54,7 +54,7 @@ public class Retromod implements ModInitializer {
                     RetromodVersion.TARGET_MC_VERSION = mcVersion;
                 }
             } catch (Exception e2) {
-                // Not NeoForge; try Forge via reflection
+                // not NeoForge; try Forge via reflection
                 try {
                     Class<?> mcpVersion = Class.forName("net.minecraftforge.versions.mcp.MCPVersion");
                     String mcVersion = (String) mcpVersion.getMethod("getMCVersion").invoke(null);
@@ -93,7 +93,7 @@ public class Retromod implements ModInitializer {
 
     private boolean useAotCompilation = true;
     private boolean transformMixins = true;
-    private boolean passNativeModsThrough = true; // pass mods already on the current version through untouched
+    private boolean passNativeModsThrough = true; // mods already on the current version pass through untouched
     private boolean polyfillsEnabled = true;
 
     public static final String[] SUPPORTED_TARGET_VERSIONS = {
@@ -130,7 +130,7 @@ public class Retromod implements ModInitializer {
             gameDir = Path.of(".");
         }
 
-        // Each component is isolated so one failure doesn't crash the mod.
+        // each component is isolated so one failure doesn't crash the mod
         try {
             com.retromod.legacy.LegacyVersionSupport legacySupport =
                 new com.retromod.legacy.LegacyVersionSupport();
@@ -184,9 +184,8 @@ public class Retromod implements ModInitializer {
             LOGGER.warn("Could not register polyfills", e);
         }
 
-        // Forge SRG -> Mojang member names. Mainly for Forge runtimes, but
-        // loaded everywhere so the dictionary is there however the bytecode
-        // arrived (e.g. a Forge SRG mod fed through Fabric's loader).
+        // Forge SRG -> Mojang member names. Loaded everywhere, not just Forge
+        // runtimes, so the dictionary covers a Forge SRG mod fed through Fabric.
         try {
             int srgEntries = com.retromod.mapping.SrgToMojangMapper.getInstance()
                     .applyTo(RetromodTransformer.getInstance());
@@ -198,9 +197,8 @@ public class Retromod implements ModInitializer {
         }
 
         // Apply fixes the AutoFixEngine persisted from a prior launch, before
-        // transformation. Gated on the -Dretromod.autoFix opt-in so turning
-        // AutoFix off also stops reloading config/retromod/auto-fixes.json
-        // (a mod could otherwise leave poisoned redirects persisted).
+        // transformation. Gated on -Dretromod.autoFix so disabling AutoFix also
+        // stops reloading auto-fixes.json (a mod could leave poisoned redirects).
         boolean autoFixEnabled = Boolean.parseBoolean(
                 System.getProperty("retromod.autoFix", "false"));
         if (autoFixEnabled) {
@@ -241,7 +239,7 @@ public class Retromod implements ModInitializer {
         try {
             com.retromod.shim.fabric.embedded.HudRenderCallbackShim.bridgeToNewApi();
         } catch (Throwable e) {
-            // Throwable: IdentifierShim can throw ExceptionInInitializerError.
+            // Throwable: IdentifierShim can throw ExceptionInInitializerError
             LOGGER.warn("Could not bridge HUD callbacks: {}", e.getMessage());
         }
 
@@ -254,12 +252,11 @@ public class Retromod implements ModInitializer {
         }
 
         // Scan the previous launch's latest.log for known crash patterns and
-        // register redirects so the next retransformation picks them up.
-        // Opt-in (autoFixEnabled, resolved above): latest.log is mod-writable,
-        // so a crafted log line could register attacker-chosen redirects. They
-        // are constrained to real MC methods (fuzzy resolver needs a >=85 match
-        // against the indexed JAR), so not RCE, but one mod could mis-route
-        // another's rewrites. Each redirect is logged at WARN.
+        // register redirects so the next retransformation picks them up. Opt-in:
+        // latest.log is mod-writable, so a crafted line could register chosen
+        // redirects. They're constrained to real MC methods (fuzzy resolver needs
+        // a >=85 match against the indexed JAR), so not RCE, but one mod could
+        // mis-route another's rewrites. Each redirect is logged at WARN.
         if (autoFixEnabled) {
             try {
                 Path logFile = gameDir.resolve("logs/latest.log");
@@ -290,8 +287,7 @@ public class Retromod implements ModInitializer {
                 RetromodTransformer.getInstance().getClassRedirectCount());
     }
 
-    // Log-only; we don't pop an in-game screen (Fabric's screen API churns
-    // across versions). The log already prints the transformed-mod list.
+    // Log-only; no in-game screen (Fabric's screen API churns across versions).
     private void scheduleRestartScreen() {
         List<String> mods = RetromodPreLaunch.getTransformedMods();
         if (!mods.isEmpty()) {
@@ -376,12 +372,12 @@ public class Retromod implements ModInitializer {
             return true;
         }
 
-        // A range that spans the current version.
+        // a range that spans the current version
         if (modMinecraftVersion.contains(TARGET_MC_VERSION)) {
             return true;
         }
 
-        // Wildcards like "1.21.x" / "1.21.*".
+        // wildcards like "1.21.x" / "1.21.*"
         if (cleanVersion.endsWith(".x") || cleanVersion.endsWith(".*")) {
             String base = cleanVersion.substring(0, cleanVersion.length() - 2);
             if (TARGET_MC_VERSION.startsWith(base)) {
@@ -394,8 +390,7 @@ public class Retromod implements ModInitializer {
 
     /**
      * Loads config from JSON, generating the default if absent. Delegates to
-     * {@link RetromodConfig} so every loader entry point writes the same
-     * default (#74).
+     * {@link RetromodConfig} so every loader entry point writes the same default.
      */
     private void loadConfig() {
         var config = RetromodConfig.loadOrNull();
@@ -462,7 +457,7 @@ public class Retromod implements ModInitializer {
             String fileName = modFile.getFileName().toString();
             Path backupPath = BACKUP_FOLDER.resolve(fileName);
 
-            // Timestamp the name if a backup already exists.
+            // timestamp the name if a backup already exists
             if (java.nio.file.Files.exists(backupPath)) {
                 String timestamp = java.time.LocalDateTime.now()
                     .format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
@@ -485,8 +480,8 @@ public class Retromod implements ModInitializer {
     public boolean restoreMod(String modName) {
         try {
             Path backupPath = BACKUP_FOLDER.resolve(modName);
-            // Prefer the Fabric game dir over CWD (Retromod may run from a
-            // different working directory, e.g. CLI mode).
+            // prefer the Fabric game dir over CWD (Retromod may run from a
+            // different working directory, e.g. CLI mode)
             Path modsFolder;
             try {
                 modsFolder = net.fabricmc.loader.api.FabricLoader.getInstance()
@@ -503,14 +498,15 @@ public class Retromod implements ModInitializer {
 
             java.nio.file.Files.deleteIfExists(targetPath);
 
-            // Drop any -retromod variant too.
+            // drop any -retromod variant too
             String baseName = modName.substring(0, modName.lastIndexOf('.'));
-            java.nio.file.Files.list(modsFolder)
-                .filter(p -> p.getFileName().toString().startsWith(baseName + "-retromod"))
-                .forEach(p -> {
-                    try { java.nio.file.Files.delete(p); }
-                    catch (Exception e) { /* ignore */ }
-                });
+            try (var stream = java.nio.file.Files.list(modsFolder)) {
+                stream.filter(p -> p.getFileName().toString().startsWith(baseName + "-retromod"))
+                    .forEach(p -> {
+                        try { java.nio.file.Files.delete(p); }
+                        catch (Exception e) { /* ignore */ }
+                    });
+            }
 
             java.nio.file.Files.copy(backupPath, targetPath);
             LOGGER.info("Restored {} from backup", modName);
@@ -533,7 +529,7 @@ public class Retromod implements ModInitializer {
 
         int loaded = 0;
         int skippedNonFabric = 0;
-        // Iterate defensively: lite builds exclude some shim classes.
+        // iterate defensively: lite builds exclude some shim classes
         java.util.Iterator<VersionShim> it = shims.iterator();
         while (it.hasNext()) {
             VersionShim shim;
@@ -565,7 +561,7 @@ public class Retromod implements ModInitializer {
     private void registerBuiltInShims() {
         RetromodTransformer transformer = RetromodTransformer.getInstance();
 
-        // Worked examples of the two redirect shapes (rename vs. removed-to-shim).
+        // examples of the two redirect shapes (rename vs. removed-to-shim)
         transformer.registerMethodRedirect(
             "net/minecraft/entity/Entity", "getWorld", "()Lnet/minecraft/world/World;",
             "net/minecraft/entity/Entity", "getEntityWorld", "()Lnet/minecraft/world/World;"
@@ -583,7 +579,7 @@ public class Retromod implements ModInitializer {
             "(Ljava/lang/String;)Ljava/util/Optional;"
         );
 
-        // OpenGL -> Vulkan / Metal.
+        // OpenGL -> Vulkan / Metal
         try {
             com.retromod.shim.api.fabric.RenderingBackendShim renderShim =
                 new com.retromod.shim.api.fabric.RenderingBackendShim();

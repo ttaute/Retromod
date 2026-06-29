@@ -13,25 +13,19 @@ import java.lang.reflect.Proxy;
 import java.util.function.Consumer;
 
 /**
- * Universal title screen button injector that works across ALL mod loaders.
+ * Adds a "Retromod" button to the title screen across all mod loaders.
  *
- * Detects the running loader at runtime and uses the appropriate event system:
- *   - Fabric:   ScreenEvents.AFTER_INIT  (Fabric API)
- *   - NeoForge: NeoForge.EVENT_BUS       (ScreenEvent.Init.Post)
- *   - Forge:    MinecraftForge.EVENT_BUS  (ScreenEvent.Init.Post)
- *
- * All API calls are done via reflection so Retromod compiles without
- * compile-time dependencies on any loader-specific event classes.
- *
- * When the title screen opens, this injector adds a small "Retromod" button
- * that opens the Retromod mod manager (file picker + transformation).
+ * Detects the running loader and uses its event system (Fabric ScreenEvents.AFTER_INIT,
+ * NeoForge/Forge EVENT_BUS + ScreenEvent.Init.Post). All API calls go through reflection
+ * so Retromod compiles without loader-specific event classes on the classpath. The button
+ * opens the Retromod mod manager (file picker + transformation).
  */
 public final class TitleScreenButtonInjector {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-TitleButton");
     private static boolean registered = false;
 
-    // Resolved MC classes (cached after first successful lookup)
+    // cached after first successful lookup
     private static Class<?> titleScreenClass;
     private static Class<?> screenClass;
     private static Class<?> textClass;
@@ -40,14 +34,12 @@ public final class TitleScreenButtonInjector {
     private TitleScreenButtonInjector() {}
 
     /**
-     * Register the title screen button injector.
-     * Auto-detects the mod loader and uses the appropriate event system.
-     * Safe to call multiple times; only registers once.
+     * Registers the title screen button injector. Auto-detects the mod loader and uses its
+     * event system. Idempotent: only registers once.
      */
     public static synchronized void register() {
         if (registered) return;
 
-        // Pre-resolve MC classes we'll need for button injection
         if (!resolveMcClasses()) {
             LOGGER.warn("Could not resolve Minecraft GUI classes - title screen button unavailable");
             return;
@@ -55,7 +47,6 @@ public final class TitleScreenButtonInjector {
 
         boolean success = false;
 
-        // Try each loader's event system
         if (McReflect.isFabric()) {
             success = tryFabricScreenEvents();
         }
@@ -76,33 +67,27 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // MC Class Resolution
-
     /**
-     * Pre-resolve the Minecraft classes needed for button creation.
-     * Uses McReflect to handle yarn/mojang/intermediary name differences.
+     * Resolves the Minecraft classes needed for button creation, handling
+     * yarn/mojang/intermediary name differences via McReflect.
      */
     private static boolean resolveMcClasses() {
         try {
-            // TitleScreen
             titleScreenClass = McReflect.findClass(
                 "net.minecraft.client.gui.screen.TitleScreen",   // yarn
                 "net.minecraft.client.gui.screens.TitleScreen"   // mojang
             );
 
-            // Screen (parent class)
             screenClass = McReflect.findClass(
                 "net.minecraft.client.gui.screen.Screen",   // yarn
                 "net.minecraft.client.gui.screens.Screen"   // mojang
             );
 
-            // Text / Component (for button label)
             textClass = McReflect.findClass(
                 "net.minecraft.text.Text",                    // yarn
                 "net.minecraft.network.chat.Component"        // mojang
             );
 
-            // ButtonWidget / Button
             buttonWidgetClass = McReflect.findClass(
                 "net.minecraft.client.gui.widget.ButtonWidget",  // yarn
                 "net.minecraft.client.gui.components.Button"     // mojang
@@ -117,16 +102,9 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // Fabric: ScreenEvents.AFTER_INIT
-
     /**
-     * Register via Fabric API's ScreenEvents.AFTER_INIT.
-     *
-     * Fabric API class names (net.fabricmc.fabric.api.*) are NOT obfuscated,
-     * so plain Class.forName works in both dev and production.
-     *
-     * Callback signature:
-     *   void afterInit(MinecraftClient client, Screen screen, int scaledWidth, int scaledHeight)
+     * Registers via Fabric API's ScreenEvents.AFTER_INIT. Fabric API class names
+     * (net.fabricmc.fabric.api.*) are not obfuscated, so Class.forName works in dev and prod.
      */
     private static boolean tryFabricScreenEvents() {
         try {
@@ -134,17 +112,14 @@ public final class TitleScreenButtonInjector {
                 "net.fabricmc.fabric.api.client.screen.v1.ScreenEvents");
             Object afterInitEvent = screenEventsClass.getField("AFTER_INIT").get(null);
 
-            // Find the AfterInit callback interface
             Class<?> afterInitInterface = Class.forName(
                 "net.fabricmc.fabric.api.client.screen.v1.ScreenEvents$AfterInit");
 
-            // Create a proxy that implements AfterInit
             Object proxy = Proxy.newProxyInstance(
                 afterInitInterface.getClassLoader(),
                 new Class<?>[]{afterInitInterface},
                 (proxyObj, method, args) -> {
-                    // AfterInit has one functional method with 4 params:
-                    // (MinecraftClient client, Screen screen, int scaledWidth, int scaledHeight)
+                    // afterInit(client, screen, scaledWidth, scaledHeight)
                     if (method.getParameterCount() == 4 && args != null) {
                         Object screen = args[1];
                         if (titleScreenClass.isInstance(screen)) {
@@ -156,38 +131,23 @@ public final class TitleScreenButtonInjector {
                 }
             );
 
-            // Register: AFTER_INIT.register(proxy)
-            //
-            // IMPORTANT: on Fabric Loader 0.18.4 + Java 25, resolving this
-            // method via afterInitEvent.getClass() lands on the CONCRETE class
-            // ArrayBackedEvent, which lives in the non-exported impl package
-            // net.fabricmc.fabric.impl.base.event. Java 25's strict module
-            // access blocks reflective invocation on members of that class
-            // even though the method itself is public (setAccessible can't
-            // override module boundaries). We saw this as:
-            //   "class ... cannot access a member of class
-            //    net.fabricmc.fabric.impl.base.event.ArrayBackedEvent
-            //    with modifiers 'public'"
-            //
-            // Fix: resolve `register` on the EXPORTED API superclass
-            // net.fabricmc.fabric.api.event.Event instead. Reflection then
-            // binds the Method to the public-module declaring class, and
-            // invoke() dispatches virtually to ArrayBackedEvent's impl at
-            // runtime, exactly how normal Java calls work. No module-boundary
-            // violation because we never reference the impl class directly.
+            // Resolve register() on the exported API superclass Event, not the concrete
+            // ArrayBackedEvent: the latter is in a non-exported impl package and Java 25's
+            // module access blocks reflective invoke on it. invoke() still dispatches
+            // virtually to the impl at runtime.
             Class<?> eventApiClass;
             try {
                 eventApiClass = Class.forName("net.fabricmc.fabric.api.event.Event");
             } catch (ClassNotFoundException notFound) {
-                // Older Fabric API? Fall back to the concrete-class search.
+                // older Fabric API: fall back to the concrete class
                 eventApiClass = afterInitEvent.getClass();
             }
             Method registerMethod = null;
             try {
-                // Erasure: Event<T>.register(T) -> register(Object) in bytecode.
+                // erasure: Event<T>.register(T) -> register(Object)
                 registerMethod = eventApiClass.getMethod("register", Object.class);
             } catch (NoSuchMethodException noSuch) {
-                // Very old Fabric API? Walk methods by name/arity as a last resort.
+                // very old Fabric API: walk methods by name/arity
                 for (Method m : eventApiClass.getMethods()) {
                     if ("register".equals(m.getName()) && m.getParameterCount() == 1) {
                         registerMethod = m;
@@ -213,37 +173,28 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // NeoForge: NeoForge.EVENT_BUS + ScreenEvent.Init.Post
-
     /**
-     * Register via NeoForge's event bus.
-     *
-     * Uses: NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false,
-     *           ScreenEvent.Init.Post.class, consumer)
+     * Registers via NeoForge's event bus:
+     * NeoForge.EVENT_BUS.addListener(EventPriority.NORMAL, false, ScreenEvent.Init.Post.class, consumer)
      */
     private static boolean tryNeoForgeEvents() {
         try {
-            // Get NeoForge.EVENT_BUS
             Class<?> neoForgeClass = Class.forName("net.neoforged.neoforge.common.NeoForge");
             Object eventBus = neoForgeClass.getField("EVENT_BUS").get(null);
 
-            // Get ScreenEvent.Init.Post class
             Class<?> screenEventClass = Class.forName(
                 "net.neoforged.neoforge.client.event.ScreenEvent$Init$Post");
 
-            // Get EventPriority.NORMAL
             Class<?> priorityClass = Class.forName("net.neoforged.bus.api.EventPriority");
             Object normalPriority = priorityClass.getField("NORMAL").get(null);
 
-            // Create a Consumer proxy
             Consumer<Object> consumer = event -> handleForgeScreenEvent(event);
 
-            // Call: eventBus.addListener(NORMAL, false, screenEventClass, consumer)
             Method addListener = findAddListenerMethod(eventBus.getClass(), priorityClass);
             if (addListener != null) {
                 addListener.invoke(eventBus, normalPriority, false, screenEventClass, consumer);
             } else {
-                // Fallback: try simpler addListener(Class, Consumer) overload
+                // fall back to the simpler addListener(Class, Consumer) overload
                 Method simpleAdd = eventBus.getClass().getMethod("addListener", Class.class, Consumer.class);
                 simpleAdd.invoke(eventBus, screenEventClass, consumer);
             }
@@ -260,18 +211,15 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // Forge: MinecraftForge.EVENT_BUS + ScreenEvent.Init.Post
-
     /**
-     * Register via Forge's event bus (legacy Forge, pre-NeoForge).
+     * Registers via Forge's event bus (legacy Forge, pre-NeoForge).
      */
     private static boolean tryForgeEvents() {
         try {
-            // Get MinecraftForge.EVENT_BUS
             Class<?> forgeClass = Class.forName("net.minecraftforge.common.MinecraftForge");
             Object eventBus = forgeClass.getField("EVENT_BUS").get(null);
 
-            // Try different event class names (changed across Forge versions)
+            // event class name changed across Forge versions
             Class<?> screenEventClass = null;
             String[] eventClassNames = {
                 "net.minecraftforge.client.event.ScreenEvent$Init$Post",
@@ -289,14 +237,11 @@ public final class TitleScreenButtonInjector {
                 return false;
             }
 
-            // Get EventPriority.NORMAL
             Class<?> priorityClass = Class.forName("net.minecraftforge.eventbus.api.EventPriority");
             Object normalPriority = priorityClass.getField("NORMAL").get(null);
 
-            // Create a Consumer proxy
             Consumer<Object> consumer = event -> handleForgeScreenEvent(event);
 
-            // Call: eventBus.addListener(NORMAL, false, screenEventClass, consumer)
             Method addListener = findAddListenerMethod(eventBus.getClass(), priorityClass);
             if (addListener != null) {
                 addListener.invoke(eventBus, normalPriority, false, screenEventClass, consumer);
@@ -317,11 +262,8 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // Shared Event Handler (NeoForge / Forge)
-
     /**
-     * Handle a Forge/NeoForge ScreenEvent.Init.Post event.
-     * Both loaders use the same event structure: event.getScreen() returns the Screen.
+     * Handles a Forge/NeoForge ScreenEvent.Init.Post; both loaders expose event.getScreen().
      */
     private static void handleForgeScreenEvent(Object event) {
         try {
@@ -337,29 +279,20 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // Button Injection (shared across all loaders)
-
     /**
-     * Add the Retromod button to the title screen.
-     *
-     * Uses McReflect to resolve MC class/method names across all loaders.
-     * The button opens the Retromod mod manager (file picker + transformation).
+     * Adds the Retromod button to the title screen, resolving MC class/method names
+     * across loaders via McReflect. The button opens the Retromod mod manager.
      */
     private static void addRetromodButton(Object screen) {
         try {
-            // Get screen dimensions
             int width = McReflect.getIntField(screen, screenClass, 854, "width");
 
-            // Position: top-right corner, 80x20, out of the way of vanilla
-            // title-screen buttons and language selector. Two-pixel margin so
-            // it doesn't touch the screen edge.
+            // top-right corner, 80x20, with a 2px margin off the edge
             int buttonX = width - 82;
             int buttonY = 2;
 
-            // Press-action proxy: opens the Retromod settings/file-picker
-            // screen. We use ConfigScreenFactory because it stays on the
-            // render thread (no AWT FileDialog → no platform issues), and it
-            // includes a button to open the input folder for adding mods.
+            // press-action proxy opening the file-picker screen via ConfigScreenFactory:
+            // it stays on the render thread (no AWT FileDialog) and exposes the input folder
             Class<?> pressActionClass = findPressActionClass();
             if (pressActionClass == null) {
                 LOGGER.debug("Could not find PressAction / OnPress class");
@@ -370,9 +303,7 @@ public final class TitleScreenButtonInjector {
                 new Class<?>[]{pressActionClass},
                 (proxy, method, args) -> {
                     if (method.getDeclaringClass() != Object.class) {
-                        // INFO so it shows in default logs, easy to confirm
-                        // the click actually fired. If this line is missing
-                        // when the user clicks, the click never reached us.
+                        // INFO so a click is visible in default logs
                         LOGGER.info("[Retromod] Title-screen button clicked");
                         try {
                             MainScreenFactory.open(screen);
@@ -386,21 +317,16 @@ public final class TitleScreenButtonInjector {
                 }
             );
 
-            // Plain ButtonWidget with a wide text label. This is the most
-            // reliable path: SpriteIconButton requires the GUI sprite atlas
-            // to register our texture, which can fail silently and leave
-            // an invisible/non-clickable button. Text button always works.
+            // plain text button: SpriteIconButton needs the GUI sprite atlas to register
+            // our texture, which can fail silently and leave an invisible button
             Object button = buildPlainTextButton(buttonX, buttonY, pressAction, pressActionClass);
             if (button == null) {
                 LOGGER.warn("[Retromod] Could not build title-screen button (button==null)");
                 return;
             }
 
-            // Add button to screen:
-            // yarn: screen.addDrawableChild(element) / mojang: screen.addRenderableWidget(widget)
-            // We try addRenderableWidget FIRST because that's the one that
-            // also wires up event handling (clicks). addDrawableChild on
-            // some versions only wires rendering, not events.
+            // try addRenderableWidget (mojang) first since it also wires click handling;
+            // addDrawableChild (yarn) wires only rendering on some versions
             Method addMethod = McReflect.findMethod(screenClass,
                 "addRenderableWidget", "addDrawableChild", "addWidget");
             if (addMethod != null) {
@@ -418,10 +344,8 @@ public final class TitleScreenButtonInjector {
     }
 
     /**
-     * Build a wide ButtonWidget with the text "Retromod". This is the
-     * known-working fallback. It uses the same Button.builder() API that
-     * vanilla MC uses for its own buttons, so click events are wired
-     * correctly by the framework.
+     * Builds a wide ButtonWidget labeled "Retromod" via the same Button.builder() API
+     * vanilla uses, so click events are wired by the framework.
      */
     private static Object buildPlainTextButton(int x, int y, Object pressAction,
                                                  Class<?> pressActionClass) {
@@ -442,7 +366,7 @@ public final class TitleScreenButtonInjector {
             }
             Object b = builder.invoke(null, text, pressAction);
 
-            // Width 80 fits "Retromod" comfortably; height 20 is standard.
+            // width 80 fits "Retromod", height 20 is standard
             Method dim = McReflect.findMethod(b.getClass(),
                 new Class[]{int.class, int.class, int.class, int.class},
                 "dimensions", "bounds", "pos");
@@ -457,18 +381,15 @@ public final class TitleScreenButtonInjector {
     }
 
     /**
-     * Build a 20x20 logo button. Tries SpriteIconButton (icon-only API) first;
-     * if that fails or the API doesn't exist on this MC version, falls back
-     * to a regular small text button labeled "R".
+     * Builds a 20x20 logo button, trying SpriteIconButton first and falling back to a small
+     * text button labeled "R" if that API is unavailable on this MC version.
      */
     private static Object buildLogoButton(int x, int y, Object pressAction,
                                            Class<?> pressActionClass) {
-        // Attempt 1: SpriteIconButton.builder(message, onPress, narrate)
-        //                          .width(20).sprite(spriteId, w, h).build()
         Object iconBtn = trySpriteIconButton(x, y, pressAction, pressActionClass);
         if (iconBtn != null) return iconBtn;
 
-        // Fallback: regular ButtonWidget with a single character "R"
+        // fall back to a regular ButtonWidget labeled "R"
         try {
             Method literal = McReflect.findMethod(textClass,
                 new Class[]{String.class}, "literal");
@@ -494,8 +415,7 @@ public final class TitleScreenButtonInjector {
     }
 
     /**
-     * Try to construct an icon-only button using MC's SpriteIconButton API.
-     * Returns null if the API isn't available; caller falls back to a text button.
+     * Builds an icon-only button via MC's SpriteIconButton API, or null if it's unavailable.
      */
     private static Object trySpriteIconButton(int x, int y, Object pressAction,
                                                 Class<?> pressActionClass) {
@@ -512,9 +432,7 @@ public final class TitleScreenButtonInjector {
             );
             if (identifierClass == null) return null;
 
-            // Build a ResourceLocation/Identifier "retromod:retromod_logo"
-            // Newer MC: ResourceLocation.fromNamespaceAndPath(ns, path)
-            // Older MC: new ResourceLocation(ns, path)
+            // build "retromod:retromod_logo": newer MC has fromNamespaceAndPath, older has the ctor
             Object spriteId = null;
             try {
                 Method fromNs = identifierClass.getMethod("fromNamespaceAndPath",
@@ -530,8 +448,6 @@ public final class TitleScreenButtonInjector {
             }
             if (spriteId == null) return null;
 
-            // SpriteIconButton.builder(message, onPress, narrate) → builder
-            //   .width(20).sprite(id, 20, 20).build()
             Method literal = McReflect.findMethod(textClass,
                 new Class[]{String.class}, "literal");
             if (literal == null) return null;
@@ -548,24 +464,21 @@ public final class TitleScreenButtonInjector {
                 ? builderMethod.invoke(null, message, pressAction, true)
                 : builderMethod.invoke(null, message, pressAction);
 
-            // .width(20)
             Method widthMethod = McReflect.findMethod(builder.getClass(),
                 new Class[]{int.class}, "width");
             if (widthMethod != null) builder = widthMethod.invoke(builder, 20);
 
-            // .sprite(id, 20, 20)
             Method spriteMethod = McReflect.findMethod(builder.getClass(),
                 new Class[]{identifierClass, int.class, int.class}, "sprite");
             if (spriteMethod != null) {
                 builder = spriteMethod.invoke(builder, spriteId, 20, 20);
             }
 
-            // .build()
             Method build = McReflect.findMethod(builder.getClass(), "build");
             Object btn = build != null ? build.invoke(builder) : null;
             if (btn == null) return null;
 
-            // Position the button (SpriteIconButton.builder doesn't set position)
+            // builder doesn't set position
             Method setX = McReflect.findMethod(btn.getClass(), new Class[]{int.class}, "setX");
             Method setY = McReflect.findMethod(btn.getClass(), new Class[]{int.class}, "setY");
             if (setX != null) setX.invoke(btn, x);
@@ -579,8 +492,7 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // (Old helper kept around but unused; settings now reached via the
-    // Retromod logo button itself.)
+    // unused: settings are now reached via the Retromod logo button itself
     @SuppressWarnings("unused")
     private static void addSettingsButton(Object screen, int x, int y,
             Class<?> pressActionClass, Method literalMethod,
@@ -624,14 +536,13 @@ public final class TitleScreenButtonInjector {
     }
 
     /**
-     * Open the Retromod mod manager when the button is clicked.
+     * Opens the Retromod mod manager when the button is clicked.
      */
     private static void openRetromodManager(Object screen) {
         try {
-            // Get MinecraftClient/Minecraft instance from the screen
             Object client = McReflect.getField(screen, screenClass, "client", "minecraft");
             if (client == null) {
-                // Fallback: try static getInstance()
+                // fall back to static getInstance()
                 Class<?> mcClass = McReflect.findClass(
                     "net.minecraft.client.MinecraftClient",  // yarn
                     "net.minecraft.client.Minecraft"         // mojang
@@ -649,7 +560,6 @@ public final class TitleScreenButtonInjector {
                 return;
             }
 
-            // Create and open RetromodScreen
             RetromodScreen retroScreen = new RetromodScreen(client, screen);
             retroScreen.open();
 
@@ -658,24 +568,20 @@ public final class TitleScreenButtonInjector {
         }
     }
 
-    // Helpers
-
     /**
-     * Find the PressAction / OnPress inner class of ButtonWidget / Button.
+     * Finds the PressAction / OnPress inner class of ButtonWidget / Button.
      */
     private static Class<?> findPressActionClass() {
-        // Try yarn name
         Class<?> c = McReflect.findClass(
             "net.minecraft.client.gui.widget.ButtonWidget$PressAction",  // yarn
             "net.minecraft.client.gui.components.Button$OnPress"         // mojang
         );
         if (c != null) return c;
 
-        // Fallback: search inner classes of ButtonWidget
+        // fall back to the single-method inner interface of ButtonWidget
         if (buttonWidgetClass != null) {
             for (Class<?> inner : buttonWidgetClass.getDeclaredClasses()) {
                 if (inner.isInterface() && inner.getDeclaredMethods().length == 1) {
-                    // Single abstract method interface, likely the press action
                     return inner;
                 }
             }
@@ -684,8 +590,7 @@ public final class TitleScreenButtonInjector {
     }
 
     /**
-     * Find the addListener method with the full signature:
-     * addListener(EventPriority, boolean, Class, Consumer)
+     * Finds addListener(EventPriority, boolean, Class, Consumer).
      */
     private static Method findAddListenerMethod(Class<?> busClass, Class<?> priorityClass) {
         for (Method m : busClass.getMethods()) {

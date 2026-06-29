@@ -23,25 +23,24 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Curated + user-extensible list of mixin handler methods that fatally crash on
+ * Curated, user-extensible list of mixin handler methods that fatally crash on
  * the target MC and can't be repaired by remapping.
  *
- * <p>Some mixin failures are recoverable in place: a renamed {@code @At} target
- * gets redirected, a {@code CAPTURE_FAILHARD} gets downgraded to {@code FAILSOFT}.
- * But others can't: most notably a MixinExtras {@code @WrapOperation} /
- * {@code @ModifyExpressionValue} handler that captures a {@code @Local} from a
- * vanilla method whose local-variable layout changed between MC versions. The
- * {@code @Local} then resolves to the wrong slot and MixinExtras emits an invalid
- * bridge method, which the JVM rejects with {@code VerifyError: Bad local variable
- * type} at class-load time: fatal, before any soft-fail logic can run.
+ * <p>Some mixin failures are recoverable in place (a renamed {@code @At} target
+ * gets redirected, a {@code CAPTURE_FAILHARD} gets downgraded to {@code FAILSOFT}).
+ * Others can't, such as a MixinExtras {@code @WrapOperation} /
+ * {@code @ModifyExpressionValue} handler capturing a {@code @Local} from a vanilla
+ * method whose local-variable layout changed between MC versions: the {@code @Local}
+ * resolves to the wrong slot, MixinExtras emits an invalid bridge method, and the
+ * JVM rejects it with {@code VerifyError: Bad local variable type} at class-load
+ * time, before any soft-fail logic can run.
  *
- * <p>We can't safely <em>auto-detect</em> that case (the local often still exists,
- * just at a different slot, so a naive check would strip working mixins). Instead
- * this is a curated escape hatch, same philosophy as the incompatible-mods list:
- * the bundled {@code /retromod/mixin-blocklist.json} names the known-bad handlers,
- * and {@link MixinCompatibilityTransformer} removes them during transformation so
- * the mixin framework never processes them. The mod then loads with that one
- * feature inert instead of the whole game refusing to boot.
+ * <p>Auto-detecting that case isn't safe (the local often still exists at a
+ * different slot, so a naive check would strip working mixins), so this is a
+ * curated escape hatch like the incompatible-mods list. The bundled
+ * {@code /retromod/mixin-blocklist.json} names the known-bad handlers, and
+ * {@link MixinCompatibilityTransformer} removes them during transformation. The
+ * mod then loads with that one feature inert instead of failing to boot.
  *
  * <p>Users extend or override via {@code config/retromod/mixin-blocklist.json}
  * (same format); entries from both files are merged.
@@ -61,14 +60,13 @@ public final class MixinBlocklist {
 
     /**
      * Mixin internal names whose <b>entire</b> mixin should be neutralized, not
-     * just handler methods. Used for the cases handler-stripping can't fix:
-     * mixins that add an interface to a target class (e.g. True Darkness's
-     * {@code MixinLightTexture implements LightmapAccess}, #68) or have a hard
-     * {@code @Inject} critical-injection failure where the surrounding mixin is
-     * interdependent (#69). For these, {@link MixinCompatibilityTransformer}
-     * rewrites the {@code @Mixin} annotation to point at a non-existent target so
-     * the mixin framework skips the whole class gracefully, the same harmless
-     * "target not found" path MC's own moved inner classes already take.
+     * just handler methods. For cases handler-stripping can't fix: mixins that add
+     * an interface to a target class (True Darkness's
+     * {@code MixinLightTexture implements LightmapAccess}, #68) or have a critical
+     * {@code @Inject} failure where the surrounding mixin is interdependent. Here
+     * {@link MixinCompatibilityTransformer} rewrites the {@code @Mixin} annotation
+     * to point at a non-existent target so the mixin framework skips the whole
+     * class, the same "target not found" path MC's own moved inner classes take.
      *
      * <p>Set via {@code "strip": "class"} on a blocklist entry. Defaults to the
      * handler-strip behavior when absent.
@@ -120,7 +118,7 @@ public final class MixinBlocklist {
     private static Map<String, Set<String>> load(Set<String> fullStripOut) {
         Map<String, Set<String>> result = new HashMap<>();
 
-        // Bundled curated list.
+        // bundled curated list
         try (InputStream in = MixinBlocklist.class.getResourceAsStream(BUNDLED_RESOURCE)) {
             if (in != null) {
                 parseInto(new InputStreamReader(in, StandardCharsets.UTF_8), result, fullStripOut, "bundled");
@@ -131,7 +129,7 @@ public final class MixinBlocklist {
             LOGGER.warn("Could not read bundled mixin blocklist: {}", e.getMessage());
         }
 
-        // User override / extension.
+        // user override / extension
         try {
             if (Files.isRegularFile(USER_FILE)) {
                 try (Reader r = Files.newBufferedReader(USER_FILE, StandardCharsets.UTF_8)) {

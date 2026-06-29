@@ -18,30 +18,23 @@ import java.util.function.Predicate;
  * Polyfill for the removed
  * {@code net.minecraft.world.level.block.state.properties.DirectionProperty}.
  *
- * <p>Historically {@code DirectionProperty} was a thin subclass of
- * {@code EnumProperty<Direction>} with its own {@code create(...)} factory
- * methods. MC 26.1 removed the class entirely; {@code EnumProperty} is now
- * {@code final} and is used directly via
- * {@code EnumProperty.create(name, Direction.class, ...)}.
+ * <p>{@code DirectionProperty} was a subclass of {@code EnumProperty<Direction>}
+ * with its own {@code create(...)} factories. MC 26.1 removed it; {@code EnumProperty}
+ * is now {@code final} and called via {@code EnumProperty.create(name, Direction.class, ...)}.
  *
- * <p>The {@code BlockPropertyPolyfill} shim redirects the <em>type</em>
- * {@code DirectionProperty} → {@code EnumProperty} (that alone fixes the
- * {@code NoClassDefFoundError} a mod hits when its bytecode references the
- * removed type, see issue #24, where it surfaced from {@code Blocks.<clinit>}).
- * It then routes the four old {@code DirectionProperty.create(...)} factories
- * (which lack the {@code Class<Direction>} argument the modern
- * {@code EnumProperty.create} requires) through the bridges below. Each bridge
- * supplies {@code Direction.class} and calls the real factory reflectively.
+ * <p>The {@code BlockPropertyPolyfill} shim redirects the type
+ * {@code DirectionProperty} to {@code EnumProperty} (#24). The four old
+ * {@code DirectionProperty.create(...)} factories lack the {@code Class<Direction>}
+ * argument the modern {@code EnumProperty.create} needs, so they route through the
+ * bridges below, each supplying {@code Direction.class} and calling the factory reflectively.
  *
- * <p>These return {@code Object}; the transformer emits a {@code CHECKCAST} to
- * {@code EnumProperty} at the call site (it always does when a method redirect's
- * return type differs), so the resulting value slots back into the mod's
- * {@code EnumProperty}-typed field/stack correctly.
+ * <p>The bridges return {@code Object}; the transformer emits a {@code CHECKCAST} to
+ * {@code EnumProperty} at the call site, so the value fits back into the mod's
+ * {@code EnumProperty}-typed slot.
  *
- * <p>MC classes are resolved reflectively (MC isn't on Retromod's compile
- * classpath) via a multi-classloader probe modeled on {@link RegistryRefLookup}.
- * The reliable anchor is the <em>caller's</em> classloader, which can see MC
- * on every loader.
+ * <p>MC classes are resolved reflectively (MC isn't on Retromod's compile classpath)
+ * via the multi-classloader probe from {@link RegistryRefLookup}, anchored on the
+ * caller's classloader.
  */
 public final class DirectionPropertyLookup {
 
@@ -62,12 +55,10 @@ public final class DirectionPropertyLookup {
 
     private DirectionPropertyLookup() {}
 
-    // BRIDGES: one per historical DirectionProperty.create(...) overload.
-    // Descriptors are chosen to match the post-class-remap call shapes
-    // (EnumProperty.create with NO Class arg), which cannot collide with the
-    // real EnumProperty.create(String, Class, ...) overloads.
+    // One bridge per old DirectionProperty.create(...) overload; descriptors match the
+    // post-remap call shapes (no Class arg), so they don't collide with EnumProperty.create.
 
-    /** {@code DirectionProperty.create(String)} → all directions. */
+    /** {@code DirectionProperty.create(String)}, all directions. */
     public static Object create(String name) {
         ensureResolved();
         return invoke(mCreate2, name, directionClass);
@@ -77,7 +68,7 @@ public final class DirectionPropertyLookup {
     public static Object create(String name, Predicate<?> filter) {
         ensureResolved();
         if (mCreate3pred != null) return invoke(mCreate3pred, name, directionClass, filter);
-        // No filtered overload at runtime, so fall back to all directions rather than crash.
+        // no filtered overload at runtime, fall back to all directions
         return invoke(mCreate2, name, directionClass);
     }
 
@@ -98,8 +89,6 @@ public final class DirectionPropertyLookup {
         if (mCreate3arr != null) return invoke(mCreate3arr, name, directionClass, (Object) values.toArray());
         return invoke(mCreate2, name, directionClass);
     }
-
-    // INTERNALS
 
     private static Object invoke(Method m, Object... args) {
         if (m == null) {
@@ -125,7 +114,7 @@ public final class DirectionPropertyLookup {
                 directionClass = loadMcClass(DIRECTION);
                 if (enumProperty == null || directionClass == null) {
                     LOGGER.warn("Could not resolve EnumProperty/Direction - DirectionProperty bridges disabled");
-                    resolved = true; // don't spin re-resolving every call
+                    resolved = true; // don't re-resolve every call
                     return;
                 }
                 for (Method m : enumProperty.getMethods()) {
@@ -152,9 +141,9 @@ public final class DirectionPropertyLookup {
     }
 
     /**
-     * Resolve an MC class across the loaders that might see it. The caller's
-     * loader (walked off the stack) is the reliable anchor on every mod loader;
-     * the others are fallbacks. Mirrors {@link RegistryRefLookup}'s probe.
+     * Resolve an MC class across the loaders that might see it. The caller's loader
+     * (walked off the stack) is the anchor on every mod loader; the rest are fallbacks.
+     * Mirrors {@link RegistryRefLookup}'s probe.
      */
     private static Class<?> loadMcClass(String name) {
         ClassLoader anchor = anchorClassLoader;

@@ -44,16 +44,18 @@ public class CrossModDependencyResolver {
 
             int threads = Math.max(1, Math.min(4, Runtime.getRuntime().availableProcessors() - 1));
             ExecutorService executor = Executors.newFixedThreadPool(threads);
+            try {
+                List<Future<?>> futures = new ArrayList<>(jars.size());
+                for (Path jar : jars) {
+                    futures.add(executor.submit(() -> scanMod(jar)));
+                }
 
-            List<Future<?>> futures = new ArrayList<>(jars.size());
-            for (Path jar : jars) {
-                futures.add(executor.submit(() -> scanMod(jar)));
+                for (Future<?> f : futures) {
+                    try { f.get(3, TimeUnit.SECONDS); } catch (Exception ignored) {}
+                }
+            } finally {
+                executor.shutdownNow();
             }
-
-            for (Future<?> f : futures) {
-                try { f.get(3, TimeUnit.SECONDS); } catch (Exception ignored) {}
-            }
-            executor.shutdownNow();
 
         } catch (Exception e) {
             LOGGER.debug("Could not scan mods: {}", e.getMessage());

@@ -17,19 +17,11 @@ import java.util.regex.Pattern;
  * Maps Fabric intermediary names (class_XXXX, field_XXXX, method_XXXX) to
  * Mojang official names.
  *
- * MC 26.1 removed all code obfuscation, so the runtime uses Mojang's official
- * names directly. Old Fabric mods reference intermediary names in:
- * - Mixin target annotations (@Mixin(targets = "net.minecraft.class_310"))
- * - Mixin refmaps (field_25318 → resources)
- * - Access widener files
- *
- * This mapper loads the composed intermediary→Mojang mapping from a bundled
- * TSV resource file (generated from Fabric intermediary + Mojang ProGuard
- * mappings for 1.21.4).
- *
- * The mapping is version-agnostic for intermediary names. Intermediary names
- * are stable across MC versions (that's their whole purpose), so a single
- * mapping from any recent version covers all old mods.
+ * MC 26.1 dropped code obfuscation, so the runtime uses Mojang names directly.
+ * Old Fabric mods reference intermediary names in mixin target annotations,
+ * mixin refmaps, and access widener files. The mapping loads from a bundled TSV
+ * (Fabric intermediary + Mojang ProGuard for 1.21.4). Intermediary names are
+ * stable across MC versions, so one recent mapping covers all old mods.
  */
 public class IntermediaryToMojangMapper {
 
@@ -119,77 +111,67 @@ public class IntermediaryToMojangMapper {
         }
     }
 
-    /**
-     * Get old Mojang → new Mojang class redirects for 26.1 package moves.
-     * These handle classes that were moved to different packages in MC 26.1.
-     */
+    /** Old Mojang to new Mojang class redirects for 26.1 package moves. */
     public Map<String, String> getClassMoves() {
         return Collections.unmodifiableMap(classMoves);
     }
 
     /**
-     * Map an intermediary class name to Mojang official name.
-     * Returns the original name if no mapping exists.
+     * Map an intermediary class name to its Mojang name, or return the original
+     * if no mapping exists.
      *
-     * @param intermediaryClass e.g. "net/minecraft/class_310"
-     * @return Mojang name e.g. "net/minecraft/client/Minecraft"
+     * @param intermediaryClass for example "net/minecraft/class_310"
+     * @return Mojang name, for example "net/minecraft/client/Minecraft"
      */
     public String mapClass(String intermediaryClass) {
         return classMap.getOrDefault(intermediaryClass, intermediaryClass);
     }
 
     /**
-     * Map an intermediary field name to Mojang official name.
+     * Map an intermediary field name to its Mojang name.
      *
-     * @param intermediaryField e.g. "field_25318"
-     * @return Mojang name e.g. "resources"
+     * @param intermediaryField for example "field_25318"
+     * @return Mojang name, for example "resources"
      */
     public String mapField(String intermediaryField) {
         return fieldMap.getOrDefault(intermediaryField, intermediaryField);
     }
 
     /**
-     * Map an intermediary method name to Mojang official name.
+     * Map an intermediary method name to its Mojang name.
      *
-     * @param intermediaryMethod e.g. "method_18858"
-     * @return Mojang name e.g. "createTitle"
+     * @param intermediaryMethod for example "method_18858"
+     * @return Mojang name, for example "createTitle"
      */
     public String mapMethod(String intermediaryMethod) {
         return methodMap.getOrDefault(intermediaryMethod, intermediaryMethod);
     }
 
-    // Regex patterns for finding intermediary names efficiently
-    // Instead of iterating 86K entries, find class_XXXX/field_XXXX/method_XXXX tokens and look up directly
+    // Find class_XXXX/field_XXXX/method_XXXX tokens and look them up directly
+    // instead of iterating 86K entries.
     private static final Pattern CLASS_PATTERN = Pattern.compile("class_\\d+");
     private static final Pattern FIELD_PATTERN = Pattern.compile("field_\\d+");
     private static final Pattern METHOD_PATTERN = Pattern.compile("method_\\d+");
-    // Full qualified class pattern: matches "net/minecraft/class_XXXX" style paths
+    // Fully-qualified "net/minecraft/class_XXXX" style paths
     private static final Pattern FQ_CLASS_PATTERN = Pattern.compile("[a-z]+(?:/[a-z]+)*/class_\\d+");
 
-    /**
-     * Remap all intermediary references in a string.
-     * Uses regex to find class_XXXX/field_XXXX/method_XXXX tokens and looks them up
-     * in the mapping tables directly: O(n) in string length instead of O(86K) per call.
-     */
+    /** Remap all intermediary references in a string. */
     public String remapString(String input) {
         if (input == null) return null;
 
-        // First pass: remap fully-qualified class names (net/minecraft/class_XXXX)
-        // These must go first so we don't partial-match "class_XXXX" within a path
-        String result = replaceByPattern(input, FQ_CLASS_PATTERN, classMap);
-
-        // Second pass: remap standalone class_XXXX references (in dot notation etc.)
-        // Only if there are still unresolved class_ references
+        // FQ class names first, so we don't partial-match "class_XXXX" within a path
+        String result = input;
         if (result.contains("class_")) {
-            result = replaceByPattern(result, CLASS_PATTERN, classMap);
+            result = replaceByPattern(result, FQ_CLASS_PATTERN, classMap);
+            if (result.contains("class_")) {
+                result = replaceByPattern(result, CLASS_PATTERN, classMap);
+            }
         }
 
-        // Third pass: remap field_XXXX
         if (result.contains("field_")) {
             result = replaceByPattern(result, FIELD_PATTERN, fieldMap);
         }
 
-        // Fourth pass: remap method_XXXX
         if (result.contains("method_")) {
             result = replaceByPattern(result, METHOD_PATTERN, methodMap);
         }
@@ -197,19 +179,14 @@ public class IntermediaryToMojangMapper {
         return result;
     }
 
-    /**
-     * Remap a descriptor string, replacing all intermediary class references.
-     * E.g. "Lnet/minecraft/class_310;" → "Lnet/minecraft/client/Minecraft;"
-     */
+    /** Remap all intermediary class references in a descriptor. */
     public String remapDescriptor(String descriptor) {
         if (descriptor == null) return null;
 
         if (!descriptor.contains("class_")) return descriptor;
 
-        // Remap fully-qualified class names first
         String result = replaceByPattern(descriptor, FQ_CLASS_PATTERN, classMap);
 
-        // Then standalone class_XXXX
         if (result.contains("class_")) {
             result = replaceByPattern(result, CLASS_PATTERN, classMap);
         }
@@ -217,9 +194,7 @@ public class IntermediaryToMojangMapper {
         return result;
     }
 
-    /**
-     * Replace all pattern matches using the given lookup map.
-     */
+    /** Replace all pattern matches using the given lookup map. */
     private String replaceByPattern(String input, Pattern pattern, Map<String, String> lookup) {
         Matcher matcher = pattern.matcher(input);
         StringBuilder sb = new StringBuilder(input.length());
@@ -234,34 +209,22 @@ public class IntermediaryToMojangMapper {
         return sb.toString();
     }
 
-    /**
-     * Get the full class mapping table (intermediary → Mojang).
-     */
+    /** The full class mapping table (intermediary to Mojang). */
     public Map<String, String> getClassMap() {
         return Collections.unmodifiableMap(classMap);
     }
 
     /**
-     * Register every loaded intermediary→Mojang mapping (classes, methods,
-     * fields) plus the 26.1 class moves into the given transformer's redirect
-     * tables. Idempotent, safe to call multiple times (subsequent calls
-     * overwrite any matching entries with the same value).
+     * Register every loaded intermediary to Mojang mapping (classes, methods,
+     * fields) plus the 26.1 class moves into the transformer's redirect tables.
+     * Idempotent: the single entry point any startup path uses to prepare a
+     * {@code RetromodTransformer} for Fabric intermediary remapping.
      *
-     * <p>This is the single entry point that <b>any</b> startup path should
-     * invoke to prepare a {@code RetromodTransformer} for Fabric intermediary
-     * remapping. Previously this wiring was duplicated inline in
-     * {@code RetromodPreLaunch}, which meant the CLI's {@code gaps} and
-     * {@code batch} commands couldn't benefit from it: AppleSkin and other
-     * Fabric mods had all their intermediary class names show up as
-     * "missing" in the gap report. Centralizing here fixes that for every
-     * caller.</p>
-     *
-     * <p>Composition: when an intermediary name {@code class_X} maps to a
-     * Mojang name that was subsequently <i>moved</i> in 26.1
-     * ({@code OldMojangName → NewMojangName}), we compose both hops so the
-     * transformer registers {@code class_X → NewMojangName} directly. This
-     * matters because ASM's {@code ClassRemapper} is single-pass: if we
-     * registered the intermediate stop, it would never fire the second hop.</p>
+     * <p>When an intermediary {@code class_X} maps to a Mojang name that was
+     * later moved in 26.1 ({@code OldMojangName} to {@code NewMojangName}), both
+     * hops are composed so the transformer registers {@code class_X} to
+     * {@code NewMojangName} directly. ASM's {@code ClassRemapper} is single-pass,
+     * so registering the intermediate stop would never fire the second hop.</p>
      *
      * @param transformer the transformer to populate; must not be null
      * @return number of class redirects registered (for diagnostic logging)
@@ -284,7 +247,7 @@ public class IntermediaryToMojangMapper {
             String intermediary = entry.getKey();
             String mojang = entry.getValue();
             // Compose with class-moves so the single-pass ClassRemapper lands
-            // on the *final* 26.1 name, not an intermediate stop.
+            // on the final 26.1 name, not an intermediate stop.
             String finalName = classMoveMap.getOrDefault(mojang, mojang);
             if (!finalName.equals(mojang)) composed++;
             transformer.registerClassRedirect(intermediary, finalName);
@@ -293,9 +256,9 @@ public class IntermediaryToMojangMapper {
         transformer.registerIntermediaryNameMappings(
                 mapper.getMethodMap(), mapper.getFieldMap());
 
-        // Also register class-moves on their own (for mods that already use
-        // Mojang names (e.g. mods targeting 1.20+ with GuiGraphics): the
-        // intermediary step is skipped but the 26.1 move still applies).
+        // Also register class-moves on their own, for mods already using Mojang
+        // names (1.20+ with GuiGraphics): the intermediary step is skipped but
+        // the 26.1 move still applies.
         int classMoves = 0;
         for (Map.Entry<String, String> entry : classMoveMap.entrySet()) {
             transformer.registerClassRedirect(entry.getKey(), entry.getValue());
@@ -309,26 +272,42 @@ public class IntermediaryToMojangMapper {
     }
 
     /**
-     * Register ONLY the 26.1 vanilla class moves plus the
-     * {@code ResourceLocation}→{@code Identifier} constructor redirects: the
-     * subset of {@link #applyTo} that applies to mods which <b>already use
-     * Mojang names</b> (NeoForge and Forge mods). Those mods must NOT receive
-     * the Fabric intermediary→Mojang remap (they have no {@code class_XXXX}
-     * names; that pass is Fabric-only), but they DO need the vanilla
-     * {@code net/minecraft/*} package reorganization applied, otherwise a mod
-     * referencing e.g. {@code net/minecraft/Util} or a repackaged entity
-     * crashes with {@code NoClassDefFoundError} on a 26.1 host.
+     * The 26.1 ResourceLocation/Identifier constructor redirects: the (String) and
+     * (String, String) constructors were removed for the static factories
+     * Identifier.parse / Identifier.fromNamespaceAndPath. Single source of truth so
+     * every transform path (Fabric/NeoForge/Forge runtime, CLI, AOT) emits the same
+     * bytecode; the offline tools must match an in-game boot. The caller gates on the
+     * host or target actually having Identifier (26.1+).
+     */
+    public static void registerIdentifierCtorRedirects(com.retromod.core.RetromodTransformer transformer) {
+        transformer.registerConstructorRedirect(
+                "net/minecraft/resources/Identifier", "(Ljava/lang/String;)V",
+                "net/minecraft/resources/Identifier", "parse",
+                "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
+        transformer.registerConstructorRedirect(
+                "net/minecraft/resources/Identifier", "(Ljava/lang/String;Ljava/lang/String;)V",
+                "net/minecraft/resources/Identifier", "fromNamespaceAndPath",
+                "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
+    }
+
+    /**
+     * Register only the 26.1 vanilla class moves plus the
+     * {@code ResourceLocation} to {@code Identifier} constructor redirects: the
+     * subset of {@link #applyTo} for mods that already use Mojang names (NeoForge
+     * and Forge). Those mods skip the Fabric intermediary remap (they have no
+     * {@code class_XXXX} names), but still need the vanilla {@code net/minecraft/*}
+     * package reorganization, or a mod referencing {@code net/minecraft/Util} or
+     * a repackaged entity crashes with {@code NoClassDefFoundError} on a 26.1 host.
      *
-     * <p><b>Gating is the caller's responsibility:</b> only invoke on a 26.1+
-     * host ({@link com.retromod.core.RetromodVersion#isUnobfuscatedTarget}).
-     * On a pre-26.1 host these moves would rewrite a mod's <i>working</i>
-     * references into 26.1 names that don't exist yet, the same hazard the
-     * Fabric path guards against (#21/#29).
+     * <p>Gating is the caller's responsibility: only invoke on a 26.1+ host
+     * ({@link com.retromod.core.RetromodVersion#isUnobfuscatedTarget}). On a
+     * pre-26.1 host these moves would rewrite a mod's working references into
+     * 26.1 names that don't exist yet (#21/#29).
      *
      * <p>The {@code Identifier} constructor redirects are keyed on the post-move
-     * name: the class move above (or the loader's own shim) renames
-     * {@code ResourceLocation}→{@code Identifier} first, then
-     * {@code new Identifier(String)} is rewritten to {@code Identifier.parse}.
+     * name: the class move (or the loader's own shim) renames
+     * {@code ResourceLocation} to {@code Identifier} first, then
+     * {@code new Identifier(String)} becomes {@code Identifier.parse}.
      *
      * @param transformer the transformer to populate; must not be null
      * @return number of class-move redirects registered (for diagnostic logging)
@@ -344,23 +323,21 @@ public class IntermediaryToMojangMapper {
             return 0;
         }
 
-        // Host-version-aware filtering. The class-move table maps OLD vanilla
-        // names to their FINAL (26.1) names, but in this timeline many of those
-        // renames already happened by an intermediate version (e.g.
-        // ResourceLocation→Identifier and LootContextParamSet→ContextKeySet
-        // landed by 1.21.11). A rename should be applied on a given host iff the
-        // host actually has the NEW class but NOT the OLD one: i.e. the rename
-        // has happened by that host version. Gating the whole table on "26.1+"
-        // (isUnobfuscatedTarget) was too coarse: it left mods on a 1.21.11 host
-        // crashing with NoClassDefFoundError on names that were already renamed
-        // there (#50/#51/#52). Conversely, applying a 26.1-only rename on an
-        // older host would rewrite a working reference to a name that doesn't
-        // exist yet (the #9 hazard); the NEW-on-host check prevents that.
+        // Host-version-aware filtering. The class-move table maps old vanilla
+        // names to their final (26.1) names, but many renames already happened
+        // by an intermediate version (ResourceLocation->Identifier and
+        // LootContextParamSet->ContextKeySet landed by 1.21.11). Apply a rename
+        // on a host only when the host has the new class but not the old one.
+        // Gating the whole table on "26.1+" (isUnobfuscatedTarget) was too coarse:
+        // it left mods on a 1.21.11 host crashing with NoClassDefFoundError on
+        // names already renamed there (#50/#51/#52). The new-on-host check also
+        // stops a 26.1-only rename from rewriting a working reference on an older
+        // host (the #9 hazard).
         //
-        // We ask the classloader that loaded MC whether a class exists, rather
-        // than locating + indexing the MC JAR on disk: on NeoForge the MC JAR
-        // isn't on java.class.path (it's a JPMS module), and the disk search
-        // mis-matched a library (srgutils) by substring, yielding an empty index.
+        // Ask the classloader that loaded MC whether a class exists, rather than
+        // locating the MC JAR on disk: on NeoForge the MC JAR isn't on
+        // java.class.path (it's a JPMS module), and the disk search mis-matched
+        // a library (srgutils) by substring, yielding an empty index.
         java.util.function.Predicate<String> hostHasClass = buildHostClassCheck();
         boolean haveHost = hostHasClass != null;
         boolean unobfFallback =
@@ -379,20 +356,19 @@ public class IntermediaryToMojangMapper {
             if (haveHost) {
                 boolean oldOnHost = hostHasClass.test(oldName);
                 if (oldOnHost) {
-                    // Host still exposes the OLD name → the mod's reference is
+                    // Host still exposes the old name, so the mod's reference is
                     // already valid; renaming would be wrong.
                     apply = false;
                     skippedOldPresent++;
                 } else if (newName.startsWith("net/minecraft/")) {
-                    // Vanilla rename: only safe if the host actually has the NEW
-                    // name (otherwise it's a 26.1-only rename on an older host).
+                    // Vanilla rename: safe only if the host has the new name,
+                    // otherwise it's a 26.1-only rename on an older host.
                     apply = hostHasClass.test(newName);
                     if (!apply) skippedNewMissing++;
                 } else {
                     // Redirect to a non-vanilla replacement (Retromod polyfill,
-                    // JOML, blaze3d). The MC JAR won't contain it, so the
-                    // NEW-on-host check doesn't apply: the OLD class being gone
-                    // is the signal that the replacement is needed.
+                    // JOML, blaze3d). The MC JAR won't contain it, so the old
+                    // class being gone is the signal that it's needed.
                     apply = true;
                 }
             } else {
@@ -404,21 +380,14 @@ public class IntermediaryToMojangMapper {
             }
         }
 
-        // Identifier constructor redirects, only when the host actually has
-        // Identifier (so a `new ResourceLocation(...)` rewritten to
-        // `new Identifier(...)` by the class move lands on the static factory).
+        // Identifier constructor redirects, only when the host has Identifier
+        // (so a `new ResourceLocation(...)` rewritten to `new Identifier(...)`
+        // by the class move lands on the static factory).
         boolean identifierOnHost = haveHost
                 ? hostHasClass.test("net/minecraft/resources/Identifier")
                 : unobfFallback;
         if (identifierOnHost) {
-            transformer.registerConstructorRedirect(
-                    "net/minecraft/resources/Identifier", "(Ljava/lang/String;)V",
-                    "net/minecraft/resources/Identifier", "parse",
-                    "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
-            transformer.registerConstructorRedirect(
-                    "net/minecraft/resources/Identifier", "(Ljava/lang/String;Ljava/lang/String;)V",
-                    "net/minecraft/resources/Identifier", "fromNamespaceAndPath",
-                    "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;");
+            registerIdentifierCtorRedirects(transformer);
         }
 
         LOGGER.info("Registered {} vanilla class moves for host MC {} (host-filtered: "
@@ -430,23 +399,16 @@ public class IntermediaryToMojangMapper {
     }
 
     /**
-     * Build a predicate that answers "does internal class name {@code x} exist
-     * on the running Minecraft host?" without locating the MC JAR on disk
-     * (unreliable on NeoForge, where MC is a JPMS module, not a java.class.path
-     * entry). Returns {@code null} if MC can't be reached from here (e.g. a unit
-     * test), so callers fall back to a coarse gate.
+     * Build a predicate answering whether an internal class name exists on the
+     * running Minecraft host, without locating the MC JAR on disk (unreliable on
+     * NeoForge, where MC is a JPMS module). Returns {@code null} when MC can't be
+     * reached (a unit test), so callers fall back to a coarse gate.
      *
-     * <p>Strategy, in order of preference:
-     * <ol>
-     *   <li>{@code classLoader.getResource("a/b/C.class") != null} checks the
-     *       class file exists WITHOUT loading/linking it (no class-init, no
-     *       early mixin/coremod transformation). Preferred.</li>
-     *   <li>If that classloader doesn't expose class-file resources (some module
-     *       loaders don't), fall back to {@code Class.forName(name, false,
-     *       loader)} with initialize=false, the same probe {@code EnvironmentDetector}
-     *       uses safely on NeoForge (#46). Loads/links but never runs {@code
-     *       <clinit>}.</li>
-     * </ol>
+     * <p>Prefers {@code getResource("a/b/C.class")} (checks the class file exists
+     * without loading or linking it); if the classloader hides class-file
+     * resources, falls back to {@code Class.forName(name, false, loader)} with
+     * initialize=false, the probe {@code EnvironmentDetector} uses on NeoForge
+     * (#46), which never runs {@code <clinit>}.
      */
     private static java.util.function.Predicate<String> buildHostClassCheck() {
         try {
@@ -469,27 +431,21 @@ public class IntermediaryToMojangMapper {
                 }
             };
         } catch (Throwable t) {
-            return null; // MC not loadable here → caller uses the coarse gate
+            return null; // MC not loadable here, caller uses the coarse gate
         }
     }
 
-    /**
-     * Get the full field mapping table (intermediary → Mojang).
-     */
+    /** The full field mapping table (intermediary to Mojang). */
     public Map<String, String> getFieldMap() {
         return Collections.unmodifiableMap(fieldMap);
     }
 
-    /**
-     * Get the full method mapping table (intermediary → Mojang).
-     */
+    /** The full method mapping table (intermediary to Mojang). */
     public Map<String, String> getMethodMap() {
         return Collections.unmodifiableMap(methodMap);
     }
 
-    /**
-     * Check if mappings are loaded.
-     */
+    /** Whether mappings are loaded. */
     public boolean isLoaded() {
         return !classMap.isEmpty();
     }

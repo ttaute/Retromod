@@ -52,7 +52,7 @@ public final class VersionSpoofer {
      * @return real or proxy-wrapped {@code Optional<ModContainer>}
      */
     public static Optional<?> getModContainer(Object fabricLoader, String modId) {
-        // Empty on reflection failure matches Fabric's behaviour for a missing mod.
+        // empty on reflection failure matches Fabric's behaviour for a missing mod
         Optional<?> real;
         try {
             Method m = fabricLoader.getClass().getMethod("getModContainer", String.class);
@@ -67,14 +67,14 @@ public final class VersionSpoofer {
 
         String spoofedVersion = getSpoofTable().get(modId);
         if (spoofedVersion == null) return real;
-        if (!real.isPresent()) return real;               // mod not installed, can't fake it
+        if (!real.isPresent()) return real;               // mod not installed
 
         try {
             Object wrapped = wrapContainer(real.get(), spoofedVersion);
             spoofsApplied.incrementAndGet();
             return Optional.of(wrapped);
         } catch (Throwable t) {
-            // Spoofing is best-effort; fall back to the real container if the proxy fails.
+            // best-effort: fall back to the real container if the proxy fails
             LOGGER.debug("Could not build spoof proxy for {} ({}): {}",
                     modId, spoofedVersion, t.getMessage());
             return real;
@@ -167,7 +167,7 @@ public final class VersionSpoofer {
                     && method.getParameterCount() == 0) {
                 return spoofVersion;
             }
-            // Claim equal so SemVer range checks built on compareTo accept us.
+            // report equal so SemVer range checks built on compareTo accept us
             if ("compareTo".equals(name) && method.getParameterCount() == 1) {
                 return 0;
             }
@@ -175,10 +175,7 @@ public final class VersionSpoofer {
         }
     }
 
-    /**
-     * Lazy-load the spoof table from the bundled JSON resource. A missing or malformed
-     * resource leaves the table empty, so every call passes through to the real container.
-     */
+    /** Lazy-load the spoof table from the bundled JSON; a missing/malformed resource leaves it empty. */
     private static Map<String, String> getSpoofTable() {
         Map<String, String> local = spoofTable;
         if (local != null) return local;

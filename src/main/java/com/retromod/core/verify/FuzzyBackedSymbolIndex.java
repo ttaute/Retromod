@@ -10,24 +10,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Production {@link McSymbolIndex} implementation that delegates to
- * {@link FuzzyMethodResolver}, reusing the existing MC-JAR index rather than
- * building a second copy.
+ * {@link McSymbolIndex} backed by {@link FuzzyMethodResolver}, reusing its
+ * existing MC-JAR index instead of building a second one. Adds exact-match
+ * accessors on top of the resolver's API.
  *
- * <h3>Why delegate?</h3>
- * <p>{@link FuzzyMethodResolver} already indexes the full target MC JAR on
- * startup (~100ms, ~10MB of memory) for its fuzzy-resolution fallback. That
- * index contains exactly the data we need for membership checks, so duplicating
- * it would waste both startup time and memory. This wrapper adds the exact-
- * match accessors on top of the fuzzy resolver's existing API surface.</p>
- *
- * <h3>Handling "not indexed"</h3>
- * <p>{@code FuzzyMethodResolver} may not be initialized in some contexts
- * (standalone CLI runs, tests, environments where the MC JAR path is unknown).
- * We detect this via {@link FuzzyMethodResolver#isIndexed()} and degrade to
- * {@code isAvailable() == false}, so callers then treat every lookup as "unknown"
- * rather than "missing," which keeps them from generating false-positive
- * unresolved-reference reports.</p>
+ * <p>When the resolver isn't indexed (standalone CLI, tests, unknown MC JAR
+ * path), {@link #isAvailable()} returns false so callers treat lookups as
+ * "unknown" rather than "missing" and avoid false-positive unresolved-reference
+ * reports.</p>
  */
 public class FuzzyBackedSymbolIndex implements McSymbolIndex {
 
@@ -35,11 +25,10 @@ public class FuzzyBackedSymbolIndex implements McSymbolIndex {
     private final String mcVersion;
 
     /**
-     * @param resolver  the fuzzy resolver whose index we delegate to; must not
-     *                  be null, but does not need to be indexed yet (we check
-     *                  {@link FuzzyMethodResolver#isIndexed()} on each call)
-     * @param mcVersion the MC version this index describes, for the gap report
-     *                  header; pass {@code "unknown"} if you don't have it
+     * @param resolver  the fuzzy resolver to delegate to; must not be null but
+     *                  need not be indexed yet
+     * @param mcVersion the MC version this index describes; pass {@code "unknown"}
+     *                  if not available
      */
     public FuzzyBackedSymbolIndex(FuzzyMethodResolver resolver, String mcVersion) {
         if (resolver == null) {
@@ -81,17 +70,9 @@ public class FuzzyBackedSymbolIndex implements McSymbolIndex {
 
     @Override
     public List<String> suggestClassAlternatives(String missingInternalName, int maxResults) {
-        // Not using the fuzzy resolver's scoring for class suggestions:
-        // its resolveMethod/resolveField operate at the member level, not the
-        // class level. Instead we do a simple simple-name match: take the last
-        // path component of the missing name (e.g., "BlockPos") and find any
-        // indexed class whose simple name matches.
-        //
-        // This catches the overwhelmingly common case: a class moved packages
-        // but kept its name (net/minecraft/util/math/BlockPos -> net/minecraft/core/BlockPos).
-        // For renames with name changes, the fuzzy resolver's member-level
-        // suggestions in suggestMethodAlternatives will typically surface the
-        // new home via inherited members.
+        // The fuzzy resolver scores members, not classes, so match on simple
+        // name instead: this catches a class that moved packages but kept its
+        // name (BlockPos). Renames are handled by suggestMethodAlternatives.
         if (!isAvailable() || missingInternalName == null) {
             return List.of();
         }
@@ -101,7 +82,6 @@ public class FuzzyBackedSymbolIndex implements McSymbolIndex {
                 : missingInternalName;
 
         List<String> results = new ArrayList<>(maxResults);
-        // Iterate the indexed class names; same-simple-name matches are strong candidates
         for (String indexed : resolver.getIndexedClassNames()) {
             if (results.size() >= maxResults) break;
             int slash = indexed.lastIndexOf('/');
@@ -120,18 +100,13 @@ public class FuzzyBackedSymbolIndex implements McSymbolIndex {
             return List.of();
         }
 
-        // Delegate to the fuzzy resolver, which already does sophisticated
-        // scoring (class-hierarchy awareness, descriptor-distance, name-similarity).
-        // We lower its auto-apply threshold for suggestions: we want to SHOW the
-        // top candidates even if the confidence is too low to auto-rewrite.
+        // Delegate to the fuzzy resolver's scoring (hierarchy, descriptor
+        // distance, name similarity). It returns only the single best match.
         FuzzyMethodResolver.MethodInfo best = resolver.resolveMethod(owner, name, descriptor);
         List<MemberSignature> results = new ArrayList<>();
         if (best != null) {
             results.add(new MemberSignature(best.owner(), best.name(), best.descriptor()));
         }
-        // The resolver only returns one best match today. If we want more, we'd
-        // expose a "top K" method from FuzzyMethodResolver in a follow-up. For
-        // v1, one suggestion is better than zero and already handles the common case.
         return results.size() > maxResults ? results.subList(0, maxResults) : results;
     }
 

@@ -8,24 +8,12 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
- * Polyfill for Fabric networking API changes.
+ * Bridges old Fabric networking onto the post-1.20.5 CustomPayload API.
  *
- * The Fabric networking API underwent a major overhaul in 1.20.5 when Minecraft
- * migrated from PacketByteBuf to PacketCodec for custom payload serialization.
- * Several classes were removed entirely (PacketType, FabricPacket) and method
- * signatures on ServerPlayNetworking/ClientPlayNetworking changed.
- *
- * In 26.1, PlayChannelHandler interfaces were fully removed in favor of
- * PlayPayloadHandler. This polyfill provides bridge interfaces and a functional
- * networking bridge that adapts old 5-param handlers to the new 2-param API.
- *
- * Covered changes:
- * - PacketType (removed in 1.20.5, replaced by CustomPayload.Id)
- * - FabricPacket (removed in 1.20.5, replaced by CustomPayload)
- * - ServerPlayNetworking$PlayChannelHandler (removed, bridged via FabricNetworkingBridge)
- * - ClientPlayNetworking$PlayChannelHandler (removed, bridged via FabricNetworkingBridge)
- * - ServerPlayNetworking.registerGlobalReceiver (old signature redirected to bridge)
- * - ClientPlayNetworking.registerGlobalReceiver (old signature redirected to bridge)
+ * 1.20.5 moved custom payloads from PacketByteBuf to PacketCodec and removed
+ * PacketType/FabricPacket; 26.1 dropped the PlayChannelHandler interfaces for
+ * PlayPayloadHandler. This adapts the old 5-param handlers to the new 2-param API
+ * via FabricNetworkingBridge.
  */
 public class FabricNetworkingPolyfill implements PolyfillProvider {
 
@@ -63,8 +51,6 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // Class redirects for removed types
-
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/PacketType",
             "net/minecraft/network/protocol/common/custom/CustomPacketPayload$Type");
@@ -73,8 +59,7 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
             "net/fabricmc/fabric/api/networking/v1/FabricPacket",
             "net/minecraft/network/protocol/common/custom/CustomPacketPayload");
 
-        // Redirect removed PlayChannelHandler interfaces to our bridge interfaces.
-        // These provide the @FunctionalInterface so lambdas in old mods can be created.
+        // bridge interfaces carry the @FunctionalInterface so old-mod lambdas still build
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/networking/v1/ServerPlayNetworking$PlayChannelHandler",
             "com/retromod/polyfill/fabric/embedded/ServerPlayChannelHandler");
@@ -83,20 +68,11 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
             "net/fabricmc/fabric/api/client/networking/v1/ClientPlayNetworking$PlayChannelHandler",
             "com/retromod/polyfill/fabric/embedded/ClientPlayChannelHandler");
 
-        // Method redirects for registerGlobalReceiver and send
-        //
-        // IMPORTANT: Source descriptors use POST-REMAPPING names because
-        // ClassRemapper (outer visitor) runs BEFORE RetromodClassVisitor (inner).
-        // By the time RetromodMethodVisitor sees the bytecode:
-        //   - class_2960 → net/minecraft/resources/Identifier (intermediary→Mojang)
-        //   - PlayChannelHandler → our bridge interface (class redirect above)
-        //   - class_2540 → net/minecraft/network/FriendlyByteBuf (intermediary→Mojang)
-        //
-        // Target descriptors use Object params because our bridge class can't
-        // reference MC classes at compile time. The JVM verifier accepts this
-        // because specific types are assignable to Object.
-
-        // Server: registerGlobalReceiver(Identifier, ServerPlayChannelHandler) -> boolean
+        // Source descriptors use post-remapping names: ClassRemapper (outer) runs before
+        // RetromodClassVisitor (inner), so by the time the method visitor sees the bytecode
+        // the intermediary names and PlayChannelHandler are already rewritten. Targets take
+        // Object params since the bridge can't reference MC classes at compile time, and the
+        // verifier accepts that since the specific types are assignable to Object.
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/networking/v1/ServerPlayNetworking",
             "registerGlobalReceiver",
@@ -105,7 +81,6 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
             "registerServerGlobalReceiver",
             "(Ljava/lang/Object;Ljava/lang/Object;)Z");
 
-        // Client: registerGlobalReceiver(Identifier, ClientPlayChannelHandler) -> boolean
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/networking/v1/ClientPlayNetworking",
             "registerGlobalReceiver",
@@ -114,9 +89,7 @@ public class FabricNetworkingPolyfill implements PolyfillProvider {
             "registerClientGlobalReceiver",
             "(Ljava/lang/Object;Ljava/lang/Object;)Z");
 
-        // Client: send(Identifier, FriendlyByteBuf) -> void
-        // Old API sends raw bytes on a named channel; new API requires CustomPacketPayload.
-        // Bridge wraps the raw bytes into a payload and sends via the new API.
+        // bridge wraps the old raw-bytes-on-a-channel send into a CustomPacketPayload
         transformer.registerMethodRedirect(
             "net/fabricmc/fabric/api/client/networking/v1/ClientPlayNetworking",
             "send",

@@ -13,16 +13,8 @@ import java.nio.file.Path;
 /**
  * Security utilities for ZIP/JAR extraction.
  *
- * <p><b>Zip Slip</b> is a path traversal vulnerability (CVE-2018-1263) where a
- * crafted ZIP/JAR archive contains entries with paths like {@code "../../etc/malicious.class"}.
- * If extracted naively, these entries escape the intended output directory and can
- * overwrite arbitrary files on the filesystem. Since Retromod extracts and re-packages
- * mod JARs, we must validate every entry path before writing.</p>
- *
- * <p><b>Symlink attacks:</b> An attacker could replace the retromod-input/ directory
- * with a symlink pointing to a sensitive location (e.g., {@code ~/.ssh/}). When
- * Retromod writes transformed mods to that directory, it would actually be writing
- * to the symlinked target. We check for symlinks before operating on directories.</p>
+ * <p>Guards against Zip Slip path traversal (CVE-2018-1263), zip bombs, and symlink
+ * redirection while Retromod extracts and re-packages mod JARs.</p>
  *
  * @see <a href="https://security.snyk.io/research/zip-slip-vulnerability">Snyk Zip Slip Research</a>
  */
@@ -36,20 +28,18 @@ public final class ZipSecurity {
     private ZipSecurity() {}
 
     /**
-     * Validate that a ZIP entry name is safe: no path traversal components,
-     * no absolute paths, no empty/null. Use this whenever copying an entry
-     * name to disk OR to another archive (since downstream tools may extract
-     * the output archive and be vulnerable to zip-slip themselves).
+     * Validate that a ZIP entry name has no traversal components, absolute path, or null/empty value.
+     * Apply when copying an entry name to disk or into another archive, since downstream extractors
+     * may be vulnerable to zip-slip too.
      *
      * @param entryName the entry name to validate
-     * @return the (unchanged) entry name if safe
+     * @return the unchanged entry name if safe
      * @throws IOException if the entry name contains unsafe components
      */
     public static String safeEntryName(String entryName) throws IOException {
         if (entryName == null || entryName.isEmpty()) {
             throw new IOException("ZIP entry has null/empty name");
         }
-        // Normalize separators and check for traversal
         String normalized = entryName.replace('\\', '/');
         if (normalized.startsWith("/") || normalized.startsWith("\\")) {
             throw new IOException("ZIP entry name is absolute: " + entryName);
@@ -68,10 +58,9 @@ public final class ZipSecurity {
     }
 
     /**
-     * Read an InputStream into a byte array, capping total bytes read. Unlike
-     * InputStream.readAllBytes() this does NOT trust the header-declared size.
-     * It counts bytes actually read, so a malicious archive that reports size=0
-     * but streams gigabytes will be caught.
+     * Read an InputStream into a byte array, capping total bytes read. Counts bytes read rather
+     * than trusting the header-declared size, so an archive reporting size=0 while streaming
+     * gigabytes is caught.
      *
      * @param is       the stream to read (not closed by this method)
      * @param maxBytes the maximum bytes to read before throwing
@@ -118,9 +107,8 @@ public final class ZipSecurity {
     }
 
     /**
-     * Validate that a path is not a symbolic link.
-     * Prevents symlink attacks where an attacker replaces a directory with a symlink
-     * to trick Retromod into reading/writing files outside the game directory.
+     * Validate that a path is not a symbolic link, blocking redirection of reads/writes outside
+     * the game directory.
      *
      * @param path the path to check
      * @throws IOException if the path is a symbolic link
@@ -137,12 +125,10 @@ public final class ZipSecurity {
      * {@code maxBytes} are written. Returns the actual number of bytes written.
      *
      * <p>Use this instead of {@link Files#copy(InputStream, Path, java.nio.file.CopyOption...)}
-     * whenever extracting from an untrusted archive. The size cap is enforced
-     * against bytes <em>actually read</em>, not the size declared in the ZIP
-     * central directory, so an entry that lies about its size (a classic
-     * zip-bomb vector where the header reports a few KB but the deflate
-     * stream expands to gigabytes) is caught mid-stream rather than after
-     * the disk has filled up.
+     * when extracting from an untrusted archive. The cap is enforced against bytes read, not the
+     * size declared in the central directory, so an entry that lies about its size (a zip bomb
+     * whose header reports a few KB but whose deflate stream expands to gigabytes) is caught
+     * mid-stream rather than after the disk fills up.</p>
      *
      * @param is        the stream to read from (caller closes)
      * @param target    the file to write to (created/truncated)
@@ -163,9 +149,7 @@ public final class ZipSecurity {
             while ((n = is.read(buf)) > 0) {
                 written += n;
                 if (written > maxBytes) {
-                    // Partial write is left behind; caller's enclosing
-                    // try-with-resources / temp-dir cleanup is expected to
-                    // remove it on the IOException path.
+                    // partial write is left for the caller's temp-dir cleanup on the IOException path
                     throw new IOException("ZIP entry too large: " + entryNameForError
                         + " (exceeded " + maxBytes + " bytes while reading, "
                         + "possible zip bomb - declared size in central directory "

@@ -60,11 +60,25 @@ public class JitRuntime implements ClassFileTransformer {
         }
     }
     
-    /** Scans the constant pool for the annotation descriptor before paying for a full parse. */
+    private static final byte[] JIT_MARKER =
+        "com/retromod/aot/JitRequired".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+
+    /**
+     * Scans the constant pool for the annotation descriptor before paying for a full parse.
+     * Fires for every class the JVM loads in agent mode, so it searches the raw bytes directly
+     * instead of allocating a full String copy of each class.
+     */
     private boolean hasJitMarkers(byte[] classBytes) {
-        String marker = "com/retromod/aot/JitRequired";
-        String content = new String(classBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
-        return content.contains(marker);
+        final byte[] needle = JIT_MARKER;
+        final int last = classBytes.length - needle.length;
+        outer:
+        for (int i = 0; i <= last; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (classBytes[i + j] != needle[j]) continue outer;
+            }
+            return true;
+        }
+        return false;
     }
     
     private byte[] transformJitMarkedClass(byte[] classBytes, String className) {

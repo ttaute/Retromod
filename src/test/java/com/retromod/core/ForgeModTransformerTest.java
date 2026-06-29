@@ -18,11 +18,9 @@ import java.util.jar.JarOutputStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests the {@code mods.toml} → {@code neoforge.mods.toml} promotion logic that
- * lets modern NeoForge accept 1.20.1 (Neo)Forge mods (issue #42). The file
- * rename + host gate are integration-level (need a NeoForge runtime), but the
- * {@code loaderVersion} relax (the part most likely to get the regex wrong) is
- * pure and testable.
+ * Tests the {@code mods.toml} to {@code neoforge.mods.toml} promotion that lets modern
+ * NeoForge accept 1.20.1 (Neo)Forge mods (#42). The file rename and host gate need a
+ * NeoForge runtime; the {@code loaderVersion} relax is pure and testable here.
  */
 class ForgeModTransformerTest {
 
@@ -46,7 +44,7 @@ class ForgeModTransformerTest {
                 + "versionRange=\"[1.20.1]\"\n";
         String out = ForgeModTransformer.relaxLoaderVersion(in);
         assertTrue(out.contains("loaderVersion = \"[1,)\""), out);
-        // relaxLoaderVersion must only touch the top-level loaderVersion, not deps.
+        // only the top-level loaderVersion changes, not deps
         assertTrue(out.contains("versionRange=\"[1.20.1]\""), "dependency versionRange must be untouched");
     }
 
@@ -60,7 +58,7 @@ class ForgeModTransformerTest {
     @Test
     @DisplayName("#42: a `forge` dependency is repointed at `neoforge` (which exists on NeoForge)")
     void pointsForgeDepAtNeoForge() {
-        // Twigs-shaped block: a forge dep + a minecraft dep.
+        // a forge dep plus a minecraft dep
         String in = "[[dependencies.twigs]]\n"
                 + "modId=\"forge\"\n"
                 + "versionRange=\"[0,)\"\n"
@@ -70,7 +68,7 @@ class ForgeModTransformerTest {
         String out = ForgeModTransformer.pointForgeDependencyAtNeoForge(in);
         assertTrue(out.contains("modId=\"neoforge\""), "forge dep must be repointed at neoforge: " + out);
         assertFalse(out.contains("modId=\"forge\""), "no `forge` dependency should remain");
-        // The minecraft dependency (and its versionRange) must be untouched.
+        // the minecraft dependency and its versionRange stay untouched
         assertTrue(out.contains("modId = \"minecraft\""), "minecraft dep untouched");
         assertTrue(out.contains("versionRange=\"[1.21.1,)\""), "minecraft versionRange untouched");
     }
@@ -81,7 +79,7 @@ class ForgeModTransformerTest {
         String in = "modLoader=\"javafml\"\nloaderVersion=\"[47,)\"\n\n[[mods]]\nmodId=\"survivalisland\"\n";
         String out = ForgeModTransformer.ensureLicense(in);
         assertTrue(out.contains("license="), "license must be added: " + out);
-        // Must stay in the root table, i.e. appear before the [[mods]] header.
+        // must stay in the root table, before the [[mods]] header
         assertTrue(out.indexOf("license=") < out.indexOf("[[mods]]"),
                 "license must precede the [[mods]] table: " + out);
         assertTrue(out.contains("modId=\"survivalisland\""), "existing content preserved");
@@ -96,11 +94,10 @@ class ForgeModTransformerTest {
     }
 
     /**
-     * End-to-end of the NeoForge/Forge RUNTIME path (RetromodNeoForge in-place / from-input both
-     * call {@link ForgeModTransformer#transformMod}): a 1.21.x structure mod that ships worldgen
-     * JSON with {@code //} comments must have them stripped during the in-place transform, because
-     * 26.1's strict gson rejects them (FatalStartupException on Philips Ruins before this). Proves
-     * the {@code migrateTree} wiring is reached by the runtime path, not just the offline CLI.
+     * NeoForge/Forge runtime path: {@link ForgeModTransformer#transformMod} must strip {@code //}
+     * comments from a mod's bundled worldgen JSON, since 26.1's strict gson rejects them
+     * (FatalStartupException on Philips Ruins). Checks the {@code migrateTree} wiring is reached
+     * by the runtime path, not just the offline CLI (#42).
      */
     @Test
     @DisplayName("runtime transformMod strips lenient-JSON comments from bundled worldgen data (26.x)")
@@ -122,7 +119,7 @@ class ForgeModTransformerTest {
         String migrated = readEntry(out, "data/smod/worldgen/processor_list/x.json");
         assertNotNull(migrated, "the bundled data file must survive the transform");
         assertFalse(migrated.contains("//"), "the // comment must be stripped by the runtime path: " + migrated);
-        // and it must now parse under a STRICT (26.1-style) reader
+        // and it must now parse under a strict (26.1-style) reader
         var r = new com.google.gson.stream.JsonReader(new java.io.StringReader(migrated));
         r.setLenient(false);
         assertDoesNotThrow(() -> com.google.gson.JsonParser.parseReader(r),

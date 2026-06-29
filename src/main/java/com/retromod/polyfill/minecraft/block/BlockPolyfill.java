@@ -11,10 +11,8 @@ import com.retromod.polyfill.PolyfillProvider;
  * Polyfill for block class renames from The Flattening (1.13+).
  *
  * Pre-flattening mods reference block classes in the old {@code net.minecraft.block}
- * package with legacy names (e.g., BlockContainer, BlockBush). These were renamed
- * and relocated to {@code net.minecraft.world.level.block} in the modern Mojang
- * mapping scheme. This provider registers class redirects so old bytecode references
- * resolve to the correct modern classes at runtime.
+ * package; these were renamed and relocated to {@code net.minecraft.world.level.block}.
+ * This provider registers the class redirects.
  */
 public class BlockPolyfill implements PolyfillProvider {
 
@@ -64,15 +62,13 @@ public class BlockPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed; pure class redirects handle these renames
+        // class redirects handle these renames, no stubs needed
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // Block class renames: net.minecraft.block.* -> net.minecraft.world.level.block.*
-        // These cover the 1.13 Flattening renames using Mojang official names.
-
+        // 1.13 Flattening renames, Mojang official names
         transformer.registerClassRedirect(
             "net/minecraft/block/BlockContainer",
             "net/minecraft/world/level/block/BaseEntityBlock");

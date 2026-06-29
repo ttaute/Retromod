@@ -22,30 +22,18 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Reflection-based mod manager screen for Retromod.
+ * Reflection-based mod manager screen, reached from the title screen via the injected Retromod button.
  *
- * Accessible from the title screen via the injected Retromod button.
- * Uses the native OS file picker (java.awt.FileDialog) for mod selection,
- * then shows transformation results as an in-game Minecraft screen.
- *
- * This class uses reflection for all Minecraft interactions because the
- * project is built with Maven (no Minecraft classes on compile classpath).
- * At runtime inside Minecraft, all classes are available.
- *
- * Flow:
- *   1. User clicks Retromod button on title screen
- *   2. This class opens the native OS file picker (macOS Finder / Windows Explorer)
- *   3. Selected mods are analyzed for complexity
- *   4. If deemed "unlikely to work", user is warned (unless force mode)
- *   5. Remaining mods are transformed and installed to mods/
- *   6. Results shown as an in-game Minecraft screen
+ * <p>Opens the native OS file picker (java.awt.FileDialog) to select mods, transforms them, and shows
+ * the results as an in-game screen. All Minecraft interaction goes through reflection because the build
+ * has no Minecraft classes on the compile classpath; they exist at runtime.
  */
 public class RetromodScreen {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Screen");
 
-    private final Object minecraftClient; // MinecraftClient instance
-    private final Object parentScreen;    // TitleScreen instance
+    private final Object minecraftClient; // MinecraftClient
+    private final Object parentScreen;    // TitleScreen
 
     public record TransformResult(String modName, Status status, String message) {
         public enum Status { SUCCESS, SKIPPED, FAILED, COMPLEX_WARNING }
@@ -57,10 +45,10 @@ public class RetromodScreen {
     }
 
     /**
-     * Open the Retromod manager: shows a file picker and transforms mods.
+     * Open the Retromod manager: shows a file picker and transforms the chosen mods.
      */
     public void open() {
-        // Run file picker on background thread to avoid freezing Minecraft
+        // background thread so the picker doesn't freeze Minecraft
         CompletableFuture.runAsync(() -> {
             try {
                 File[] selectedFiles = showNativeFilePicker();
@@ -76,15 +64,13 @@ public class RetromodScreen {
     }
 
     /**
-     * Show the native OS file picker dialog.
-     * Uses java.awt.FileDialog which opens the real macOS Finder / Windows Explorer dialog.
+     * Show the native OS file picker (Finder / Explorer) via java.awt.FileDialog.
      */
     private File[] showNativeFilePicker() throws Exception {
         final File[][] result = {null};
 
         // FileDialog must be created on the AWT event thread
         java.awt.EventQueue.invokeAndWait(() -> {
-            // Create a hidden frame as parent for the dialog
             Frame frame = new Frame();
             frame.setUndecorated(true);
             frame.setVisible(false);
@@ -93,7 +79,6 @@ public class RetromodScreen {
             dialog.setDirectory(System.getProperty("user.home"));
             dialog.setMultipleMode(true);
 
-            // Filter to only show .jar files
             dialog.setFilenameFilter((dir, name) -> name.toLowerCase().endsWith(".jar"));
 
             dialog.setVisible(true);
@@ -129,7 +114,6 @@ public class RetromodScreen {
             try {
                 Path modPath = modFile.toPath();
 
-                // Complexity check
                 ModComplexityAnalyzer.ComplexityReport report = complexityAnalyzer.analyze(modPath);
 
                 if (report.isUnlikelyToWork() && !forceComplex) {
@@ -144,7 +128,6 @@ public class RetromodScreen {
                     continue;
                 }
 
-                // Analyze
                 ModCompatibilityChecker.IncompatibleMod analysis = checker.analyzeJar(modPath);
 
                 if (analysis != null) {
@@ -200,7 +183,6 @@ public class RetromodScreen {
             }
         }
 
-        // Show results in-game
         InGameScreenFactory.showTransformResults(resultLines, success > 0);
     }
 

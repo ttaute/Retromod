@@ -10,28 +10,20 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression tests for {@link EnvironmentDetector#classExists(String)}: the
- * environment probe must report a class's presence <em>without initializing it</em>.
- *
- * <p>Issue #46: {@code detectDedicatedServer()} used the single-arg
- * {@link Class#forName(String)}, which initializes the class. Probing
- * {@code net.minecraft.server.MinecraftServer} during mod construction forced its
- * {@code <clinit>} far too early; with Legacy4J's mixins on {@code MinecraftServer}
- * and {@code LevelSettings} that cascaded into {@code PackAlbum.<clinit>} reading
- * {@code Minecraft.getInstance().gameDirectory} before the client existed → NPE.
- * Retromod's mere presence then crashed an otherwise-fine mod. These tests prove a
- * probe never triggers the target's static initializer.
+ * Regression tests for {@link EnvironmentDetector#classExists(String)}: the probe
+ * must report a class's presence without initializing it (#46). The single-arg
+ * {@link Class#forName(String)} runs the target's {@code <clinit>}, which forced
+ * Minecraft static initializers to run during mod construction and crashed an
+ * otherwise-fine mod.
  */
 class EnvironmentDetectorTest {
 
-    // A flag holder kept in a SEPARATE class so the test can read it without
-    // initializing the probe target itself.
+    // flag kept in a separate class so the test can read it without initializing the probe target
     static final class InitFlag {
         static volatile boolean SIDE_EFFECT_RAN = false;
     }
 
-    // Probe target whose <clinit> flips the flag. If classExists() were to
-    // initialize it, SIDE_EFFECT_RAN would become true.
+    // probe target whose <clinit> flips the flag
     @SuppressWarnings("unused")
     static final class ProbeTarget {
         static { InitFlag.SIDE_EFFECT_RAN = true; }
@@ -70,11 +62,10 @@ class EnvironmentDetectorTest {
     @Test
     @DisplayName("control: plain Class.forName(String) DOES initialize - the probe target's <clinit> is observable")
     void plainForNameInitializesControl() throws Exception {
-        // Confirms the test harness can actually observe initialization, so the
-        // assertion above is meaningful rather than vacuously passing.
+        // confirms the harness can observe initialization, so the assertion above is not vacuous
         assertFalse(ControlFlag.SIDE_EFFECT_RAN);
         Class.forName("com.retromod.core.EnvironmentDetectorTest$ControlTarget");
         assertTrue(ControlFlag.SIDE_EFFECT_RAN,
-                "single-arg Class.forName initializes - this is exactly the #46 footgun");
+                "single-arg Class.forName initializes - the #46 footgun");
     }
 }

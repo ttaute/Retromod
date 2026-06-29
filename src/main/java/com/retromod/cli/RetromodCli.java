@@ -25,8 +25,7 @@ import java.util.*;
 public class RetromodCli {
     
     private static final String VERSION = "1.2.0-snapshot.5";
-    // Overridable per-invocation via `--target <mc-version>`; the 26.1->26.2 shims only
-    // fire when the chain targets 26.2.
+    // Overridable per-invocation via `--target <mc-version>`.
     private static String TARGET_MC_VERSION = "26.1";
     
     private static ShimRegistry shimRegistry;
@@ -52,8 +51,7 @@ public class RetromodCli {
 
         String command = args[0].toLowerCase();
 
-        // `--target <mc-version>` overrides the default 26.1 target; the per-command arg
-        // parsers ignore it.
+        // `--target <mc-version>` overrides the default target.
         for (int i = 1; i < args.length - 1; i++) {
             if ("--target".equals(args[i])) {
                 String v = args[i + 1].trim();
@@ -166,10 +164,8 @@ public class RetromodCli {
         // Forge shims: legacy Forge to NeoForge transition
         shimRegistry.register(new Forge_1_20_to_NeoForge_1_21());
 
-        // Pick up the API shims (FabricApiShim, FabricRendererApiShim, ModMenuApiShim, …)
-        // that live only in META-INF/services; the hardcoded block above covers the
-        // version-jump shims but not these, so the CLI transform ran a subset of the
-        // runtime. Dedupe by class so a new shim doesn't double-fire.
+        // Pick up the service-loaded API shims; the block above only covers version-jump
+        // shims. Dedupe by class so a shim doesn't double-fire.
         java.util.Set<Class<?>> already = new java.util.HashSet<>();
         for (VersionShim s : shimRegistry.getAllShims()) already.add(s.getClass());
         for (VersionShim s : java.util.ServiceLoader.load(VersionShim.class)) {
@@ -362,10 +358,8 @@ public class RetromodCli {
 
         System.out.println("Input:  " + modPath.getFileName());
 
-        // Register the Forge->NeoForge deleted-class bridges (#52) before compiling so the
-        // AOT transform rewrites references to them; embedIntoJar (below) then places them
-        // per-mod. Reference-gated at embed, so a no-op for any mod that never touches
-        // net/neoforged classes.
+        // Register the Forge->NeoForge deleted-class bridges (#52) before compiling so the AOT
+        // transform rewrites references to them; embedIntoJar (below) places them per-mod.
         try {
             com.retromod.shim.forge.ForgeNeoForgeSynthetics.registerAll(
                     RetromodTransformer.getInstance());
@@ -456,9 +450,8 @@ public class RetromodCli {
             shim.registerRedirects(transformer);
         }
 
-        // API shims (FabricApiShim, FabricRendererApiShim, …) are keyed on Fabric API
-        // release numbers, not MC versions, so the MC version-graph BFS never reaches them.
-        // Mirror what RetromodPreLaunch does at runtime so `transform` matches a real boot.
+        // API shims are keyed on Fabric API release numbers, not MC versions, so the MC
+        // version-graph BFS never reaches them. Mirror what RetromodPreLaunch does at runtime.
         java.util.Set<VersionShim> chainSet = new java.util.HashSet<>(chain);
         int apiApplied = 0;
         for (VersionShim shim : shimRegistry.getAllShims()) {
@@ -476,11 +469,9 @@ public class RetromodCli {
             }
         }
 
-        // Apply the vanilla 26.1 class-move table when targeting 26.1+. The runtime entry
-        // points do this via IntermediaryToMojangMapper; without it the CLI reported far more
-        // "missing class" gaps than a real boot. Apply the moves directly: applyClassMovesOnly()
-        // host-gates on the auto-detected RetromodVersion.TARGET_MC_VERSION, which is wrong here
-        // since the CLI always targets 26.1.
+        // Apply the vanilla 26.1 class-move table when targeting 26.1+ (the runtime entry points
+        // do this via IntermediaryToMojangMapper). Register the moves directly rather than via
+        // applyClassMovesOnly(), which host-gates on the auto-detected TARGET_MC_VERSION.
         int classMovesApplied = 0;
         if (com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
             try {
@@ -494,11 +485,12 @@ public class RetromodCli {
                 // the chain + API shims still apply without the moves
             }
 
-            // Fabric intermediary->Mojang MEMBER mappings (class_/method_/field_XXXX). Without
-            // these a distributed Fabric mod keeps its intermediary names and registers nothing.
-            // Fabric-only: NeoForge/Forge mods are already Mojang-named, and applying these
-            // clobbers their Mojang fields (renamed YUNG's API's Blocks.WHITE_CANDLE to a field
-            // 26.2 lacks -> NoSuchFieldError). Class moves above stay loader-agnostic.
+            // ResourceLocation/Identifier ctor -> factory, matching an in-game boot (CLI == runtime).
+            com.retromod.mapping.IntermediaryToMojangMapper.registerIdentifierCtorRedirects(transformer);
+
+            // Fabric intermediary->Mojang member mappings; without these a distributed Fabric
+            // mod keeps its intermediary names and registers nothing. Fabric-only: NeoForge/Forge
+            // mods are already Mojang-named, and applying these clobbers their Mojang fields.
             if ("fabric".equalsIgnoreCase(info.modLoaderType())) {
                 try {
                     int memberMappings = com.retromod.mapping.IntermediaryToMojangMapper
@@ -512,10 +504,9 @@ public class RetromodCli {
                 }
             }
 
-            // Register the NeoForge deleted-class bridges (#52) so embedIntoJar (below) can place
-            // them per-mod. NeoForge OR Forge: a cross-loader mod shipping both tomls is detected
-            // as "forge" yet runs on NeoForge; the embed is reference-gated, so a pure-Forge mod
-            // is a no-op.
+            // Register the NeoForge deleted-class bridges so embedIntoJar (below) can place them
+            // per-mod. NeoForge OR Forge: a cross-loader mod shipping both tomls is detected as
+            // "forge" yet runs on NeoForge; the embed is reference-gated.
             String synLoaderT = info.modLoaderType();
             if ("neoforge".equalsIgnoreCase(synLoaderT) || "forge".equalsIgnoreCase(synLoaderT)) {
                 try {
@@ -538,7 +529,7 @@ public class RetromodCli {
         }
 
         transformJar(modPath, outputPath, transformer, info);
-        // Embed referenced deleted-class synthetics per-mod into the output jar.
+        // embed referenced deleted-class synthetics per-mod
         com.retromod.core.SyntheticEmbedder.embedIntoJar(
                 outputPath, modPath.getFileName().toString(), transformer);
         System.out.println("✓ Transformation complete: " + outputPath);
@@ -570,11 +561,9 @@ public class RetromodCli {
     
     /**
      * Register the auxiliary redirects an in-game boot applies on top of the version chain:
-     * loader-matched API shims (keyed on Fabric API release numbers, so the MC version-graph BFS
-     * never reaches them), the vanilla 26.1 class-move table, and the Fabric intermediary->Mojang
-     * member mappings. batchCommand historically skipped these, so a 1.21.4 mod's {@code ServerLevel}
-     * mixin kept the old {@code EndDragonFight} @Shadow type and failed construction. Keep in sync
-     * with the inline block in {@link #transformCommand}.
+     * loader-matched API shims, the vanilla 26.1 class-move table, and the Fabric
+     * intermediary->Mojang member mappings. Keep in sync with the inline block in
+     * {@link #transformCommand}.
      *
      * @return a one-line summary of what was applied, or null if nothing extra applied
      */
@@ -603,8 +592,8 @@ public class RetromodCli {
         int classMovesApplied = 0;
         int memberMappings = 0;
         if (com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
-            // Vanilla 26.1 class relocations apply to every loader: NeoForge/Forge mods
-            // reference these by their Mojang names too.
+            // class relocations apply to every loader; NeoForge/Forge mods reference these
+            // by their Mojang names too
             try {
                 var moves = com.retromod.mapping.IntermediaryToMojangMapper
                         .getInstance().getClassMoves();
@@ -615,9 +604,12 @@ public class RetromodCli {
             } catch (Exception e) {
                 // the chain + API shims still apply without the moves
             }
+            // ResourceLocation/Identifier ctor -> factory, matching an in-game boot so CLI output
+            // equals the runtime's (both reach the shared helper). All loaders need it: NeoForge/Forge
+            // mods construct ResourceLocation too, and the class move rewrites it to Identifier.
+            com.retromod.mapping.IntermediaryToMojangMapper.registerIdentifierCtorRedirects(transformer);
             // Member mappings are Fabric-only: NeoForge/Forge mods are already Mojang-named,
-            // and applying these clobbers their Mojang field refs (renamed YUNG's API's
-            // Blocks.WHITE_CANDLE to a field 26.2 no longer has -> NoSuchFieldError).
+            // and applying these clobbers their Mojang field refs.
             if ("fabric".equalsIgnoreCase(info.modLoaderType())) {
                 try {
                     memberMappings = com.retromod.mapping.IntermediaryToMojangMapper.applyTo(transformer);
@@ -627,7 +619,7 @@ public class RetromodCli {
             }
             // Register the NeoForge deleted-class bridges so SyntheticEmbedder can place them
             // per-mod after transformJar. NeoForge OR Forge: a cross-loader mod shipping both
-            // tomls is detected as "forge" yet loads on NeoForge; the embedder is reference-gated.
+            // tomls is detected as "forge" yet loads on NeoForge.
             String synLoader = info.modLoaderType();
             if ("neoforge".equalsIgnoreCase(synLoader) || "forge".equalsIgnoreCase(synLoader)) {
                 try {
@@ -707,10 +699,9 @@ public class RetromodCli {
                 boolean needs26Patch = TARGET_MC_VERSION.startsWith("26.");
                 boolean needsBytecodeTransform = info.needsTransformation(TARGET_MC_VERSION);
                 // For a 26.x target, force the full bytecode transform on a mod whose own MC
-                // version we can't read (null / unparseable / literal ${placeholder} metadata).
-                // Can't confirm it's 26.x-native, and a pre-26 mod needs the class moves /
-                // polyfills / bridges that the metadata-only branch skips. Found via Luminous:
-                // Nether, whose neoforge.mods.toml ships ${minecraft_version_range}.
+                // version we can't read (null / unparseable / literal ${placeholder} metadata):
+                // can't confirm it's 26.x-native, and a pre-26 mod needs the class moves /
+                // polyfills / bridges the metadata-only branch skips.
                 if (!needsBytecodeTransform && needs26Patch) {
                     String mv = info.targetMcVersion();
                     boolean readable = mv != null && !mv.isBlank() && !mv.contains("$")
@@ -739,8 +730,7 @@ public class RetromodCli {
                             shim.registerRedirects(transformer);
                         }
                         // Same class moves + API shims + member mappings the single-mod
-                        // `transform` layers on the chain; without it batch kept pre-26.x
-                        // class names and 1.21.x mixin @Shadows broke.
+                        // `transform` layers on the chain.
                         registerAuxiliaryRedirects(transformer, info, chain);
                         transformJar(modFile.toPath(), outputPath, transformer, info);
                     }
@@ -762,8 +752,7 @@ public class RetromodCli {
                     patchModMetadata(outputPath);
                     // Embed referenced deleted-class synthetics per-mod, whether the mod was
                     // transformed/AOT-compiled or only metadata-patched: a "compatible by version"
-                    // mod can still reference a class 26.x deleted (Luminous: Nether targets 1.21.1
-                    // yet uses DeferredSpawnEggItem). Reference-gated, so a no-op otherwise.
+                    // mod can still reference a class 26.x deleted. Reference-gated.
                     String embLoader = info.modLoaderType();
                     if ("neoforge".equalsIgnoreCase(embLoader) || "forge".equalsIgnoreCase(embLoader)) {
                         try {
@@ -989,13 +978,12 @@ public class RetromodCli {
                      new FileOutputStream(output.toFile()))) {
 
             // Offline analogue of the runtime mixin blocklist: neutralize blocklisted mixin
-            // handlers / classes that fatally fail on the target MC. No-op for unlisted classes.
+            // handlers / classes that fatally fail on the target MC.
             var mixinStripper = new com.retromod.mixin.MixinCompatibilityTransformer(transformer);
             var entries = inJar.entries();
             while (entries.hasMoreElements()) {
                 var entry = entries.nextElement();
-                // safeEntryName throws on path-traversal patterns so a malicious input JAR
-                // can't propagate a bad name into the output.
+                // safeEntryName throws on path-traversal patterns
                 outJar.putNextEntry(new java.util.jar.JarEntry(
                         com.retromod.util.ZipSecurity.safeEntryName(entry.getName())));
 
@@ -1008,9 +996,8 @@ public class RetromodCli {
                             if (shouldTransformClass(entry.getName(), info)) {
                                 data = transformer.transformClass(data, entry.getName());
                             }
-                            // Neutralize blocklisted mixins (e.g. Yung's API BeardifierMixin).
-                            // Always runs for .class entries: a mixin can need neutralizing even
-                            // when its bytecode otherwise doesn't need transformation.
+                            // neutralize blocklisted mixins; always runs since a mixin can need
+                            // it even when its bytecode otherwise needs no transformation
                             data = mixinStripper.stripBlocklistedHandlers(data);
                         } else if (entry.getName().equals("fabric.mod.json")) {
                             data = relaxFabricModDependencies(data);
@@ -1025,17 +1012,15 @@ public class RetromodCli {
                             // make mixin configs non-fatal so @Accessor/@Invoker on removed fields don't crash
                             data = makeMixinConfigNonFatal(data);
                         } else if (com.retromod.resources.ModDataMigrator.isMigratableData(entry.getName())) {
-                            // 26.x data-only changes the bytecode pass can't reach: item renames and
-                            // JSON shape changes. Without it a 1.21.x mod's loot tables / advancements
-                            // fail to parse. Gated to 26.x inside migrate().
+                            // 26.x data-only changes the bytecode pass can't reach (item renames,
+                            // JSON shape changes); gated to 26.x inside migrate()
                             data = com.retromod.resources.ModDataMigrator.migrate(
                                     entry.getName(), data, TARGET_MC_VERSION);
                         } else if ((entry.getName().startsWith("META-INF/jars/")        // Fabric JiJ
                                     || entry.getName().startsWith("META-INF/jarjar/"))  // NeoForge/Forge JiJ
                                    && entry.getName().endsWith(".jar")) {
-                            // Recurse the full transform into bundled Jar-in-Jar libraries; a mod
-                            // that registers content through a JiJ'd library (#71) needs the nested
-                            // jar transformed too.
+                            // a mod that registers content through a JiJ'd library (#71) needs
+                            // the nested jar transformed too
                             data = transformNestedJar(data, 1);
                         }
 
@@ -1072,8 +1057,8 @@ public class RetromodCli {
         try {
             String json = new String(jsonData, java.nio.charset.StandardCharsets.UTF_8);
 
-            // String-level edits since there's no JSON library here: minecraft -> "*",
-            // fabricloader -> a permissive minimum, fabric-api submodules -> "*".
+            // string-level edits: minecraft -> "*", fabricloader -> permissive minimum,
+            // fabric-api submodules -> "*"
             json = json.replaceAll(
                 "(\"minecraft\"\\s*:\\s*)(?:\"[^\"]*\"|\\[[^\\]]*\\]|\\{[^}]*\\})",
                 "$1\"*\""
@@ -1104,7 +1089,7 @@ public class RetromodCli {
             String json = new String(jsonData, java.nio.charset.StandardCharsets.UTF_8);
             com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
 
-            // only process actual mixin configs
+            // only mixin configs have a "package" key
             if (!root.has("package")) return jsonData;
 
             root.addProperty("required", false);
@@ -1129,9 +1114,8 @@ public class RetromodCli {
     /**
      * Recursively transform a nested Jar-in-Jar library: rewrite its bytecode, relax its metadata,
      * make its mixin configs non-fatal, and recurse into its own bundled jars up to
-     * {@link #MAX_JIJ_DEPTH}. Many mods register content through a JiJ'd library (Critter, Botarium,
-     * Moonlight, …) whose calls reference relocated/intermediary names; without remapping the nested
-     * bytecode the mod loads but registers nothing (#71). Mirrors FabricModTransformer.remapNestedJar.
+     * {@link #MAX_JIJ_DEPTH}. A mod registering content through a JiJ'd library references
+     * relocated/intermediary names there too (#71). Mirrors FabricModTransformer.remapNestedJar.
      */
     // Package-private for NestedJarRecursionTest.
     static byte[] transformNestedJar(byte[] jarData, int depth) {
@@ -1172,8 +1156,8 @@ public class RetromodCli {
                             data = relaxNeoForgeDependencies(data);
                             modified = true;
                         } else if (com.retromod.resources.ModDataMigrator.isMigratableData(name)) {
-                            // migrate JiJ'd data-pack JSON across the 1.21.x -> 26.x data-only
-                            // changes (mirrors the top-level branch); gated to 26.x inside migrate()
+                            // migrate JiJ'd data-pack JSON across 1.21.x -> 26.x data-only
+                            // changes; gated to 26.x inside migrate()
                             byte[] t = com.retromod.resources.ModDataMigrator.migrate(
                                     name, data, TARGET_MC_VERSION);
                             if (t != data) { data = t; modified = true; }
@@ -1283,9 +1267,8 @@ public class RetromodCli {
                                    entry.getName().equals("META-INF/neoforge.mods.toml")) {
                             data = relaxNeoForgeDependencies(data);
                         } else if (com.retromod.resources.ModDataMigrator.isMigratableData(entry.getName())) {
-                            // A "compatible by version" mod takes this metadata-only branch yet can
-                            // still ship data hitting a 26.x change (Luminous: Nether targets 1.21.1
-                            // yet carries chain loot tables). Gated to 26.x inside migrate().
+                            // a "compatible by version" mod takes this metadata-only branch yet can
+                            // still ship data hitting a 26.x change; gated to 26.x inside migrate()
                             data = com.retromod.resources.ModDataMigrator.migrate(
                                     entry.getName(), data, TARGET_MC_VERSION);
                         }
@@ -2068,8 +2051,8 @@ public class RetromodCli {
             }
         }
 
-        // Verification is off by default and the transformer reads the flag at class-init
-        // time, so the property must be set before launch; bail with instructions otherwise.
+        // The transformer reads the verify flag at class-init time, so the property must be
+        // set before launch; bail with instructions otherwise.
         if (!RetromodTransformer.isVerificationEnabled()) {
             System.err.println("NOTE: verification is not enabled.");
             System.err.println("Re-run with: -Dretromod.verifyTransforms=true");
@@ -2141,8 +2124,8 @@ public class RetromodCli {
 
     /**
      * Open one mod JAR, transform + verify each class, return the per-mod report. In-memory only.
-     * Pipeline: read all classes, transform, optionally synthesize bridges and match patterns, then
-     * verify the final bytecode. Each optional step is gated by its own {@code -Dretromod.*} flag.
+     * Reads all classes, transforms, optionally synthesizes bridges and matches patterns, then
+     * verifies the final bytecode. Each optional step is gated by its own {@code -Dretromod.*} flag.
      */
     private static com.retromod.core.verify.VerificationReport verifyOneMod(
             RetromodTransformer transformer, Path jarPath) throws Exception {
@@ -2190,8 +2173,7 @@ public class RetromodCli {
         int bridgeCountBefore = transformer.getBridgeSynthesizer().getBridgesSynthesized();
 
         // Second pass: transform each class, then optional post-processing. Runs in parallel
-        // (-Dretromod.parallelism, default = all cores); each per-class pipeline is independent
-        // and the redirect tables and report accumulator are thread-safe.
+        // (-Dretromod.parallelism, default = all cores); each per-class pipeline is independent.
         final com.retromod.core.pattern.MatchContext finalMatchCtx = matchCtx;
         com.retromod.core.parallel.RetromodExecutors.parallelForEachEntry(
                 classBytesByName,

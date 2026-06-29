@@ -9,24 +9,14 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
 /**
- * Reimplementation of GuiComponent (removed in MC 1.20).
+ * Reimplementation of GuiComponent (removed in MC 1.20), whose 2D drawing methods
+ * moved to the GuiGraphics context object.
  *
- * In 1.20, Mojang moved all 2D GUI drawing methods from the static GuiComponent
- * class into the new GuiGraphics context object. Old mods that called:
- *   GuiComponent.fill(poseStack, x1, y1, x2, y2, color)
- *   GuiComponent.drawString(font, text, x, y, color)
- *   GuiComponent.blit(poseStack, x, y, u, v, width, height)
- * need to be redirected to the equivalent GuiGraphics methods.
- *
- * Since we cannot hold a compile-time reference to GuiGraphics (it lives in
- * the MC runtime), these methods accept Object parameters and use reflection
- * to locate and invoke the modern equivalents. The PoseStack parameter from
- * old calls is dropped because GuiGraphics manages its own pose stack internally.
- *
- * Note: These shim methods are last-resort fallbacks. The primary transformation
- * path rewrites callsites to use GuiGraphics directly when a GuiGraphics instance
- * is available in the calling context. This shim handles cases where the instance
- * cannot be statically determined.
+ * These methods accept Object parameters and reflect into the modern GuiGraphics
+ * equivalents (GuiGraphics lives in the MC runtime, no compile-time reference).
+ * The old PoseStack parameter is dropped since GuiGraphics owns its pose stack.
+ * They are fallbacks: the primary transform path rewrites callsites to GuiGraphics
+ * directly when an instance is available, this covers the cases where it isn't.
  */
 public class GuiComponentShim {
 
@@ -58,7 +48,7 @@ public class GuiComponentShim {
             blit = lookup.findVirtual(guiGraphicsClass, "blit",
                 MethodType.methodType(void.class, int.class, int.class, int.class, int.class, int.class, int.class));
         } catch (Exception e) {
-            // GuiGraphics not available; running on older MC version or dedicated server
+            // GuiGraphics not available (older MC or dedicated server)
         }
 
         GUI_GRAPHICS_FILL = fill;
@@ -69,16 +59,9 @@ public class GuiComponentShim {
 
     /**
      * Reimplements GuiComponent.fill(PoseStack, int, int, int, int, int).
+     * No-op when no GuiGraphics instance can be resolved.
      *
-     * The poseStack parameter is accepted as Object because old bytecode passes
-     * a PoseStack, but we don't need it. GuiGraphics.fill() manages its own
-     * pose stack. If no GuiGraphics instance is available in the current context,
-     * this becomes a no-op (the fill simply won't render).
-     *
-     * In practice, the RenderingPolyfill also registers bytecode transforms that
-     * attempt to pass the active GuiGraphics through instead of the PoseStack.
-     *
-     * @param poseStack The old PoseStack (ignored; kept for signature compatibility)
+     * @param poseStack the old PoseStack (ignored, kept for signature compatibility)
      * @param x1    Left edge
      * @param y1    Top edge
      * @param x2    Right edge
@@ -87,13 +70,12 @@ public class GuiComponentShim {
      */
     public static void fill(Object poseStack, int x1, int y1, int x2, int y2, int color) {
         if (GUI_GRAPHICS_FILL != null && GUI_GRAPHICS_CLASS != null) {
-            // Try to get the current GuiGraphics from the Minecraft client context
             Object guiGraphics = getCurrentGuiGraphics();
             if (guiGraphics != null) {
                 try {
                     GUI_GRAPHICS_FILL.invoke(guiGraphics, x1, y1, x2, y2, color);
                 } catch (Throwable t) {
-                    // Silently fail; better than crashing the game
+                    // swallow: better than crashing the game
                 }
             }
         }
@@ -101,11 +83,9 @@ public class GuiComponentShim {
 
     /**
      * Reimplements GuiComponent.drawString(Font, String, int, int, int).
+     * Font is passed as Object (no compile-time reference to Font).
      *
-     * The Font parameter is passed through as Object because we can't reference
-     * net.minecraft.client.gui.Font at compile time.
-     *
-     * @param font  The Font instance (passed through to GuiGraphics.drawString)
+     * @param font  the Font instance
      * @param text  Text to draw
      * @param x     X position
      * @param y     Y position
@@ -118,18 +98,17 @@ public class GuiComponentShim {
                 try {
                     GUI_GRAPHICS_DRAW_STRING.invoke(guiGraphics, font, text, x, y, color);
                 } catch (Throwable t) {
-                    // Silently fail
+                    // swallow
                 }
             }
         }
     }
 
     /**
-     * Reimplements GuiComponent.blit(PoseStack, int, int, int, int, int, int).
+     * Reimplements GuiComponent.blit(PoseStack, int, int, int, int, int, int),
+     * delegating to GuiGraphics.blit() with the PoseStack dropped.
      *
-     * Delegates to GuiGraphics.blit() with the PoseStack parameter dropped.
-     *
-     * @param poseStack The old PoseStack (ignored)
+     * @param poseStack the old PoseStack (ignored)
      * @param x         X position
      * @param y         Y position
      * @param u         Texture U coordinate
@@ -144,32 +123,21 @@ public class GuiComponentShim {
                 try {
                     GUI_GRAPHICS_BLIT.invoke(guiGraphics, x, y, u, v, width, height);
                 } catch (Throwable t) {
-                    // Silently fail
+                    // swallow
                 }
             }
         }
     }
 
-    /**
-     * Attempts to retrieve the current GuiGraphics instance from the Minecraft client.
-     *
-     * In modern MC (1.20+), Screen.render() receives a GuiGraphics parameter.
-     * We walk the call stack to find a render method that has a GuiGraphics local,
-     * or fall back to creating one from the current Minecraft instance.
-     *
-     * @return The active GuiGraphics instance, or null if unavailable
-     */
+    /** Builds a GuiGraphics from the current Minecraft instance, or null if unavailable. */
     private static Object getCurrentGuiGraphics() {
         try {
-            // Try to get Minecraft.getInstance() and create a GuiGraphics from its bufferSource
             Class<?> minecraftClass = Class.forName("net.minecraft.client.Minecraft");
             Object minecraft = minecraftClass.getMethod("getInstance").invoke(null);
 
-            // Get the MultiBufferSource.BufferSource from Minecraft
             Object bufferSource = minecraftClass.getMethod("renderBuffers").invoke(minecraft);
             Object bufSource = bufferSource.getClass().getMethod("bufferSource").invoke(bufferSource);
 
-            // Create a new GuiGraphics(Minecraft, MultiBufferSource.BufferSource)
             return GUI_GRAPHICS_CLASS
                 .getConstructor(minecraftClass, Class.forName("net.minecraft.client.renderer.MultiBufferSource$BufferSource"))
                 .newInstance(minecraft, bufSource);

@@ -15,18 +15,16 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression coverage for issue #24: the removed
- * {@code net.minecraft.world.level.block.state.properties.DirectionProperty}.
+ * Regression coverage for the removed
+ * {@code net.minecraft.world.level.block.state.properties.DirectionProperty} (#24).
  *
- * Verifies the polyfill registers the type redirect to the surviving
- * {@code EnumProperty} and bridges all four removed {@code create(...)}
- * factories, keyed on the post-class-remap call shape (no {@code Class} arg),
- * which must not collide with the real {@code EnumProperty.create} overloads.
- *
- * <p>DirectionProperty was removed in 26.1, so the polyfill is host-gated: these
- * tests run with the host pinned to 26.1, and {@link #gatedOffBelowRemoval()}
- * covers the pre-26.1 host where the class still exists and must NOT be hijacked
- * (the NeoForge runtime now loads these polyfills against Mojang-named mods).
+ * <p>Verifies the polyfill redirects the type to the surviving {@code EnumProperty}
+ * and bridges all four removed {@code create(...)} factories, keyed on the
+ * post-class-remap call shape (no {@code Class} arg) so they don't collide with the
+ * {@code EnumProperty.create} overloads. DirectionProperty was removed in 26.1, so
+ * the polyfill is host-gated: these tests pin the host to 26.1, and
+ * {@link #gatedOffBelowRemoval()} covers the pre-26.1 host where the class still
+ * exists and must not be hijacked.
  */
 class BlockPropertyPolyfillTest {
 
@@ -44,7 +42,7 @@ class BlockPropertyPolyfillTest {
     @BeforeEach
     void setUp() {
         savedVersion = RetromodVersion.TARGET_MC_VERSION;
-        // 26.1: the host where DirectionProperty is removed, so the polyfill is active.
+        // 26.1: DirectionProperty is removed here, so the polyfill is active.
         RetromodVersion.TARGET_MC_VERSION = "26.1";
         RetromodTransformer.getInstance().clearRedirectsForTesting();
     }
@@ -78,8 +76,8 @@ class BlockPropertyPolyfillTest {
         RetromodTransformer t = RetromodTransformer.getInstance();
         new BlockPropertyPolyfill().registerPolyfills(t);
 
-        // The four post-class-remap create shapes, none of which collide with the
-        // real EnumProperty.create(String, Class, ...) overloads.
+        // The four post-class-remap create shapes; none collide with the
+        // EnumProperty.create(String, Class, ...) overloads.
         String[] descs = {
                 "(Ljava/lang/String;)" + ENUM_DESC,
                 "(Ljava/lang/String;Ljava/util/function/Predicate;)" + ENUM_DESC,
@@ -102,7 +100,7 @@ class BlockPropertyPolyfillTest {
     void doesNotShadowRealOverloads() {
         RetromodTransformer t = RetromodTransformer.getInstance();
         new BlockPropertyPolyfill().registerPolyfills(t);
-        // The genuine 26.1 factory takes a Class<Direction> 2nd arg, so it must be untouched.
+        // The 26.1 factory takes a Class<Direction> 2nd arg, so it must be untouched.
         var realKey = new RetromodTransformer.MethodKey(
                 ENUM_PROPERTY, "create",
                 "(Ljava/lang/String;Ljava/lang/Class;)" + ENUM_DESC);

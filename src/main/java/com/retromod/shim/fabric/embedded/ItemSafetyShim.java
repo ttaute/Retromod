@@ -77,9 +77,27 @@ public class ItemSafetyShim {
     public static void noOpStatic() {
     }
 
+    // Util.backgroundExecutor() returns a single shared pool; mirror that with one lazily-created
+    // daemon-threaded instance so callsites don't leak a fresh unbounded pool on every call.
+    private static volatile java.util.concurrent.ExecutorService backgroundExecutor;
+
     /** Bridge for Util.backgroundExecutor(), removed in 26.1. */
     public static java.util.concurrent.ExecutorService getBackgroundExecutor() {
-        return java.util.concurrent.Executors.newCachedThreadPool();
+        java.util.concurrent.ExecutorService es = backgroundExecutor;
+        if (es == null) {
+            synchronized (ItemSafetyShim.class) {
+                es = backgroundExecutor;
+                if (es == null) {
+                    es = java.util.concurrent.Executors.newCachedThreadPool(r -> {
+                        Thread t = new Thread(r, "Retromod-background");
+                        t.setDaemon(true);
+                        return t;
+                    });
+                    backgroundExecutor = es;
+                }
+            }
+        }
+        return es;
     }
 
     /** Bridge for TitleScreen.COPYRIGHT_TEXT, which went private in 26.1. */

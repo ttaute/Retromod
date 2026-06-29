@@ -282,7 +282,10 @@ public class FullAotCompiler {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             ZipEntry fabricEntry = jar.getEntry("fabric.mod.json");
             if (fabricEntry != null) {
-                String content = new String(jar.getInputStream(fabricEntry).readAllBytes());
+                String content;
+                try (InputStream is = jar.getInputStream(fabricEntry)) {
+                    content = new String(is.readAllBytes());
+                }
                 java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"id\"\\s*:\\s*\"([^\"]+)\"");
                 java.util.regex.Matcher matcher = pattern.matcher(content);
                 if (matcher.find()) {
@@ -292,7 +295,10 @@ public class FullAotCompiler {
             
             ZipEntry forgeEntry = jar.getEntry("META-INF/mods.toml");
             if (forgeEntry != null) {
-                String content = new String(jar.getInputStream(forgeEntry).readAllBytes());
+                String content;
+                try (InputStream is = jar.getInputStream(forgeEntry)) {
+                    content = new String(is.readAllBytes());
+                }
                 java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("modId\\s*=\\s*\"([^\"]+)\"");
                 java.util.regex.Matcher matcher = pattern.matcher(content);
                 if (matcher.find()) {
@@ -447,13 +453,14 @@ public class FullAotCompiler {
     public void clearCache() {
         try {
             if (Files.exists(cacheDir)) {
-                Files.walk(cacheDir)
-                    .sorted((a, b) -> b.toString().length() - a.toString().length())
-                    .forEach(p -> {
-                        try {
-                            Files.delete(p);
-                        } catch (IOException ignored) {}
-                    });
+                try (var walk = Files.walk(cacheDir)) {
+                    walk.sorted((a, b) -> b.toString().length() - a.toString().length())
+                        .forEach(p -> {
+                            try {
+                                Files.delete(p);
+                            } catch (IOException ignored) {}
+                        });
+                }
             }
             Files.createDirectories(cacheDir);
             LOGGER.info("AOT cache cleared");
@@ -466,16 +473,17 @@ public class FullAotCompiler {
     public long getCacheSize() {
         try {
             if (!Files.exists(cacheDir)) return 0;
-            return Files.walk(cacheDir)
-                .filter(Files::isRegularFile)
-                .mapToLong(p -> {
-                    try {
-                        return Files.size(p);
-                    } catch (IOException e) {
-                        return 0;
-                    }
-                })
-                .sum();
+            try (var walk = Files.walk(cacheDir)) {
+                return walk.filter(Files::isRegularFile)
+                    .mapToLong(p -> {
+                        try {
+                            return Files.size(p);
+                        } catch (IOException e) {
+                            return 0;
+                        }
+                    })
+                    .sum();
+            }
         } catch (Exception e) {
             return 0;
         }

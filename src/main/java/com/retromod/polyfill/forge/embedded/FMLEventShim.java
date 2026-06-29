@@ -5,14 +5,12 @@
 package com.retromod.polyfill.forge.embedded;
 
 /**
- * Stub implementations of removed FML lifecycle events.
- * Old Forge mods (1.12 and earlier) received these events via @Mod.EventHandler.
- * In modern Forge/NeoForge, lifecycle is handled via @Mod constructor + DeferredRegister.
- * These stubs prevent ClassNotFoundException without actually firing events.
+ * Stubs for removed FML lifecycle events that pre-1.13 Forge mods received via @Mod.EventHandler.
+ * They keep those mods loading (no ClassNotFoundException); modern Forge/NeoForge handles lifecycle
+ * via the @Mod constructor plus DeferredRegister, so nothing here fires.
  */
 public class FMLEventShim {
 
-    /** Stub for FMLPreInitializationEvent */
     public static class PreInit {
         public java.io.File getModConfigurationDirectory() {
             return new java.io.File("config");
@@ -23,15 +21,12 @@ public class FMLEventShim {
         }
     }
 
-    /** Stub for FMLInitializationEvent */
     public static class Init {
     }
 
-    /** Stub for FMLPostInitializationEvent */
     public static class PostInit {
     }
 
-    /** Stub for FMLServerStartingEvent */
     public static class ServerStarting {
     }
 }

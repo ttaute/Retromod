@@ -64,42 +64,45 @@ public class QuiltModTransformer {
         try {
             Path tempDir = Files.createTempDirectory("retromod-quilt-");
 
-            // Bounded extraction: a mod JAR is user content, and an entry can lie about its
-            // declared size, so count actual decompressed bytes to catch a zip bomb.
-            long quiltTotalSize = 0;
-            try (JarFile jar = new JarFile(jarPath.toFile())) {
-                var entries = jar.entries();
-                while (entries.hasMoreElements()) {
-                    JarEntry entry = entries.nextElement();
-                    Path outPath = ZipSecurity.safeResolve(tempDir, entry.getName());
-                    if (entry.isDirectory()) {
-                        Files.createDirectories(outPath);
-                    } else {
-                        Files.createDirectories(outPath.getParent());
-                        long writtenBytes;
-                        try (InputStream is = jar.getInputStream(entry)) {
-                            writtenBytes = ZipSecurity.copyBounded(
-                                is, outPath, ZipSecurity.DEFAULT_MAX_ENTRY_SIZE, entry.getName());
-                        }
-                        quiltTotalSize += writtenBytes;
-                        if (quiltTotalSize > ZipSecurity.DEFAULT_MAX_TOTAL_SIZE) {
-                            throw new IOException("Quilt mod total extracted size exceeds limit ("
-                                + ZipSecurity.DEFAULT_MAX_TOTAL_SIZE + " bytes) - possible zip bomb "
-                                + "(decompressed " + quiltTotalSize + " bytes so far)");
+            try {
+                // Bounded extraction: a mod JAR is user content, and an entry can lie about its
+                // declared size, so count actual decompressed bytes to catch a zip bomb.
+                long quiltTotalSize = 0;
+                try (JarFile jar = new JarFile(jarPath.toFile())) {
+                    var entries = jar.entries();
+                    while (entries.hasMoreElements()) {
+                        JarEntry entry = entries.nextElement();
+                        Path outPath = ZipSecurity.safeResolve(tempDir, entry.getName());
+                        if (entry.isDirectory()) {
+                            Files.createDirectories(outPath);
+                        } else {
+                            Files.createDirectories(outPath.getParent());
+                            long writtenBytes;
+                            try (InputStream is = jar.getInputStream(entry)) {
+                                writtenBytes = ZipSecurity.copyBounded(
+                                    is, outPath, ZipSecurity.DEFAULT_MAX_ENTRY_SIZE, entry.getName());
+                            }
+                            quiltTotalSize += writtenBytes;
+                            if (quiltTotalSize > ZipSecurity.DEFAULT_MAX_TOTAL_SIZE) {
+                                throw new IOException("Quilt mod total extracted size exceeds limit ("
+                                    + ZipSecurity.DEFAULT_MAX_TOTAL_SIZE + " bytes) - possible zip bomb "
+                                    + "(decompressed " + quiltTotalSize + " bytes so far)");
+                            }
                         }
                     }
                 }
-            }
-            
-            Path quiltJson = tempDir.resolve("quilt.mod.json");
-            if (Files.exists(quiltJson)) {
-                String content = Files.readString(quiltJson);
-                content = updateVersionInQuiltJson(content);
-                Files.writeString(quiltJson, content);
-            }
 
-            repackJar(tempDir, jarPath);
-            deleteDirectory(tempDir);
+                Path quiltJson = tempDir.resolve("quilt.mod.json");
+                if (Files.exists(quiltJson)) {
+                    String content = Files.readString(quiltJson);
+                    content = updateVersionInQuiltJson(content);
+                    Files.writeString(quiltJson, content);
+                }
+
+                repackJar(tempDir, jarPath);
+            } finally {
+                deleteDirectory(tempDir);
+            }
 
         } catch (Exception e) {
             LOGGER.debug("Could not update quilt.mod.json: {}", e.getMessage());
@@ -125,7 +128,10 @@ public class QuiltModTransformer {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             var entry = jar.getEntry("quilt.mod.json");
             if (entry != null) {
-                String content = new String(jar.getInputStream(entry).readAllBytes());
+                String content;
+                try (InputStream is = jar.getInputStream(entry)) {
+                    content = new String(is.readAllBytes());
+                }
                 Pattern p = Pattern.compile("\"minecraft\"\\s*:\\s*\"([^\"]+)\"");
                 Matcher m = p.matcher(content);
                 if (m.find()) {

@@ -22,28 +22,20 @@ import net.minecraftforge.forgespi.locating.IModLocator;
 
 /**
  * Forge counterpart of {@link RetromodModLocator} (#78): discovers jars in
- * {@code mods/Retromod/} so Retromod (on Modrinth and CurseForge) and its transformed
- * {@code *-retromod.jar} outputs can ship as CurseForge pack overrides instead of
- * top-level {@code mods/} jars.
+ * {@code mods/Retromod/} so Retromod and its transformed {@code *-retromod.jar} outputs
+ * can ship as CurseForge pack overrides instead of top-level {@code mods/} jars.
  *
- * <p><b>How Forge picks this up.</b> Registered in
- * {@code META-INF/services/net.minecraftforge.forgespi.locating.IModLocator}. Forge's
- * {@code ModDirTransformerDiscoverer} walks {@code mods/} for jars declaring that
- * service, puts them on the SERVICE module layer, and {@code ModDiscoverer} then runs
- * {@code initArguments} + {@code scanMods} on each, the same shape as NeoForge's
- * early-service scan, just a different SPI ({@code IModLocator.scanMods()} vs
- * NeoForge's {@code IModFileCandidateLocator.findCandidates}). Verified against Forge
- * forgespi 8.0.0 / fmlloader 26.2.
+ * <p>Not service-registered in Retromod's main jar: Forge's {@code ModDirTransformerDiscoverer}
+ * claims any {@code mods/} jar declaring the {@code IModLocator} service onto the early
+ * service/transformer layer, where it loads before mod discovery and is never scanned as a
+ * {@code @Mod}, so shipping the service stopped {@code RetromodForge} from ever running. The class
+ * stays for self-hash uniformity and a possible future locator-only stub jar, but is unwired; until
+ * then {@code mods/Retromod/} loading is NeoForge-only and Forge users place jars in {@code mods/}.
  *
- * <p><b>How it works.</b> Building a Forge {@code IModFile} from a jar path goes
- * through internal machinery (an internal {@code createMod}/{@code ModFileFactory}
- * path), so rather than reimplement it we reflectively delegate to Forge's own
- * {@code ModsFolderLocator(Path, String)} pointed at {@code mods/Retromod/} and return
- * its result. fmlloader ships as an automatic module (no {@code module-info}), so the
- * package-private constructor is reachable via {@code setAccessible}. The whole thing
- * is wrapped in a catch-all soft-fail: if Forge ever moves/renames that class (or
- * blocks reflection), the locator returns an empty list and Forge proceeds normally -
- * it can never break other mods.
+ * <p>Reflectively delegates to Forge's own {@code ModsFolderLocator(Path, String)} (reachable via
+ * {@code setAccessible} since fmlloader is an automatic module) rather than reimplementing the
+ * internal {@code createMod}/{@code ModFileFactory} path. Soft-fails to an empty list if that class
+ * moves or reflection is blocked.
  *
  * <p>Self-contained (JDK + SLF4J + the SPI only) so it can ride in the minimal
  * CurseForge "Retromod Loader" stub jar.
@@ -71,8 +63,7 @@ public final class RetromodForgeModLocator implements IModLocator {
             return Collections.emptyList();
         }
         try {
-            // Delegate to Forge's own directory locator so the jars become proper
-            // IModFile instances built by Forge's internal createMod/ModFileFactory.
+            // delegate to Forge's directory locator so the jars become proper IModFile instances
             Class<?> mfl = Class.forName("net.minecraftforge.fml.loading.moddiscovery.ModsFolderLocator");
             Constructor<?> ctor = mfl.getDeclaredConstructor(Path.class, String.class);
             ctor.setAccessible(true);
@@ -82,8 +73,7 @@ public final class RetromodForgeModLocator implements IModLocator {
             LOGGER.info("[Retromod] offered {} jar(s) from {} to Forge mod discovery", list.size(), folder);
             return list;
         } catch (Throwable t) {
-            // Soft-fail: never break Forge discovery if the internal class moved or
-            // reflection is blocked. mods/Retromod/ simply won't load on this Forge.
+            // soft-fail rather than break Forge discovery if the class moved or reflection is blocked
             LOGGER.warn("[Retromod] Forge mods/Retromod/ locator could not delegate to "
                     + "ModsFolderLocator ({}); those jars won't load on Forge", t.toString());
             return Collections.emptyList();
@@ -98,8 +88,8 @@ public final class RetromodForgeModLocator implements IModLocator {
         }
         try {
             Class<?> fmlPaths = Class.forName("net.minecraftforge.fml.loading.FMLPaths");
-            Object modsDir = fmlPaths.getField("MODSDIR").get(null);            // enum constant
-            Path mods = (Path) fmlPaths.getMethod("get").invoke(modsDir);        // absolute path
+            Object modsDir = fmlPaths.getField("MODSDIR").get(null);
+            Path mods = (Path) fmlPaths.getMethod("get").invoke(modsDir);
             return mods.resolve(SUBFOLDER);
         } catch (Throwable t) {
             return null;
@@ -115,8 +105,8 @@ public final class RetromodForgeModLocator implements IModLocator {
         }
     }
 
-    // ── IModProvider: the files we return belong to the inner ModsFolderLocator
-    //    (their provider), so Forge calls these on it, not us; trivial impls suffice. ──
+    // IModProvider: the returned files belong to the inner ModsFolderLocator, so Forge
+    // calls these on it, not us; trivial impls suffice.
 
     @Override
     public String name() {

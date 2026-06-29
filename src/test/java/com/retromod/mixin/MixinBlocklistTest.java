@@ -22,9 +22,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests the mixin blocklist that turns fatal, unrepairable mixin handlers into
- * inert ones (issue #28: a MixinExtras {@code @WrapOperation}/{@code @Local}
- * that crashes with a {@code VerifyError} on 26.1).
+ * Tests the mixin blocklist that turns fatal mixin handlers inert (#28).
  */
 class MixinBlocklistTest {
 
@@ -33,7 +31,7 @@ class MixinBlocklistTest {
         MixinBlocklist.resetForTesting();
     }
 
-    /** Build a minimal @Mixin class with a blocked handler, an injector helper, and a plain helper. */
+    /** A minimal @Mixin class with a blocked handler, an injector helper, and a plain helper. */
     private static byte[] mixinClass(String internalName) {
         ClassWriter cw = new ClassWriter(0);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
@@ -47,7 +45,7 @@ class MixinBlocklistTest {
         ctor.visitMaxs(1, 1);
         ctor.visitEnd();
 
-        // Blocked MixinExtras @WrapOperation handler (the #28 shape).
+        // blocked MixinExtras @WrapOperation handler
         MethodVisitor h = cw.visitMethod(Opcodes.ACC_PRIVATE,
                 "deeperdarker$decrementStackOnServer", "()V", null, null);
         h.visitAnnotation("Lcom/llamalad7/mixinextras/injector/wrapoperation/WrapOperation;", false).visitEnd();
@@ -56,7 +54,7 @@ class MixinBlocklistTest {
         h.visitMaxs(0, 1);
         h.visitEnd();
 
-        // A standard @Inject handler (used by the whole-class case).
+        // standard @Inject handler, used by the whole-class case
         MethodVisitor inj = cw.visitMethod(Opcodes.ACC_PRIVATE, "onSomething", "()V", null, null);
         inj.visitAnnotation("Lorg/spongepowered/asm/mixin/injection/Inject;", false).visitEnd();
         inj.visitCode();
@@ -64,7 +62,7 @@ class MixinBlocklistTest {
         inj.visitMaxs(0, 1);
         inj.visitEnd();
 
-        // A plain helper with no injector annotation must always survive.
+        // plain helper with no injector annotation, must survive
         MethodVisitor keep = cw.visitMethod(Opcodes.ACC_PRIVATE, "plainHelper", "()V", null, null);
         keep.visitCode();
         keep.visitInsn(Opcodes.RETURN);
@@ -86,7 +84,7 @@ class MixinBlocklistTest {
     @Test
     @DisplayName("Bundled blocklist includes Deeper&Darker's PaintingItemMixin handler (#28)")
     void loadsBundledDeeperDarkerEntry() {
-        MixinBlocklist.resetForTesting(); // force a fresh load of the bundled resource
+        MixinBlocklist.resetForTesting(); // fresh load of the bundled resource
         Set<String> m = MixinBlocklist.methodsToStrip(
                 "com/kyanite/deeperdarker/mixin/PaintingItemMixin");
         assertNotNull(m, "bundled blocklist should include PaintingItemMixin");
@@ -111,7 +109,7 @@ class MixinBlocklistTest {
     @Test
     @DisplayName("Whole-class (empty methods): every injector dropped, helpers/ctor kept")
     void wholeClassStripsInjectorsKeepsHelpers() {
-        MixinBlocklist.setForTesting(Map.of("test/BarMixin", Set.of())); // empty = all injectors
+        MixinBlocklist.setForTesting(Map.of("test/BarMixin", Set.of())); // empty means all injectors
         var t = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
 
         Set<String> names = methodNames(t.transformMixinClass(mixinClass("test/BarMixin")));
@@ -124,7 +122,7 @@ class MixinBlocklistTest {
     @Test
     @DisplayName("End-to-end: the BUNDLED PaintingItemMixin entry strips the handler via transformMixinClass")
     void bundledEntryStripsRealMixin() {
-        MixinBlocklist.resetForTesting(); // use the real bundled list, not a test injection
+        MixinBlocklist.resetForTesting(); // use the bundled list, not a test injection
         var t = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
 
         Set<String> names = methodNames(t.transformMixinClass(
@@ -135,7 +133,7 @@ class MixinBlocklistTest {
         assertTrue(names.contains("onSomething"), "non-listed handler survives");
     }
 
-    /** Build a minimal @Mixin class with two named handler methods + ctor. */
+    /** A minimal @Mixin class with two named handler methods plus a ctor. */
     private static byte[] mixinClassWithMethods(String internalName, String... methodNames) {
         ClassWriter cw = new ClassWriter(0);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
@@ -173,7 +171,7 @@ class MixinBlocklistTest {
     @Test
     @DisplayName("#50 NeoForge path: strip getDefaultDimensions, keep the goals handler")
     void stripsPhantomDimensionsKeepsGoals() {
-        MixinBlocklist.resetForTesting(); // use the real bundled list
+        MixinBlocklist.resetForTesting(); // use the bundled list
         var t = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
         Set<String> names = methodNames(t.stripBlocklistedHandlers(mixinClassWithMethods(
                 "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
@@ -197,7 +195,7 @@ class MixinBlocklistTest {
     }
 
 
-    /** Build a @Mixin(value = {targetInternal.class}) class, for neutralization tests. */
+    /** A @Mixin(value = {targetInternal.class}) class, for neutralization tests. */
     private static byte[] mixinClassWithTarget(String internalName, String targetInternal) {
         ClassWriter cw = new ClassWriter(0);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
@@ -215,7 +213,7 @@ class MixinBlocklistTest {
         ctor.visitInsn(Opcodes.RETURN);
         ctor.visitMaxs(1, 1);
         ctor.visitEnd();
-        // An @Inject handler must NOT remain reachable once neutralized.
+        // @Inject handler must not remain reachable once neutralized
         MethodVisitor inj = cw.visitMethod(Opcodes.ACC_PRIVATE, "onRenderLevel", "()V", null, null);
         inj.visitAnnotation("Lorg/spongepowered/asm/mixin/injection/Inject;", false).visitEnd();
         inj.visitCode();
@@ -226,7 +224,7 @@ class MixinBlocklistTest {
         return cw.toByteArray();
     }
 
-    /** Read the @Mixin annotation's string {@code targets} list from a class. */
+    /** The @Mixin annotation's string {@code targets} list. */
     private static java.util.List<String> mixinStringTargets(byte[] bytes) {
         ClassNode cn = new ClassNode();
         new ClassReader(bytes).accept(cn, 0);

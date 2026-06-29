@@ -1,5 +1,5 @@
 /*
- * Retromod - per-mod synthetic-class embedding (split-package-safe).
+ * Retromod - per-mod synthetic-class embedding.
  * Copyright (c) 2026 Bownlux. MIT License.
  */
 package com.retromod.core;
@@ -24,19 +24,12 @@ import java.util.Set;
 
 /**
  * Embeds Retromod's registered synthetic classes (ASM-generated polyfills for deleted MC or
- * loader classes, such as a {@code DeferredSpawnEggItem} or {@code FMLJavaModLoadingContext}
- * bridge) into the NeoForge/Forge mods that reference them, under a unique-per-mod package,
- * and rewrites the mod's references to the embedded copy.
+ * loader classes) into the NeoForge/Forge mods that reference them, and rewrites those
+ * references to the embedded copies.
  *
- * <p>We can't embed at the original name: the deleted classes live in packages the
- * loader/neoforge modules still own, so embedding a synthetic at its original name into a mod
- * module split-packages with the loader (a JPMS crash), and two mods embedding it split-package
- * with each other. Instead we put each copy under {@code com/retromod/embedded/<mod-key>/},
- * unique per mod, so no two modules share an embedded package and none collides with a
- * loader/MC package.
- *
- * <p>No-op when no synthetics are registered or the mod references none. Soft-fails (returns 0,
- * leaves the mod untouched) on any error.
+ * <p>Each copy goes under {@code com/retromod/embedded/<mod-key>/}, unique per mod. Embedding at
+ * the original name would split-package with the loader/neoforge modules that still own those
+ * packages (and two mods would split-package with each other), which is a JPMS crash.
  */
 public final class SyntheticEmbedder {
 
@@ -47,12 +40,11 @@ public final class SyntheticEmbedder {
     private SyntheticEmbedder() {}
 
     /**
-     * Embed every registered synthetic that {@code modDir}'s classes reference, under a
-     * unique-per-mod package, and rewrite those references to point at the embedded copies.
+     * Embed every registered synthetic that {@code modDir}'s classes reference and rewrite those
+     * references to the embedded copies.
      *
      * @param modDir    extracted mod directory (classes at their package paths)
-     * @param uniqueKey a per-mod identifier (mod id or jar name); guarantees the embedded
-     *                  package is distinct from every other mod's, so no JPMS split-package
+     * @param uniqueKey per-mod identifier (mod id or jar name) keeping the embedded package distinct
      * @return number of synthetics embedded (0 if none referenced / none registered / error)
      */
     public static int embed(Path modDir, String uniqueKey, RetromodTransformer transformer) {
@@ -66,19 +58,17 @@ public final class SyntheticEmbedder {
                         .toList();
             }
 
-            // Which registered synthetics does this mod actually reference?
+            // which registered synthetics does this mod reference?
             Set<String> referenced = new HashSet<>();
             for (Path cf : classFiles) {
                 try {
                     referenced.addAll(referencedClasses(Files.readAllBytes(cf)));
                 } catch (IOException ignored) {
-                    // unreadable class; skip it
                 }
             }
             referenced.retainAll(synthetics.keySet());
             if (referenced.isEmpty()) return 0;
 
-            // Map each referenced original name to a unique-per-mod Retromod package.
             String base = PREFIX + sanitize(uniqueKey) + "/";
             Map<String, String> rename = new HashMap<>();
             for (String n : referenced) {
@@ -86,14 +76,12 @@ public final class SyntheticEmbedder {
             }
             Remapper remapper = new SimpleRemapper(rename);
 
-            // Embed each referenced synthetic, renamed into the unique package.
             for (String n : referenced) {
                 byte[] renamed = remap(synthetics.get(n), remapper);
                 Path target = modDir.resolve(rename.get(n) + ".class");
                 Files.createDirectories(target.getParent());
                 Files.write(target, renamed);
             }
-            // Rewrite the mod's own classes so their references point at the embedded copies.
             for (Path cf : classFiles) {
                 byte[] in = Files.readAllBytes(cf);
                 byte[] out = remap(in, remapper);
@@ -109,10 +97,9 @@ public final class SyntheticEmbedder {
     }
 
     /**
-     * Jar-based variant for the offline CLI/AOT paths (no extract-to-dir): reads {@code jarPath},
-     * embeds the referenced synthetics under a unique-per-mod package + rewrites references, and
-     * writes the jar back. Uses {@code Zip*Stream} so {@code META-INF/MANIFEST.MF} and every other
-     * entry are preserved verbatim. No-op (returns 0) if nothing referenced or on any error.
+     * Jar-based variant for the offline CLI/AOT paths: reads {@code jarPath}, embeds the referenced
+     * synthetics, rewrites references, and writes the jar back. Uses {@code Zip*Stream} so
+     * {@code META-INF/MANIFEST.MF} and every other entry survive.
      */
     public static int embedIntoJar(Path jarPath, String uniqueKey, RetromodTransformer transformer) {
         Map<String, byte[]> synthetics = transformer.getSyntheticClasses();
@@ -161,7 +148,7 @@ public final class SyntheticEmbedder {
         }
     }
 
-    /** Internal class names referenced by a class (comprehensive, drives the ASM remapper). */
+    /** Internal class names referenced by a class. */
     static Set<String> referencedClasses(byte[] classBytes) {
         Set<String> refs = new HashSet<>();
         try {
@@ -174,19 +161,18 @@ public final class SyntheticEmbedder {
                         }
                     }), ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
         } catch (Exception ignored) {
-            // malformed class; contributes no references
         }
         return refs;
     }
 
     private static byte[] remap(byte[] classBytes, Remapper remapper) {
         ClassReader cr = new ClassReader(classBytes);
-        ClassWriter cw = new ClassWriter(0); // pure rename: no frame/maxs recomputation needed
+        ClassWriter cw = new ClassWriter(0); // pure rename, no frame/maxs recomputation
         cr.accept(new ClassRemapper(cw, remapper), 0);
         return cw.toByteArray();
     }
 
-    /** A jar name / mod id reduced to a safe, package-legal segment. */
+    /** A jar name / mod id reduced to a package-legal segment. */
     private static String sanitize(String key) {
         String s = key.replaceAll("\\.jar$", "").replaceAll("[^A-Za-z0-9_]", "_");
         return s.isEmpty() ? "mod" : s;

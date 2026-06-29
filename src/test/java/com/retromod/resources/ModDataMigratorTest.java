@@ -15,8 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Regression for {@link ModDataMigrator}: the 1.21.x -> 26.x data-pack JSON rewrites
- * that let a transformed structure mod's loot tables / advancements parse on 26.1.
- * Grounded against a headless 26.1.2 server run of When Dungeons Arise.
+ * that let a transformed structure mod's loot tables and advancements parse on 26.1.
  */
 class ModDataMigratorTest {
 
@@ -65,7 +64,7 @@ class ModDataMigratorTest {
 
     @Test
     void customModelDataObjectLeftAlone() {
-        // an already-migrated object form must not be double-wrapped
+        // already-migrated object form must not be double-wrapped
         String in = "{\"minecraft:custom_model_data\":{\"floats\":[5]}}";
         assertEquals(in, mig("data/m/loot_table/x.json", in, "26.1"));
     }
@@ -104,11 +103,10 @@ class ModDataMigratorTest {
         assertEquals(in, mig("assets/m/models/item/x.json", in, "26.1"), "only data paths are migrated");
     }
 
-    // --- entity_type tag: minecraft:potion split (26.x ThrownPotionSplitFix) ---
+    // entity_type tag: minecraft:potion split (26.x ThrownPotionSplitFix)
 
     @Test
     void potionEntitySplitInEntityTypeTag() {
-        // The real When Dungeons Arise ignores_ensnaring tag shape.
         String in = "{\"values\":[\"minecraft:player\",\"minecraft:experience_orb\","
                 + "\"minecraft:potion\",\"minecraft:item_frame\"]}";
         String out = mig("data/dungeons_arise/tags/entity_type/ignores_ensnaring.json", in, "26.1");
@@ -135,7 +133,7 @@ class ModDataMigratorTest {
         // the potion ITEM is unchanged in 26.x, so a loot table referencing it must be left alone
         String loot = "{\"pools\":[{\"entries\":[{\"type\":\"minecraft:item\",\"name\":\"minecraft:potion\"}]}]}";
         assertEquals(loot, mig("data/m/loot_table/x.json", loot, "26.1"));
-        // and a non-entity_type tag (e.g. an item tag) is also not subject to the entity split
+        // a non-entity_type tag (an item tag) is not subject to the entity split
         String itemTag = "{\"values\":[\"minecraft:potion\"]}";
         assertEquals(itemTag, mig("data/m/tags/item/x.json", itemTag, "26.1"));
     }
@@ -149,7 +147,7 @@ class ModDataMigratorTest {
 
     @Test
     void chainRenameAlsoAppliesInItemTags() {
-        // tags are now migratable; the chain item split applies to an item tag too
+        // tags are migratable, so the chain rename applies to an item tag too
         String in = "{\"values\":[\"minecraft:chain\"]}";
         assertTrue(mig("data/m/tags/item/x.json", in, "26.1").contains("\"minecraft:iron_chain\""));
     }
@@ -161,7 +159,7 @@ class ModDataMigratorTest {
         assertFalse(ModDataMigrator.isMigratableData("data/m/tags/entity_type/x.nbt"));
     }
 
-    // --- migrateTree: the extract/repack helper used by the runtime transformers ---
+    // migrateTree: the extract/repack helper used by the runtime transformers
 
     @Test
     void migrateTreeRewritesOnlyAffectedFiles(@TempDir Path root) throws Exception {
@@ -198,15 +196,14 @@ class ModDataMigratorTest {
         assertEquals(0, ModDataMigrator.migrateTree(root.resolve("does-not-exist"), "26.1"));
     }
 
-    // --- strict-JSON normalization: the main worldgen fix (Philips Ruins, 26.1 strict gson) ---
+    // strict-JSON normalization: the worldgen fix (Philips Ruins, 26.1 strict gson)
 
-    /** Asserts a string parses under a STRICT (non-lenient) Gson reader, like 26.1 does. */
+    /** Asserts a string parses under a strict (non-lenient) Gson reader, like 26.1 does. */
     private static void assertStrictParses(String json) {
         try {
             var r = new com.google.gson.stream.JsonReader(new java.io.StringReader(json));
             r.setLenient(false);
             com.google.gson.JsonParser.parseReader(r);
-            // ensure nothing trailing
             assertEquals(com.google.gson.stream.JsonToken.END_DOCUMENT, r.peek(), "trailing content");
         } catch (Exception e) {
             fail("expected strict-parseable JSON but got: " + e.getMessage() + "\n--- json ---\n" + json);

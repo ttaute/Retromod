@@ -7,7 +7,7 @@ package com.retromod.shim.fabric.embedded;
 import java.lang.reflect.*;
 
 /**
- * Reflective Entity accessors that ride out MC API drift (e.g. the 1.21.9
+ * Reflective Entity accessors that ride out MC API drift (the 1.21.9
  * getWorld -> getEntityWorld rename) without a compile-time MC dependency.
  */
 public class EntityShim {

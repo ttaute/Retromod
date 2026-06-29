@@ -20,29 +20,20 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Comprehensive test suite for Retromod.
- * 
- * Tests:
- * 1. Method redirect registration
- * 2. Class redirect registration
- * 3. Bytecode transformation correctness
- * 4. Shim chain resolution
- * 5. Mixin compatibility transformation
- * 6. AOT compilation
+ * Test suite for Retromod: redirect registration, bytecode transformation,
+ * shim chain resolution, mixin compatibility, and AOT compilation.
  */
 public class RetromodTest {
-    
+
     private RetromodTransformer transformer;
     private ShimRegistry shimRegistry;
-    
+
     @BeforeEach
     void setUp() {
         transformer = RetromodTransformer.getInstance();
         shimRegistry = new ShimRegistry();
     }
-    
-    // SHIM REGISTRATION TESTS
-    
+
     @Test
     @DisplayName("Fabric 1.21 to 1.21.1 shim registers redirects")
     void testFabric121To1211ShimRegistration() {
@@ -51,11 +42,10 @@ public class RetromodTest {
         assertEquals("1.21", shim.getSourceVersion());
         assertEquals("1.21.1", shim.getTargetVersion());
         assertEquals("fabric", shim.getModLoaderType());
-        
-        // Register redirects
+
         shim.registerRedirects(transformer);
-        
-        // This shim has minimal changes, just verify it ran without error
+
+        // minimal-change shim: just verify it ran without error
         assertNotNull(shim.getShimName());
     }
     
@@ -64,8 +54,7 @@ public class RetromodTest {
     void testEntityGetWorldRedirect() {
         Fabric_1_21_8_to_1_21_9 shim = new Fabric_1_21_8_to_1_21_9();
         shim.registerRedirects(transformer);
-        
-        // Check that Entity.getWorld is redirected
+
         var redirects = transformer.getMethodRedirects();
         var key = new RetromodTransformer.MethodKey(
             "net/minecraft/entity/Entity",
@@ -85,8 +74,7 @@ public class RetromodTest {
     void testResourceLocationRedirect() {
         NeoForge_1_21_10_to_1_21_11 shim = new NeoForge_1_21_10_to_1_21_11();
         shim.registerRedirects(transformer);
-        
-        // Check class redirect
+
         var classRedirects = transformer.getClassRedirects();
         assertTrue(classRedirects.containsKey("net/minecraft/resources/ResourceLocation"),
             "ResourceLocation should be redirected to Identifier");
@@ -95,8 +83,7 @@ public class RetromodTest {
             classRedirects.get("net/minecraft/resources/ResourceLocation"));
 
         // #51: LootContextParamSet (singular) renamed + moved to util/context/ContextKeySet
-        // by 1.21.11 (Illagers Wear Armor crashed on ContextKeySet$Builder). The PLURAL
-        // LootContextParamSets is unchanged and must NOT be redirected.
+        // by 1.21.11. The plural LootContextParamSets is unchanged and must NOT be redirected.
         assertEquals("net/minecraft/util/context/ContextKeySet",
             classRedirects.get("net/minecraft/world/level/storage/loot/parameters/LootContextParamSet"));
         assertEquals("net/minecraft/util/context/ContextKeySet$Builder",
@@ -107,15 +94,12 @@ public class RetromodTest {
     }
 
     @Test
-    @DisplayName("Fabric 26.1 shim redirects tick-event $WorldTick inners → $LevelTick (safe SAM)")
+    @DisplayName("Fabric 26.1 shim redirects tick-event $WorldTick inners to $LevelTick (safe SAM)")
     void testTickEventInnerRedirects26_1() {
-        // snapshot.3: the 26.1 Fabric API renamed the nested tick SAMs
-        // $Start/EndWorldTick → $Start/EndLevelTick while keeping the outer
-        // ClientTickEvents/ServerTickEvents names and the onStartTick/onEndTick SAM
-        // method. The pre-existing entries lived only in the 1.16.5→1.17 shim,
-        // whose chain never covers a 1.19-1.21 mod, so those mods broke on 26.1.
-        // This is a true redirect (verified against fabric-api 0.145.4: host has
-        // only the $*LevelTick inners with the same descriptor), not a lambda trap.
+        // 26.1 Fabric API renamed the nested tick SAMs $Start/EndWorldTick to
+        // $Start/EndLevelTick while keeping the outer ClientTickEvents/ServerTickEvents
+        // names. The old entries lived only in the 1.16.5 to 1.17 shim, whose chain
+        // never covers a 1.19-1.21 mod, so those mods broke on 26.1.
         new Fabric_1_21_11_to_26_1().registerRedirects(transformer);
         var cr = transformer.getClassRedirects();
 
@@ -130,8 +114,6 @@ public class RetromodTest {
             cr.get("net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartWorldTick"));
     }
 
-    // SHIM CHAIN RESOLUTION TESTS
-    
     @Test
     @DisplayName("ShimRegistry finds direct shim")
     void testDirectShimResolution() {
@@ -166,12 +148,12 @@ public class RetromodTest {
     @DisplayName("ShimRegistry returns empty for unsupported transition")
     void testUnsupportedTransition() {
         shimRegistry.register(new Fabric_1_21_8_to_1_21_9());
-        
-        // Try to find chain for wrong loader
+
+        // wrong loader
         List<VersionShim> chain = shimRegistry.findShimChain("forge", "1.21.8", "1.21.9");
         assertTrue(chain.isEmpty());
-        
-        // Try to find chain for non-existent versions
+
+        // non-existent versions
         List<VersionShim> chain2 = shimRegistry.findShimChain("fabric", "1.20", "1.21");
         assertTrue(chain2.isEmpty());
     }
@@ -179,12 +161,11 @@ public class RetromodTest {
     @Test
     @DisplayName("ShimRegistry tolerates a null source/target version (no NPE)")
     void testNullVersionDoesNotThrow() {
-        // Regression: a NeoForge/Forge mod whose toml declares only loaderVersion and
-        // no minecraft dependency (e.g. Macaw's Furniture 3.4.2 for 1.21.11) makes
-        // ModVersionDetector return a null source MC version. batchCommand still calls
-        // findShimChain with that null, and resolveVersion(null) -> null used to NPE on
-        // "resolvedSource is null". A null/unknown version means no resolvable chain, so
-        // an empty chain is the correct, crash-free answer.
+        // Regression: a NeoForge/Forge mod whose toml declares only loaderVersion and no
+        // minecraft dependency makes ModVersionDetector return a null source MC version.
+        // batchCommand still calls findShimChain with that null, and resolveVersion(null)
+        // used to NPE. A null/unknown version has no resolvable chain, so an empty chain
+        // is the correct answer.
         shimRegistry.register(new Fabric_1_21_8_to_1_21_9());
 
         assertTrue(assertDoesNotThrow(
@@ -198,24 +179,17 @@ public class RetromodTest {
             "null source and target must yield an empty chain, not an NPE");
     }
 
-    // BYTECODE TRANSFORMATION TESTS
-    
     @Test
     @DisplayName("Method invocation is correctly rewritten")
     void testMethodInvocationRewrite() {
-        // Register a test redirect
         transformer.registerMethodRedirect(
             "test/OldClass", "oldMethod", "()V",
             "test/NewClass", "newMethod", "()V"
         );
-        
-        // Create test bytecode that calls OldClass.oldMethod
+
         byte[] original = createTestClass();
-        
-        // Transform it
         byte[] transformed = transformer.transformClass(original, "test/TestClass");
-        
-        // Verify the method call was rewritten
+
         assertTrue(containsMethodCall(transformed, "test/NewClass", "newMethod"),
             "Transformed class should call NewClass.newMethod");
         assertFalse(containsMethodCall(transformed, "test/OldClass", "oldMethod"),
@@ -227,30 +201,18 @@ public class RetromodTest {
     void testClassReferenceRewrite() {
         transformer.registerClassRedirect("test/OldType", "test/NewType");
 
-        // Create test bytecode with OldType reference
         byte[] original = createTestClassWithTypeRef("test/OldType");
-
-        // Transform it
         byte[] transformed = transformer.transformClass(original, "test/TestClass");
 
-        // Verify class reference was rewritten
         assertTrue(containsClassRef(transformed, "test/NewType"),
             "Transformed class should reference NewType");
     }
 
-    // ITERATIVE TRANSFORM LOOP TESTS
-    // Verify that transformClass() runs multiple passes when chained redirects
-    // are registered (A -> B, B -> C) and terminates safely on cycles (A -> B, B -> A).
-    //
-    // The iterative loop is what lets Retromod handle shim chains where one shim's
-    // target is itself the source of another shim's redirect. Single-pass visitors
-    // would only catch the first hop.
-
     @Test
     @DisplayName("Iterative loop resolves chained redirects (A->B->C)")
     void testIterativeLoopChainedRedirects() {
-        // Use unique class names so we don't interfere with other tests that
-        // share the singleton transformer instance.
+        // unique class names so we don't collide with other tests sharing the
+        // singleton transformer
         transformer.registerMethodRedirect(
             "test/chain/HopA", "call", "()V",
             "test/chain/HopB", "call", "()V"
@@ -265,7 +227,7 @@ public class RetromodTest {
         transformer.resetIterationMetrics();
         byte[] transformed = transformer.transformClass(original, "test/chain/Caller");
 
-        // Final call should be to HopC (the end of the chain), not HopA or HopB.
+        // final call should land on HopC, not HopA or HopB
         assertTrue(containsMethodCall(transformed, "test/chain/HopC", "call"),
                 "Expected final call site to be HopC.call after chain resolution");
         assertFalse(containsMethodCall(transformed, "test/chain/HopA", "call"),
@@ -273,9 +235,8 @@ public class RetromodTest {
         assertFalse(containsMethodCall(transformed, "test/chain/HopB", "call"),
                 "HopB.call should no longer appear after iteration");
 
-        // Metrics: chained redirects should register as "needed multiple passes".
-        // Pass 1 rewrites HopA -> HopB. Pass 2 rewrites HopB -> HopC. Pass 3 stable.
-        // That's 2 active passes, which triggers the counter.
+        // pass 1 rewrites HopA->HopB, pass 2 HopB->HopC, pass 3 stable: 2 active
+        // passes, which trips the multiple-passes counter
         assertEquals(1, transformer.getClassesNeedingMultiplePasses(),
                 "Chained redirect should count as needing multiple passes");
         assertTrue(transformer.getTotalPassesPerformed() >= 3,
@@ -287,8 +248,8 @@ public class RetromodTest {
     @Test
     @DisplayName("Iterative loop terminates safely on redirect cycles (A->B->A)")
     void testIterativeLoopCycleTermination() {
-        // Cycle: two redirects that point at each other. A naive loop would
-        // oscillate forever. The iteration cap guarantees we terminate.
+        // two redirects pointing at each other: a naive loop would oscillate
+        // forever, the iteration cap guarantees termination
         transformer.registerMethodRedirect(
             "test/cycle/ClassA", "call", "()V",
             "test/cycle/ClassB", "call", "()V"
@@ -303,17 +264,14 @@ public class RetromodTest {
 
         transformer.resetIterationMetrics();
 
-        // Assert the call returns in finite time even with a cycle.
-        // assertTimeoutPreemptively would be stronger, but that requires extra
-        // test infra. The iteration cap of 5 means at most 5 ASM visits, so it's fast.
+        // the iteration cap of 5 means at most 5 ASM visits, so this returns fast
         byte[] transformed = assertDoesNotThrow(
                 () -> transformer.transformClass(original, "test/cycle/Caller"),
                 "Transform must not throw even with cyclic redirects");
         assertNotNull(transformed, "Must return some output, not null");
 
-        // We should have hit the cap. The last-pass output is returned as-is,
-        // which will oscillate between ClassA and ClassB, either of which is acceptable
-        // for this test; what matters is termination.
+        // should have hit the cap; the last-pass output oscillates between ClassA
+        // and ClassB, either is fine here, what matters is termination
         assertEquals(1, transformer.getClassesHittingIterationCap(),
                 "Cyclic redirect must register as hitting the iteration cap");
     }
@@ -335,9 +293,8 @@ public class RetromodTest {
         assertTrue(containsMethodCall(transformed, "test/single/To", "call"),
                 "Single hop should still be applied");
 
-        // Single-hop case: pass 1 rewrites, pass 2 verifies. 1 active pass.
-        // Should NOT trigger the "multiple passes" counter; that's reserved for
-        // actual chained redirects (2+ active passes).
+        // pass 1 rewrites, pass 2 verifies: 1 active pass, so the multiple-passes
+        // counter (reserved for 2+ active passes) must not trip
         assertEquals(0, transformer.getClassesNeedingMultiplePasses(),
                 "Single-hop redirect should not register as chained");
         assertEquals(0, transformer.getClassesHittingIterationCap(),
@@ -346,59 +303,41 @@ public class RetromodTest {
                 "Single-hop should take exactly 2 passes: one to rewrite, one to verify stable");
     }
 
-    // MIXIN COMPATIBILITY TESTS
-    
     @Test
     @DisplayName("Mixin method targets are retargeted")
     void testMixinMethodRetargeting() {
-        // Register the getWorld -> getEntityWorld redirect
         transformer.registerMethodRedirect(
             "net/minecraft/entity/Entity", "getWorld", "()Lnet/minecraft/world/World;",
             "net/minecraft/entity/Entity", "getEntityWorld", "()Lnet/minecraft/world/World;"
         );
-        
-        MixinCompatibilityTransformer mixinTransformer = 
+
+        MixinCompatibilityTransformer mixinTransformer =
             new MixinCompatibilityTransformer(transformer);
-        
-        // Create a mock mixin class with @Inject targeting getWorld
+
+        // mock mixin with @Inject targeting getWorld
         byte[] mixinClass = createMockMixinClass("getWorld");
-        
-        // Transform it
         byte[] transformed = mixinTransformer.transformMixinClass(mixinClass);
-        
-        // The annotation should now target getEntityWorld
-        // (In a real test, we'd parse the bytecode to verify)
+
+        // annotation should now target getEntityWorld (not parsed back out here)
         assertNotNull(transformed);
     }
-    
-    // AOT COMPILATION TESTS
-    
+
     @Test
     @DisplayName("AOT compiler detects obfuscated classes")
     void testObfuscatedClassDetection() {
-        // Test class with short names (typical obfuscation)
         byte[] obfuscated = createObfuscatedClass("a", new String[]{"a", "b", "c"});
-        
-        // Test class with normal names
         byte[] normal = createNormalClass("TestClass", new String[]{"doSomething", "getValue"});
-        
-        // The isObfuscated check would be in AotCompiler
-        // For unit testing, we verify the bytecode patterns
+
         assertTrue(isLikelyObfuscated(obfuscated));
         assertFalse(isLikelyObfuscated(normal));
     }
-    
-    // HELPER METHODS
-    
-    /**
-     * Create a test class with a method call.
-     */
+
     private byte[] createTestClass() {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-        cw.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, "test/TestClass", null, 
+        cw.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, "test/TestClass", null,
                 "java/lang/Object", null);
-        
-        // Create a method that calls OldClass.oldMethod
+
+        // method that calls OldClass.oldMethod
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "test", "()V", null, null);
         mv.visitCode();
         mv.visitTypeInsn(Opcodes.NEW, "test/OldClass");
@@ -414,13 +353,9 @@ public class RetromodTest {
     }
     
     /**
-     * Create a minimal class whose one method invokes a static call elsewhere.
-     * Used by the iterative-loop tests to produce a predictable call site that
-     * we can then drive through registered method redirects.
-     *
-     * <p>Using {@code INVOKESTATIC} avoids the {@code NEW/DUP/INVOKESPECIAL} setup
-     * that {@link #createTestClass()} uses. It's just a clean single-instruction
-     * call that maps 1:1 to what the tests want to verify.</p>
+     * Minimal class whose one method makes a single INVOKESTATIC call. The
+     * iterative-loop tests drive that predictable call site through registered
+     * method redirects.
      */
     private byte[] createStaticCallerClass(String className, String calleeOwner, String calleeName) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
@@ -442,10 +377,9 @@ public class RetromodTest {
 
     private byte[] createTestClassWithTypeRef(String typeName) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-        cw.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, "test/TestClass", null, 
+        cw.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, "test/TestClass", null,
                 "java/lang/Object", null);
-        
-        // Field with the type
+
         cw.visitField(Opcodes.ACC_PRIVATE, "field", "L" + typeName + ";", null, null);
         
         cw.visitEnd();
@@ -454,19 +388,16 @@ public class RetromodTest {
     
     private byte[] createMockMixinClass(String targetMethod) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-        cw.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, "test/TestMixin", null, 
+        cw.visit(Opcodes.V21, Opcodes.ACC_PUBLIC, "test/TestMixin", null,
                 "java/lang/Object", null);
-        
-        // Add @Mixin annotation (simplified)
+
         AnnotationVisitor av = cw.visitAnnotation("Lorg/spongepowered/asm/mixin/Mixin;", true);
         av.visitEnd();
-        
-        // Add method with @Inject annotation
+
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PRIVATE, "onTest", "()V", null, null);
         AnnotationVisitor injectAv = mv.visitAnnotation(
             "Lorg/spongepowered/asm/mixin/injection/Inject;", true);
-        
-        // Add method target
+
         AnnotationVisitor methodAv = injectAv.visitArray("method");
         methodAv.visit(null, targetMethod);
         methodAv.visitEnd();
@@ -503,7 +434,7 @@ public class RetromodTest {
     
     private boolean containsMethodCall(byte[] classBytes, String owner, String name) {
         final boolean[] found = {false};
-        
+
         ClassReader reader = new ClassReader(classBytes);
         reader.accept(new ClassVisitor(Opcodes.ASM9) {
             @Override
@@ -525,7 +456,7 @@ public class RetromodTest {
     }
     
     private boolean containsClassRef(byte[] classBytes, String className) {
-        // Simple check: look for class name in constant pool
+        // look for the class name in the constant pool
         String search = "L" + className + ";";
         String bytesStr = new String(classBytes, java.nio.charset.StandardCharsets.ISO_8859_1);
         return bytesStr.contains(search) || bytesStr.contains(className);
@@ -534,14 +465,12 @@ public class RetromodTest {
     private boolean isLikelyObfuscated(byte[] classBytes) {
         ClassReader reader = new ClassReader(classBytes);
         String className = reader.getClassName();
-        
-        // Check for short class name
+
         String simpleName = className.substring(className.lastIndexOf('/') + 1);
         if (simpleName.length() <= 2) {
             return true;
         }
-        
-        // Check methods
+
         final boolean[] hasShortMethods = {false};
         reader.accept(new ClassVisitor(Opcodes.ASM9) {
             @Override
@@ -557,19 +486,16 @@ public class RetromodTest {
         return hasShortMethods[0];
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    // SRG → Mojang mapping data (src/main/resources/retromod/srg-to-mojang.tsv)
-    // Composed from MCPConfig 1.20.1 joined.tsrg ⋈ Mojang 1.20.1 official
-    // mappings (the ForgeGradle/SrgUtils obf-name join). These assertions
-    // also lock in the 56 corrections over the old hand-curated starter set.
-    // ═════════════════════════════════════════════════════════════════════
+    // SRG to Mojang mapping data (src/main/resources/retromod/srg-to-mojang.tsv),
+    // composed from MCPConfig 1.20.1 joined against Mojang 1.20.1 official mappings.
+    // These assertions also lock in the 56 corrections over the old hand-curated set.
 
     @Test
-    @DisplayName("SRG→Mojang dictionary loads with comprehensive coverage")
+    @DisplayName("SRG->Mojang dictionary loads with comprehensive coverage")
     void srgToMojangLoadsComprehensively() {
         SrgToMojangMapper mapper = SrgToMojangMapper.getInstance();
-        // Harvested from 1.20.1: tens of thousands of entries, not the old
-        // ~117-row starter set. Loose lower bounds so version bumps don't break it.
+        // harvested from 1.20.1: tens of thousands of entries, not the old ~117-row
+        // starter set; loose lower bounds so version bumps don't break it
         assertTrue(mapper.getFieldMap().size() > 20000,
                 "expected comprehensive field coverage, got " + mapper.getFieldMap().size());
         assertTrue(mapper.getMethodMap().size() > 15000,
@@ -577,46 +503,40 @@ public class RetromodTest {
     }
 
     @Test
-    @DisplayName("SRG→Mojang corrections: the 56 formerly-wrong entries are right")
+    @DisplayName("SRG->Mojang corrections: the 56 formerly-wrong entries are right")
     void srgToMojangCorrections() {
         SrgToMojangMapper mapper = SrgToMojangMapper.getInstance();
         Map<String, String> f = mapper.getFieldMap();
         Map<String, String> m = mapper.getMethodMap();
 
-        // Fields the old curated file got wrong (verified vs upstream sources).
+        // fields the old curated file got wrong
         assertEquals("GRANITE", f.get("f_50122_"));   // was wrongly "GRAVEL"
         assertEquals("OBSIDIAN", f.get("f_50080_"));   // was wrongly "GRANITE"
 
-        // ResourceLocation methods: getPath/getNamespace had been swapped,
-        // and m_135820_ had been "parse" (no such 1.20.1 method; it's tryParse).
+        // ResourceLocation methods: getPath/getNamespace had been swapped, and
+        // m_135820_ had been "parse" (no such 1.20.1 method; it's tryParse)
         assertEquals("tryParse", m.get("m_135820_"));
         assertEquals("of", m.get("m_135822_"));
         assertEquals("getPath", m.get("m_135815_"));
         assertEquals("getNamespace", m.get("m_135827_"));
 
-        // Entries the old file already had right must survive the regen.
+        // entries the old file already had right must survive the regen
         assertEquals("STONE", f.get("f_50069_"));
         assertEquals("literal", m.get("m_237113_"));
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    // 26.1 vanilla class moves on the Mojang-named loader path (NeoForge/Forge)
     // Gap A: the mojang-class-moves-26.1.tsv table used to be applied only on
-    // Fabric (+CLI). applyClassMovesOnly is what the NeoForge/Forge entry
-    // points now call (gated on a 26.1+ host) so those mods get the vanilla
+    // Fabric (+CLI). applyClassMovesOnly is now called from the NeoForge/Forge
+    // entry points (gated on a 26.1+ host) so those mods get the vanilla
     // net/minecraft/* package reorganization too.
-    // ═════════════════════════════════════════════════════════════════════
 
     @Test
     @DisplayName("Gap A: applyClassMovesOnly rewrites 26.1 vanilla package moves")
     void classMovesOnlyRewritesVanillaMoves() {
-        // applyClassMovesOnly is now host-version-aware: it filters each rename
-        // by the indexed host MC JAR. The test JVM has no MC JAR on the
-        // classpath, so it falls back to the coarse gate keyed on
-        // TARGET_MC_VERSION, so pin it to a 26.1 (unobfuscated) host so the
-        // fallback applies the whole table. (The host-FILTERING path, where a
-        // 1.21.11 host gets only the renames that already landed there, is
-        // exercised at runtime / in the Prism repro, not in this unit test.)
+        // applyClassMovesOnly filters each rename by the indexed host MC JAR. The
+        // test JVM has no MC JAR on the classpath, so it falls back to the coarse
+        // gate keyed on TARGET_MC_VERSION; pin a 26.1 host so the fallback applies
+        // the whole table. (The host-filtering path is exercised at runtime, not here.)
         String savedVer = RetromodVersion.TARGET_MC_VERSION;
         RetromodVersion.TARGET_MC_VERSION = "26.1";
         try {
@@ -624,7 +544,7 @@ public class RetromodTest {
                 .applyClassMovesOnly(transformer);
         assertTrue(moves > 500, "expected the full 26.1 class-move table, got " + moves);
 
-        // Top-level relocation: net/minecraft/Util -> net/minecraft/util/Util
+        // top-level relocation: net/minecraft/Util -> net/minecraft/util/Util
         byte[] utilT = transformer.transformClass(
                 createTestClassWithTypeRef("net/minecraft/Util"), "test/gapa/UtilRef");
         assertTrue(containsClassRef(utilT, "net/minecraft/util/Util"),
@@ -637,25 +557,21 @@ public class RetromodTest {
         assertTrue(containsClassRef(critT, "net/minecraft/advancements/criterion/BlockPredicate"),
                 "critereon should be rewritten to criterion");
 
-        // Flagship vanilla rename (also in the table): ResourceLocation -> Identifier
+        // flagship vanilla rename: ResourceLocation -> Identifier
         byte[] rlT = transformer.transformClass(
                 createTestClassWithTypeRef("net/minecraft/resources/ResourceLocation"),
                 "test/gapa/RlRef");
         assertTrue(containsClassRef(rlT, "net/minecraft/resources/Identifier"),
                 "ResourceLocation should be rewritten to Identifier");
 
-        // A move from the 1.20.1->26.1.2 harvest (options-screen relocation):
-        // net/minecraft/client/gui/screens/VideoSettingsScreen
-        //   -> net/minecraft/client/gui/screens/options/VideoSettingsScreen
+        // options-screen relocation: VideoSettingsScreen moves into screens/options
         byte[] vsT = transformer.transformClass(
                 createTestClassWithTypeRef("net/minecraft/client/gui/screens/VideoSettingsScreen"),
                 "test/gapa/VideoRef");
         assertTrue(containsClassRef(vsT, "net/minecraft/client/gui/screens/options/VideoSettingsScreen"),
                 "VideoSettingsScreen should move into the screens/options package");
 
-        // A move from the 1.16.5->26.1.2 harvest (worldgen structures relocation):
-        // net/minecraft/world/level/levelgen/structure/BuriedTreasurePieces
-        //   -> net/minecraft/world/level/levelgen/structure/structures/BuriedTreasurePieces
+        // worldgen relocation: BuriedTreasurePieces moves into structure/structures
         byte[] btT = transformer.transformClass(
                 createTestClassWithTypeRef("net/minecraft/world/level/levelgen/structure/BuriedTreasurePieces"),
                 "test/gapa/StructRef");

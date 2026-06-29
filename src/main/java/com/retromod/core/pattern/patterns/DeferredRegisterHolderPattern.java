@@ -15,32 +15,17 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Detects classes that act as <b>registration holders</b>: the {@code public
- * static final DeferredRegister<X>} + {@code public static final DeferredHolder<Y>}
- * pattern that's idiomatic for Forge/NeoForge mod registries.
+ * Detects Forge/NeoForge registry holder classes: the {@code public static final
+ * DeferredRegister<X>} + {@code public static final DeferredHolder<Y>} idiom.
  *
- * <h3>Match confidence</h3>
- * <p>High (0.95) when at least one {@code DeferredRegister} field is present.
- * The type signature is distinctive enough that false positives are essentially
- * impossible. No non-registry class uses {@code DeferredRegister<T>} as a
- * public static final field type.</p>
+ * <p>Confidence is 0.95 when at least one {@code DeferredRegister} field is present
+ * (the field type is distinctive enough to rule out false positives), 0.7 when only
+ * holder fields appear.</p>
  *
- * <h3>What it reports</h3>
- * <ul>
- *   <li>{@code deferredRegisterCount}: how many {@code DeferredRegister} fields</li>
- *   <li>{@code holderCount}: how many {@code DeferredHolder}/{@code RegistryObject}
- *       fields (each is one registered item)</li>
- *   <li>{@code registryType}: the generic parameter of the first
- *       {@code DeferredRegister} if extractable from its signature (e.g.,
- *       {@code net/minecraft/world/item/Item})</li>
- * </ul>
- *
- * <h3>Why it matters</h3>
- * <p>The registry pattern is where half of most mod's "public API" lives. Mod
- * authors referring to {@code ModItems.MY_ITEM} from other parts of their code
- * depend on this pattern resolving cleanly after transformation. Detection
- * lets the gap report tell mod authors "your registry holder class looks OK
- * / was rewritten / is missing a field," which is directly actionable.</p>
+ * <p>Reports {@code deferredRegisterCount}, {@code holderCount}, and
+ * {@code registryType} (the first {@code DeferredRegister}'s generic parameter,
+ * when its signature is present). The gap report uses this to tell mod authors
+ * whether a registry holder survived transformation intact.</p>
  */
 public final class DeferredRegisterHolderPattern implements ClassPattern {
 
@@ -79,8 +64,7 @@ public final class DeferredRegisterHolderPattern implements ClassPattern {
         String firstRegistryType = null;
 
         for (FieldNode f : cls.fields) {
-            // Only PSF fields are interesting; the idiomatic pattern uses them.
-            // Skip private / non-static / non-final fields.
+            // the idiom uses public-static-final fields only
             if ((f.access & PSF_MASK) != PSF_MASK) continue;
             if (f.desc == null) continue;
 
@@ -96,9 +80,7 @@ public final class DeferredRegisterHolderPattern implements ClassPattern {
 
         if (deferredRegisterCount == 0 && holderCount == 0) return null;
 
-        // A class with ONLY DeferredHolder fields (no DeferredRegister) is suspicious:
-        // typically the DeferredRegister is in a different class and we're looking at
-        // a type-only holder. Still worth reporting at a lower confidence.
+        // holder-only class (DeferredRegister lives elsewhere): report at lower confidence
         double confidence = deferredRegisterCount > 0 ? 0.95 : 0.7;
 
         Map<String, Object> metadata = new LinkedHashMap<>();
@@ -109,12 +91,9 @@ public final class DeferredRegisterHolderPattern implements ClassPattern {
     }
 
     /**
-     * Pull the generic parameter out of a {@code DeferredRegister<T>} field's
-     * signature attribute. Returns null if the signature is absent or in an
-     * unexpected shape.
-     *
-     * <p>A signature like {@code Lnet/.../DeferredRegister<Lnet/minecraft/world/item/Item;>;}
-     * gives us {@code net/minecraft/world/item/Item}.</p>
+     * Pulls the generic parameter out of a {@code DeferredRegister<T>} field signature,
+     * so {@code Lnet/.../DeferredRegister<Lnet/minecraft/world/item/Item;>;} yields
+     * {@code net/minecraft/world/item/Item}. Null if absent or in an unexpected shape.
      */
     private static String extractGenericType(String signature) {
         if (signature == null) return null;

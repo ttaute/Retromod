@@ -3,6 +3,7 @@ package com.retromod.locator;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -39,6 +40,20 @@ class RetromodForgeModLocatorTest {
                 System.setProperty(RetromodForgeModLocator.OVERRIDE_PROPERTY, prev);
             }
         }
+    }
+
+    @Test
+    void forgeIModLocatorServiceMustNotBeRegistered() {
+        // #102: Forge's ModDirTransformerDiscoverer claims any mods/ jar declaring the
+        // IModLocator service onto the early service layer, where it is NOT scanned as a @Mod.
+        // Registering it in Retromod's main jar stopped Retromod from initializing on Forge at all,
+        // so it must stay unregistered. The NeoForge SPI uses a different mechanism and is unaffected.
+        assertNull(getClass().getResourceAsStream(
+                        "/META-INF/services/net.minecraftforge.forgespi.locating.IModLocator"),
+                "Forge IModLocator service must NOT be registered (it blocks Retromod's @Mod on Forge, #102)");
+        assertNotNull(getClass().getResourceAsStream(
+                        "/META-INF/services/net.neoforged.neoforgespi.locating.IModFileCandidateLocator"),
+                "the NeoForge locator service is unaffected and stays");
     }
 
     @Test

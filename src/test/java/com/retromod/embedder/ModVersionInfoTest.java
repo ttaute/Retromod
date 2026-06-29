@@ -12,14 +12,11 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression tests for {@link ModVersionInfo#needsTransformation(String)}.
+ * Regression tests for {@link ModVersionInfo#needsTransformation(String)} (#84).
  *
- * <p>#84: a Forge 1.20.1 mod on a 1.20.1 host was being backed up and rewritten
- * even though it ran natively. Forge mods declare their MC dependency as a range
- * ({@code [1.20,)}, {@code [1.20.1,1.21)}), so the detector reports a target like
- * {@code "1.20"} or {@code "1.20.1"}. The old patch-precision comparison flagged
- * {@code "1.20" < "1.20.1"} as needing transformation. needsTransformation now
- * compares at minor precision: same major.minor as the host means no transform.
+ * <p>Forge mods declare their MC dependency as a range, so the detector reports a
+ * target like {@code "1.20"} or {@code "1.20.1"}. needsTransformation compares at
+ * minor precision: same major.minor as the host means no transform.
  */
 class ModVersionInfoTest {
 
@@ -58,9 +55,7 @@ class ModVersionInfoTest {
     @Test
     @DisplayName("An older PATCH in the same minor IS transformed (1.21.1 mod on a 1.21.11 host)")
     void olderPatchSameMinorIsTransformed() {
-        // The #84 fix must not over-correct: a mod built for a specific older patch
-        // (1.21.1) genuinely needs translation to a newer patch (1.21.11) because MC
-        // changed APIs across that range. Only a bare major.minor floor is skipped.
+        // a specific older patch (1.21.1) needs translation; only a bare major.minor floor is skipped
         assertTrue(forMc("1.21.1").needsTransformation("1.21.11"),
                 "1.21.1 → 1.21.11 is a real translation and must not be skipped");
     }

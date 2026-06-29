@@ -380,15 +380,18 @@ public class RetromodForge {
                             java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
                         Path tempDir = Files.createTempDirectory("retromod-inplace-");
-                        Path transformed = transformer.transformMod(modJar, tempDir);
-                        if (transformed != null) {
-                            Files.move(transformed, modJar, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                            LOGGER.info("Transformed in place: {}", fileName);
-                            count++;
-                        }
-                        try (var walk = Files.walk(tempDir)) {
-                            walk.sorted(java.util.Comparator.reverseOrder())
-                                .forEach(p -> { try { Files.delete(p); } catch (Exception ignored) {} });
+                        try {
+                            Path transformed = transformer.transformMod(modJar, tempDir);
+                            if (transformed != null) {
+                                Files.move(transformed, modJar, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                LOGGER.info("Transformed in place: {}", fileName);
+                                count++;
+                            }
+                        } finally {
+                            try (var walk = Files.walk(tempDir)) {
+                                walk.sorted(java.util.Comparator.reverseOrder())
+                                    .forEach(p -> { try { Files.delete(p); } catch (Exception ignored) {} });
+                            }
                         }
                     }
                 } catch (Exception e) {

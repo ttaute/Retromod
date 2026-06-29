@@ -18,19 +18,15 @@ import org.objectweb.asm.tree.MethodInsnNode;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Regression test for the spawn-mod bootstrap crash (snapshot.3 in-game pass):
- * the ItemStack NBT polyfill registered instance→static redirects through the
- * 6-arg {@code registerMethodRedirect} form (no devirtualize flag), so
- * {@code ItemStack.getTag()} was rewritten to
- * {@code INVOKEVIRTUAL ItemStackNbtBridge.getTag(Object)}, an instruction that
- * pops a receiver <i>plus</i> an argument where the call site only pushed the
- * receiver. The resulting stack underflow made ASM's {@code Frame.merge} throw
- * {@code ArrayIndexOutOfBoundsException} when Mixin recomputed frames over the
- * broken handler ({@code MobBucketItemMixin} → {@code Bootstrap} crash).
+ * Regression for the spawn-mod bootstrap crash (snapshot.3): the ItemStack NBT polyfill
+ * registered instance to static redirects via the 6-arg {@code registerMethodRedirect}
+ * form, so {@code ItemStack.getTag()} became {@code INVOKEVIRTUAL ItemStackNbtBridge.getTag(Object)},
+ * which pops a receiver plus an argument where the call site only pushed the receiver. The
+ * underflow tripped {@code Frame.merge} with {@code ArrayIndexOutOfBoundsException} when Mixin
+ * recomputed frames.
  *
- * <p>The fix is in the transformer's emit path: an instance call redirected to a
- * descriptor with exactly one extra parameter is auto-devirtualized to
- * {@code INVOKESTATIC} (receiver-as-arg0 is the only meaning that shape can have).
+ * <p>Fix: an instance call redirected to a descriptor with one extra parameter is
+ * auto-devirtualized to {@code INVOKESTATIC} (receiver-as-arg0).
  */
 class AutoDevirtualizeTest {
 
@@ -40,7 +36,7 @@ class AutoDevirtualizeTest {
         MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
                 "use", "(L" + owner + ";)V", null, null);
         mv.visitCode();
-        mv.visitVarInsn(Opcodes.ALOAD, 0);                 // push ONLY the receiver
+        mv.visitVarInsn(Opcodes.ALOAD, 0);                 // push only the receiver
         mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, owner, method, desc, false);
         if (desc.endsWith(")V")) { /* nothing */ } else { mv.visitInsn(Opcodes.POP); }
         mv.visitInsn(Opcodes.RETURN);
@@ -54,7 +50,7 @@ class AutoDevirtualizeTest {
     @DisplayName("ItemStack.getTag() (6-arg polyfill registration) emits INVOKESTATIC, not INVOKEVIRTUAL")
     void getTagIsDevirtualized() {
         RetromodTransformer t = RetromodTransformer.getInstance();
-        new ItemComponentPolyfill().registerPolyfills(t); // the real registrations that crashed
+        new ItemComponentPolyfill().registerPolyfills(t); // the registrations that crashed
 
         byte[] in = classCalling("net/minecraft/world/item/ItemStack",
                 "getTag", "()Lnet/minecraft/nbt/CompoundTag;");
@@ -70,8 +66,8 @@ class AutoDevirtualizeTest {
         assertNotNull(call, "the getTag call must survive (redirected)");
         assertEquals("com/retromod/polyfill/minecraft/item/embedded/ItemStackNbtBridge", call.owner);
         assertEquals(Opcodes.INVOKESTATIC, call.getOpcode(),
-                "receiver-as-arg0 redirect MUST be INVOKESTATIC - INVOKEVIRTUAL pops one "
-                + "value too many and corrupts the frame stack (the MobBucketItemMixin crash)");
+                "receiver-as-arg0 redirect must be INVOKESTATIC; INVOKEVIRTUAL pops one "
+                + "value too many and corrupts the frame stack");
         assertEquals("(Ljava/lang/Object;)Ljava/lang/Object;", call.desc);
     }
 

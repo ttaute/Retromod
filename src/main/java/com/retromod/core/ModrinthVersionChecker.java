@@ -241,6 +241,11 @@ public class ModrinthVersionChecker {
             conn.setReadTimeout(5000);
 
             if (conn.getResponseCode() != 200) {
+                try (var es = conn.getErrorStream()) {
+                    if (es != null) {
+                        es.readAllBytes();
+                    }
+                }
                 return null;
             }
 

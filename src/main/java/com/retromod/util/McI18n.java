@@ -10,18 +10,11 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Method;
 
 /**
- * Thin wrapper around Minecraft's {@code Text.translatable() / Component.translatable()}
- * that we can invoke reflectively, since Retromod has no compile-time MC classpath.
- *
- * <p>When the user has a localized version of Minecraft (picked up from their
- * in-game Language setting), MC loads lang files from every mod's
- * {@code assets/<modid>/lang/<locale>.json} automatically. A Text built from
- * {@link #translatable(String)} resolves to the right locale at render time.
- *
- * <p>If the translatable API isn't available (weirdly old MC versions, or the
- * reflection call fails), we fall back to {@code Text.literal(key)} so nothing
- * crashes. Users just see the raw translation key on screen, which is the
- * standard MC behavior for missing translations anyway.
+ * Reflective wrapper around Minecraft's {@code Text.translatable() / Component.translatable()},
+ * since Retromod has no compile-time MC classpath. A Text from {@link #translatable(String)}
+ * resolves against the in-game language at render time. When the translatable API isn't
+ * reachable we fall back to {@code Text.literal(key)}, so the user sees the raw key (MC's
+ * own behavior for missing translations) rather than a crash.
  */
 public final class McI18n {
 
@@ -35,13 +28,10 @@ public final class McI18n {
     private McI18n() {}
 
     /**
-     * Build a Text/Component that will be resolved against the current MC
-     * language at render time. If the translatable API isn't reachable, the
-     * key itself is returned wrapped in a literal Text.
+     * Build a Text/Component resolved against the current MC language at render time.
+     * Falls back to a literal Text of the key, or null if neither path is reachable.
      *
-     * @param translationKey the key, e.g. "retromod.settings.title"
-     * @return the Text/Component object, or null if both translatable and
-     *         literal could not be reached (unlikely)
+     * @param translationKey the translation key
      */
     public static Object translatable(String translationKey) {
         resolve();
@@ -58,11 +48,7 @@ public final class McI18n {
         return null;
     }
 
-    /**
-     * Build a literal Text/Component containing {@code text} verbatim.
-     * Use this for things that should never be translated (proper nouns,
-     * user-supplied strings, build IDs, etc.).
-     */
+    /** Build a literal Text/Component for text that should never be translated. */
     public static Object literal(String text) {
         resolve();
         try {
@@ -74,8 +60,6 @@ public final class McI18n {
         }
         return null;
     }
-
-    // INTERNAL
 
     private static void resolve() {
         if (resolved) return;
@@ -90,7 +74,7 @@ public final class McI18n {
                         new Class[]{String.class}, "translatable");
                 literalMethod = McReflect.findMethod(textClass,
                         new Class[]{String.class}, "literal");
-                // Older MC: no Text.literal, try Text.of
+                // older MC has no Text.literal, try Text.of
                 if (literalMethod == null) {
                     literalMethod = McReflect.findMethod(textClass,
                             new Class[]{String.class}, "of");

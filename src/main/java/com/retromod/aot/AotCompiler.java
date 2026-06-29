@@ -136,6 +136,8 @@ public class AotCompiler {
             } catch (Exception e) {
                 LOGGER.warn("Could not register vanilla class moves for AOT", e);
             }
+            // ResourceLocation/Identifier ctor -> factory, matching an in-game boot (AOT == runtime).
+            com.retromod.mapping.IntermediaryToMojangMapper.registerIdentifierCtorRedirects(transformer);
             if ("fabric".equalsIgnoreCase(modInfo.modLoaderType())) {
                 try {
                     com.retromod.mapping.IntermediaryToMojangMapper.applyTo(transformer);
@@ -644,10 +646,10 @@ public class AotCompiler {
             for (String shimClass : shim.getShimClasses()) {
                 try {
                     String resourcePath = shimClass.replace('.', '/') + ".class";
-                    InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath);
-                    if (is != null) {
-                        shims.put(shimClass.replace('.', '/'), is.readAllBytes());
-                        is.close();
+                    try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+                        if (is != null) {
+                            shims.put(shimClass.replace('.', '/'), is.readAllBytes());
+                        }
                     }
                 } catch (Exception e) {
                     LOGGER.warn("Could not load shim class: {}", shimClass);
@@ -740,15 +742,16 @@ public class AotCompiler {
 
     public void clearCache() throws IOException {
         if (Files.exists(AOT_CACHE_DIR)) {
-            Files.walk(AOT_CACHE_DIR)
-                .sorted(Comparator.reverseOrder())
-                .forEach(path -> {
-                    try {
-                        Files.delete(path);
-                    } catch (IOException e) {
-                        LOGGER.warn("Could not delete: {}", path);
-                    }
-                });
+            try (var paths = Files.walk(AOT_CACHE_DIR)) {
+                paths.sorted(Comparator.reverseOrder())
+                    .forEach(path -> {
+                        try {
+                            Files.delete(path);
+                        } catch (IOException e) {
+                            LOGGER.warn("Could not delete: {}", path);
+                        }
+                    });
+            }
         }
         Files.createDirectories(AOT_CACHE_DIR);
     }

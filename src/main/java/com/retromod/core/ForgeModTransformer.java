@@ -37,38 +37,31 @@ public class ForgeModTransformer {
      * the bytecode is already transformed.
      */
     private static final Set<String> SHIMMED_API_MOD_IDS = Set.of(
-        // Tech / content mod APIs
         "mekanism", "mekanismapi",
         "ae2", "appliedenergistics2",
         "botania", "botania_api",
         "create",
         "thermal", "thermal_foundation", "thermal_expansion", "cofh_core",
-
-        // Equipment
         "curios", "curiosapi",
         "baubles",
-
-        // Recipe viewers
         "jei", "just_enough_items",
         "nei",
-
-        // Tooltips / overlays
         "jade", "waila", "wthit",
-
-        // Config libraries
         "cloth_config", "cloth-config",
-
-        // Animation / model
         "geckolib", "geckolib3", "geckolib4",
-
-        // Cross-platform
         "architectury",
-
-        // Guide
         "patchouli",
-
-        // Utility
         "autoreglib"
+    );
+
+    /** Matches a TOML {@code modId = "..."} assignment; find()-based so inline comments don't defeat it. */
+    private static final Pattern MOD_ID_PATTERN = Pattern.compile("modId\\s*=\\s*\"([^\"]+)\"");
+
+    /** Button/widget superclasses that gained MC 26.1's abstract {@code extractContents}. */
+    private static final Set<String> BUTTON_SUPERCLASSES = Set.of(
+        "net/minecraft/client/gui/components/Button",
+        "net/minecraft/client/gui/components/AbstractButton",
+        "net/minecraft/client/gui/components/AbstractWidget"
     );
 
     private final String targetMcVersion;
@@ -88,10 +81,9 @@ public class ForgeModTransformer {
     public Path transformMod(Path sourceJar, Path outputDir) throws IOException {
         String originalName = sourceJar.getFileName().toString();
         String baseName = originalName.replace(".jar", "");
-        // When a mod ships no module-info / Automatic-Module-Name, NeoForge/Forge
-        // derive the JPMS module name from the jar filename; spaces or odd chars
-        // break the derived module's reads, so the mod can't resolve core MC
-        // classes in its own <clinit> (#47). Sanitize so the name is always valid.
+        // When a mod ships no module-info, NeoForge/Forge derive the JPMS module
+        // name from the jar filename; spaces or odd chars break the derived
+        // module's reads and the mod can't resolve core MC classes (#47).
         String safeBaseName = baseName.replaceAll("[^A-Za-z0-9._-]", "_");
         String outputName = safeBaseName + "-retromod.jar";
         Path outputJar = outputDir.resolve(outputName);
@@ -128,10 +120,9 @@ public class ForgeModTransformer {
             stripAccessWideners(tempDir);
             stripMixinSyntheticPackage(tempDir);
 
-            // Embed registered synthetic classes this mod references, under a
-            // unique-per-mod Retromod package (split-package-safe), and redirect
-            // the mod's references there. No-op until a synthetic is both
-            // registered and referenced by this mod.
+            // Embed registered synthetic classes this mod references under a
+            // unique-per-mod Retromod package (split-package-safe) and redirect
+            // the mod's references there.
             int synthetics = SyntheticEmbedder.embed(
                     tempDir, sourceJar.getFileName().toString(), bytecodeTransformer);
             if (synthetics > 0) {
@@ -142,17 +133,15 @@ public class ForgeModTransformer {
             updateModsToml(tempDir, "META-INF/neoforge.mods.toml");
             promoteToNeoForgeToml(tempDir);
 
-            // Patch metadata in nested Jar-in-Jar deps. A bundled dep (e.g.
-            // Flywheel inside Create) carries its own mods.toml with a stale
-            // minecraft versionRange that Forge would otherwise reject on 26.1.
+            // Patch metadata in nested Jar-in-Jar deps. A bundled dep carries its
+            // own mods.toml with a stale minecraft versionRange Forge would reject.
             int jijPatched = patchJarInJarMetadata(tempDir);
             if (jijPatched > 0) {
                 LOGGER.info("Patched metadata in {} JIJ dependencies", jijPatched);
             }
 
-            // Migrate bundled data-pack JSON across the 1.21.x -> 26.x data-only
-            // format changes the bytecode pass can't reach. Gated to 26.x inside
-            // ModDataMigrator.
+            // Migrate bundled data-pack JSON across the 1.21.x -> 26.x format
+            // changes the bytecode pass can't reach. Gated to 26.x in ModDataMigrator.
             int dataMigrated = com.retromod.resources.ModDataMigrator.migrateTree(tempDir, targetMcVersion);
             if (dataMigrated > 0) {
                 LOGGER.info("Migrated 26.x data formats in {} data file(s)", dataMigrated);
@@ -189,8 +178,8 @@ public class ForgeModTransformer {
                 String content = new String(jar.getInputStream(entry).readAllBytes());
                 Pattern p = Pattern.compile("versionRange\\s*=\\s*\"\\[([0-9.]+)");
                 Matcher m = p.matcher(content);
-                // The first match is usually the forge/neoforge version; keep
-                // scanning for the minecraft one.
+                // first match is usually the forge/neoforge version; keep
+                // scanning for the minecraft one
                 while (m.find()) {
                     String version = m.group(1);
                     if (version.startsWith("1.") || version.matches("\\d{2,}\\..*")) {
@@ -199,14 +188,14 @@ public class ForgeModTransformer {
                 }
             }
         } catch (Exception e) {
-            // Ignore
+            // ignore
         }
         return null;
     }
 
     /**
-     * Extract JAR with zip-bomb protection based on bytes actually read, not the
-     * declared entry size. See {@link FabricModTransformer#extractJar}.
+     * Extract JAR with zip-bomb protection based on bytes read, not the declared
+     * entry size. See {@link FabricModTransformer#extractJar}.
      */
     private void extractJar(Path jarPath, Path outputDir) throws IOException {
         try (JarFile jar = new JarFile(jarPath.toFile())) {
@@ -268,8 +257,8 @@ public class ForgeModTransformer {
                 .toList();
         }
 
-        // Parallel per-class transform: classes are independent and the
-        // transformer's redirect tables are thread-safe for reads.
+        // Parallel per-class: classes are independent and the redirect tables
+        // are thread-safe for reads.
         final java.util.concurrent.atomic.AtomicInteger counter =
                 new java.util.concurrent.atomic.AtomicInteger();
 
@@ -280,9 +269,8 @@ public class ForgeModTransformer {
                     .replace(".class", "")
                     .replace(File.separator, "/");
 
-                // Strip blocklisted mixin handlers first (NeoForge/Forge path; the
-                // Fabric path does this inside FabricModTransformer). No-op for a
-                // class that isn't a blocklisted mixin (#48).
+                // Strip blocklisted mixin handlers first (the Fabric path does this
+                // inside FabricModTransformer) (#48).
                 byte[] preStripped = mixinTransformer.stripBlocklistedHandlers(original);
                 byte[] transformed = bytecodeTransformer.transformClass(preStripped, className);
                 boolean wroteFirst = false;
@@ -331,7 +319,7 @@ public class ForgeModTransformer {
                         patched++;
                     }
                 } catch (Exception e) {
-                    // One bad JIJ shouldn't abort the whole transform; log and continue.
+                    // one bad JIJ shouldn't abort the whole transform
                     LOGGER.warn("Could not patch JIJ {}: {}", jijJar.getFileName(), e.getMessage());
                 }
             }
@@ -398,9 +386,8 @@ public class ForgeModTransformer {
 
         content = updateMinecraftVersionRange(content);
 
-        // Forge 1.16+ rejects a jar whose mods.toml lacks a top-level license
-        // ("Missing License Information in file ..."); supply a neutral default
-        // when the source has none (#62).
+        // Forge 1.16+ rejects a jar whose mods.toml lacks a top-level license;
+        // supply a neutral default when the source has none (#62).
         content = ensureLicense(content);
 
         if (!content.contains("retromod_transformed")) {
@@ -416,13 +403,12 @@ public class ForgeModTransformer {
     /**
      * On a NeoForge 1.20.2+ host, promote a legacy {@code META-INF/mods.toml} to
      * {@code META-INF/neoforge.mods.toml}. NeoForge renamed the file in 1.20.2 and
-     * skips a jar carrying only {@code mods.toml} at scan time ("for Minecraft Forge
-     * or an older version of NeoForge"), before any bytecode runs, so a 1.20.1
-     * (Neo)Forge mod never loads (#42). Gated to NeoForge so LexForge is untouched.
+     * skips a jar carrying only {@code mods.toml} at scan time, before any bytecode
+     * runs, so a 1.20.1 (Neo)Forge mod never loads (#42). Gated to NeoForge.
      */
     private void promoteToNeoForgeToml(Path tempDir) throws IOException {
         if (!com.retromod.util.McReflect.isNeoForge()) return;
-        // Only NeoForge 1.20.2+ uses neoforge.mods.toml; 1.20.1 still wants mods.toml.
+        // 1.20.1 still wants mods.toml
         if (RetromodVersion.mcVersionExceeds("1.20.2", targetMcVersion)) return;
 
         Path forgeToml = tempDir.resolve("META-INF/mods.toml");
@@ -432,19 +418,18 @@ public class ForgeModTransformer {
         String content = relaxLoaderVersion(Files.readString(forgeToml));
         content = pointForgeDependencyAtNeoForge(content);
         Files.writeString(neoToml, content);
-        Files.delete(forgeToml); // NeoForge keys off the filename; drop the legacy one
-        LOGGER.info("Promoted META-INF/mods.toml -> neoforge.mods.toml for NeoForge {} "
-                + "(was rejected as a Forge/old-NeoForge mod) (#42)", targetMcVersion);
+        Files.delete(forgeToml); // NeoForge keys off the filename
+        LOGGER.info("Promoted META-INF/mods.toml -> neoforge.mods.toml for NeoForge {} (#42)",
+                targetMcVersion);
     }
 
     /**
      * Strip the Mixin synthetic-args dummy package from the extracted mod (#87).
      * Some 1.20.1-era Forge mods ship a placeholder at
-     * {@code org/spongepowered/asm/synthetic/args/Dummy.class} to export Mixin's
-     * generated args package. NeoForge 1.20.2+ has its own {@code mixin_synthetic}
-     * module owning that package, so a jar still shipping the dummy split-packages
-     * with it and module resolution fails for the whole layer at boot. Gated to
-     * NeoForge 1.20.2+; old Forge hosts still need the hack.
+     * {@code org/spongepowered/asm/synthetic/args/Dummy.class}. NeoForge 1.20.2+ has
+     * its own {@code mixin_synthetic} module owning that package, so a jar still
+     * shipping the dummy split-packages with it and module resolution fails at boot.
+     * Old Forge hosts still need the dummy.
      */
     private void stripMixinSyntheticPackage(Path tempDir) throws IOException {
         if (!com.retromod.util.McReflect.isNeoForge()) return;
@@ -457,10 +442,8 @@ public class ForgeModTransformer {
     }
 
     /**
-     * Mechanism behind {@link #stripMixinSyntheticPackage}: delete
-     * {@code org/spongepowered/asm/synthetic/} and prune now-empty ancestors. A
-     * mod shading full Mixin keeps its other {@code org/spongepowered/asm/}
-     * content. Package-private for tests.
+     * Delete {@code org/spongepowered/asm/synthetic/} and prune now-empty ancestors.
+     * A mod shading full Mixin keeps its other {@code org/spongepowered/asm/} content.
      */
     static boolean stripMixinSyntheticEntries(Path tempDir) throws IOException {
         Path synthetic = tempDir.resolve("org/spongepowered/asm/synthetic");
@@ -472,7 +455,7 @@ public class ForgeModTransformer {
             });
         }
 
-        // Prune now-empty ancestors (org/spongepowered/asm, org/spongepowered, org)
+        // prune now-empty ancestors
         Path parent = synthetic.getParent();
         while (parent != null && !parent.equals(tempDir)) {
             try (var children = Files.list(parent)) {
@@ -486,22 +469,21 @@ public class ForgeModTransformer {
 
     /**
      * Relax the top-level {@code loaderVersion} to {@code "[1,)"}. A Forge/old-NeoForge
-     * value (e.g. {@code "[47,)"}) is checked against the host's FancyModLoader version,
-     * which doesn't track that number, so a literal range rejects the mod on NeoForge.
+     * value is checked against the host's FancyModLoader version, which doesn't track
+     * that number, so a literal range rejects the mod on NeoForge.
      */
     static String relaxLoaderVersion(String toml) {
         return toml.replaceAll("(?m)^(\\s*loaderVersion\\s*=\\s*)\"[^\"]*\"", "$1\"[1,)\"");
     }
 
     /**
-     * Ensure the toml declares a top-level {@code license}. Forge 1.16+ rejects a
-     * mod whose {@code mods.toml} lacks one (#62); insert a neutral
-     * {@code "All Rights Reserved"} when absent. Inserted before the first table
-     * header, since TOML top-level keys must precede any {@code [table]}.
+     * Ensure the toml declares a top-level {@code license}; Forge 1.16+ rejects a mod
+     * whose {@code mods.toml} lacks one (#62). Inserted before the first table header,
+     * since TOML top-level keys must precede any {@code [table]}.
      */
     static String ensureLicense(String toml) {
         if (java.util.regex.Pattern.compile("(?m)^\\s*license\\s*=").matcher(toml).find()) {
-            return toml; // already declares a license; leave the author's value untouched
+            return toml; // author already declares one
         }
         String line = "license=\"All Rights Reserved\" # added by Retromod (source declared none) (#62)\n";
         java.util.regex.Matcher firstTable =
@@ -515,8 +497,7 @@ public class ForgeModTransformer {
     /**
      * Repoint a mod's mandatory {@code forge} loader dependency at {@code neoforge}.
      * NeoForge has no mod with id {@code forge}, so without this it rejects the mod
-     * even after the toml is promoted ("Mod X requires forge ... is not installed",
-     * #42). Only the {@code forge} dependency id is touched.
+     * even after the toml is promoted (#42). Only the {@code forge} dependency id is touched.
      */
     static String pointForgeDependencyAtNeoForge(String toml) {
         return toml.replaceAll("(modId\\s*=\\s*)\"forge\"", "$1\"neoforge\"");
@@ -539,11 +520,9 @@ public class ForgeModTransformer {
                 currentDepModId = null;
             }
 
-            // find() not matches(): a trailing inline comment like
-            // modId="forge" #mandatory defeats a full-line match, which left
-            // JEI/Create etc. with their versionRange un-updated.
-            Pattern modIdPattern = Pattern.compile("modId\\s*=\\s*\"([^\"]+)\"");
-            Matcher modIdMatcher = modIdPattern.matcher(trimmed);
+            // find() not matches(): a trailing inline comment like modId="forge"
+            // #mandatory defeats a full-line match
+            Matcher modIdMatcher = MOD_ID_PATTERN.matcher(trimmed);
             if (modIdMatcher.find()) {
                 currentDepModId = modIdMatcher.group(1);
             }
@@ -561,7 +540,7 @@ public class ForgeModTransformer {
                     result.append("versionRange = \"[0,)\"\n");
                     currentDepModId = null;
                 } else if (targetMcVersion.startsWith("26.")) {
-                    // For 26.1+, relax all non-core deps; most old versions aren't available.
+                    // 26.1+: relax all non-core deps; most old versions aren't available
                     result.append("versionRange = \"[0,)\"\n");
                     LOGGER.info("  Relaxed dependency: {} -> [0,...) (26.1+ compat)", currentDepModId);
                     currentDepModId = null;
@@ -588,7 +567,7 @@ public class ForgeModTransformer {
     /**
      * Inject a no-op {@code extractContents} into Button/AbstractButton subclasses.
      * MC 26.1's AbstractButton gained that abstract method; old widgets that don't
-     * implement it hit AbstractMethodError when the game calls it.
+     * implement it hit AbstractMethodError.
      */
     private byte[] injectMissingAbstractMethods(byte[] classBytes, String className) {
         try {
@@ -596,13 +575,7 @@ public class ForgeModTransformer {
             String superName = reader.getSuperName();
             if (superName == null) return null;
 
-            Set<String> buttonSuperclasses = Set.of(
-                "net/minecraft/client/gui/components/Button",
-                "net/minecraft/client/gui/components/AbstractButton",
-                "net/minecraft/client/gui/components/AbstractWidget"
-            );
-
-            if (!buttonSuperclasses.contains(superName)) {
+            if (!BUTTON_SUPERCLASSES.contains(superName)) {
                 return null;
             }
 
@@ -624,7 +597,7 @@ public class ForgeModTransformer {
                 return null;
             }
 
-            // No-op body; can't call super since it's abstract.
+            // no-op body; can't call super since it's abstract
             MethodNode newMethod = new MethodNode(
                 Opcodes.ACC_PUBLIC,
                 methodName,
@@ -735,8 +708,8 @@ public class ForgeModTransformer {
                 new BufferedOutputStream(Files.newOutputStream(outputJar)))) {
 
             // A source mod's central directory can list an entry twice (or two
-            // collide on a case-insensitive FS); the second putNextEntry throws
-            // ZipException and aborts the transform. Keep the first, skip dupes.
+            // collide on a case-insensitive FS); the second putNextEntry would throw
+            // ZipException. Keep the first, skip dupes.
             Set<String> writtenEntries = new java.util.HashSet<>();
 
             try (var walk = Files.walk(sourceDir)) {

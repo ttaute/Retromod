@@ -447,13 +447,17 @@ public class LegacyModSupport {
                 case FABRIC -> {
                     JarEntry entry = jar.getJarEntry("fabric.mod.json");
                     if (entry != null) {
-                        return extractFabricVersion(jar.getInputStream(entry));
+                        try (InputStream is = jar.getInputStream(entry)) {
+                            return extractFabricVersion(is);
+                        }
                     }
                 }
                 case FORGE_LEGACY -> {
                     JarEntry entry = jar.getJarEntry("mcmod.info");
                     if (entry != null) {
-                        return extractLegacyForgeVersion(jar.getInputStream(entry));
+                        try (InputStream is = jar.getInputStream(entry)) {
+                            return extractLegacyForgeVersion(is);
+                        }
                     }
                 }
                 case FORGE_MODERN, NEOFORGE -> {
@@ -462,19 +466,25 @@ public class LegacyModSupport {
                         entry = jar.getJarEntry("META-INF/neoforge.mods.toml");
                     }
                     if (entry != null) {
-                        return extractModernForgeVersion(jar.getInputStream(entry));
+                        try (InputStream is = jar.getInputStream(entry)) {
+                            return extractModernForgeVersion(is);
+                        }
                     }
                 }
                 case QUILT -> {
                     JarEntry entry = jar.getJarEntry("quilt.mod.json");
                     if (entry != null) {
-                        return extractQuiltVersion(jar.getInputStream(entry));
+                        try (InputStream is = jar.getInputStream(entry)) {
+                            return extractQuiltVersion(is);
+                        }
                     }
                 }
                 case LITELOADER -> {
                     JarEntry entry = jar.getJarEntry("litemod.json");
                     if (entry != null) {
-                        return extractLiteLoaderVersion(jar.getInputStream(entry));
+                        try (InputStream is = jar.getInputStream(entry)) {
+                            return extractLiteLoaderVersion(is);
+                        }
                     }
                 }
                 case RIFT -> {

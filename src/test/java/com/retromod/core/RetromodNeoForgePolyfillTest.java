@@ -12,19 +12,17 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Wiring + loader-safety coverage for {@link RetromodNeoForge#registerPolyfills}.
+ * Wiring and loader-safety coverage for {@link RetromodNeoForge#registerPolyfills}.
  *
- * <p>Until this was added, only the Fabric entry loaded the
- * {@link com.retromod.polyfill.PolyfillProvider}s, so the NeoForge in-place runtime
- * transform silently applied none. This pins the contract of the NeoForge wiring:
+ * <p>The NeoForge runtime transform used to load no
+ * {@link com.retromod.polyfill.PolyfillProvider}s (only Fabric did). This pins the wiring:
  * <ul>
- *   <li>the Forge -> NeoForge migration redirects (the representative {@code Dist}
- *       relocation) ARE registered;</li>
- *   <li>the {@code neoforge}-category transfer polyfills, which conflict with the
- *       host-gated {@code NeoForge_1_21_8_to_1_21_9} shim and crash on a pre-1.21.9
- *       host, are NOT registered;</li>
+ *   <li>the Forge to NeoForge migration redirects (representative {@code Dist}
+ *       relocation) are registered;</li>
+ *   <li>the {@code neoforge}-category transfer polyfills, owned by the host-gated
+ *       {@code NeoForge_1_21_8_to_1_21_9} shim, are not registered;</li>
  *   <li>removed-class polyfills self-gate on the host version;</li>
- *   <li>the {@code polyfills_enabled=false} flag registers nothing.</li>
+ *   <li>{@code polyfills_enabled=false} registers nothing.</li>
  * </ul>
  */
 class RetromodNeoForgePolyfillTest {
@@ -60,15 +58,13 @@ class RetromodNeoForgePolyfillTest {
         RetromodNeoForge.registerPolyfills(t, true);
 
         assertEquals(NEOFORGE_DIST, t.getClassRedirects().get(FORGE_DIST),
-                "the NeoForge entry must register the Forge -> NeoForge Dist relocation "
-                        + "(AnnotationPolyfill); this is the acute DistExecutor case generalized");
+                "NeoForge entry must register the Forge -> NeoForge Dist relocation");
     }
 
     @Test
     @DisplayName("neoforge-category transfer polyfills are NOT registered (the shim owns them)")
     void doesNotRegisterConflictingTransferPolyfills() {
-        // Even on a host where IItemHandler is gone, the runtime path must leave the
-        // transfer transition to the host-gated NeoForge_1_21_8_to_1_21_9 shim (#9):
+        // Leave the transfer transition to the host-gated NeoForge_1_21_8_to_1_21_9 shim (#9):
         // the polyfill's class redirect conflicts with the shim's member redirects, and
         // un-gated it would NoClassDefFoundError on a pre-1.21.9 host.
         RetromodVersion.TARGET_MC_VERSION = "26.1";
@@ -83,7 +79,7 @@ class RetromodNeoForgePolyfillTest {
     @Test
     @DisplayName("Removed-class polyfills are host-gated: off pre-26.1, on at 26.1+")
     void removedClassPolyfillsAreHostGated() {
-        // Pre-26.1 host: DirectionProperty still exists, so it must not be redirected.
+        // Pre-26.1 host: DirectionProperty still exists, so don't redirect it.
         RetromodVersion.TARGET_MC_VERSION = "1.21.1";
         RetromodNeoForge.registerPolyfills(t, true);
         assertFalse(t.getClassRedirects().containsKey(DIRECTION_PROPERTY),
@@ -98,19 +94,19 @@ class RetromodNeoForgePolyfillTest {
     }
 
     @Test
-    @DisplayName("Old-name redirects are additive/dead; live Mojang classes are never redirect sources")
+    @DisplayName("Old-name redirects are additive; live Mojang classes are never redirect sources")
     void onlyAbsentNamesAreRedirectSources() {
         RetromodVersion.TARGET_MC_VERSION = "26.1";
         RetromodNeoForge.registerPolyfills(t, true);
 
-        // Old MCP names (BlockPolyfill) DO register, but the source is a name absent from
-        // any modern NeoForge mod, so the redirect is harmless dead weight, never a misfire.
+        // Old MCP names (BlockPolyfill) still register, but key on names absent from any
+        // modern NeoForge mod, so the redirect is dead weight rather than a misfire.
         assertEquals("net/minecraft/world/level/block/AnvilBlock",
                 t.getClassRedirects().get("net/minecraft/block/BlockAnvil"),
                 "old MCP-named redirects still register (additive); they key on absent names");
 
-        // The safety invariant that matters on a Mojang-named runtime: a live, never-removed
-        // core class is never a class-redirect SOURCE, so it can't be hijacked.
+        // On a Mojang-named runtime a live, never-removed core class must never be a
+        // redirect source, so it can't be hijacked.
         assertFalse(t.getClassRedirects().containsKey("net/minecraft/world/item/ItemStack"),
                 "a live core Mojang class must never be a class-redirect source");
         assertFalse(t.getClassRedirects().containsKey("net/minecraft/resources/ResourceLocation"),

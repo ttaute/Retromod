@@ -210,7 +210,7 @@ public class MemorySafetyMonitor {
     public double getCpuUsagePercent() {
         if (osBean instanceof com.sun.management.OperatingSystemMXBean sunBean) {
             double load = sunBean.getProcessCpuLoad();
-            return load >= 0 ? load : 0.5; // fall back to 50% when unavailable
+            return load >= 0 ? load : 0.5; // 50% when unavailable
         }
         return osBean.getSystemLoadAverage() / osBean.getAvailableProcessors();
     }
@@ -358,7 +358,7 @@ public class MemorySafetyMonitor {
                 } else {
                     LOGGER.warn("User chose to continue despite performance issues");
                     shutdownRequested = false;
-                    warningShown = false; // let a later issue re-prompt
+                    warningShown = false; // let a later issue prompt again
                 }
             } else {
                 JOptionPane.showMessageDialog(

@@ -16,13 +16,13 @@ import java.util.*;
 import java.util.jar.*;
 
 /**
- * Post-transformation bytecode verifier. Scans a transformed mod JAR for
- * class, method, and field references that don't exist on the runtime
- * classpath, catching issues like unmapped intermediary names, missing
- * shims, or double-renamed classes BEFORE the game tries to load them.
+ * Post-transformation bytecode verifier. Scans a transformed mod JAR for class,
+ * method, and field references missing from the runtime classpath, catching
+ * unmapped intermediary names, missing shims, or double-renamed classes before
+ * the game loads them.
  *
- * Enable with "verify_transforms": true in config/retromod/config.json.
- * Reports are written to config/retromod/verify-reports/.
+ * <p>Enable with "verify_transforms": true in config/retromod/config.json.
+ * Reports go to config/retromod/verify-reports/.
  */
 public final class TransformVerifier {
 
@@ -44,22 +44,18 @@ public final class TransformVerifier {
 
     private TransformVerifier() {}
 
-    // PUBLIC API
-
     /**
-     * Verify a transformed mod JAR. Scans all bytecode references and checks
-     * them against the runtime classpath. Returns a result with all issues found.
+     * Verify a transformed mod JAR by checking every bytecode reference against
+     * the runtime classpath. Never null.
      *
      * @param transformedJar path to the transformed JAR
      * @param modName        human-readable mod name for reports
      * @param targetVersion  target MC version string
-     * @return verification result (never null)
      */
     public static VerifyResult verify(Path transformedJar, String modName, String targetVersion) {
         List<Issue> issues = new ArrayList<>();
 
         try {
-            // Collect mod-internal classes and all external references
             Set<String> modClasses = new HashSet<>();
             Set<String> referencedClasses = new LinkedHashSet<>();
             Map<String, Set<String>> referencedMethods = new LinkedHashMap<>();
@@ -67,7 +63,7 @@ public final class TransformVerifier {
             Map<String, Set<String>> referencedCtors = new LinkedHashMap<>();
 
             try (JarFile jar = new JarFile(transformedJar.toFile())) {
-                // Pass 1: collect mod-internal class names
+                // pass 1: mod-internal class names
                 var entries = jar.entries();
                 while (entries.hasMoreElements()) {
                     JarEntry entry = entries.nextElement();
@@ -76,7 +72,7 @@ public final class TransformVerifier {
                     }
                 }
 
-                // Pass 2: scan bytecode for external references
+                // pass 2: external references
                 entries = jar.entries();
                 while (entries.hasMoreElements()) {
                     JarEntry entry = entries.nextElement();
@@ -87,13 +83,11 @@ public final class TransformVerifier {
                         scanClass(is, sourceClass, referencedClasses,
                                 referencedMethods, referencedFields, referencedCtors);
                     } catch (Exception e) {
-                        // Skip unreadable classes
+                        // skip unreadable classes
                     }
                 }
             }
 
-            // Resolve references against runtime classpath
-            // -- Classes --
             for (String cls : referencedClasses) {
                 if (modClasses.contains(cls)) continue;
                 if (isSafe(cls)) continue;
@@ -102,7 +96,6 @@ public final class TransformVerifier {
                 }
             }
 
-            // -- Methods --
             for (var entry : referencedMethods.entrySet()) {
                 String owner = entry.getKey();
                 if (modClasses.contains(owner) || isSafe(owner) || !canResolveClass(owner)) continue;
@@ -118,7 +111,6 @@ public final class TransformVerifier {
                 }
             }
 
-            // -- Fields --
             for (var entry : referencedFields.entrySet()) {
                 String owner = entry.getKey();
                 if (modClasses.contains(owner) || isSafe(owner) || !canResolveClass(owner)) continue;
@@ -130,7 +122,6 @@ public final class TransformVerifier {
                 }
             }
 
-            // -- Constructors --
             for (var entry : referencedCtors.entrySet()) {
                 String owner = entry.getKey();
                 if (modClasses.contains(owner) || isSafe(owner) || !canResolveClass(owner)) continue;
@@ -142,8 +133,11 @@ public final class TransformVerifier {
                 }
             }
 
-        } catch (Exception e) {
-            LOGGER.warn("[Retromod] Transform verification failed for {}: {}", modName, e.getMessage());
+        } catch (Throwable t) {
+            // verifier is a diagnostic and must never abort a transform; catch Errors too
+            // (a transformer-layer LinkageError can surface through a probe) and return
+            // whatever we gathered (#102).
+            LOGGER.warn("[Retromod] Transform verification failed for {}: {}", modName, t.toString());
         }
 
         return new VerifyResult(modName, targetVersion, issues);
@@ -166,7 +160,6 @@ public final class TransformVerifier {
         } else {
             LOGGER.warn("[Retromod] ✗ Verification found {} issue(s) for {} ({}ms)",
                     result.issueCount(), modName, elapsed);
-            // Log first 10 issues as warnings
             int logged = 0;
             for (Issue issue : result.issues()) {
                 if (logged++ >= 10) {
@@ -178,14 +171,11 @@ public final class TransformVerifier {
             }
         }
 
-        // Write report file
         writeReport(result);
         return result;
     }
 
-    // CONFIG
-
-    /** Check if verify_transforms is enabled in config. */
+    /** True when verify_transforms is enabled in config. */
     public static boolean isEnabled() {
         try {
             Path configPath = Path.of("config/retromod/config.json");
@@ -195,12 +185,10 @@ public final class TransformVerifier {
                        json.contains("\"verify_transforms\":true");
             }
         } catch (Exception e) {
-            // Default to false
+            // default to false
         }
         return false;
     }
-
-    // BYTECODE SCANNING
 
     private static void scanClass(InputStream is, String sourceClass,
             Set<String> classes, Map<String, Set<String>> methods,
@@ -254,8 +242,6 @@ public final class TransformVerifier {
         }, ClassReader.SKIP_DEBUG);
     }
 
-    // RESOLUTION: check references against runtime classpath
-
     private static boolean isSafe(String className) {
         for (String prefix : SAFE_PREFIXES) {
             if (className.startsWith(prefix)) return true;
@@ -267,13 +253,9 @@ public final class TransformVerifier {
     private static volatile java.util.Set<String> knownTargetClasses;
 
     /**
-     * Is this internal name a class the mapping knows exists in the target MC?
-     *
-     * <p>Used as a fallback when {@link Class#forName} can't load a class, which
-     * happens for legitimate, present classes the verifier's classloader simply
-     * can't see: client classes when verifying on a dedicated server, or classes
-     * in another module under NeoForge's modular loading. Without this, those
-     * showed up as bogus "Missing Classes" (#58).
+     * Fallback for when {@link Class#forName} can't load a class the mapping
+     * says exists: client classes on a dedicated server, or other-module classes
+     * under NeoForge, which would otherwise show up as bogus "Missing Classes" (#58).
      */
     private static boolean isKnownTargetClass(String internalName) {
         java.util.Set<String> s = knownTargetClasses;
@@ -287,7 +269,7 @@ public final class TransformVerifier {
                     built.addAll(mapper.getClassMoves().values());   // post-move 26.1 names
                 }
             } catch (Exception ignored) {
-                // mapping unavailable → fall through to the empty set (no fallback)
+                // mapping unavailable: empty set, no fallback
             }
             knownTargetClasses = s = built;
         }
@@ -300,13 +282,14 @@ public final class TransformVerifier {
                     TransformVerifier.class.getClassLoader());
             return true;
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
-            // The verifier's classloader can't always see every MC class (client
-            // classes on a server, or other-module classes under NeoForge). Before
-            // declaring a real gap, confirm against the mapping: a known target
-            // class exists in MC; this was just a classloader-visibility miss.
+            // classloader-visibility miss (client class on a server, other-module class
+            // under NeoForge): confirm against the mapping before declaring a gap.
             return isKnownTargetClass(internalName);
-        } catch (Exception e) {
-            return true; // Avoid false positives
+        } catch (Throwable t) {
+            // can't tell, so assume resolvable rather than crash. Mixin throws
+            // IllegalClassLoadError (an Error) when a @Mixin-package class is loaded
+            // directly (#102); the probe swallows it.
+            return true;
         }
     }
 
@@ -348,9 +331,9 @@ public final class TransformVerifier {
             }
             return false;
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
-            return true; // Don't double-report
-        } catch (Exception e) {
-            return true;
+            return true; // don't double-report
+        } catch (Throwable t) {
+            return true; // #102: the probe (Mixin's IllegalClassLoadError) must not crash the transform
         }
     }
 
@@ -370,8 +353,8 @@ public final class TransformVerifier {
             return false;
         } catch (ClassNotFoundException | NoClassDefFoundError e) {
             return true;
-        } catch (Exception e) {
-            return true;
+        } catch (Throwable t) {
+            return true; // #102: probe must not crash the transform
         }
     }
 
@@ -394,8 +377,6 @@ public final class TransformVerifier {
         }
         return count;
     }
-
-    // REPORT WRITING
 
     private static void writeReport(VerifyResult result) {
         try {
@@ -421,7 +402,6 @@ public final class TransformVerifier {
             } else {
                 sb.append("Found ").append(result.issueCount()).append(" issue(s):\n\n");
 
-                // Group by type
                 Map<IssueType, List<Issue>> byType = new LinkedHashMap<>();
                 for (Issue issue : result.issues()) {
                     byType.computeIfAbsent(issue.type(), k -> new ArrayList<>()).add(issue);
@@ -444,8 +424,6 @@ public final class TransformVerifier {
             LOGGER.debug("[Retromod] Could not write verification report: {}", e.getMessage());
         }
     }
-
-    // RESULT TYPES
 
     public enum IssueType {
         MISSING_CLASS("Missing Classes"),
@@ -476,7 +454,7 @@ public final class TransformVerifier {
         public boolean passed() { return issues.isEmpty(); }
         public int issueCount() { return issues.size(); }
         public int totalChecked() {
-            // Approximate; the actual number of references checked
+            // approximate count of references checked
             return issueCount() > 0 ? issueCount() : 1;
         }
     }

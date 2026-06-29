@@ -2,9 +2,9 @@
  * Retromod - Backwards Compatibility Layer for Minecraft Mods
  * Copyright (c) 2026 Bownlux
  *
- * Polyfill for ResourceLocation$Serializer which was removed in MC 26.1.
- * Mojang switched from Gson type adapters to Codecs for serialization.
- * Old mods (Jade, etc.) register this as a Gson TypeAdapter for ResourceLocation/Identifier.
+ * Polyfill for ResourceLocation$Serializer, removed in MC 26.1 when Mojang moved
+ * from Gson type adapters to Codecs. Old mods (Jade, etc.) register it as a Gson
+ * TypeAdapter for ResourceLocation/Identifier.
  */
 package com.retromod.polyfill.minecraft;
 
@@ -12,10 +12,8 @@ import com.google.gson.*;
 import java.lang.reflect.Type;
 
 /**
- * Gson serializer/deserializer for Identifier (formerly ResourceLocation).
- * Replaces the removed ResourceLocation$Serializer class.
- *
- * Format: "namespace:path" (e.g. "minecraft:stone")
+ * Gson serializer/deserializer for Identifier (formerly ResourceLocation),
+ * replacing the removed ResourceLocation$Serializer. Format is "namespace:path".
  */
 public class IdentifierSerializer implements JsonDeserializer<Object>, JsonSerializer<Object> {
 
@@ -24,9 +22,8 @@ public class IdentifierSerializer implements JsonDeserializer<Object>, JsonSeria
         if (json.isJsonPrimitive()) {
             String str = json.getAsString();
             try {
-                // Try Mojang name first (26.1+): net.minecraft.resources.Identifier
                 Class<?> identifierClass = findIdentifierClass();
-                // Use Identifier.parse(String) or Identifier.of(String) or new Identifier(String)
+                // parse(String), then of(String), then the single-String constructor
                 try {
                     var parseMethod = identifierClass.getMethod("parse", String.class);
                     return parseMethod.invoke(null, str);
@@ -35,7 +32,6 @@ public class IdentifierSerializer implements JsonDeserializer<Object>, JsonSeria
                         var ofMethod = identifierClass.getMethod("of", String.class);
                         return ofMethod.invoke(null, str);
                     } catch (NoSuchMethodException e2) {
-                        // Try constructor with single String
                         return identifierClass.getConstructor(String.class).newInstance(str);
                     }
                 }

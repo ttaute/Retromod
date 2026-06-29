@@ -18,14 +18,14 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Aggregates {@link VerificationReport}s across many mods into a single "gap"
+ * Aggregates {@link VerificationReport}s across many mods into a single gap
  * report that ranks MC references by how many different mods miss them.
  */
 public final class CrossModGapReport {
 
     private final String targetMcVersion;
     private final Map<String, AggregatedEntry> byIdentity = new HashMap<>();
-    /** Pattern-match aggregation: pattern name → mods that produced that match. */
+    /** Pattern name to the mods that produced that match. */
     private final Map<String, PatternAggregation> patternAggregation = new HashMap<>();
     private final Set<String> modsSeen = new HashSet<>();
     private int totalClassesScanned;
@@ -45,10 +45,7 @@ public final class CrossModGapReport {
         for (UnresolvedReference ref : report.missingFields()) mergeRef(ref, report.modId());
         for (UnresolvedReference ref : report.badSignatures()) mergeRef(ref, report.modId());
 
-        // Aggregate pattern matches by pattern name. The per-pattern count tells
-        // us which class shapes are common across the ecosystem (e.g., "47 mods
-        // have at least one Mixin class", useful for prioritizing the
-        // MixinTargetPattern's handling completeness).
+        // count which class shapes are common across the ecosystem
         for (Map.Entry<String, List<PatternMatch>> entry : report.patternMatches().entrySet()) {
             patternAggregation.computeIfAbsent(entry.getKey(), k -> new PatternAggregation(k))
                                .observe(report.modId(), entry.getValue().size());
@@ -61,12 +58,12 @@ public final class CrossModGapReport {
     }
 
     /**
-     * Render the cross-mod report ranked by "most-missed first." Includes a
-     * header line with scan stats and one entry per unique reference.
+     * Render the cross-mod report most-missed first, with a header of scan stats
+     * and one entry per unique reference.
      */
     public void writeTo(Appendable out) throws IOException {
         List<AggregatedEntry> sorted = new ArrayList<>(byIdentity.values());
-        // Primary sort: frequency desc. Secondary: pretty-print asc for stable output.
+        // frequency desc, then pretty-print asc for stable output
         sorted.sort(Comparator
                 .comparingInt((AggregatedEntry e) -> -e.count())
                 .thenComparing(e -> e.reference.prettyPrint()));
@@ -96,10 +93,7 @@ public final class CrossModGapReport {
             }
         }
 
-        // Pattern-match summary: which structural shapes were seen across how
-        // many mods, and how prevalent they are. Separate section from the
-        // unresolved-refs list because pattern matches are informational
-        // ("this shape exists here") rather than actionable breakage.
+        // pattern matches are informational, not actionable breakage, so list them separately
         if (!patternAggregation.isEmpty()) {
             List<PatternAggregation> patterns = new ArrayList<>(patternAggregation.values());
             patterns.sort(Comparator.comparingInt((PatternAggregation p) -> -p.modCount())
@@ -116,26 +110,21 @@ public final class CrossModGapReport {
     }
 
     private static String formatEntry(AggregatedEntry e) {
-        // Prefix with kind so the same symbol appearing as both class-miss and
-        // method-miss reads unambiguously.
+        // prefix with kind so the same symbol as both a class-miss and a method-miss reads unambiguously
         return "[" + e.reference.kind().name() + "] " + e.reference.prettyPrint();
     }
 
     /**
-     * @return unmodifiable map of identity-key → aggregated entry, for callers
-     *         that want to slice the data programmatically instead of reading
-     *         the formatted text output
+     * @return unmodifiable map of identity-key to aggregated entry, for callers
+     *         that want the data programmatically rather than the formatted text
      */
     public Map<String, AggregatedEntry> entries() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(byIdentity));
     }
 
     /**
-     * Cross-mod summary for a single pattern: how many distinct mods produced
-     * any match for this pattern, and the total count of matches across all
-     * mods. Both numbers are useful: "47 mods had Mixin classes" vs
-     * "47 mods had 312 Mixin classes between them" answer different questions
-     * about code shape prevalence.
+     * Cross-mod summary for a single pattern: how many distinct mods produced any
+     * match, and the total match count across all mods.
      */
     public static final class PatternAggregation {
         private final String patternName;

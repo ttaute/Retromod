@@ -104,7 +104,10 @@ public class LegacyVersionSupport {
         try {
             var ze = jar.getEntry(entry);
             if (ze == null) return null;
-            String content = new String(jar.getInputStream(ze).readAllBytes());
+            String content;
+            try (java.io.InputStream in = jar.getInputStream(ze)) {
+                content = new String(in.readAllBytes());
+            }
             Matcher m = Pattern.compile(pattern).matcher(content);
             return m.find() ? m.group(1) : null;
         } catch (Exception e) { return null; }

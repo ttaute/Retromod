@@ -154,6 +154,8 @@ public class ShimRegistry {
         queue.add(new ShimPath(resolvedSource, new ArrayList<>()));
         visited.add(resolvedSource);
 
+        Map<String, List<VersionShim>> byVersion = shimsByLoaderAndVersion.get(modLoader);
+
         while (!queue.isEmpty()) {
             ShimPath current = queue.poll();
 
@@ -161,12 +163,13 @@ public class ShimRegistry {
                 return current.shims;
             }
 
-            for (VersionShim shim : getShimsForLoaderAndVersion(modLoader, current.version)) {
+            List<VersionShim> shimsHere = (byVersion == null)
+                    ? Collections.<VersionShim>emptyList()
+                    : byVersion.getOrDefault(current.version, Collections.emptyList());
+            for (VersionShim shim : shimsHere) {
                 String nextVersion = shim.getTargetVersion();
 
-                if (!visited.contains(nextVersion)) {
-                    visited.add(nextVersion);
-
+                if (visited.add(nextVersion)) {
                     List<VersionShim> newPath = new ArrayList<>(current.shims);
                     newPath.add(shim);
 

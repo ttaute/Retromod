@@ -18,12 +18,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for {@link RetromodExecutors}: the shared parallel-execution helper.
+ * Tests for {@link RetromodExecutors}, the shared parallel-execution helper.
  *
- * <p>These tests don't verify a specific degree of parallelism (that depends on
- * the test runner's core count and the JVM scheduler). They verify correctness
- * invariants: every input produces exactly one output; order is preserved where
- * promised; exceptions don't abort the whole batch.</p>
+ * <p>These check correctness invariants, not a specific degree of parallelism:
+ * every input produces one output, order is preserved where promised, and a
+ * failing task does not abort the batch.</p>
  */
 class RetromodExecutorsTest {
 
@@ -37,7 +36,7 @@ class RetromodExecutorsTest {
         RetromodExecutors.parallelForEach(inputs, visited::add);
 
         assertEquals(inputs.size(), visited.size(),
-                "Every element should be visited exactly once");
+                "Every element visited once");
         for (int i = 0; i < 200; i++) {
             assertTrue(visited.contains(i), "Missing element: " + i);
         }
@@ -49,7 +48,7 @@ class RetromodExecutorsTest {
         List<Integer> inputs = new ArrayList<>();
         for (int i = 0; i < 100; i++) inputs.add(i);
 
-        // Double every input; deliberately uneven work to encourage scheduling variation
+        // uneven work so the scheduler varies thread assignment
         List<Integer> results = RetromodExecutors.parallelMap(inputs, i -> {
             if (i % 7 == 0) {
                 try { Thread.sleep(1); } catch (InterruptedException ignored) {}
@@ -60,7 +59,7 @@ class RetromodExecutorsTest {
         assertEquals(inputs.size(), results.size());
         for (int i = 0; i < inputs.size(); i++) {
             assertEquals(i * 2, results.get(i),
-                    "Order must match input position (index " + i + ")");
+                    "Order must match input position at index " + i);
         }
     }
 
@@ -78,7 +77,7 @@ class RetromodExecutorsTest {
             completed.incrementAndGet();
         });
 
-        // 49 of 50 complete; the exception-throwing one is logged but not re-raised.
+        // the throwing task is logged but not re-raised, so 49 of 50 complete
         assertEquals(49, completed.get(),
                 "A single task failure must not abort the whole batch");
     }
@@ -86,16 +85,14 @@ class RetromodExecutorsTest {
     @Test
     @DisplayName("Empty and single-element inputs use the fast path")
     void emptyAndSingleInputsWork() {
-        // Empty: no-op
         AtomicInteger count = new AtomicInteger();
         RetromodExecutors.parallelForEach(List.of(), (Object x) -> count.incrementAndGet());
         assertEquals(0, count.get());
 
-        // Single: runs inline, still visits the element
+        // single element runs inline but is still visited
         RetromodExecutors.parallelForEach(List.of("single"), s -> count.incrementAndGet());
         assertEquals(1, count.get());
 
-        // parallelMap with empty list returns empty list
         List<String> mapped = RetromodExecutors.parallelMap(List.of(), x -> "unused");
         assertTrue(mapped.isEmpty());
     }
@@ -113,13 +110,13 @@ class RetromodExecutorsTest {
         var pool1 = RetromodExecutors.sharedPool();
         var pool2 = RetromodExecutors.sharedPool();
         assertSame(pool1, pool2,
-                "sharedPool() must return the same pool every time - allocating twice would double thread count");
+                "sharedPool() must return the same pool every time; allocating twice would double the thread count");
     }
 
     @Test
-    @DisplayName("Parallel execution actually uses multiple threads when parallelism > 1")
+    @DisplayName("Parallel execution uses multiple threads when parallelism > 1")
     void parallelExecutionUsesMultipleThreads() {
-        // Only meaningful on machines with >1 core; skip on single-core CI otherwise
+        // only meaningful with >1 core; skip on single-core CI
         if (!RetromodExecutors.isParallel()) return;
 
         ConcurrentLinkedQueue<String> threadsSeen = new ConcurrentLinkedQueue<>();
@@ -128,10 +125,10 @@ class RetromodExecutorsTest {
 
         RetromodExecutors.parallelForEach(inputs, i -> {
             threadsSeen.add(Thread.currentThread().getName());
-            // Small busy-work so the scheduler has reason to distribute tasks
+            // busy-work so the scheduler has reason to distribute tasks
             int sum = 0;
             for (int j = 0; j < 10_000; j++) sum += j;
-            if (sum < 0) throw new AssertionError("unreachable"); // prevent dead-code elimination
+            if (sum < 0) throw new AssertionError("unreachable"); // keep the loop from being elided
         });
 
         Set<String> uniqueThreads = new HashSet<>(threadsSeen);

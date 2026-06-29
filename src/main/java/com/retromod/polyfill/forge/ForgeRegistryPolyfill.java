@@ -8,13 +8,9 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
- * Polyfill for the Forge registry system evolution.
- * Covers GameRegistry (removed 1.13), FML lifecycle events (removed 1.13),
- * OreDictionary (replaced by tags in 1.13), SidedProxy, and FMLCommonHandler.
- *
- * Old Forge mods (1.12.2 and earlier) used these APIs extensively.
- * This polyfill redirects all references to embedded shim implementations
- * that provide no-op or compatibility behavior.
+ * Polyfills the pre-1.13 Forge registry APIs used by 1.12.2 and earlier mods:
+ * GameRegistry, FML lifecycle events, OreDictionary (now tags), SidedProxy, and
+ * FMLCommonHandler. References are redirected to embedded no-op/compat shims.
  */
 public class ForgeRegistryPolyfill implements PolyfillProvider {
 
@@ -62,13 +58,12 @@ public class ForgeRegistryPolyfill implements PolyfillProvider {
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // GameRegistry → embedded shim (old 1.12 registration)
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/common/registry/GameRegistry",
             "com/retromod/polyfill/forge/embedded/GameRegistryShim"
         );
 
-        // FML lifecycle events → embedded shim stubs (no-op)
+        // FML lifecycle events to no-op stubs
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/common/event/FMLPreInitializationEvent",
             "com/retromod/polyfill/forge/embedded/FMLEventShim$PreInit"
@@ -86,37 +81,33 @@ public class ForgeRegistryPolyfill implements PolyfillProvider {
             "com/retromod/polyfill/forge/embedded/FMLEventShim$ServerStarting"
         );
 
-        // SidedProxy → no-op annotation shim
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/common/SidedProxy",
             "com/retromod/polyfill/forge/embedded/GameRegistryShim"
         );
 
-        // OreDictionary → tag-based shim
+        // OreDictionary, now tag-based
         transformer.registerClassRedirect(
             "net/minecraftforge/oredict/OreDictionary",
             "com/retromod/polyfill/forge/embedded/OreDictionaryShim"
         );
 
-        // Loader → no-op shim (mod loading queries)
+        // Loader queries to a no-op shim
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/common/Loader",
             "com/retromod/polyfill/forge/embedded/FMLCommonHandlerShim"
         );
 
-        // FMLCommonHandler → embedded shim
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/common/FMLCommonHandler",
             "com/retromod/polyfill/forge/embedded/FMLCommonHandlerShim"
         );
 
-        // Side enum → embedded shim
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/relauncher/Side",
             "com/retromod/polyfill/forge/embedded/SideShim"
         );
 
-        // SideOnly → no-op annotation shim (annotation is simply ignored at runtime)
         transformer.registerClassRedirect(
             "net/minecraftforge/fml/relauncher/SideOnly",
             "com/retromod/polyfill/forge/embedded/SideShim"

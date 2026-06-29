@@ -1,5 +1,0 @@
-# Retromod Forge mod-file locator (#78): discovers jars in mods/Retromod/ so Retromod
-# + transformed *-retromod.jar outputs can ship as CurseForge pack overrides instead
-# of top-level mods/ jars. Read only by Forge (its ModDirTransformerDiscoverer scans
-# mods/ for this service); ignored by Fabric and NeoForge, which use different SPIs.
-com.retromod.locator.RetromodForgeModLocator

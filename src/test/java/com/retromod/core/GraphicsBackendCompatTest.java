@@ -15,15 +15,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tier-0 OpenGL-preference logic ({@link GraphicsBackendCompat#apply}): set
- * {@code preferredGraphicsBackend:"opengl"} for old mods on 26.2+, but only when
- * the user hasn't made an explicit choice, and always preserving the rest of
- * options.txt.
+ * OpenGL-preference logic ({@link GraphicsBackendCompat#apply}): set
+ * {@code preferredGraphicsBackend:"opengl"} for old mods on 26.2+, but only when the
+ * user hasn't made an explicit choice, preserving the rest of options.txt.
  *
- * <p>The format here matches what MC 26.2 actually persists, verified against a
- * real 26.2 options.txt: the key is {@code preferredGraphicsBackend} (NOT the
- * label key {@code graphicsApi}) and the value is JSON-quoted ({@code "opengl"} /
- * {@code "vulkan"} / {@code "default"}).
+ * <p>Format matches what MC 26.2 persists: the key is {@code preferredGraphicsBackend}
+ * (not the label key {@code graphicsApi}) and the value is JSON-quoted.
  */
 class GraphicsBackendCompatTest {
 

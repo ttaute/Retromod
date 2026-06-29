@@ -15,23 +15,14 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /**
- * Creates in-game Minecraft screens via reflection.
- *
- * Since Retromod is built with Maven (no Minecraft on classpath), all MC
- * screen classes are accessed via reflection. This factory provides methods
- * to show various dialog types using MC's built-in screen system:
- *
- *   - ConfirmScreen (yes/no dialogs)
- *   - Custom message screens (info/warning/results)
- *   - Progress overlay
- *
- * All screens are rendered inside the game window, not as Swing popups.
+ * Creates in-game Minecraft screens via reflection (MC is not on Retromod's
+ * compile classpath). Renders inside the game window, not as Swing popups.
  */
 public final class InGameScreenFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-GUI");
 
-    // Cached MC classes (resolved lazily)
+    // resolved lazily
     private static Class<?> screenClass;
     private static Class<?> textClass;
     private static Class<?> confirmScreenClass;
@@ -41,9 +32,6 @@ public final class InGameScreenFactory {
 
     private InGameScreenFactory() {}
 
-    /**
-     * Resolve all needed MC classes via reflection.
-     */
     private static synchronized boolean resolveClasses() {
         if (resolved) return screenClass != null;
 
@@ -59,9 +47,8 @@ public final class InGameScreenFactory {
             "net.minecraft.network.chat.Component"
         );
 
-        // The plain Yes/No ConfirmScreen, NOT ConfirmLinkScreen (that's the
-        // link-warning dialog with a different constructor). Its ctor is
-        // ConfirmScreen(BooleanConsumer, Component title, Component message).
+        // plain Yes/No ConfirmScreen, not ConfirmLinkScreen (the link-warning
+        // dialog with a different ctor)
         confirmScreenClass = McReflect.findClass(
             "net.minecraft.client.gui.screen.ConfirmScreen",    // yarn
             "net.minecraft.client.gui.screens.ConfirmScreen"    // mojang
@@ -85,9 +72,6 @@ public final class InGameScreenFactory {
         return true;
     }
 
-    /**
-     * Get the MinecraftClient instance via reflection.
-     */
     private static Object getClientInstance() {
         try {
             Method getInstance = McReflect.findMethod(minecraftClientClass, "getInstance");
@@ -98,26 +82,23 @@ public final class InGameScreenFactory {
         }
     }
 
-    /**
-     * Create a Text/Component object from a string.
-     */
     private static Object createText(String text) {
         try {
-            // Try Text.literal() (1.19.2+) / Component.literal()
+            // Text.literal() (1.19.2+) / Component.literal()
             Method literal = McReflect.findMethod(textClass,
                 new Class[]{String.class}, "literal");
             if (literal != null) {
                 return literal.invoke(null, text);
             }
 
-            // Fallback: try Text.of() / Component.translatable()
+            // Text.of() / Component.translatable()
             Method of = McReflect.findMethod(textClass,
                 new Class[]{String.class}, "of");
             if (of != null) {
                 return of.invoke(null, text);
             }
 
-            // Last resort: LiteralText constructor (pre-1.19.2)
+            // LiteralText constructor (pre-1.19.2)
             Class<?> literalTextClass = McReflect.findClass(
                 "net.minecraft.text.LiteralText",
                 "net.minecraft.network.chat.TextComponent"
@@ -131,9 +112,6 @@ public final class InGameScreenFactory {
         return null;
     }
 
-    /**
-     * Set the current screen on MinecraftClient.
-     */
     private static void setScreen(Object screen) {
         try {
             Object client = getClientInstance();
@@ -148,8 +126,6 @@ public final class InGameScreenFactory {
             LOGGER.warn("Could not set MC screen: {}", e.getMessage());
         }
     }
-
-    // Public API: Show various screen types
 
     /**
      * Show a confirmation dialog in-game with Yes/No buttons.
@@ -172,19 +148,12 @@ public final class InGameScreenFactory {
 
             if (titleText == null || messageText == null) return;
 
-            // ConfirmScreen takes a BooleanConsumer callback + title + message
-            // BooleanConsumer is it.unimi.dsi.fastutil.booleans.BooleanConsumer
-            // or a simple functional interface depending on MC version
-
-            // Try: new ConfirmScreen(callback, title, message)
-            // Where callback is (boolean confirmed) -> ...
-
-            // Find the BooleanConsumer class
+            // ConfirmScreen(callback, title, message), callback being a
+            // (boolean confirmed) -> ... BooleanConsumer or vanilla SAM
             Class<?> boolConsumerClass = null;
             try {
                 boolConsumerClass = Class.forName("it.unimi.dsi.fastutil.booleans.BooleanConsumer");
             } catch (ClassNotFoundException e) {
-                // Try vanilla functional interface
                 try {
                     boolConsumerClass = Class.forName("net.minecraft.client.gui.screen.ConfirmScreen$1");
                 } catch (ClassNotFoundException e2) {
@@ -204,7 +173,6 @@ public final class InGameScreenFactory {
                             } else if (!confirmed && onNo != null) {
                                 onNo.run();
                             }
-                            // Close the screen
                             setScreen(null);
                         }
                         return null;
@@ -218,7 +186,7 @@ public final class InGameScreenFactory {
                 return;
             }
 
-            // Fallback: just use a simple notification
+            // fall back to a plain notification
             showNotification(title + "\n" + message);
 
         } catch (Exception e) {
@@ -227,10 +195,9 @@ public final class InGameScreenFactory {
     }
 
     /**
-     * Show a Yes/No confirmation over a known parent screen. Unlike
-     * {@link #showConfirmScreen}, declining returns to {@code parentScreen}
-     * (e.g. the title screen) instead of clearing to a null screen, so this is
-     * safe to invoke from a title-screen init hook. Used by the restart prompt (#33).
+     * Show a Yes/No confirmation over a known parent screen. Declining returns
+     * to {@code parentScreen} rather than clearing to a null screen, so it can
+     * be invoked from a title-screen init hook. Used by the restart prompt (#33).
      *
      * @param parentScreen the screen to return to if the user clicks No
      * @param title        dialog title
@@ -265,7 +232,6 @@ public final class InGameScreenFactory {
                         if (confirmed) {
                             if (onYes != null) onYes.run(); // stops the client; screen irrelevant
                         } else {
-                            // Decline → restore the title screen, never a null screen.
                             setScreen(parentScreen);
                         }
                     }
@@ -284,7 +250,6 @@ public final class InGameScreenFactory {
 
     /**
      * Show a results/info screen in-game.
-     * Uses MC's ConfirmScreen with only an "OK" button.
      *
      * @param title   the screen title
      * @param message the message body (supports newlines)
@@ -302,7 +267,7 @@ public final class InGameScreenFactory {
         if (!resolveClasses()) return;
 
         try {
-            // Try using NoticeScreen if available (some MC versions)
+            // NoticeScreen exists on some MC versions
             Class<?> noticeScreenClass = McReflect.findClass(
                 "net.minecraft.client.gui.screen.NoticeScreen",
                 "net.minecraft.client.gui.screens.NoticeScreen"
@@ -323,7 +288,7 @@ public final class InGameScreenFactory {
                     setScreen(screen);
                     return;
                 } catch (NoSuchMethodException e) {
-                    // Try simpler constructor
+                    // shorter ctor on older versions
                     Constructor<?> ctor = noticeScreenClass.getConstructor(
                         Runnable.class, textClass, textClass);
                     Object screen = ctor.newInstance(
@@ -337,14 +302,13 @@ public final class InGameScreenFactory {
             LOGGER.debug("NoticeScreen not available: {}", e.getMessage());
         }
 
-        // Last resort: log the message
         LOGGER.info("[Retromod Notification] {}", message);
     }
 
     /**
      * Show transformation results in-game.
      *
-     * @param results list of result strings (e.g., "✓ modname.jar - transformed", "✗ other.jar - failed")
+     * @param results list of per-mod result strings
      * @param needsRestart whether to show a "Restart Required" message
      */
     public static void showTransformResults(List<String> results, boolean needsRestart) {
@@ -360,7 +324,6 @@ public final class InGameScreenFactory {
 
         showResultScreen("Retromod - Transformation Results", msg.toString(), () -> {
             if (needsRestart) {
-                // Optionally: trigger a restart by calling mc.scheduleStop()
                 try {
                     Object client = getClientInstance();
                     if (client != null) {

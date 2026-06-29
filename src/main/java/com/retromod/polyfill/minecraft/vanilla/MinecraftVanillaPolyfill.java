@@ -9,17 +9,8 @@ import com.retromod.core.RetromodVersion;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
- * Polyfill for removed vanilla Minecraft API classes.
- *
- * Several core Minecraft classes were removed or refactored across
- * major versions. This provider registers stub implementations so
- * older mods referencing these classes do not crash with
- * ClassNotFoundException at startup.
- *
- * Covered removals:
- * - LiteralText / TranslatableText (replaced by Text.literal / Text.translatable)
- * - Material / MaterialColor (block material system removed in 1.19.3+)
- * - StructureFeature (replaced by Structure in 1.19+)
+ * Polyfill for vanilla Minecraft classes removed across major versions, so older mods
+ * referencing them do not crash with ClassNotFoundException at startup.
  */
 public class MinecraftVanillaPolyfill implements PolyfillProvider {
 
@@ -54,30 +45,16 @@ public class MinecraftVanillaPolyfill implements PolyfillProvider {
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // Register class redirects for removed classes.
-        // The transformer will rewrite old mod bytecode references.
-        // These classes were removed in MC 1.19-1.20 and don't exist in 26.1.
+        // LiteralText/TranslatableText, Material/MaterialColor and StructureFeature are
+        // handled by the shim chain (calls rewritten to the Mojang names), no runtime stub.
 
-        // LiteralText/TranslatableText removed in 1.19, replaced by Text.literal/Text.translatable
-        // On 26.1 these use Mojang names: Component.literal / Component.translatable
-        // Old mods referencing these will have calls rewritten by the version shims.
-
-        // Material/MaterialColor removed in 1.20, properties inlined into BlockState
-        // StructureFeature removed in 1.18.2, replaced by Structure
-        // These are handled by the shim chain, no stub needed at runtime.
-
-        // LazyLoadedValue removed in 26.1. Redirect to our embedded polyfill.
-        // Mods like Jade reference this at runtime (e.g., ClientProxy.java:304).
-        // Register BOTH Mojang name AND intermediary name. The ASM remapper is single-pass,
-        // so class_3528→LazyLoadedValue doesn't chain to LazyLoadedValue→polyfill.
+        // LazyLoadedValue was removed in 26.1; redirect to our embedded polyfill (Jade
+        // references it at runtime). Register both the Mojang name and the intermediary
+        // class_3528: the ASM remapper is single-pass, so class_3528 redirected to
+        // LazyLoadedValue would not chain on to the polyfill.
         //
-        // Host-gated to 26.1+: net/minecraft/util/LazyLoadedValue still EXISTS below
-        // 26.1, and Jade is a NeoForge/Forge mod (Mojang-named), so on a pre-26.1
-        // NeoForge host an un-gated redirect would hijack the live class. Harmless on
-        // the Fabric runtime (intermediary mods don't carry the Mojang name, #17), but
-        // the NeoForge runtime now loads polyfills too, so gate it. The intermediary
-        // class_3528 only appears in Fabric mods, which are remapped to Mojang names on
-        // a 26.1+ host anyway, so the same gate is correct for it.
+        // Gated to 26.1+: below 26.1 net/minecraft/util/LazyLoadedValue still exists, and an
+        // un-gated redirect would hijack the live class on a pre-26.1 NeoForge host (#17).
         if (!RetromodVersion.mcVersionExceeds("26.1", RetromodVersion.TARGET_MC_VERSION)) {
             transformer.registerClassRedirect(
                 "net/minecraft/util/LazyLoadedValue",

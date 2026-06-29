@@ -8,21 +8,10 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
- * Bridge polyfill for Trinkets 2.x -> 3.x API changes (MIT licensed).
+ * Bridges Trinkets 2.x (MC 1.16-1.17) class names to their Trinkets 3.x (MC 1.18+) equivalents.
  *
- * Trinkets is the most popular accessory/equipment slot mod for Fabric.
- * Between Trinkets 2.x (MC 1.16-1.17) and Trinkets 3.x (MC 1.18+),
- * several classes were renamed or reorganized:
- *
- * <ul>
- *   <li>{@code TrinketSlot} -> {@code SlotType} (slot definition class)</li>
- *   <li>{@code TrinketComponent} interface method signatures changed</li>
- *   <li>{@code TrinketSlots} -> {@code SlotGroup} (slot grouping)</li>
- *   <li>{@code AbstractTrinket} -> {@code TrinketItem} (base trinket item)</li>
- * </ul>
- *
- * This bridge does NOT bundle Trinkets. The user installs Trinkets 3.x normally;
- * Retromod only redirects old 2.x class references to their 3.x equivalents.
+ * Does not bundle Trinkets: the user installs Trinkets 3.x, and Retromod redirects the old
+ * 2.x class references to the renamed 3.x classes.
  */
 public class TrinketsBridgePolyfill implements PolyfillProvider {
 
@@ -39,7 +28,6 @@ public class TrinketsBridgePolyfill implements PolyfillProvider {
     @Override
     public String[] getRemovedClasses() {
         return new String[]{
-            // Classes renamed/removed in Trinkets 3.x
             "dev/emi/trinkets/api/TrinketSlot",
             "dev/emi/trinkets/api/TrinketSlots",
             "dev/emi/trinkets/api/AbstractTrinket",
@@ -49,27 +37,21 @@ public class TrinketsBridgePolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed; pure class redirects to Trinkets 3.x
+        // no embedded stubs; class redirects only
         return new String[]{};
     }
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // Trinkets 2.x -> 3.x class renames.
-        // The package stays dev.emi.trinkets.api but class names changed.
-        // Only REMOVED/RENAMED classes are redirected here.
-
-        // TrinketSlot -> SlotType (slot definition, defines what can go in a slot)
+        // package stays dev.emi.trinkets.api; only the renamed classes are redirected
         transformer.registerClassRedirect(
             "dev/emi/trinkets/api/TrinketSlot",
             "dev/emi/trinkets/api/SlotType");
 
-        // TrinketSlots -> SlotGroup (grouping of slots, e.g. "head", "chest")
         transformer.registerClassRedirect(
             "dev/emi/trinkets/api/TrinketSlots",
             "dev/emi/trinkets/api/SlotGroup");
 
-        // AbstractTrinket -> TrinketItem (base class for trinket items)
         transformer.registerClassRedirect(
             "dev/emi/trinkets/api/AbstractTrinket",
             "dev/emi/trinkets/api/TrinketItem");

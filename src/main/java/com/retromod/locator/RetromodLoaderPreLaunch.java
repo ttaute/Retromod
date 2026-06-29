@@ -21,26 +21,20 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 
 /**
- * Fabric pre-launch entry point for the standalone CurseForge "Retromod Loader" stub
- * jar (#78).
+ * Fabric pre-launch entry point for the standalone CurseForge "Retromod Loader" stub jar (#78).
  *
- * <p><b>What the stub is.</b> CurseForge rejects modpack <em>exports</em> that contain
- * jars not hosted on CurseForge, and Retromod (on Modrinth and CurseForge) and the mods it
- * transforms are exactly that. The stub is a tiny CF-hosted jar that is the <em>only</em>
- * CF-project jar a pack places in {@code mods/}; the real Retromod and the transformed
- * {@code *-retromod.jar} outputs ride in {@code mods/Retromod/}, shipped as pack
- * overrides (arbitrary bundled files, which CF export allows).
+ * <p>The stub is a CF-hosted jar that a pack places in {@code mods/}; Retromod and the
+ * transformed {@code *-retromod.jar} outputs ride in {@code mods/Retromod/} as pack overrides,
+ * which CF export allows where non-CF jars in {@code mods/} are rejected.
  *
- * <p><b>What this class does (Fabric only).</b> Fabric has no mod-file locator SPI and
- * pre-launch runs <em>after</em> Knot's mod scan, so jars in {@code mods/Retromod/}
- * can't be loaded in place. Instead this moves the loader-ready jars from
- * {@code mods/Retromod/} into {@code mods/} and relies on a one-time restart, after
- * which the real Retromod (now in {@code mods/}) takes over. This mirrors
- * {@code RetromodPreLaunch.drainReadyModsFolder}, but is duplicated here so the stub
- * jar stays self-contained (JDK + SLF4J + Fabric API only, no transform engine).
+ * <p>Fabric has no mod-file locator SPI and pre-launch runs after Knot's mod scan, so jars in
+ * {@code mods/Retromod/} can't be loaded in place. This moves the loader-ready jars into
+ * {@code mods/} and relies on a one-time restart, after which Retromod takes over. It mirrors
+ * {@code RetromodPreLaunch.drainReadyModsFolder}, duplicated so the stub jar stays self-contained
+ * (JDK + SLF4J + Fabric API only, no transform engine).
  *
- * <p>On NeoForge the stub uses {@link RetromodModLocator} instead, which loads
- * {@code mods/Retromod/} in place with no restart. Both ship in the one stub jar.
+ * <p>On NeoForge the stub uses {@link RetromodModLocator} instead, which loads in place with no
+ * restart. Both ship in the one stub jar.
  */
 public final class RetromodLoaderPreLaunch implements PreLaunchEntrypoint {
 
@@ -59,8 +53,7 @@ public final class RetromodLoaderPreLaunch implements PreLaunchEntrypoint {
             if (!Files.isDirectory(folder)) {
                 return;
             }
-            // If -Dfabric.addMods already points here, Fabric loaded the jars in place
-            // this launch, so don't move loaded files.
+            // -Dfabric.addMods already points here: Fabric loaded the jars in place, don't move them.
             if (addModsCovers(gameDir, folder)) {
                 LOGGER.info("[Retromod-Loader] mods/Retromod/ is on -Dfabric.addMods - loaded in place; nothing to drain");
                 return;

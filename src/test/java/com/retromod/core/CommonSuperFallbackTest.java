@@ -6,18 +6,17 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Covers the {@code getCommonSuperClass} fallback that fixes the forge-config-api-port
- * {@code ConfigTracker} {@code VerifyError} (#94 follow-up). When ASM can't resolve a
- * type during {@code COMPUTE_FRAMES} (e.g. a Fabric Jar-in-Jar exception), the fallback
- * must NOT collapse an exception merge to {@code Object}: that's what corrupts the
- * StackMapTable into a verifier failure. It must return {@code Throwable} whenever
- * either operand is one, and only fall back to {@code Object} otherwise.
+ * {@code ConfigTracker} {@code VerifyError} (#94 follow-up). When ASM can't resolve a type
+ * during {@code COMPUTE_FRAMES}, the fallback returns {@code Throwable} whenever either
+ * operand is one, and falls back to {@code Object} otherwise. Collapsing an exception merge
+ * to {@code Object} corrupts the StackMapTable into a verifier failure.
  */
 class CommonSuperFallbackTest {
 
     @Test
     void throwableMergedWithUnresolvableTypeBecomesThrowableNotObject() {
-        // The exact ConfigTracker case: a JDK exception merged with a JiJ-bundled
-        // exception the transformer can't resolve.
+        // ConfigTracker case: a JDK exception merged with a JiJ-bundled exception
+        // the transformer can't resolve.
         assertEquals("java/lang/Throwable",
                 RetromodTransformer.commonSuperFallback("java/io/IOException", "com/example/JijParsingException"));
         // order-independent
@@ -39,7 +38,7 @@ class CommonSuperFallbackTest {
 
     @Test
     void nonThrowableMergesStayObject() {
-        // Neither operand is (or can be shown to be) a Throwable → Object, unchanged.
+        // Neither operand is (or can be shown to be) a Throwable, so Object.
         assertEquals("java/lang/Object",
                 RetromodTransformer.commonSuperFallback("java/lang/String", "com/example/Unknown"));
         assertEquals("java/lang/Object",

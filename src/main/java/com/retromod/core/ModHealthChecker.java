@@ -298,7 +298,7 @@ public class ModHealthChecker {
         }
     }
     
-    /** Open GitHub Issues via Desktop only; no Runtime.exec so we never spawn a process. */
+    /** Open GitHub Issues via the Desktop API (no Runtime.exec). */
     private static void openGitHub() {
         try {
             String url = "https://github.com/Bownlux/Retromod/issues/new?title=Bug%20Report%20-%20Mod%20Not%20Working";

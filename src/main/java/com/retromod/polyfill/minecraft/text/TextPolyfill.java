@@ -8,27 +8,10 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
- * Polyfill for Minecraft text/chat API changes across multiple versions.
- *
- * The text API underwent two major restructurings:
- * 1. The Flattening (1.13): net.minecraft.util.text.* -> net.minecraft.network.chat.*
- *    - ITextComponent -> Component
- *    - TextComponentString -> direct calls to Component.literal()
- *    - TextFormatting -> ChatFormatting (moved to root package)
- *
- * 2. Fabric 1.19.1: net.minecraft.text.LiteralText/TranslatableText removed
- *    - LiteralText -> Component.literal() (static factory)
- *    - TranslatableText -> Component.translatable() (static factory)
- *    - Text.Serializer -> Component.Serializer
- *
- * This provider handles class redirects for both Forge-era and Fabric-era
- * text class names, plus embedded shims for LiteralText and TranslatableText
- * that delegate to Component's static factories via reflection.
- *
- * Covers:
- * - ITextComponent, TextComponentString, TextComponentTranslation (Forge pre-1.13)
- * - Style, TextFormatting, ClickEvent, HoverEvent (Forge pre-1.13)
- * - LiteralText, TranslatableText, Text.Serializer (Fabric pre-1.19.1)
+ * Redirects for the two big text/chat API restructurings: the 1.13 Flattening
+ * (net.minecraft.util.text.* to net.minecraft.network.chat.*) and Fabric's
+ * 1.19.1 removal of LiteralText/TranslatableText. Removed classes redirect to
+ * Component or to embedded shims that delegate to Component's static factories.
  */
 public class TextPolyfill implements PolyfillProvider {
 
@@ -45,7 +28,7 @@ public class TextPolyfill implements PolyfillProvider {
     @Override
     public String[] getRemovedClasses() {
         return new String[]{
-            // Forge pre-Flattening text classes
+            // Forge pre-Flattening
             "net/minecraft/util/text/ITextComponent",
             "net/minecraft/util/text/TextComponentString",
             "net/minecraft/util/text/TextComponentTranslation",
@@ -54,7 +37,7 @@ public class TextPolyfill implements PolyfillProvider {
             "net/minecraft/util/text/event/ClickEvent",
             "net/minecraft/util/text/event/HoverEvent",
 
-            // Fabric pre-1.19.1 text classes
+            // Fabric pre-1.19.1
             "net/minecraft/text/LiteralText",
             "net/minecraft/text/TranslatableText",
             "net/minecraft/text/Text$Serializer"
@@ -72,35 +55,29 @@ public class TextPolyfill implements PolyfillProvider {
 
     @Override
     public void registerPolyfills(RetromodTransformer transformer) {
-        // ---- Forge pre-Flattening (1.13) class redirects ----
-
-        // ITextComponent -> Component
+        // Forge pre-Flattening (1.13) class redirects
         transformer.registerClassRedirect(
             "net/minecraft/util/text/ITextComponent",
             "net/minecraft/network/chat/Component");
 
-        // TextComponentString -> Component (constructor calls need shim,
-        // but class references redirect to Component)
+        // constructor calls need a shim, but plain class refs go to Component
         transformer.registerClassRedirect(
             "net/minecraft/util/text/TextComponentString",
             "net/minecraft/network/chat/Component");
 
-        // TextComponentTranslation -> Component
         transformer.registerClassRedirect(
             "net/minecraft/util/text/TextComponentTranslation",
             "net/minecraft/network/chat/Component");
 
-        // Style stayed in the same conceptual place but moved packages
         transformer.registerClassRedirect(
             "net/minecraft/util/text/Style",
             "net/minecraft/network/chat/Style");
 
-        // TextFormatting moved to root package as ChatFormatting
+        // TextFormatting became ChatFormatting in the root package
         transformer.registerClassRedirect(
             "net/minecraft/util/text/TextFormatting",
             "net/minecraft/ChatFormatting");
 
-        // Event classes moved from util.text.event to network.chat
         transformer.registerClassRedirect(
             "net/minecraft/util/text/event/ClickEvent",
             "net/minecraft/network/chat/ClickEvent");
@@ -108,27 +85,21 @@ public class TextPolyfill implements PolyfillProvider {
             "net/minecraft/util/text/event/HoverEvent",
             "net/minecraft/network/chat/HoverEvent");
 
-        // ---- Fabric pre-1.19.1 class redirects ----
-
-        // LiteralText -> embedded shim that delegates to Component.literal()
+        // Fabric pre-1.19.1 class redirects
         transformer.registerClassRedirect(
             "net/minecraft/text/LiteralText",
             "com/retromod/polyfill/minecraft/text/embedded/LiteralTextShim");
 
-        // TranslatableText -> embedded shim that delegates to Component.translatable()
         transformer.registerClassRedirect(
             "net/minecraft/text/TranslatableText",
             "com/retromod/polyfill/minecraft/text/embedded/TranslatableTextShim");
 
-        // Text.Serializer -> Component.Serializer
         transformer.registerClassRedirect(
             "net/minecraft/text/Text$Serializer",
             "net/minecraft/network/chat/Component$Serializer");
 
-        // ---- TranslatableContents constructor changes (1.19.3+) ----
-        // Old: new TranslatableContents(String key); single-arg constructor removed
-        // New: new TranslatableContents(String key, String fallback, Object[] args)
-        // Redirect via factory shim using reflection
+        // TranslatableContents lost its single- and two-arg constructors in 1.19.3+;
+        // route them through a reflective factory shim
         transformer.registerConstructorRedirect(
             "net/minecraft/network/chat/contents/TranslatableContents",
             "(Ljava/lang/String;)V",
@@ -136,7 +107,6 @@ public class TextPolyfill implements PolyfillProvider {
             "create",
             "(Ljava/lang/String;)Ljava/lang/Object;");
 
-        // Old: new TranslatableContents(String key, Object[] args); two-arg constructor removed
         transformer.registerConstructorRedirect(
             "net/minecraft/network/chat/contents/TranslatableContents",
             "(Ljava/lang/String;[Ljava/lang/Object;)V",

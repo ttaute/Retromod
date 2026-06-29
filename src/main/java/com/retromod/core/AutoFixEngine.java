@@ -24,9 +24,9 @@ import java.util.stream.Collectors;
  * targeted fixes on the transformer so the next launch succeeds. Runs after the
  * initial transformation; it never relaunches the game.
  *
- * <p>A fix key dedupes within a run; a fix that gets applied but whose error
- * recurs on the next run is blacklisted. At most {@value #MAX_FIXES_PER_RUN}
- * fixes per run guard against runaway loops.
+ * <p>A fix key dedupes within a run; a fix applied but whose error recurs on the
+ * next run is blacklisted. At most {@value #MAX_FIXES_PER_RUN} fixes per run
+ * guard against runaway loops.
  *
  * <p>Must not reference Fabric/NeoForge loader classes: the standalone CLI uses
  * this too.
@@ -42,13 +42,21 @@ public class AutoFixEngine {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+    private static final Pattern VERIFY_TYPE_PAT = Pattern.compile("Type '(\\S+)' .*(?:is not assignable to|not assignable to) '(\\S+)'");
+
+    private static final Pattern INJECTION_MIXIN_PAT = Pattern.compile("in (\\S+Mixin\\S*)");
+
+    private static final Pattern NEG_ARRAY_CLASS_PAT = Pattern.compile("(?:processing|transforming|visiting)\\s+(\\S+)");
+
+    private static final Pattern NAMESPACE_MOD_PAT = Pattern.compile("(?:for|from|in) (?:mod )?'?(\\S+?)'?(?:\\s|$|:)");
+
     private final List<ErrorPattern> patterns = new ArrayList<>();
 
     private final List<AppliedFix> appliedFixes = new ArrayList<>();
 
     private final Set<String> appliedFixKeys = new HashSet<>();
 
-    /** Fix keys that were applied but whose error came back, so they are not re-applied. */
+    /** Fix keys whose error came back after being applied, so they are not re-applied. */
     private final Set<String> blacklist = new HashSet<>();
 
     /** Fix keys from the previous run, loaded from disk to detect recurrence. */
@@ -89,9 +97,6 @@ public class AutoFixEngine {
         for (int i = 0; i < logLines.size() && fixCount < MAX_FIXES_PER_RUN; i++) {
             String line = logLines.get(i);
 
-            // Errors can span lines; look ahead for stack-trace context.
-            String context = buildContext(logLines, i, 5);
-
             for (ErrorPattern pattern : patterns) {
                 Matcher matcher = pattern.regex.matcher(line);
                 if (matcher.find()) {
@@ -103,13 +108,15 @@ public class AutoFixEngine {
                         break;
                     }
 
-                    // Same fix already applied last run, yet the error is back: it didn't work.
+                    // Applied last run, yet the error is back: it didn't work.
                     if (previousRunFixKeys.contains(fixKey)) {
                         LOGGER.warn("[AutoFix] Fix '{}' was applied previously but error recurred - blacklisting", fixKey);
                         blacklist.add(fixKey);
                         break;
                     }
 
+                    // Errors can span lines; look ahead for stack-trace context.
+                    String context = buildContext(logLines, i, 5);
                     AppliedFix fix = pattern.apply(matcher, line, context, transformer);
                     if (fix != null) {
                         fixes.add(fix);
@@ -158,7 +165,6 @@ public class AutoFixEngine {
 
         for (int i = 0; i < logLines.size(); i++) {
             String line = logLines.get(i);
-            String context = buildContext(logLines, i, 5);
 
             for (ErrorPattern pattern : patterns) {
                 Matcher matcher = pattern.regex.matcher(line);
@@ -167,6 +173,7 @@ public class AutoFixEngine {
                     if (seenKeys.contains(fixKey)) break;
                     seenKeys.add(fixKey);
 
+                    String context = buildContext(logLines, i, 5);
                     AppliedFix suggestion = pattern.describe(matcher, line, context);
                     if (suggestion != null) {
                         suggestions.add(suggestion);
@@ -234,9 +241,8 @@ public class AutoFixEngine {
 
     private void registerAllPatterns() {
 
-        // Pattern 1: NoSuchMethodError
+        // NoSuchMethodError: resolve a replacement via heuristics/fuzzy and register a redirect.
         //   "NoSuchMethodError: 'void com.example.Foo.oldMethod(int)'"
-        // Resolve a replacement via heuristics/fuzzy and register a redirect.
         patterns.add(new ErrorPattern(
             "NoSuchMethodError",
             Pattern.compile("NoSuchMethodError:.*'(\\S+)\\s+(\\S+)\\.(\\w+)\\(([^)]*)\\)'"),
@@ -250,9 +256,9 @@ public class AutoFixEngine {
                 String desc = buildDescriptor(paramTypes, returnType);
 
                 // Heuristics first: faster and more reliable than fuzzy.
-                PatternHeuristics patterns = transformer.getPatternHeuristics();
-                if (patterns != null) {
-                    PatternHeuristics.PatternResult patternMatch = patterns.resolveMethod(owner, methodName, desc);
+                PatternHeuristics heuristics = transformer.getPatternHeuristics();
+                if (heuristics != null) {
+                    PatternHeuristics.PatternResult patternMatch = heuristics.resolveMethod(owner, methodName, desc);
                     if (patternMatch != null && patternMatch.confidence() >= 0.6) {
                         transformer.registerMethodRedirect(
                             owner, methodName, desc,
@@ -312,9 +318,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 2: NoSuchFieldError
+        // NoSuchFieldError, two log shapes:
         //   "NoSuchFieldError: Class com.example.Foo does not have member field 'int bar'"
-        //   or "NoSuchFieldError: 'int com.example.Foo.bar'"
+        //   "NoSuchFieldError: 'int com.example.Foo.bar'"
         patterns.add(new ErrorPattern(
             "NoSuchFieldError",
             Pattern.compile("NoSuchFieldError:.*?(?:Class (\\S+) does not have member field '(\\S+)\\s+(\\w+)'|'(\\S+)\\s+(\\S+)\\.(\\w+)')"),
@@ -335,9 +341,9 @@ public class AutoFixEngine {
                 String desc = typeNameToDescriptor(fieldType);
 
                 // Heuristics first: faster and more reliable than fuzzy.
-                PatternHeuristics patterns = transformer.getPatternHeuristics();
-                if (patterns != null) {
-                    PatternHeuristics.PatternResult patternMatch = patterns.resolveField(owner, fieldName, desc);
+                PatternHeuristics heuristics = transformer.getPatternHeuristics();
+                if (heuristics != null) {
+                    PatternHeuristics.PatternResult patternMatch = heuristics.resolveField(owner, fieldName, desc);
                     if (patternMatch != null && patternMatch.confidence() >= 0.6) {
                         transformer.registerFieldRedirect(
                             owner, fieldName,
@@ -379,9 +385,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 3: AbstractMethodError / missing implementation.
+        // AbstractMethodError / missing implementation. Report only; injecting a no-op stub
+        // needs ASM at retransform time.
         //   "Missing implementation of resolved method 'abstract void net.minecraft.X.extractContents(...)' in class com.example.MyBlock"
-        // Report only; injecting a no-op stub needs ASM at retransform time.
         patterns.add(new ErrorPattern(
             "AbstractMethodError",
             Pattern.compile("(?:AbstractMethodError|Missing implementation of resolved method).*?'(?:abstract )?(?:(\\S+)\\s+)?(\\S+)\\.(\\w+)\\(([^)]*)\\)'"),
@@ -401,14 +407,13 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 4: VerifyError (bad type on operand stack).
+        // VerifyError (bad type on operand stack).
         //   "Type 'net/minecraft/world/level/Level' is not assignable to 'net/minecraft/server/level/ServerLevel'"
         patterns.add(new ErrorPattern(
             "VerifyError",
             Pattern.compile("VerifyError.*(?:Bad type on operand stack|Bad return type)"),
             (matcher, line, context, transformer) -> {
-                Pattern typePat = Pattern.compile("Type '(\\S+)' .*(?:is not assignable to|not assignable to) '(\\S+)'");
-                Matcher typeMatcher = typePat.matcher(context);
+                Matcher typeMatcher = VERIFY_TYPE_PAT.matcher(context);
 
                 String actualType = "unknown";
                 String expectedType = "unknown";
@@ -428,17 +433,17 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 5: IncompatibleClassChangeError (a class became an interface).
+        // IncompatibleClassChangeError (a class became an interface). The fix is adding the
+        // class to KNOWN_INTERFACES so INVOKEVIRTUAL becomes INVOKEINTERFACE; that set is
+        // static final, so we only report it here.
         //   "Method 'X' must be InterfaceMethodref constant" / "interface was expected"
-        // The fix is adding the class to KNOWN_INTERFACES so INVOKEVIRTUAL becomes
-        // INVOKEINTERFACE; that set is static final, so we only report it here.
         patterns.add(new ErrorPattern(
             "IncompatibleClassChangeError",
             Pattern.compile("IncompatibleClassChangeError.*?(?:must be InterfaceMethodref|interface was expected|Expecting non-static method).*?(?:'(\\S+)'|(\\S+))"),
             (matcher, line, context, transformer) -> {
                 String rawRef = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
 
-                // rawRef may be a full method ref (net.minecraft.core.Registry.register); keep just the class.
+                // rawRef may be a full method ref (Registry.register); keep just the class.
                 String ownerDot = rawRef;
                 int lastDot = rawRef.lastIndexOf('.');
                 if (lastDot > 0) {
@@ -462,10 +467,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 6: Mixin transformation failed.
+        // Mixin transformation failed. Strip the failing mixin from the mod's mixin config.
         //   "Mixin transformation of net.minecraft.client.gui.screens.TitleScreen failed"
-        //   or "Mixin apply failed ... in mixins.modid.json"
-        // Strip the failing mixin from the mod's mixin config.
+        //   "Mixin apply failed ... in mixins.modid.json"
         patterns.add(new ErrorPattern(
             "MixinTransformFailed",
             Pattern.compile("(?:Mixin (?:transformation|apply) (?:of|failed).*?((?:net\\.minecraft|com\\.mojang)\\S+)|Mixin apply.*?failed.*?(\\S+\\.json))"),
@@ -488,9 +492,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 7: InvalidMixinException (super class not found).
+        // InvalidMixinException (super class not found). Remove the mixin class entry from
+        // the mixin config.
         //   "Super class 'net.minecraft.X' of com.example.mixin.MyMixin was not found ..."
-        // Remove the mixin class entry from the mixin config.
         patterns.add(new ErrorPattern(
             "InvalidMixinSuperClass",
             Pattern.compile("Super class '(\\S+)' of (\\S+) was not found"),
@@ -508,7 +512,7 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 8: InvalidAccessorException (@Invoker/@Accessor not found).
+        // InvalidAccessorException (@Invoker/@Accessor not found).
         //   "No candidates were found matching methodName(desc) in net.minecraft.X for com.example.mixin.MyMixin"
         patterns.add(new ErrorPattern(
             "InvalidAccessorException",
@@ -531,9 +535,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 9: InvalidInjectionException (descriptor mismatch).
+        // InvalidInjectionException (descriptor mismatch). Strip the @Inject method, or the
+        // whole mixin.
         //   "Invalid descriptor on ... Expected (Lnet/minecraft/X;)V but found (Lnet/minecraft/Y;)V"
-        // Strip the @Inject method, or the whole mixin.
         patterns.add(new ErrorPattern(
             "InvalidInjectionException",
             Pattern.compile("Invalid (?:descriptor|injection).*?Expected \\(([^)]*)\\).*?(?:but )?found \\(([^)]*)\\)"),
@@ -542,8 +546,7 @@ public class AutoFixEngine {
                 String actual = matcher.group(2);
 
                 String mixinClass = "unknown";
-                Pattern mixinPat = Pattern.compile("in (\\S+Mixin\\S*)");
-                Matcher mixinMatcher = mixinPat.matcher(context);
+                Matcher mixinMatcher = INJECTION_MIXIN_PAT.matcher(context);
                 if (mixinMatcher.find()) {
                     mixinClass = mixinMatcher.group(1);
                 }
@@ -558,9 +561,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 10: ClassNotFoundException / NoClassDefFoundError.
+        // ClassNotFoundException / NoClassDefFoundError. Report as a missing dependency;
+        // can't fix without the library.
         //   "NoClassDefFoundError: com/teamresourceful/resourcefulconfig/api/ConfigEntry"
-        // Report as a missing dependency; can't fix without the library.
         patterns.add(new ErrorPattern(
             "ClassNotFound",
             Pattern.compile("(?:NoClassDefFoundError|ClassNotFoundException):\\s*'?(\\S+?)(?:'|$)"),
@@ -592,9 +595,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 11: IllegalAccessError (member became private/protected).
+        // IllegalAccessError (member became private/protected). Flag for a reflection bridge
+        // using setAccessible(true).
         //   "IllegalAccessError: tried to access private field net.minecraft.X.Y from class Z"
-        // Flag for a reflection bridge using setAccessible(true).
         patterns.add(new ErrorPattern(
             "IllegalAccessError",
             Pattern.compile("IllegalAccessError:.*?(?:tried to access (?:private|protected) (?:field|method)).*?((?:net\\.minecraft|com\\.mojang)\\S+)\\.(\\w+)"),
@@ -613,7 +616,7 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 12: ClassCastException.
+        // ClassCastException.
         //   "class net.minecraft.world.level.Level cannot be cast to class net.minecraft.server.level.ServerLevel"
         patterns.add(new ErrorPattern(
             "ClassCastException",
@@ -633,16 +636,15 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 13: NegativeArraySizeException during ASM frame computation.
+        // NegativeArraySizeException during ASM frame computation. Strip the mixin whose
+        // frame computation fails.
         //   "NegativeArraySizeException ... computeAllFrames"
-        // Strip the mixin whose frame computation fails.
         patterns.add(new ErrorPattern(
             "NegativeArraySizeException",
             Pattern.compile("NegativeArraySizeException"),
             (matcher, line, context, transformer) -> {
                 String targetClass = "unknown";
-                Pattern classPat = Pattern.compile("(?:processing|transforming|visiting)\\s+(\\S+)");
-                Matcher classMatcher = classPat.matcher(context);
+                Matcher classMatcher = NEG_ARRAY_CLASS_PAT.matcher(context);
                 if (classMatcher.find()) {
                     targetClass = classMatcher.group(1);
                 }
@@ -658,9 +660,8 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 14: entrypoint failure.
+        // Entrypoint failure. Flag the entrypoint for try-catch wrapping.
         //   "Could not execute entrypoint stage 'client' due to errors, provided by 'modid'"
-        // Flag the entrypoint for try-catch wrapping.
         patterns.add(new ErrorPattern(
             "EntryPointFailure",
             Pattern.compile("Could not execute entrypoint stage '(\\w+)'.*?provided by '(\\S+)'"),
@@ -679,8 +680,7 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 15: SoundEvent(Identifier) constructor removed.
-        // Redirect to SoundEvent.createVariableRangeEvent(Identifier).
+        // SoundEvent(Identifier) constructor removed: redirect to createVariableRangeEvent.
         patterns.add(new ErrorPattern(
             "SoundEventConstructor",
             Pattern.compile("NoSuchMethodError.*SoundEvent\\.<init>\\(.*(?:Identifier|ResourceLocation)"),
@@ -703,9 +703,9 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 16: ResourceLocation/Identifier constructor removed.
+        // ResourceLocation/Identifier constructor removed: redirect to fromNamespaceAndPath()
+        // (two args) or parse() (one arg).
         //   "...ResourceLocation.<init>(java.lang.String, java.lang.String)" / "...Identifier.<init>(String)"
-        // Redirect to fromNamespaceAndPath() (two args) or parse() (one arg).
         patterns.add(new ErrorPattern(
             "ResourceLocationConstructor",
             Pattern.compile("NoSuchMethodError.*(?:ResourceLocation|Identifier)\\.<init>\\(.*String"),
@@ -722,7 +722,7 @@ public class AutoFixEngine {
                         "fromNamespaceAndPath",
                         "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
                     );
-                    // Old ResourceLocation name too (pre-26.1 remapping).
+                    // Old ResourceLocation name too (pre-26.1 mods).
                     transformer.registerConstructorRedirect(
                         "net/minecraft/resources/ResourceLocation",
                         "(Ljava/lang/String;Ljava/lang/String;)V",
@@ -761,7 +761,7 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 17: Registry.register InterfaceMethodref.
+        // Registry.register InterfaceMethodref.
         //   "IncompatibleClassChangeError: ... must be InterfaceMethodref ... Registry.register"
         patterns.add(new ErrorPattern(
             "RegistryInterfaceMethodref",
@@ -778,9 +778,8 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 18: access-widener namespace mismatch.
+        // Access-widener namespace mismatch. Flag the mod's access widener for re-remapping.
         //   "Namespace (intermediary) does not match current runtime namespace (official)"
-        // Flag the mod's access widener for re-remapping.
         patterns.add(new ErrorPattern(
             "NamespaceMismatch",
             Pattern.compile("Namespace \\((\\w+)\\) does not match (?:current )?runtime namespace \\((\\w+)\\)"),
@@ -789,8 +788,7 @@ public class AutoFixEngine {
                 String runtimeNamespace = matcher.group(2);
 
                 String modName = "unknown";
-                Pattern modPat = Pattern.compile("(?:for|from|in) (?:mod )?'?(\\S+?)'?(?:\\s|$|:)");
-                Matcher modMatcher = modPat.matcher(context);
+                Matcher modMatcher = NAMESPACE_MOD_PAT.matcher(context);
                 if (modMatcher.find()) {
                     modName = modMatcher.group(1);
                 }
@@ -806,9 +804,8 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 19: missing mod dependency.
+        // Missing mod dependency. Report only; the user must install it.
         //   "Mod 'sodium' is a required dependency of 'iris' but it is not installed"
-        // Report only; the user must install the dependency.
         patterns.add(new ErrorPattern(
             "MissingModDependency",
             Pattern.compile("(?:'(\\S+)' is a (?:required )?dependency of '(\\S+)'.*not installed|Unmet dependency.*?(\\S+) requires (\\S+))"),
@@ -833,8 +830,8 @@ public class AutoFixEngine {
             }
         ));
 
-        // Pattern 20: Util.backgroundExecutor() removed.
-        // Redirect to Util.nonCriticalIoPool(), the closest equivalent in newer MC.
+        // Util.backgroundExecutor() removed: redirect to Util.nonCriticalIoPool(), the
+        // closest equivalent in newer MC.
         patterns.add(new ErrorPattern(
             "UtilBackgroundExecutor",
             Pattern.compile("NoSuchMethodError.*Util\\.backgroundExecutor"),
@@ -862,7 +859,7 @@ public class AutoFixEngine {
             Path configDir = FIXES_FILE.getParent();
             if (configDir != null) {
                 Files.createDirectories(configDir);
-                // Reject a symlinked config dir so we don't overwrite a pre-planted target.
+                // Reject a symlinked config dir so a pre-planted target can't be overwritten.
                 com.retromod.util.ZipSecurity.validateNotSymlink(configDir);
             }
             if (Files.exists(FIXES_FILE)) {
@@ -1092,7 +1089,7 @@ public class AutoFixEngine {
         AppliedFix describe(Matcher matcher, String line, String context) {
             try {
                 // Null transformer: redirect-registering patterns still build an AppliedFix
-                // but register nothing; transformer-dependent ones throw and fall through.
+                // (registering nothing); transformer-dependent ones throw and fall through.
                 return fixAction.apply(matcher, line, context, null);
             } catch (NullPointerException e) {
                 return new AppliedFix(name, line.trim(), "Fix requires transformer (would apply at runtime)", name);

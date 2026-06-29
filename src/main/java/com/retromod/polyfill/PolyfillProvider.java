@@ -7,19 +7,15 @@ package com.retromod.polyfill;
 import com.retromod.core.RetromodTransformer;
 
 /**
- * Interface for polyfill providers that re-implement removed APIs.
+ * Re-implements removed APIs by providing class implementations, where VersionShims
+ * only redirect existing calls. Lets old mods find classes/methods that no longer
+ * exist in the current Minecraft version.
  *
- * Unlike VersionShims (which redirect existing calls), polyfills provide
- * actual class implementations for APIs that were completely removed.
- * This allows old mods to find classes/methods that no longer exist
- * in the current Minecraft version.
+ * <p>Discovered via ServiceLoader, toggled per-category in config/retromod/config.json.
  *
- * Polyfills are discovered via ServiceLoader and can be toggled per-category
- * in config/retromod/config.json.
- *
- * <p><b>Public Addon API.</b> This is a stable extension point for third-party
- * addons (see {@code docs/addons.md}). Across the 1.x line new methods will be
- * added only as {@code default}s; existing signatures won't break.
+ * <p><b>Public Addon API.</b> A stable extension point for third-party addons (see
+ * {@code docs/addons.md}). Across the 1.x line new methods are added only as
+ * {@code default}s; existing signatures won't break.
  */
 public interface PolyfillProvider {
 
@@ -44,8 +40,7 @@ public interface PolyfillProvider {
     String[] getPolyfillClasses();
 
     /**
-     * Register class/method/field redirects and superclass redirects
-     * to wire up the polyfill.
+     * Register class/method/field and superclass redirects to wire up the polyfill.
      *
      * @param transformer The transformer to register redirects with
      */

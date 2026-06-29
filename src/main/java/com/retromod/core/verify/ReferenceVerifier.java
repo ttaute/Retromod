@@ -21,42 +21,23 @@ import java.util.Set;
  * Scans transformed mod bytecode and reports any reference to an MC API that
  * doesn't exist in the target MC version.
  *
- * <h3>Where this fits in the pipeline</h3>
- * <p>The verifier runs <b>after</b> the iterative transform loop and reflection
- * remapping have done everything they can. What remains is a list of
- * references the automatic fixes couldn't handle. These are the genuine gaps
+ * <p>Runs after the iterative transform loop and reflection remapping, so what
+ * it reports is the references the automatic fixes couldn't handle: the gaps
  * that need manual work (new shims, new polyfills, or a decision that this mod
- * can't be supported).</p>
+ * can't be supported).
  *
- * <h3>Filtering</h3>
  * <p>Only {@code net/minecraft/**} and {@code com/mojang/**} references are
- * considered, per the v1 scope rule. Loader-API references are checked
- * against the curated {@link LoaderApiRenames} table (a reference that matches
- * a known-removed loader class is flagged; everything else is left alone).</p>
+ * considered. Loader-API references are checked against {@link LoaderApiRenames}
+ * (a reference matching a known-removed loader class is flagged). References to
+ * the mod's own classes are skipped via the {@code modOwnClasses} set passed to
+ * {@link #verify}, otherwise they would all show up as missing.
  *
- * <p>References to classes defined by the mod itself are skipped via the
- * {@code modOwnClasses} set passed to {@link #verify}. Without this filter,
- * every mod's internal references would show up as "missing" since they don't
- * exist in the MC JAR.</p>
- *
- * <h3>What we scan</h3>
- * <p>Every reference the JVM loads at class-resolution time:
- * <ul>
- *   <li>Class refs in {@code NEW}, {@code CHECKCAST}, {@code INSTANCEOF},
- *       {@code ANEWARRAY}, {@code MULTIANEWARRAY}</li>
- *   <li>Class refs inside method descriptors (parameters + return type)</li>
- *   <li>Class refs inside field descriptors</li>
- *   <li>Method refs in {@code INVOKEVIRTUAL}, {@code INVOKESTATIC},
- *       {@code INVOKEINTERFACE}, {@code INVOKESPECIAL}</li>
- *   <li>Field refs in {@code GETFIELD}/{@code PUTFIELD}/{@code GETSTATIC}/{@code PUTSTATIC}</li>
- *   <li>Class superclass and interface refs (catches mods extending removed classes)</li>
- * </ul>
- * </p>
- *
- * <p>Generic signatures, annotations, and invokedynamic bootstrap handles are
- * NOT scanned in v1. They occasionally reference MC types but the false-positive
- * rate is higher and the diagnostic value is lower. Those can be added later if
- * the gap report shows real misses.</p>
+ * <p>Scanned: class refs in {@code NEW}/{@code CHECKCAST}/{@code INSTANCEOF}/
+ * {@code ANEWARRAY}/{@code MULTIANEWARRAY}, method and field descriptors, member
+ * refs in the {@code INVOKE*}/{@code GETFIELD}/{@code PUTFIELD}/{@code GETSTATIC}/
+ * {@code PUTSTATIC} instructions, and a class's superclass and interfaces.
+ * Generic signatures, annotations, and invokedynamic bootstrap handles are not
+ * scanned: higher false-positive rate, lower diagnostic value.
  */
 public final class ReferenceVerifier {
 
@@ -97,8 +78,7 @@ public final class ReferenceVerifier {
     public void verify(byte[] classBytes, Set<String> modOwnClasses, VerificationReport report) {
         if (classBytes == null || classBytes.length == 0 || report == null) return;
         if (!index.isAvailable()) {
-            // No index means we can't check anything. Be loud about it: a silent
-            // skip here would look like "everything is fine" to the user.
+            // No index means we can't check anything; log it so a skip doesn't read as "all clear".
             LOGGER.debug("Skipping verification - McSymbolIndex not available");
             return;
         }
@@ -109,30 +89,19 @@ public final class ReferenceVerifier {
                     modOwnClasses == null ? Set.of() : modOwnClasses),
                     ClassReader.SKIP_FRAMES);
         } catch (Exception e) {
-            // Malformed class or verifier bug: don't blow up the whole mod
-            // transformation, just log and move on.
+            // Malformed class or verifier bug: log and move on, don't fail the transform.
             LOGGER.debug("Verification failed for a class ({}); skipping", e.getMessage());
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // CLASSIFICATION HELPERS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * @return {@code true} if this internal name is something we should verify,
-     *         i.e., an MC or Mojang shared-library reference
-     */
+    /** True if this internal name is an MC or Mojang shared-library reference worth verifying. */
     private static boolean isMcRef(String internalName) {
         if (internalName == null) return false;
         return internalName.startsWith("net/minecraft/")
             || internalName.startsWith("com/mojang/");
     }
 
-    /**
-     * @return {@code true} if this is a loader-API reference, consulted
-     *         against the curated rename table only, not the MC index
-     */
+    /** True if this is a loader-API reference, checked against the rename table, not the MC index. */
     private static boolean isLoaderRef(String internalName) {
         if (internalName == null) return false;
         return internalName.startsWith("net/fabricmc/")
@@ -140,12 +109,7 @@ public final class ReferenceVerifier {
             || internalName.startsWith("net/minecraftforge/");
     }
 
-    /**
-     * Strip a descriptor to its component class name if it's an L-type,
-     * otherwise return null. Primitive types ({@code I}, {@code Z}, etc.)
-     * and array elements that are primitives all return null. There's
-     * nothing to verify.
-     */
+    /** Component class name of an object/array type, or null for primitives (nothing to verify). */
     private static String unwrapObjectType(Type t) {
         if (t == null) return null;
         int sort = t.getSort();
@@ -154,14 +118,10 @@ public final class ReferenceVerifier {
         return null;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // MAIN VISITOR
-    // ═══════════════════════════════════════════════════════════════════════
-
     private final class VerifyingClassVisitor extends ClassVisitor {
         private final VerificationReport report;
         private final Set<String> modOwnClasses;
-        /** The class currently being visited, used to annotate source location. */
+        /** Class currently being visited, used to annotate source location. */
         private String currentClass = "<unknown>";
 
         VerifyingClassVisitor(VerificationReport report, Set<String> modOwnClasses) {
@@ -174,8 +134,7 @@ public final class ReferenceVerifier {
         public void visit(int version, int access, String name, String signature,
                           String superName, String[] interfaces) {
             this.currentClass = name;
-            // Check superclass and interfaces: mods that extend removed MC types
-            // or implement removed interfaces are the most common crash case.
+            // Extending a removed MC type or implementing a removed interface is the common crash case.
             checkClassRef(superName, name, "<class>", -1);
             if (interfaces != null) {
                 for (String iface : interfaces) {
@@ -187,8 +146,7 @@ public final class ReferenceVerifier {
         @Override
         public FieldVisitor visitField(int access, String name, String descriptor,
                                         String signature, Object value) {
-            // Check the field's type. Example: a field of type Lnet/minecraft/world/World;
-            // where World no longer exists produces an unresolved-class report.
+            // A field whose type was removed (e.g. Lnet/minecraft/world/World;) is an unresolved class.
             Type fieldType = Type.getType(descriptor);
             checkClassRef(unwrapObjectType(fieldType), currentClass, "<field:" + name + ">", -1);
             return null;
@@ -197,7 +155,6 @@ public final class ReferenceVerifier {
         @Override
         public MethodVisitor visitMethod(int access, String name, String descriptor,
                                          String signature, String[] exceptions) {
-            // Check the method's parameter and return types.
             Type methodType = Type.getMethodType(descriptor);
             for (Type paramType : methodType.getArgumentTypes()) {
                 checkClassRef(unwrapObjectType(paramType), currentClass,
@@ -205,7 +162,7 @@ public final class ReferenceVerifier {
             }
             checkClassRef(unwrapObjectType(methodType.getReturnType()), currentClass,
                     "<signature:" + name + ">", -1);
-            // Also check declared exceptions (subclasses of Throwable in MC packages)
+            // Declared exceptions can be MC-package Throwables too.
             if (exceptions != null) {
                 for (String ex : exceptions) {
                     checkClassRef(ex, currentClass, "<signature:" + name + ">", -1);
@@ -214,11 +171,9 @@ public final class ReferenceVerifier {
             return new VerifyingMethodVisitor(name);
         }
 
-        // Inner classes and references to them
-
         private final class VerifyingMethodVisitor extends MethodVisitor {
             private final String methodName;
-            /** Last line number we saw, attached to any refs seen after it. */
+            /** Last line number seen, attached to any refs that follow. */
             private int currentLine = -1;
 
             VerifyingMethodVisitor(String methodName) {
@@ -233,8 +188,7 @@ public final class ReferenceVerifier {
 
             @Override
             public void visitTypeInsn(int opcode, String type) {
-                // NEW, CHECKCAST, INSTANCEOF, ANEWARRAY: 'type' is either
-                // an internal class name or an array descriptor. Normalize.
+                // type is either an internal class name or an array descriptor; normalize to a class.
                 String cls = type;
                 if (cls != null && cls.startsWith("[")) {
                     Type arrayType = Type.getType(cls);
@@ -247,9 +201,7 @@ public final class ReferenceVerifier {
             public void visitMethodInsn(int opcode, String owner, String name,
                                          String descriptor, boolean isInterface) {
                 checkMethodRef(owner, name, descriptor, currentClass, methodName, currentLine);
-                // Also verify every class mentioned in the method descriptor: a
-                // call to an existing method whose parameter type was removed is
-                // still a broken reference.
+                // A call to an existing method whose parameter type was removed is still broken.
                 checkDescriptorClassRefs(descriptor, methodName);
             }
 
@@ -263,9 +215,8 @@ public final class ReferenceVerifier {
             @Override
             public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
                                                 Object... bootstrapMethodArguments) {
-                // InvokeDynamic's descriptor is the call-site type. Bootstrap
-                // method verification is complex (recursive handle analysis) and
-                // usually MC-unrelated (lambda metafactory), so we skip it in v1.
+                // Check the call-site type only; the bootstrap handle is usually the
+                // lambda metafactory (MC-unrelated) and recursive to analyse.
                 checkDescriptorClassRefs(descriptor, methodName);
             }
 
@@ -285,7 +236,7 @@ public final class ReferenceVerifier {
             }
         }
 
-        // Actual reference checking: the logic shared by all visit* methods.
+        // reference checking shared by all visit* methods
 
         private void checkClassRef(String internalName, String srcClass,
                                     String srcMethod, int line) {
@@ -301,12 +252,8 @@ public final class ReferenceVerifier {
                             index.suggestClassAlternatives(internalName, maxSuggestions)));
                 }
             } else if (isLoaderRef(internalName)) {
-                // Loader refs: only flag if curated table says it's removed/renamed.
-                // "removed" takes precedence over "renamed": a class in both
-                // buckets of the JSON (data-entry mistake) should produce ONE
-                // report entry, not two. We treat "removed" as the authoritative
-                // final state; if it's also in "renamed", the curated data is
-                // self-inconsistent and the removal wins.
+                // Flag only if the rename table marks it removed or renamed. A class in
+                // both buckets (data-entry mistake) yields one entry: removed wins.
                 if (loaderRenames.isRemoved(internalName)) {
                     report.add(new UnresolvedReference(
                             UnresolvedReference.Kind.MISSING_CLASS,
@@ -316,11 +263,9 @@ public final class ReferenceVerifier {
                 } else {
                     String newName = loaderRenames.getClassRename(internalName);
                     if (newName != null) {
-                        // Not strictly "missing": the old name is gone but we know
-                        // the replacement. Still flag it so the mod author knows the
-                        // reference needs rewriting. Our classRedirects pipeline
-                        // should have done the rewrite upstream; if it didn't, this
-                        // is a useful diagnostic.
+                        // The old name is gone but the replacement is known; flag it so the
+                        // author sees the reference still needs rewriting (classRedirects
+                        // should have handled it upstream).
                         report.add(new UnresolvedReference(
                                 UnresolvedReference.Kind.MISSING_CLASS,
                                 internalName, "", "",
@@ -329,34 +274,29 @@ public final class ReferenceVerifier {
                     }
                 }
             }
-            // Else: unrecognized namespace (mod's own deps, JDK, etc.); skip.
+            // unrecognized namespace (mod's own deps, JDK, etc.): skip
         }
 
         private void checkMethodRef(String owner, String name, String descriptor,
                                      String srcClass, String srcMethod, int line) {
             if (owner == null) return;
             if (modOwnClasses.contains(owner)) return;
-            // Arrays have INVOKEVIRTUAL on them (e.g., .clone()); the JVM handles
-            // those via a synthetic array type. Skip them (not an MC miss).
+            // INVOKEVIRTUAL on an array (e.g. .clone()) targets a synthetic array type, not MC.
             if (owner.startsWith("[")) return;
 
             if (!isMcRef(owner)) return;
 
-            // If the owner class itself is missing, the class-level report
-            // already covers it, so don't generate redundant method-level entries.
+            // A missing owner is already covered by the class-level report; skip the
+            // member-level entry to avoid pages of redundant findings.
             if (!index.hasClass(owner)) {
-                // The class-existence scan (visit/visitField/visitMethod) will
-                // have generated a MISSING_CLASS for this owner. Skip the member-
-                // level report to avoid pages of redundant entries.
                 return;
             }
 
             if (!index.hasMethod(owner, name, descriptor)) {
-                // Descriptor-aware classification: if the method NAME still exists on the
-                // owner but under a different descriptor, the SIGNATURE changed
-                // (BAD_SIGNATURE), distinct from a rename/removal (MISSING_METHOD). This is
-                // the pre-26.1 pitfall-#17 case (names survive, descriptors change across the
-                // 1.17 model rebuild etc.), where a name-keyed shim won't actually fire.
+                // If the name survives under a different descriptor the signature changed
+                // (BAD_SIGNATURE), distinct from a rename/removal (MISSING_METHOD). This is the
+                // pitfall-#17 case where names survive but descriptors change (1.17 model rebuild),
+                // so a name-keyed shim won't fire.
                 UnresolvedReference.Kind kind = index.hasMethodName(owner, name)
                         ? UnresolvedReference.Kind.BAD_SIGNATURE
                         : UnresolvedReference.Kind.MISSING_METHOD;
@@ -376,9 +316,8 @@ public final class ReferenceVerifier {
             if (!index.hasClass(owner)) return; // covered by class-level report
 
             if (!index.hasField(owner, name, descriptor)) {
-                // Descriptor-aware: a same-named field whose TYPE changed is a BAD_SIGNATURE
-                // (the canonical case being class_1269.field_5811 after the 1.21.2 sealed-
-                // interface rebuild), distinct from an outright removal (MISSING_FIELD).
+                // A same-named field whose type changed is BAD_SIGNATURE (e.g. class_1269.field_5811
+                // after the 1.21.2 sealed-interface rebuild), distinct from removal (MISSING_FIELD).
                 UnresolvedReference.Kind kind = index.hasFieldName(owner, name)
                         ? UnresolvedReference.Kind.BAD_SIGNATURE
                         : UnresolvedReference.Kind.MISSING_FIELD;
@@ -387,10 +326,8 @@ public final class ReferenceVerifier {
                         owner, name, descriptor,
                         srcClass, srcMethod, line,
                         java.util.List.of()));
-                // Field-alternative suggestions not implemented in v1. The
-                // fuzzy resolver's field-level matching is geared toward
-                // redirects, not user-facing suggestions. Add later if the
-                // gap report shows we need them.
+                // No field-alternative suggestions: the fuzzy resolver's field matching
+                // targets redirects, not user-facing suggestions.
             }
         }
 

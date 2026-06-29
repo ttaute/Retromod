@@ -73,6 +73,17 @@ This is the obvious list. Everything here matches one or more of the general rul
 | **Botania** *(deep mixin variants)* | Heavily mixin-based with injection points tied to specific bytecode offsets. Some Botania features may load, but full-functionality compatibility is the same problem as Sodium/Iris below, only worse. |
 | **AsyncParticles** | Wraps the Mixin *service itself* (a custom `IClassBytecodeProvider` redirect plus a class-adjuster that generates conditional mixins at load time) and `@Overwrite`s particle-engine internals whose signatures shift between MC versions. The game runs with it installed, but its own machinery cancels most of its mixins on a non-matching host and the core `@Overwrite` can't find its target, so the optimization (and its config) is inert. An `@Overwrite` body *is* the replacement code; no redirect table can rewrite it for a changed method. (#63) |
 
+### Pre-1.13 mods (the 1.13 "flattening" wall)
+
+A mod built for **MC 1.12.2 or earlier** references Minecraft APIs that the 1.13 update ("the Flattening") deleted or restructured wholesale, not renamed. Retromod's redirect tables can't bridge a redesign this large: the block-state and material system (`block.material.Material`, `IBlockAccess`, `block.properties.IProperty`, `StateContainer`), the command system (`net.minecraft.command.CommandException` / `WrongUsageException`, replaced by Brigadier), `net.minecraft.util.ResourceLocation` (moved to `net.minecraft.resources`), `JsonUtils`, `EntityEquipmentSlot`, and the pre-flattening numeric block/item IDs all changed at once. Translating a 1.12.2 mod to 1.20.1+ is the entire 1.13→1.20 migration, larger than any redirect table (it's deeper than the Forge→NeoForge case below).
+
+| Mod | Source | Why |
+|---|---|---|
+| **Metallurgy 4: Reforged** | 1.12.2 | The gap report is wall-to-wall pre-1.13 names: `block.material.Material`, `IBlockAccess`, `block.properties.IProperty`, `StateContainer`, `util.ResourceLocation`, `util.JsonUtils`, `EntityEquipmentSlot`. (#103) |
+| **Scape and Run: Parasites** | 1.12.2 | Transforms and even produces a `-retromod.jar`, but references `net.minecraft.command.CommandException` / `WrongUsageException`, removed in the 1.13 Brigadier command rewrite. (#108) |
+
+**The tell:** the mod targets 1.12.2 (or older) and the gap report lists `net.minecraft.util.ResourceLocation`, `block.material.Material`, `IBlockAccess`, or `net.minecraft.command.*` as missing. Run these on a 1.12.2 host, or use a modern fork of the mod if one exists; the flattening is not something a bytecode redirect can undo.
+
 ### Rendering replacement / shader
 
 | Mod | Why |

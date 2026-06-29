@@ -12,43 +12,22 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 
 /**
- * Polyfill for the MC 1.21+ "registry-key migration" of vanilla content
- * holders.
+ * Polyfill for the MC 1.21+ registry-key migration of vanilla content holders.
  *
- * <p>Older MC versions had {@code Enchantments.SHARPNESS} typed as
- * {@code Enchantment} (a direct reference to the actual instance). In MC
- * 1.21+ the same field name still exists but its type changed to
- * {@code ResourceKey<Enchantment>} (just a registry key, not the value).
- * The same migration happened to {@code MobEffects.*} (= yarn
- * {@code StatusEffects.*}). Mods compiled against the old shape do
+ * <p>In MC 1.21+, fields like {@code Enchantments.SHARPNESS} changed type from
+ * {@code Enchantment} to {@code ResourceKey<Enchantment>}, and {@code MobEffects.*}
+ * (yarn {@code StatusEffects.*}) migrated the same way. Old mods do
  * {@code GETSTATIC Enchantments.SHARPNESS:Enchantment} and crash with
- * {@code NoSuchFieldError} on the new MC.
+ * {@code NoSuchFieldError}.
  *
- * <p>Fix: register field-to-method redirects so the bytecode call becomes
- * {@code INVOKESTATIC RegistryRefLookup.SHARPNESS():Enchantment}. The
- * static method does the runtime lookup through {@code BuiltInRegistries}
- * and returns the actual {@code Enchantment} the mod expected. Result is
- * cached after the first call so subsequent accesses are a hash-map hit.
+ * <p>Field-to-method redirects rewrite that access to
+ * {@code INVOKESTATIC RegistryRefLookup.SHARPNESS():Enchantment}, which resolves
+ * the value at runtime via {@code BuiltInRegistries} and caches it. The transformer
+ * emits a CHECKCAST after the call to restore the original field type.
  *
- * <p>Implementation uses reflection because Retromod doesn't compile against
- * Minecraft. Each lookup method delegates to the generic
- * {@link #lookup(String, String)} helper which:
- * <ol>
- *   <li>Resolves {@code BuiltInRegistries} via {@link Class#forName}</li>
- *   <li>Reads the static field for the chosen registry
- *       ({@code ENCHANTMENT}, {@code MOB_EFFECT})</li>
- *   <li>Builds a {@code ResourceLocation} for {@code minecraft:<name>}</li>
- *   <li>Calls {@code Registry.get(ResourceLocation)} (or {@code .getValue}
- *       on newer MC) and returns the result</li>
- * </ol>
- *
- * <p>The transformer's CHECKCAST emit on field-to-method redirects converts
- * the {@code Object} return type back to whatever the original field's type
- * was, so the consuming bytecode verifies cleanly.
- *
- * <p>Adding a new entry is one method here plus one
- * {@code registerFieldRedirect} call in the appropriate shim class. See
- * {@code Fabric_1_21_11_to_26_1.java} for examples.
+ * <p>Reflection is used because Retromod doesn't compile against Minecraft. Adding
+ * an entry is one method here plus a {@code registerFieldRedirect} call in the shim
+ * (see {@code Fabric_1_21_11_to_26_1.java}).
  */
 public final class RegistryRefLookup {
 
@@ -61,12 +40,7 @@ public final class RegistryRefLookup {
     private static final Map<String, Object> CACHE = new ConcurrentHashMap<>();
     private static final Object NULL_SENTINEL = new Object();
 
-    /**
-     * One INFO log per registry on first successful resolve, so users see
-     * "polyfill alive" in the log without the per-call diagnostic stream.
-     * Per-step diagnostics live at DEBUG (enable {@code Retromod-RegistryLookup}
-     * at debug level to see them).
-     */
+    /** Registries that have logged their one-time "first resolve" INFO line. */
     private static final java.util.Set<String> RESOLVED_REGISTRIES =
             java.util.concurrent.ConcurrentHashMap.newKeySet();
 
@@ -83,35 +57,19 @@ public final class RegistryRefLookup {
     private static volatile ClassLoader anchorClassLoader;
 
     /**
-     * Resolve an MC class by name. Tries multiple classloaders because the
-     * obvious ones (this helper's loader, thread context, system) all fail
-     * in Fabric, where {@code RegistryRefLookup} appears to live in a loader
-     * sibling to or below KnotClassLoader, not above it. The reliable
-     * anchor is the classloader of the *caller*: the transformed mod
-     * bytecode that called us is loaded by Knot, and Knot can see MC.
-     *
-     * <p>Attempt order:
-     * <ol>
-     *   <li>Cached anchor loader (set on first successful resolve)</li>
-     *   <li>Walk the stack via {@link StackWalker} and try each non-Retromod,
-     *       non-JDK caller's classloader. The first that finds an MC class
-     *       gets cached as the anchor.</li>
-     *   <li>The thread context classloader (Fabric usually sets this to Knot)</li>
-     *   <li>This helper's own classloader</li>
-     *   <li>The system classloader (last resort)</li>
-     * </ol>
+     * Resolve an MC class by name. On Fabric, this helper's loader, the thread
+     * context loader, and the system loader can't see MC; the reliable anchor is
+     * the caller's classloader (transformed mod bytecode is loaded by Knot, which
+     * sees MC). Tries the cached anchor, then walks the stack for a caller loader,
+     * then the context/own/system loaders.
      */
     private static Class<?> loadMcClass(String... names) {
-        // Stock candidates, tried in priority order. Since this is
-        // called many times we cache the first successful loader.
         ClassLoader anchor = anchorClassLoader;
         if (anchor != null) {
             Class<?> cls = tryLoadAny(anchor, names);
             if (cls != null) return cls;
         }
 
-        // Walk the call stack for a usable classloader (the transformed
-        // caller mod's loader is Knot, which sees MC).
         Class<?> stackHit = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
                 .walk(frames -> frames
                         .map(StackWalker.StackFrame::getDeclaringClass)
@@ -132,7 +90,6 @@ public final class RegistryRefLookup {
             return stackHit;
         }
 
-        // Fallback: stock candidates.
         ClassLoader[] candidates = {
             Thread.currentThread().getContextClassLoader(),
             RegistryRefLookup.class.getClassLoader(),
@@ -172,8 +129,7 @@ public final class RegistryRefLookup {
         }
     }
 
-    // ENCHANTMENTS: public static methods that return Object (CHECKCAST'd
-    // to Enchantment by the transformer's field-to-method redirect).
+    // enchantments: return Object, CHECKCAST'd to Enchantment by the redirect.
 
     public static Object SHARPNESS()           { return enchant("sharpness"); }
     public static Object SMITE()               { return enchant("smite"); }
@@ -215,8 +171,7 @@ public final class RegistryRefLookup {
     public static Object MENDING()             { return enchant("mending"); }
     public static Object VANISHING_CURSE()     { return enchant("vanishing_curse"); }
 
-    // STATUS EFFECTS / MOB EFFECTS
-    // (yarn name on the left as the comment, mojang ID on the right)
+    // status effects / mob effects
 
     public static Object SPEED()               { return mobEffect("speed"); }              // yarn SPEED
     public static Object SLOWNESS()            { return mobEffect("slowness"); }
@@ -252,8 +207,6 @@ public final class RegistryRefLookup {
     public static Object HERO_OF_THE_VILLAGE() { return mobEffect("hero_of_the_village"); }
     public static Object DARKNESS()            { return mobEffect("darkness"); }
 
-    // INTERNALS
-
     private static Object enchant(String entryName) {
         return lookup(ENCHANTMENT_REGISTRY, entryName);
     }
@@ -262,12 +215,7 @@ public final class RegistryRefLookup {
         return lookup(MOB_EFFECT_REGISTRY, entryName);
     }
 
-    /**
-     * Generic registry lookup. Cached. Returns {@code null} on lookup miss
-     * (mirrors {@code Registry.get} behavior on miss). The transformer
-     * emits a {@code CHECKCAST} after this call which would NPE on a real
-     * miss anyway, so callers can rely on non-null on success.
-     */
+    /** Cached registry lookup; returns null on miss (mirrors {@code Registry.get}). */
     private static Object lookup(String registryName, String entryName) {
         String cacheKey = registryName + ":" + entryName;
         Object cached = CACHE.get(cacheKey);
@@ -321,7 +269,7 @@ public final class RegistryRefLookup {
         }
         LOGGER.debug("[diag {}.{}] built id: {}", registryName, entryName, id);
 
-        // Path 1: static registry on BuiltInRegistries
+        // path 1: static registry on BuiltInRegistries
         Object value = lookupViaBuiltInRegistries(registryName, rl, id);
         if (value != null) {
             LOGGER.debug("[diag {}.{}] BuiltInRegistries returned: {}",
@@ -331,7 +279,7 @@ public final class RegistryRefLookup {
         LOGGER.debug("[diag {}.{}] BuiltInRegistries miss, trying dynamic registry",
                 registryName, entryName);
 
-        // Path 2: dynamic registry via the client's RegistryAccess.
+        // path 2: dynamic registry via the client's RegistryAccess
         return lookupViaDynamicRegistry(registryName, rl, id);
     }
 
@@ -364,8 +312,6 @@ public final class RegistryRefLookup {
     }
 
     private static Object lookupViaDynamicRegistry(String registryName, Class<?> rl, Object id) {
-        // TEMPORARY INSTRUMENTATION: bumped to INFO so we can see which step
-        // returns null. Remove once the lookup chain is verified.
         try {
             Object registryAccess = resolveRegistryAccess();
             if (registryAccess == null) {
@@ -374,7 +320,7 @@ public final class RegistryRefLookup {
             }
             LOGGER.debug("[diag {}] registryAccess={}", registryName, registryAccess.getClass().getName());
 
-            // Resolve the parent registry key (e.g. Registries.ENCHANTMENT).
+            // resolve the parent registry key (Registries.ENCHANTMENT etc.)
             Class<?> registriesCls = loadMcClass(
                     "net.minecraft.core.registries.Registries",        // mojang (the keys holder)
                     "net.minecraft.registry.RegistryKeys"               // yarn equivalent
@@ -398,15 +344,14 @@ public final class RegistryRefLookup {
             LOGGER.debug("[diag {}] registryKey={} ({})",
                     registryName, registryKey, registryKey.getClass().getName());
 
-            // Path A (newer MC 1.21+): registryAccess.lookup(ResourceKey) returns
-            // Optional<HolderLookup.RegistryLookup<T>>. HolderLookup has
-            // get(ResourceKey<T>) -> Optional<Holder.Reference<T>>, NOT a
-            // ResourceLocation-keyed getter. So we need a child ResourceKey.
+            // path A (MC 1.21+): registryAccess.lookup(ResourceKey) returns
+            // Optional<HolderLookup.RegistryLookup<T>>, keyed by a child
+            // ResourceKey (not a ResourceLocation), so build one below.
             Object holderLookup = invokeAndUnwrapOptional(registryAccess, "lookup", registryKey);
             LOGGER.debug("[diag {}] holderLookup={}", registryName,
                     holderLookup == null ? "null" : holderLookup.getClass().getName());
             if (holderLookup != null) {
-                // Build a child ResourceKey<T>: ResourceKey.create(parent, id)
+                // child ResourceKey<T> via ResourceKey.create(parent, id)
                 Class<?> resourceKeyCls = loadMcClass(
                         "net.minecraft.resources.ResourceKey",   // mojang
                         "net.minecraft.registry.RegistryKey"      // yarn
@@ -464,8 +409,8 @@ public final class RegistryRefLookup {
                 }
             }
 
-            // Path B (older RegistryAccess shape): registryOrThrow returns Registry<T>
-            // directly, which has get(ResourceLocation).
+            // path B (older RegistryAccess): registryOrThrow returns Registry<T>
+            // directly, which has get(ResourceLocation)
             Object registry = invokeUnwrap(registryAccess, "registryOrThrow", registryKey);
             LOGGER.debug("[diag {}] registryOrThrow result={}", registryName,
                     registry == null ? "null" : registry.getClass().getName());
@@ -485,9 +430,8 @@ public final class RegistryRefLookup {
     }
 
     /**
-     * Walk the well-known places where a RegistryAccess might live on the
-     * client. Order: world → connection. Returns null if the client hasn't
-     * connected to anything yet (init/title-screen time).
+     * Find a RegistryAccess on the client, trying the world then the connection.
+     * Returns null before the client connects (init/title-screen time).
      */
     private static Object resolveRegistryAccess() {
         try {
@@ -517,9 +461,8 @@ public final class RegistryRefLookup {
     }
 
     /**
-     * Invoke a method that returns {@code Optional<T>} and unwrap to
-     * {@code T} (or null on empty). Picks the first method whose name and
-     * arity match and accepts the given argument type.
+     * Invoke the first matching {@code name(arg)} method and unwrap its
+     * {@code Optional<T>} result to {@code T} (null on empty).
      */
     private static Object invokeAndUnwrapOptional(Object receiver, String name, Object arg) {
         try {
@@ -554,7 +497,6 @@ public final class RegistryRefLookup {
     private static Object unwrapHolder(Object value) {
         if (value == null) return null;
         try {
-            // Holder.value() returns the underlying T
             Method valueMethod = value.getClass().getMethod("value");
             return valueMethod.invoke(value);
         } catch (Throwable ignored) {
@@ -563,17 +505,17 @@ public final class RegistryRefLookup {
     }
 
     private static Object buildResourceLocation(Class<?> rl, String path) {
-        // Newer MC: ResourceLocation.parse("minecraft:<path>")
+        // newer MC: ResourceLocation.parse("minecraft:<path>")
         try {
             Method parse = rl.getMethod("parse", String.class);
             return parse.invoke(null, "minecraft:" + path);
         } catch (Throwable ignored) {}
-        // Older MC: ResourceLocation.fromNamespaceAndPath("minecraft", path)
+        // older MC: ResourceLocation.fromNamespaceAndPath("minecraft", path)
         try {
             Method fromNs = rl.getMethod("fromNamespaceAndPath", String.class, String.class);
             return fromNs.invoke(null, "minecraft", path);
         } catch (Throwable ignored) {}
-        // Oldest fallback: the public constructor (deprecated in newer MC)
+        // oldest: the public constructor (deprecated in newer MC)
         try {
             return rl.getConstructor(String.class, String.class)
                      .newInstance("minecraft", path);
@@ -582,7 +524,7 @@ public final class RegistryRefLookup {
     }
 
     private static Method findRegistryGetter(Class<?> registryClass, Class<?> rl) {
-        // Newer MC: getValue(ResourceLocation) -> T
+        // newer MC: getValue(ResourceLocation) -> T
         for (Method m : registryClass.getMethods()) {
             if ("getValue".equals(m.getName())
                     && m.getParameterCount() == 1
@@ -590,7 +532,7 @@ public final class RegistryRefLookup {
                 return m;
             }
         }
-        // Older MC: get(ResourceLocation) -> T (or Optional<T> in some versions)
+        // older MC: get(ResourceLocation) -> T (or Optional<T> in some versions)
         for (Method m : registryClass.getMethods()) {
             if ("get".equals(m.getName())
                     && m.getParameterCount() == 1

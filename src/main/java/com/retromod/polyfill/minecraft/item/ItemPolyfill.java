@@ -8,15 +8,10 @@ import com.retromod.core.RetromodTransformer;
 import com.retromod.polyfill.PolyfillProvider;
 
 /**
- * Polyfill for item class renames from The Flattening (1.13+).
- *
- * Pre-flattening mods reference item classes in {@code net.minecraft.item}
- * with legacy names (e.g., ItemBlock, ItemSword, ItemFood). These were renamed
- * and relocated to {@code net.minecraft.world.item} in Mojang mappings.
- *
- * Also covers ItemStack method renames from the NBT-to-component migration:
- * - getTagCompound/setTagCompound/hasTagCompound (pre-1.20.5 NBT API)
- *   redirected to getTag/setTag/hasTag (pre-component system equivalents)
+ * Polyfill for item class renames from The Flattening (1.13+): legacy
+ * {@code net.minecraft.item} classes relocated to {@code net.minecraft.world.item}.
+ * Also redirects pre-1.20.5 ItemStack NBT methods (getTagCompound/setTagCompound/
+ * hasTagCompound) to their pre-component getTag/setTag/hasTag equivalents.
  */
 public class ItemPolyfill implements PolyfillProvider {
 
@@ -55,7 +50,6 @@ public class ItemPolyfill implements PolyfillProvider {
 
     @Override
     public String[] getPolyfillClasses() {
-        // No embedded stubs needed; pure class and method redirects
         return new String[]{};
     }
 
@@ -67,7 +61,7 @@ public class ItemPolyfill implements PolyfillProvider {
             "net/minecraft/item/ItemBlock",
             "net/minecraft/world/item/BlockItem");
 
-        // ItemFood -> Item (food properties moved to Item.Properties in 1.13+)
+        // food properties moved to Item.Properties in 1.13+
         transformer.registerClassRedirect(
             "net/minecraft/item/ItemFood",
             "net/minecraft/world/item/Item");
@@ -132,35 +126,26 @@ public class ItemPolyfill implements PolyfillProvider {
             "net/minecraft/item/ItemStack",
             "net/minecraft/world/item/ItemStack");
 
-        // ItemStack method renames: pre-1.20.5 NBT API -> intermediate API
-        // getTagCompound/setTagCompound/hasTagCompound were the very old names;
-        // getTag/setTag/hasTag are the intermediate names before the 1.20.5
-        // component system. The class redirect above handles the package move,
-        // these method redirects handle the method name changes.
-
-        // getTagCompound() -> getTag() (pre-component system)
+        // ItemStack NBT methods: pre-1.20.5 names to the pre-component getTag/setTag/hasTag
         transformer.registerMethodRedirect(
             "net/minecraft/item/ItemStack", "getTagCompound",
             "()Lnet/minecraft/nbt/NBTTagCompound;",
             "net/minecraft/world/item/ItemStack", "getTag",
             "()Lnet/minecraft/nbt/CompoundTag;");
 
-        // setTagCompound(NBTTagCompound) -> setTag(CompoundTag) (pre-component system)
         transformer.registerMethodRedirect(
             "net/minecraft/item/ItemStack", "setTagCompound",
             "(Lnet/minecraft/nbt/NBTTagCompound;)V",
             "net/minecraft/world/item/ItemStack", "setTag",
             "(Lnet/minecraft/nbt/CompoundTag;)V");
 
-        // hasTagCompound() -> hasTag() (pre-component system)
         transformer.registerMethodRedirect(
             "net/minecraft/item/ItemStack", "hasTagCompound",
             "()Z",
             "net/minecraft/world/item/ItemStack", "hasTag",
             "()Z");
 
-        // getItem() -> getItem() (same name, but return type hierarchy changed;
-        // the class redirect handles the package, this ensures correct resolution)
+        // same name, but the return type's package changed
         transformer.registerMethodRedirect(
             "net/minecraft/item/ItemStack", "getItem",
             "()Lnet/minecraft/item/Item;",

@@ -19,20 +19,19 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 
 /**
- * The per-mod synthetic-embedding engine (§B/§C prerequisite for B2/B4). The key invariants,
- * all split-package safety properties NeoForge's JPMS module-per-mod loading demands:
+ * The per-mod synthetic-embedding engine. Verifies the split-package safety invariants
+ * NeoForge's JPMS module-per-mod loading needs:
  * <ul>
- *   <li>a synthetic is embedded only into a mod that actually references it (gating);</li>
- *   <li>it is embedded under a unique-per-mod {@code com/retromod/embedded/<key>/} package,
- *       NOT at its original (loader-owned) name, so it can never split-package with the
- *       loader module or with another mod;</li>
+ *   <li>a synthetic is embedded only into a mod that references it;</li>
+ *   <li>it goes under a unique-per-mod {@code com/retromod/embedded/<key>/} package, not at its
+ *       original loader-owned name, so it can't split-package with the loader or another mod;</li>
  *   <li>the mod's references are rewritten to the embedded copy;</li>
- *   <li>a mod that doesn't reference it is left completely untouched.</li>
+ *   <li>a mod that doesn't reference it is left untouched.</li>
  * </ul>
  */
 class SyntheticEmbedderTest {
 
-    private static final String SYNTH = "net/fake/loaderpkg/Removed"; // a "deleted" loader class
+    private static final String SYNTH = "net/fake/loaderpkg/Removed"; // a deleted loader class
 
     private static byte[] simpleClass(String internalName) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
@@ -48,7 +47,7 @@ class SyntheticEmbedderTest {
         return cw.toByteArray();
     }
 
-    /** A class with a field typed {@code L<SYNTH>;}, a reference the embedder must rewrite. */
+    /** A class with a field typed {@code L<SYNTH>;} for the embedder to rewrite. */
     private static byte[] classReferencing(String name) {
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
         cw.visit(V17, ACC_PUBLIC, name, null, "java/lang/Object", null);
@@ -88,13 +87,10 @@ class SyntheticEmbedderTest {
 
             assertEquals(1, n, "the one referenced synthetic should be embedded");
             String uniquePkg = SyntheticEmbedder.PREFIX + "cool_mod/Removed";
-            // embedded under the unique Retromod package...
             assertTrue(Files.exists(dir.resolve(uniquePkg + ".class")),
                     "synthetic must be embedded under com/retromod/embedded/<key>/");
-            // ...and NOT at its original loader-owned name (that would split-package the module)
             assertFalse(Files.exists(dir.resolve(SYNTH + ".class")),
                     "synthetic must NOT be embedded at its original (loader) package name");
-            // the mod's reference was rewritten to the embedded copy
             assertEquals("L" + uniquePkg + ";", fieldDesc(dir, "mod/Uses"),
                     "the referencing class must now point at the embedded copy");
         } finally {
@@ -138,7 +134,6 @@ class SyntheticEmbedderTest {
 
             assertTrue(Files.exists(dirA.resolve(SyntheticEmbedder.PREFIX + "mod_a/Removed.class")));
             assertTrue(Files.exists(dirB.resolve(SyntheticEmbedder.PREFIX + "mod_b/Removed.class")));
-            // The two embedded packages differ, so the two mod modules never share a package.
             assertFalse(Files.exists(dirA.resolve(SyntheticEmbedder.PREFIX + "mod_b/Removed.class")));
         } finally {
             t.clearRedirectsForTesting();

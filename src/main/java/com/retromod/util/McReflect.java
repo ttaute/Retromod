@@ -13,41 +13,30 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Cross-loader Minecraft class and member resolution utility.
+ * Cross-loader Minecraft class and member resolution.
  *
- * Minecraft classes have different names depending on the mod loader:
- *   - Yarn (Fabric dev):    net.minecraft.client.gui.screen.TitleScreen
- *   - Intermediary (Fabric prod): net.minecraft.class_442
- *   - Mojang (NeoForge/Forge):    net.minecraft.client.gui.screens.TitleScreen
- *
- * This utility tries multiple name variants and uses Fabric's MappingResolver
- * (when available) to translate yarn names to intermediary for production Fabric.
- *
- * Non-Minecraft classes (e.g. net.fabricmc.*, net.neoforged.*) are NOT obfuscated
- * and can be resolved with plain Class.forName().
+ * MC class names vary by loader: Yarn (Fabric dev), intermediary (Fabric prod),
+ * Mojang (NeoForge/Forge). This tries multiple name variants and falls back to
+ * Fabric's MappingResolver to translate yarn to intermediary in production.
+ * Loader classes (net.fabricmc.*, net.neoforged.*) are unobfuscated and resolve
+ * with plain Class.forName().
  */
 public final class McReflect {
 
     private static final Logger LOGGER = LoggerFactory.getLogger("Retromod-Reflect");
 
-    // Cache resolved classes to avoid repeated lookups
     private static final Map<String, Class<?>> CLASS_CACHE = new ConcurrentHashMap<>();
 
-    // Fabric MappingResolver (lazily initialized, null if not on Fabric)
+    // Fabric MappingResolver, lazily initialized, null off Fabric
     private static volatile Object mappingResolver;
     private static volatile Method mapClassNameMethod;
     private static volatile boolean resolverInitialized = false;
 
     private McReflect() {}
 
-    // Class Resolution
-
     /**
-     * Find a Minecraft class by trying multiple name variants.
-     *
-     * Checks in order:
-     *   1. Each provided name via Class.forName (handles dev + Mojang names)
-     *   2. Fabric MappingResolver yarn->intermediary for the first name
+     * Find a Minecraft class by trying each name via Class.forName (dev + Mojang
+     * names), then Fabric's MappingResolver (yarn to intermediary) on the first.
      *
      * @param names one or more possible class names (yarn first, then mojang, etc.)
      * @return the resolved Class, or null if not found
@@ -55,12 +44,10 @@ public final class McReflect {
     public static Class<?> findClass(String... names) {
         if (names == null || names.length == 0) return null;
 
-        // Check cache (keyed on first name)
         String cacheKey = names[0];
         Class<?> cached = CLASS_CACHE.get(cacheKey);
         if (cached != null) return cached;
 
-        // Try each name directly
         for (String name : names) {
             if (name == null || name.isEmpty()) continue;
             try {
@@ -68,11 +55,9 @@ public final class McReflect {
                 CLASS_CACHE.put(cacheKey, c);
                 return c;
             } catch (ClassNotFoundException ignored) {
-                // Try next name
             }
         }
 
-        // Try Fabric MappingResolver: map first name (yarn) -> intermediary
         Class<?> mapped = findClassViaMappingResolver(names[0]);
         if (mapped != null) {
             CLASS_CACHE.put(cacheKey, mapped);
@@ -93,8 +78,6 @@ public final class McReflect {
         }
         return c;
     }
-
-    // Method Resolution
 
     /**
      * Find a method by trying multiple name variants.
@@ -118,7 +101,6 @@ public final class McReflect {
                 }
                 return m;
             } catch (NoSuchMethodException ignored) {
-                // Try declared methods too
                 try {
                     Method m;
                     if (paramTypes != null) {
@@ -129,12 +111,11 @@ public final class McReflect {
                     m.setAccessible(true);
                     return m;
                 } catch (NoSuchMethodException ignored2) {
-                    // Try next name
                 }
             }
         }
 
-        // Last resort: search by name only (first match, ignoring parameter types)
+        // last resort: match by name only, ignoring parameter types
         for (String name : names) {
             if (name == null) continue;
             for (Method m : clazz.getDeclaredMethods()) {
@@ -160,8 +141,6 @@ public final class McReflect {
         return findMethod(clazz, null, names);
     }
 
-    // Field Resolution
-
     /**
      * Find a field by trying multiple name variants.
      *
@@ -182,7 +161,6 @@ public final class McReflect {
                     f.setAccessible(true);
                     return f;
                 } catch (NoSuchFieldException ignored2) {
-                    // Try next name
                 }
             }
         }
@@ -226,8 +204,6 @@ public final class McReflect {
         return null;
     }
 
-    // Loader Detection
-
     /**
      * Check if a class exists on the classpath.
      */
@@ -261,11 +237,9 @@ public final class McReflect {
         return classExists("net.minecraftforge.common.MinecraftForge");
     }
 
-    // Fabric MappingResolver
-
     /**
-     * Try to resolve a yarn class name to the runtime name using Fabric's MappingResolver.
-     * Returns null if not on Fabric or if mapping fails.
+     * Resolve a yarn class name to the runtime name via Fabric's MappingResolver.
+     * Returns null off Fabric or if mapping fails.
      */
     private static Class<?> findClassViaMappingResolver(String yarnName) {
         initResolver();

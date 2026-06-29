@@ -151,23 +151,26 @@ public final class ReflectionRemapper {
     /** Resolve a method's new name from this class, its superclasses, then its interfaces. */
     private static String remapMethodName(Class<?> clazz, String name) {
         Map<String, String> remaps = methodRemaps.get(clazz.getName());
-        if (remaps != null && remaps.containsKey(name)) {
-            return remaps.get(name);
+        if (remaps != null) {
+            String mapped = remaps.get(name);
+            if (mapped != null) return mapped;
         }
 
         Class<?> superClass = clazz.getSuperclass();
         while (superClass != null && superClass != Object.class) {
             remaps = methodRemaps.get(superClass.getName());
-            if (remaps != null && remaps.containsKey(name)) {
-                return remaps.get(name);
+            if (remaps != null) {
+                String mapped = remaps.get(name);
+                if (mapped != null) return mapped;
             }
             superClass = superClass.getSuperclass();
         }
 
         for (Class<?> iface : clazz.getInterfaces()) {
             remaps = methodRemaps.get(iface.getName());
-            if (remaps != null && remaps.containsKey(name)) {
-                return remaps.get(name);
+            if (remaps != null) {
+                String mapped = remaps.get(name);
+                if (mapped != null) return mapped;
             }
         }
 
@@ -222,8 +225,9 @@ public final class ReflectionRemapper {
 
     private static String remapFieldName(Class<?> clazz, String name) {
         Map<String, String> remaps = fieldRemaps.get(clazz.getName());
-        if (remaps != null && remaps.containsKey(name)) {
-            return remaps.get(name);
+        if (remaps != null) {
+            String mapped = remaps.get(name);
+            if (mapped != null) return mapped;
         }
         return null;
     }

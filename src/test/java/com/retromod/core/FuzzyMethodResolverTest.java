@@ -12,17 +12,16 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests the fuzzy method resolver's stack-safety guard (#51): a name+arity match
- * whose parameter TYPE changed incompatibly between MC versions must NOT be
- * auto-applied, because rewriting the call would emit bytecode that fails
- * verification (VerifyError) and crash the whole mod. The canonical case is
- * {@code AnimationUtils.swingWeaponDown(…,Mob,…)} becoming {@code (…,HumanoidArm,…)}
- * in 1.21.11.
+ * Stack-safety guard for the fuzzy method resolver (#51): a name+arity match whose
+ * parameter type changed incompatibly between MC versions must not be auto-applied,
+ * since rewriting the call would emit bytecode that fails verification (VerifyError).
+ * Case in point: {@code AnimationUtils.swingWeaponDown(...,Mob,...)} becoming
+ * {@code (...,HumanoidArm,...)} in 1.21.11.
  */
 class FuzzyMethodResolverTest {
 
-    // No indexed JAR → the class hierarchy is empty → isAncestor() is always
-    // false, which is exactly the conservative "can't prove assignable" path.
+    // No indexed JAR, so the class hierarchy is empty and isAncestor() always
+    // returns false: the conservative "can't prove assignable" path.
     private final FuzzyMethodResolver r = new FuzzyMethodResolver();
 
     @Test

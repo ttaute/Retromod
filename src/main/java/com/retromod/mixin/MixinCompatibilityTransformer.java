@@ -14,25 +14,15 @@ import java.util.*;
 import java.util.regex.*;
 
 /**
- * Mixin Compatibility Layer for Retromod.
- * 
- * Problem: Mixins target specific methods by name. When Minecraft renames methods
- * (like getWorld -> getEntityWorld), Mixins break because they can't find their targets.
- * 
- * Solution: Transform Mixin configuration and @Inject/@Redirect annotations
- * to use the new method names before the Mixin system processes them.
- * 
- * This handles:
- * 1. @Inject, @Redirect, @ModifyArg, @ModifyVariable annotations
- * 2. @At target descriptors
- * 3. Mixin config JSON files
- * 4. refmap.json remapping
+ * Rewrites Mixin annotation targets so mixins keep resolving after Minecraft renames
+ * their target methods (getWorld -> getEntityWorld). Covers @Inject/@Redirect/@ModifyArg/
+ * @ModifyVariable, @At descriptors, mixin config JSON, and refmap.json.
  */
 public class MixinCompatibilityTransformer {
     
     private static final Logger LOGGER = LoggerFactory.getLogger("retromod-mixin");
-    
-    // Mixin annotation descriptors
+
+    // mixin annotation descriptors
     private static final String INJECT_DESC = "Lorg/spongepowered/asm/mixin/injection/Inject;";
     private static final String REDIRECT_DESC = "Lorg/spongepowered/asm/mixin/injection/Redirect;";
     private static final String MODIFY_ARG_DESC = "Lorg/spongepowered/asm/mixin/injection/ModifyArg;";
@@ -45,8 +35,8 @@ public class MixinCompatibilityTransformer {
     private static final String INVOKER_DESC = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
     
     private final RetromodTransformer transformer;
-    
-    // Maps old method references to new ones for Mixin targets
+
+    // old method reference -> new method reference for mixin targets
     private final Map<String, String> methodTargetRedirects = new HashMap<>();
     
     public MixinCompatibilityTransformer(RetromodTransformer transformer) {
@@ -54,38 +44,26 @@ public class MixinCompatibilityTransformer {
         buildMixinRedirects();
     }
     
-    /**
-     * Build redirect maps specifically for Mixin annotations.
-     * Mixin uses different naming conventions than bytecode.
-     */
+    // Convert the transformer's method redirects into mixin target format.
     private void buildMixinRedirects() {
-        // Convert transformer redirects to Mixin format
         for (var entry : transformer.getMethodRedirects().entrySet()) {
             var key = entry.getKey();
             var target = entry.getValue();
 
-            // Mixin format: "method" or "Lowner;method(desc)return"
             String oldRef = key.name();
             String newRef = target.name();
 
             if (!oldRef.equals(newRef)) {
-                // The OWNER-QUALIFIED full reference is always safe: it can only
-                // match a @At/@Inject/@Invoker target that names this exact owner.
+                // Owner-qualified form only matches a target naming this exact owner.
                 String oldFull = "L" + key.owner() + ";" + key.name() + key.desc();
                 String newFull = "L" + target.owner() + ";" + target.name() + target.desc();
                 methodTargetRedirects.put(oldFull, newFull);
 
-                // The BARE-NAME redirect is owner-agnostic, so only add it for
-                // GLOBALLY-UNIQUE obfuscated names (intermediary method_XXXX, SRG
-                // m_NNNNN_). A plain name like "register"/"create"/"get" is wildly
-                // ambiguous: a mod-API-specific redirect (e.g. AutoRegLib's
-                // NetworkHandler.register → registerPacket) would otherwise rename
-                // EVERY mixin @Invoker/@At that resolves to "register", including
-                // a vanilla BlockEntityType invoker, which is exactly what crashed
-                // Reinforced Barrels with "No candidates matching registerPacket"
-                // on BlockEntityType (#66). Obfuscated names don't have this
-                // collision because each method_XXXX/m_NNNNN_ is unique to one
-                // method across the whole game.
+                // Bare-name form is owner-agnostic, so restrict it to globally-unique
+                // obfuscated names. A plain name like "register" is ambiguous: a
+                // mod-API redirect (AutoRegLib NetworkHandler.register -> registerPacket)
+                // would otherwise rename every @Invoker/@At resolving to "register",
+                // including a vanilla BlockEntityType invoker (#66).
                 if (isGloballyUniqueName(oldRef)) {
                     methodTargetRedirects.put(oldRef, newRef);
                 }
@@ -95,12 +73,7 @@ public class MixinCompatibilityTransformer {
         LOGGER.info("Built {} Mixin target redirects", methodTargetRedirects.size());
     }
 
-    /**
-     * Whether a method name is a globally-unique obfuscated identifier
-     * (intermediary {@code method_XXXX} or SRG {@code m_NNNNN_}) safe to use as
-     * an owner-agnostic bare-name redirect key, vs an ambiguous human name like
-     * {@code register} that must only be matched owner-qualified.
-     */
+    /** A globally-unique obfuscated name ({@code method_XXXX} / SRG {@code m_NNNNN_}), safe as an owner-agnostic redirect key. */
     private static boolean isGloballyUniqueName(String name) {
         return name.startsWith("method_")
                 || (name.startsWith("m_") && name.endsWith("_") && name.length() > 3);
@@ -113,23 +86,21 @@ public class MixinCompatibilityTransformer {
         ClassReader reader = new ClassReader(classBytes);
         ClassNode classNode = new ClassNode();
         reader.accept(classNode, 0);
-        
+
         boolean modified = false;
-        
-        // Check if this is actually a Mixin class
+
         if (!isMixinClass(classNode)) {
             return classBytes;
         }
-        
+
         LOGGER.debug("Transforming Mixin class: {}", classNode.name);
 
-        // Whole-class neutralization takes precedence over handler stripping.
-        // For mixins that add an interface to their target (#68 darkness
-        // MixinLightTexture → LightmapAccess) or have an interdependent critical
-        // @Inject failure (#69), removing handlers isn't enough: the mixin must
-        // not apply AT ALL. We rewrite its @Mixin target to a non-existent class
-        // so the framework skips it with a harmless "target not found", the same
-        // graceful path MC's own moved inner classes take.
+        // Whole-class neutralization takes precedence over handler stripping. For
+        // mixins that add an interface to their target (#68) or have an interdependent
+        // critical @Inject failure (#69), removing handlers isn't enough: the mixin
+        // must not apply at all. Repoint its @Mixin target at a non-existent class so
+        // the framework skips it with a "target not found", the same path MC's own
+        // moved inner classes take.
         if (MixinBlocklist.isFullStrip(classNode.name)) {
             if (neutralizeMixin(classNode)) {
                 ClassWriter w = new ClassWriter(0);
@@ -142,9 +113,9 @@ public class MixinCompatibilityTransformer {
         }
 
         // Auto-neutralize a mixin whose @Mixin target is a removed (non-remappable)
-        // MC class. Otherwise the framework throws ClassMetadataNotFoundException
-        // mid-transform and crashes the whole game during bootstrap (#79, Spelunkery
-        // → removed LootDataManager). The automatic complement to the curated list.
+        // MC class; otherwise the framework throws ClassMetadataNotFoundException
+        // mid-transform and crashes the game during bootstrap (#79). Automatic
+        // complement to the curated list.
         String removedTarget = mixinTargetsRemovedClass(classNode);
         if (removedTarget != null && neutralizeMixin(classNode)) {
             ClassWriter w = new ClassWriter(0);
@@ -156,19 +127,17 @@ public class MixinCompatibilityTransformer {
             return w.toByteArray();
         }
 
-        // Strip blocklisted handler methods FIRST. Some mixin handlers fatally
-        // crash on the target MC and can't be repaired by remapping, chiefly a
-        // MixinExtras @WrapOperation/@ModifyExpressionValue that captures a @Local
-        // from a vanilla method whose local layout changed (the @Local resolves to
-        // the wrong slot and MixinExtras emits an invalid bridge → VerifyError at
-        // load, fatal before any soft-fail can run). Removing the handler here means
-        // the framework never processes it: the mod loads with that one feature
-        // inert instead of the whole game crashing. Curated in mixin-blocklist.json.
+        // Strip blocklisted handler methods first. Some handlers crash on the target
+        // MC and can't be repaired by remapping (chiefly a MixinExtras @WrapOperation/
+        // @ModifyExpressionValue capturing a @Local from a vanilla method whose local
+        // layout changed: the @Local resolves to the wrong slot, MixinExtras emits an
+        // invalid bridge, VerifyError at load). Removing the handler here leaves the
+        // mod loading with that feature inert. Curated in mixin-blocklist.json.
         Set<String> blockedMethods = MixinBlocklist.methodsToStrip(classNode.name);
         if (blockedMethods != null) {
             int before = classNode.methods.size();
             if (blockedMethods.isEmpty()) {
-                // Whole-class: drop every injector handler (keeps <init>, helpers).
+                // whole-class: drop every injector handler (keep <init>, helpers)
                 classNode.methods.removeIf(MixinCompatibilityTransformer::hasInjectorAnnotation);
             } else {
                 classNode.methods.removeIf(m -> blockedMethods.contains(m.name));
@@ -182,8 +151,7 @@ public class MixinCompatibilityTransformer {
             }
         }
 
-        // Transform class-level annotations (@Mixin targets)
-        // Check BOTH visible and invisible: @Mixin is RuntimeInvisibleAnnotation
+        // class-level @Mixin targets (visible and invisible: @Mixin is RuntimeInvisible)
         for (List<AnnotationNode> annotations : List.of(
                 classNode.visibleAnnotations != null ? classNode.visibleAnnotations : List.<AnnotationNode>of(),
                 classNode.invisibleAnnotations != null ? classNode.invisibleAnnotations : List.<AnnotationNode>of())) {
@@ -193,37 +161,32 @@ public class MixinCompatibilityTransformer {
                 }
             }
         }
-        
-        // Transform method-level annotations
+
         for (MethodNode method : classNode.methods) {
             modified |= transformMethodAnnotations(method);
         }
-        
-        // Transform field-level annotations (@Shadow, @Accessor)
+
         for (FieldNode field : classNode.fields) {
             modified |= transformFieldAnnotations(field);
         }
-        
+
         if (!modified) {
             return classBytes;
         }
-        
-        // Write modified class
+
         ClassWriter writer = new ClassWriter(0);
         classNode.accept(writer);
         return writer.toByteArray();
     }
 
     /**
-     * Strip ONLY blocklisted mixin handler methods, no {@code @Mixin}/{@code @Inject}
-     * target remapping. The NeoForge/Forge transform path calls this (the Fabric path
-     * gets the same strip for free inside {@link #transformMixinClass}). NeoForge/Forge
-     * mixin targets already resolve under Mojang names, but a handler can still need
-     * stripping to soft-fail an otherwise-fatal injection, e.g. an {@code @Inject}
-     * whose captured parameter type changed out from under it
-     * ({@code addAdditionalSaveData}: {@code CompoundTag} → {@code ValueOutput}, the
-     * 1.21.5 ValueIO refactor; #48). Returns the input unchanged when the class isn't a
-     * blocklisted mixin, so it's safe to call on every class.
+     * Strip blocklisted mixin handler methods only, with no {@code @Mixin}/{@code @Inject}
+     * target remapping. Called from the NeoForge/Forge path (the Fabric path gets the same
+     * strip inside {@link #transformMixinClass}). NeoForge/Forge targets already resolve
+     * under Mojang names, but a handler can still need stripping to soft-fail an otherwise
+     * fatal injection (e.g. {@code addAdditionalSaveData}: {@code CompoundTag} ->
+     * {@code ValueOutput}, the 1.21.5 ValueIO refactor; #48). Returns the input unchanged
+     * for a non-blocklisted class, so it's safe to call on every class.
      */
     public byte[] stripBlocklistedHandlers(byte[] classBytes) {
         ClassReader reader = new ClassReader(classBytes);
@@ -234,10 +197,10 @@ public class MixinCompatibilityTransformer {
             return classBytes;
         }
 
-        // Whole-class neutralization (see transformMixinClass for rationale). The
-        // NeoForge/Forge path needs this too: #68 (True Darkness) is a NeoForge
-        // mod, and its interface-adding MixinLightTexture can't be soft-failed by
-        // removing handlers, only by making the whole mixin not apply.
+        // Whole-class neutralization (see transformMixinClass). NeoForge/Forge needs
+        // this too: #68 (True Darkness) is a NeoForge mod whose interface-adding
+        // MixinLightTexture can't be soft-failed by removing handlers, only by making
+        // the whole mixin not apply.
         if (MixinBlocklist.isFullStrip(classNode.name)) {
             if (neutralizeMixin(classNode)) {
                 ClassWriter w = new ClassWriter(0);
@@ -249,8 +212,8 @@ public class MixinCompatibilityTransformer {
             }
         }
 
-        // Auto-neutralize a removed-target mixin (#79); see transformMixinClass.
-        // The NeoForge/Forge path needs this too: #79 (Spelunkery) is a Forge mod.
+        // Auto-neutralize a removed-target mixin (see transformMixinClass); NeoForge/
+        // Forge needs this too (#79 Spelunkery is a Forge mod).
         String removedTarget = mixinTargetsRemovedClass(classNode);
         if (removedTarget != null && neutralizeMixin(classNode)) {
             ClassWriter w = new ClassWriter(0);
@@ -285,19 +248,15 @@ public class MixinCompatibilityTransformer {
     }
 
     /**
-     * Neutralize an entire mixin by repointing its {@code @Mixin} annotation at a
-     * non-existent target class. The Mixin framework then logs a benign
-     * "@Mixin target ... was not found" and skips the whole class: no handlers
-     * apply, no interface gets added, no {@code @Shadow}/{@code @Inject} is
-     * resolved. This is the exact graceful path MC's own moved/renamed inner
-     * classes already take (e.g. True Darkness's MixinEndEffects/MixinNetherEffects
-     * target {@code DimensionSpecialEffects$EndEffects} which moved in 1.21.11 -
-     * "target not found", non-fatal, even under a {@code "required": true} config).
+     * Neutralize a mixin by repointing its {@code @Mixin} annotation at a non-existent
+     * target class. The framework then logs "@Mixin target ... was not found" and skips
+     * the whole class (no handlers, no added interface, no {@code @Shadow}/{@code @Inject}
+     * resolution), the same path MC's own moved/renamed inner classes take, non-fatal even
+     * under {@code "required": true}.
      *
-     * <p>Clears both the {@code value} (Class[] targets) and {@code targets}
-     * (String[] targets) attributes, then sets {@code targets} to a single
-     * Retromod-namespaced placeholder that's guaranteed never to exist. Returns
-     * {@code true} if the {@code @Mixin} annotation was found and rewritten.
+     * <p>Clears both {@code value} (Class[]) and {@code targets} (String[]), then sets
+     * {@code targets} to a single Retromod-namespaced placeholder. Returns {@code true}
+     * if the {@code @Mixin} annotation was found and rewritten.
      *
      * @see MixinBlocklist#isFullStrip(String)
      */
@@ -314,7 +273,7 @@ public class MixinCompatibilityTransformer {
         if (mixinAnn == null) return false;
 
         if (mixinAnn.values == null) mixinAnn.values = new ArrayList<>();
-        // Drop existing value (Class[] targets) and targets (String[] targets).
+        // drop existing value (Class[]) and targets (String[])
         for (int i = mixinAnn.values.size() - 2; i >= 0; i -= 2) {
             Object k = mixinAnn.values.get(i);
             if ("value".equals(k) || "targets".equals(k)) {
@@ -322,7 +281,7 @@ public class MixinCompatibilityTransformer {
                 mixinAnn.values.remove(i);
             }
         }
-        // Point at a guaranteed-absent placeholder so the framework skips it.
+        // point at an absent placeholder so the framework skips it
         String simple = classNode.name.substring(classNode.name.lastIndexOf('/') + 1);
         List<String> placeholder = new ArrayList<>();
         placeholder.add("retromod/stripped/" + simple);
@@ -331,12 +290,8 @@ public class MixinCompatibilityTransformer {
         return true;
     }
 
-    /**
-     * Check if a class is a Mixin.
-     */
+    /** Whether the class carries a {@code @Mixin} annotation (visible or invisible). */
     private boolean isMixinClass(ClassNode classNode) {
-        // Check both visible and invisible annotations
-        // @Mixin is typically stored as RuntimeInvisibleAnnotation
         if (classNode.visibleAnnotations != null) {
             for (AnnotationNode annotation : classNode.visibleAnnotations) {
                 if (MIXIN_DESC.equals(annotation.desc)) return true;
@@ -350,40 +305,31 @@ public class MixinCompatibilityTransformer {
         return false;
     }
 
-    /**
-     * Check if a class node is an interface mixin (e.g., @Accessor/@Invoker interfaces).
-     */
+    /** Whether the class is an interface mixin (@Accessor/@Invoker interfaces). */
     private boolean isInterfaceMixin(ClassNode classNode) {
         return (classNode.access & Opcodes.ACC_INTERFACE) != 0 && isMixinClass(classNode);
     }
 
     /**
-     * Auto-detect a mixin whose {@code @Mixin} target is a Minecraft class that was
-     * <b>removed</b> on the host runtime (not merely renamed), and therefore can't be
-     * remapped to anything. Applying such a mixin makes the Mixin framework throw
-     * {@code ClassMetadataNotFoundException} mid-transform, which is FATAL: it aborts
-     * the whole class-transform pass and crashes the game during MC bootstrap (often
-     * with a misleading vanilla-class stacktrace ({@code Blocks.<clinit>} etc.) that
-     * names no mod). Issue #79: Spelunkery (1.20.1) targets
-     * {@code world/level/storage/loot/LootDataManager}, deleted in the 1.21 loot-data
-     * refactor (→ {@code ReloadableServerRegistries} + {@code LootDataType}, a different
-     * API), so it can't be remapped: the game dies before any curated blocklist helps.
+     * Detect a mixin whose {@code @Mixin} target is a Minecraft class removed (not renamed)
+     * on the host, which can't be remapped. Applying it makes the framework throw
+     * {@code ClassMetadataNotFoundException} mid-transform, aborting the whole class-transform
+     * pass and crashing the game at bootstrap (often with a misleading vanilla-class stacktrace
+     * that names no mod). #79: Spelunkery targets {@code LootDataManager}, deleted in the 1.21
+     * loot-data refactor.
      *
-     * <p>This is the automatic complement to the curated {@link MixinBlocklist}: instead
-     * of needing every offending mixin named in advance, we detect the removed-target
-     * case generically and neutralize it (the mod loads with that one mixin's feature
-     * inert). Only fires when ALL of:
+     * <p>Automatic complement to the curated {@link MixinBlocklist}: neutralizes the
+     * removed-target case generically (the mod loads with that mixin inert). Fires only when:
      * <ul>
-     *   <li>the target is a {@code net/minecraft/} class (we never judge mod/library
-     *       classes, which legitimately resolve later via JiJ/companion mods);</li>
-     *   <li>after resolving through our class redirects + intermediary map, the class
-     *       STILL doesn't exist on the host ({@code initialize=false} probe, #14);</li>
-     *   <li>we're not in a context where the probe is unreliable (no MC on the
-     *       classpath at all → bail, don't strip everything).</li>
+     *   <li>the target is a {@code net/minecraft/} class (mod/library targets resolve later
+     *       via JiJ/companion mods);</li>
+     *   <li>after resolving through class redirects + the intermediary map, the class still
+     *       doesn't exist on the host ({@code initialize=false} probe, #14);</li>
+     *   <li>MC is resolvable through the probe at all (else bail, don't strip everything).</li>
      * </ul>
      *
-     * @return the removed target's internal name if the mixin should be neutralized,
-     *         or {@code null} if every target resolves (the normal case).
+     * @return the removed target's internal name to neutralize, or {@code null} if every
+     *         target resolves.
      */
     private String mixinTargetsRemovedClass(ClassNode classNode) {
         return mixinTargetsRemovedClass(classNode,
@@ -391,16 +337,16 @@ public class MixinCompatibilityTransformer {
     }
 
     /**
-     * Testable core of {@link #mixinTargetsRemovedClass(ClassNode)}: the host-class
-     * probe is injected so a unit test can simulate a runtime where a given vanilla
-     * class is present or absent (the real test JVM has no Minecraft on its classpath).
+     * Testable core of {@link #mixinTargetsRemovedClass(ClassNode)}: the host-class probe
+     * is injected so a unit test can simulate a runtime where a vanilla class is present or
+     * absent (the test JVM has no Minecraft on its classpath).
      *
      * @param hostHasClass predicate: does this binary class name resolve on the host?
      */
     String mixinTargetsRemovedClass(ClassNode classNode, java.util.function.Predicate<String> hostHasClass) {
-        // Sanity gate: if MC itself isn't resolvable through the probe, every "absent"
-        // is a false negative; never strip on that. Cheap, and keyed on a class that
-        // exists on EVERY supported host (Blocks, or its intermediary alias pre-26.1).
+        // If MC itself isn't resolvable through the probe, every "absent" is a false
+        // negative; don't strip. Keyed on a class present on every supported host (Blocks,
+        // or its intermediary alias pre-26.1).
         if (!hostHasClass.test("net.minecraft.world.level.block.Blocks")
                 && !hostHasClass.test("net.minecraft.class_2246")) {
             return null;
@@ -422,14 +368,14 @@ public class MixinCompatibilityTransformer {
             Object key = mixinAnn.values.get(i);
             Object val = mixinAnn.values.get(i + 1);
             if ("value".equals(key) && val instanceof List<?> classes) {
-                // Class[] targets: each entry is an ASM Type.
+                // Class[] targets: each entry is an ASM Type
                 for (Object t : classes) {
                     if (t instanceof Type type && type.getSort() == Type.OBJECT) {
                         targets.add(type.getInternalName());
                     }
                 }
             } else if ("targets".equals(key) && val instanceof List<?> strings) {
-                // String[] targets: fully-qualified names, '.'-separated.
+                // String[] targets: '.'-separated fully-qualified names
                 for (Object s : strings) {
                     if (s instanceof String str && !str.isEmpty()) {
                         targets.add(str.replace('.', '/'));
@@ -442,31 +388,26 @@ public class MixinCompatibilityTransformer {
             if (!target.startsWith("net/minecraft/")) {
                 continue; // only judge vanilla classes; mod/library targets resolve elsewhere
             }
-            // Resolve through whatever Retromod would rewrite this to: a class redirect
-            // (e.g. a 26.1 package move) or the intermediary→Mojang class map. The host
-            // probe is the real authority; redirects just give us the better name to ask.
+            // Resolve through whatever Retromod would rewrite this to (a class redirect or
+            // the intermediary->Mojang map); the host probe is the authority, redirects just
+            // give the better name to ask.
             String resolved = transformer.getClassRedirects().getOrDefault(target, target);
             boolean resolvedExists = hostHasClass.test(resolved.replace('/', '.'));
             boolean origExists = resolved.equals(target) ? resolvedExists
                     : hostHasClass.test(target.replace('/', '.'));
             if (!resolvedExists && !origExists) {
-                return target; // genuinely removed: neutralize this mixin
+                return target; // removed: neutralize this mixin
             }
         }
         return null;
     }
 
     /**
-     * Count the number of parameter slots in a method descriptor.
-     * Doubles and longs take 2 slots, everything else takes 1.
-     */
-    /**
-     * Whether a method carries an injector annotation: SpongePowered
-     * ({@code @Inject}/{@code @Redirect}/{@code @ModifyArg}/{@code @ModifyVariable}/
-     * {@code @ModifyConstant}), {@code @Overwrite}, or any MixinExtras annotation
-     * ({@code @WrapOperation}, {@code @ModifyExpressionValue}, {@code @WrapMethod}, …).
-     * Used for whole-class blocklist entries to drop every handler while leaving
-     * constructors, {@code @Shadow}/{@code @Accessor} members, and plain helpers intact.
+     * Whether a method carries an injector annotation: a SpongePowered injection
+     * ({@code @Inject}/{@code @Redirect}/{@code @ModifyArg}/{@code @ModifyVariable}/...),
+     * {@code @Overwrite}, or any MixinExtras annotation. Used by whole-class blocklist
+     * entries to drop every handler while keeping constructors, {@code @Shadow}/
+     * {@code @Accessor} members, and plain helpers.
      */
     private static boolean hasInjectorAnnotation(MethodNode m) {
         return injectorPresent(m.visibleAnnotations) || injectorPresent(m.invisibleAnnotations);
@@ -500,8 +441,7 @@ public class MixinCompatibilityTransformer {
                 i = end + 1;
             } else if (c == '[') {
                 i++;
-                // Skip array dimensions
-                while (i < desc.length() && desc.charAt(i) == '[') i++;
+                while (i < desc.length() && desc.charAt(i) == '[') i++; // array dimensions
                 if (i < desc.length() && desc.charAt(i) == 'L') {
                     int end = desc.indexOf(';', i);
                     if (end < 0) break; // malformed
@@ -531,7 +471,7 @@ public class MixinCompatibilityTransformer {
             Object value = annotation.values.get(i + 1);
 
             if ("targets".equals(key) && value instanceof List<?> targets) {
-                // String-based targets: @Mixin(targets = {"net.minecraft.class_310"})
+                // string targets: @Mixin(targets = {"net.minecraft.class_310"})
                 List<String> newTargets = new ArrayList<>();
                 for (Object target : targets) {
                     if (target instanceof String s) {
@@ -547,8 +487,7 @@ public class MixinCompatibilityTransformer {
                 }
                 annotation.values.set(i + 1, newTargets);
             } else if ("value".equals(key) && value instanceof List<?> values) {
-                // Type-based targets: @Mixin(value = {class_310.class})
-                // In ASM, class references in annotations are stored as Type objects
+                // type targets: @Mixin(value = {class_310.class}); ASM stores them as Type
                 List<Object> newValues = new ArrayList<>();
                 for (Object v : values) {
                     if (v instanceof org.objectweb.asm.Type type) {
@@ -579,8 +518,7 @@ public class MixinCompatibilityTransformer {
     private boolean transformMethodAnnotations(MethodNode method) {
         boolean modified = false;
 
-        // Check BOTH visible and invisible annotations
-        // Mixin annotations can be in either category
+        // mixin annotations can be visible or invisible
         for (List<AnnotationNode> annotations : List.of(
                 method.visibleAnnotations != null ? method.visibleAnnotations : List.<AnnotationNode>of(),
                 method.invisibleAnnotations != null ? method.invisibleAnnotations : List.<AnnotationNode>of())) {
@@ -621,7 +559,6 @@ public class MixinCompatibilityTransformer {
                 hasRequire = true;
             }
 
-            // Transform "method" targets
             if ("method".equals(key)) {
                 if (value instanceof List<?> methods) {
                     List<String> newMethods = new ArrayList<>();
@@ -645,7 +582,6 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // Transform @At annotations
             if ("at".equals(key)) {
                 if (value instanceof AnnotationNode at) {
                     modified |= transformAtAnnotation(at);
@@ -658,20 +594,12 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // Transform "target", used by MixinExtras annotations like
-            // @ModifyExpressionValue(target = "Lnet/minecraft/client/gui/Gui;getDebugCrosshair()Z")
-            // and by some standard @Inject variants. Same shape as @At's
-            // target argument, so we run it through the same redirector that
-            // transformAtAnnotation uses. Without this, a mixin whose OUTER
-            // @Mixin target gets renamed by Retromod still has stale class
-            // references inside its inner annotations, and the mixin processor
-            // then refuses the injection with "specifies a target class 'X',
-            // which is not supported" (where X is the pre-rename class name).
-            //
-            // Crash report that motivated the addition: CustomHUD 4.1.3 on
-            // MC 26.1.2, outer target renamed to GuiGraphicsExtractor
-            // correctly, but the @ModifyExpressionValue inner target still
-            // said net/minecraft/client/gui/Gui and the injection failed.
+            // "target" is used by MixinExtras annotations (@ModifyExpressionValue) and some
+            // @Inject variants, same shape as @At's target, so run it through the same
+            // redirector. Without this, a mixin whose outer @Mixin target was renamed still
+            // has stale class references in its inner annotations and the processor refuses
+            // the injection with "specifies a target class 'X', which is not supported"
+            // (CustomHUD 4.1.3 on 26.1.2).
             if ("target".equals(key)) {
                 if (value instanceof List<?> targets) {
                     List<String> newTargets = new ArrayList<>();
@@ -685,9 +613,7 @@ public class MixinCompatibilityTransformer {
                                 LOGGER.debug("Redirected @ModifyExpressionValue/@Inject target: {} -> {}", s, redirected);
                             }
                         } else {
-                            // Preserve non-string entries unchanged.
-                            // newTargets is typed as List<String> for the all-string case;
-                            // if we hit a non-string we fall back to leaving the original list alone.
+                            // non-string entry: leave the original list alone
                             newTargets = null;
                             break;
                         }
@@ -706,48 +632,29 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // Downgrade CAPTURE_FAILHARD to CAPTURE_FAILSOFT.
-            //
-            // WHY: "locals = LocalCapture.CAPTURE_FAILHARD" makes the mixin
-            // framework CRASH the JVM when the local-variable table at the
-            // injection site doesn't match the mixin's expected shape. MC
-            // rewrites method bodies between versions (new locals are added,
-            // removed, or reordered), so a mixin that targeted an older MC's
-            // LVT will often find the new layout incompatible.
-            //
-            // With FAILHARD this manifests as a fatal BootstrapMethodError
-            // at MC class load time and MC refuses to boot. Seen in the wild
-            // with architectury.mixins.json:MixinFallingBlockEntity on 26.1
-            // because FallingBlockEntity.tick() got a ServerLevel local added.
-            //
-            // FAILSOFT keeps the same runtime check but treats a mismatch as
-            // "skip this injection" with a warning, so the mod's specific
-            // feature hooked there is dead but MC launches and everything
-            // else loads. That's the correct tradeoff for "run old mods on
-            // new MC": best-effort, not crash-everything-when-anything-drifts.
-            //
-            // The annotation attribute format for enum values is a String[]
-            // where [0] is the enum descriptor and [1] is the constant name.
+            // Downgrade CAPTURE_FAILHARD to CAPTURE_FAILSOFT. FAILHARD crashes the JVM
+            // (fatal BootstrapMethodError at MC load) when the injection site's local-
+            // variable table doesn't match the mixin's expected shape, which happens
+            // whenever MC adds/removes/reorders locals across versions (e.g. architectury
+            // MixinFallingBlockEntity once FallingBlockEntity.tick() gained a ServerLevel
+            // local on 26.1). FAILSOFT keeps the same check but skips the injection with a
+            // warning, so only that feature dies and MC still boots. Enum values are stored
+            // as a String[]: [0] descriptor, [1] constant name.
             if ("locals".equals(key) && value instanceof String[] enumValue
                     && enumValue.length == 2
                     && "Lorg/spongepowered/asm/mixin/injection/callback/LocalCapture;".equals(enumValue[0])
                     && "CAPTURE_FAILHARD".equals(enumValue[1])) {
-                // Allocate a NEW String[]; don't mutate the value in place.
-                // ASM can hand back the same interned array across multiple
-                // AnnotationNode instances if classnodes are reused during the
-                // iterative-loop's repeated passes. Mutating one instance's
-                // slot would also rewrite every other AnnotationNode pointing
-                // at it, which can make the second pass see no CAPTURE_FAILHARD
-                // and decide the class is "stable" when it isn't.
+                // Allocate a new String[] instead of mutating in place: ASM can share the
+                // same array across AnnotationNode instances when classnodes are reused
+                // across passes, and an in-place edit would rewrite all of them, hiding the
+                // CAPTURE_FAILHARD from a later pass.
                 annotation.values.set(i + 1, new String[]{enumValue[0], "CAPTURE_FAILSOFT"});
                 modified = true;
                 LOGGER.debug("Downgraded CAPTURE_FAILHARD to CAPTURE_FAILSOFT in mixin annotation");
             }
         }
 
-        // Set require=0 on all injection annotations to make them soft-fail.
-        // Old mods on new MC versions should best-effort, not hard-crash when a
-        // target method no longer exists.
+        // require=0 makes injections soft-fail when a target method no longer exists.
         if (!hasRequire) {
             annotation.values.add("require");
             annotation.values.add(0);
@@ -769,7 +676,7 @@ public class MixinCompatibilityTransformer {
             String key = (String) annotation.values.get(i);
             Object value = annotation.values.get(i + 1);
             
-            // Transform "target" which is the method/field reference
+            // "target" is the method/field reference
             if ("target".equals(key) && value instanceof String s) {
                 String redirected = redirectMethodTarget(s);
                 if (!s.equals(redirected)) {
@@ -787,7 +694,7 @@ public class MixinCompatibilityTransformer {
      * Transform @Shadow and @Overwrite annotations.
      */
     private boolean transformShadowAnnotation(AnnotationNode annotation, MethodNode method) {
-        // For @Shadow, the method name itself might need changing
+        // for @Shadow the method name itself is the target
         String oldName = method.name;
         String newName = remapMethodName(oldName);
 
@@ -806,7 +713,6 @@ public class MixinCompatibilityTransformer {
     private boolean transformAccessorAnnotation(AnnotationNode annotation, MethodNode method) {
         boolean modified = false;
 
-        // Check if annotation has explicit "value" parameter
         boolean hasExplicitValue = false;
         if (annotation.values != null) {
             for (int i = 0; i < annotation.values.size(); i += 2) {
@@ -828,30 +734,29 @@ public class MixinCompatibilityTransformer {
             }
         }
 
-        // If no explicit value, derive target from method name and check for redirects
+        // no explicit value: derive the target from the method name
         if (!hasExplicitValue) {
             String methodName = method.name;
             String target = null;
             boolean isInvoker = INVOKER_DESC.equals(annotation.desc);
 
             if (isInvoker && methodName.startsWith("invoke")) {
-                // @Invoker: invokeFindSlot → findSlot
+                // invokeFindSlot -> findSlot
                 target = Character.toLowerCase(methodName.charAt(6)) + methodName.substring(7);
             } else if (methodName.startsWith("get")) {
-                // @Accessor getter: getBoundKey → boundKey
+                // getBoundKey -> boundKey
                 target = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
             } else if (methodName.startsWith("set")) {
-                // @Accessor setter: setBoundKey → boundKey
+                // setBoundKey -> boundKey
                 target = Character.toLowerCase(methodName.charAt(3)) + methodName.substring(4);
             } else if (methodName.startsWith("is")) {
-                // @Accessor boolean getter: isQuickCrafting → quickCrafting (or isQuickCrafting)
-                target = methodName; // Keep as-is, try both forms
+                // boolean getter: keep as-is, try both forms
+                target = methodName;
             }
 
             if (target != null) {
                 String redirected = isInvoker ? remapMethodName(target) : remapFieldName(target);
                 if (!redirected.equals(target)) {
-                    // Add explicit value parameter with the redirected name
                     if (annotation.values == null) {
                         annotation.values = new ArrayList<>();
                     }
@@ -872,13 +777,11 @@ public class MixinCompatibilityTransformer {
      */
     private boolean transformFieldAnnotations(FieldNode field) {
         boolean modified = false;
-        // Check both visible and invisible annotations for @Shadow fields
         for (List<AnnotationNode> annotations : List.of(
                 field.visibleAnnotations != null ? field.visibleAnnotations : List.<AnnotationNode>of(),
                 field.invisibleAnnotations != null ? field.invisibleAnnotations : List.<AnnotationNode>of())) {
             for (AnnotationNode annotation : annotations) {
                 if (SHADOW_DESC.equals(annotation.desc)) {
-                    // Remap field name if it's an intermediary name
                     String oldName = field.name;
                     String newName = remapFieldName(oldName);
                     if (!newName.equals(oldName)) {
@@ -896,10 +799,9 @@ public class MixinCompatibilityTransformer {
      * Redirect a class name if needed.
      */
     private String redirectClassName(String className) {
-        // Convert to internal format if needed
         String internal = className.replace('.', '/');
         String redirected = transformer.getClassRedirects().getOrDefault(internal, internal);
-        // Convert back to original format
+        // preserve the input's separator style
         return className.contains(".") ? redirected.replace('/', '.') : redirected;
     }
     
@@ -911,54 +813,44 @@ public class MixinCompatibilityTransformer {
      * - "Lowner;methodName(Largs;)Lreturn;" (full reference)
      */
     private String redirectMethodTarget(String target) {
-        // Try direct lookup first
         String direct = methodTargetRedirects.get(target);
         if (direct != null) {
             return remapDescriptorClasses(direct);
         }
 
-        // Parse and redirect parts
-        // Format: [Lowner;]methodName[(descriptor)]
-
-        // Check if it contains owner
+        // owner-qualified form: [Lowner;]methodName[(descriptor)]
         if (target.startsWith("L") && target.contains(";")) {
             int semiIdx = target.indexOf(';');
             String owner = target.substring(1, semiIdx);
             String rest = target.substring(semiIdx + 1);
 
-            // Redirect owner
             String newOwner = transformer.getClassRedirects().getOrDefault(owner, owner);
 
-            // Extract method name
             int descIdx = rest.indexOf('(');
             String methodName = descIdx >= 0 ? rest.substring(0, descIdx) : rest;
             String desc = descIdx >= 0 ? rest.substring(descIdx) : "";
 
-            // Redirect method name (check shim redirects, then intermediary names)
             String newMethod = remapMethodName(methodName);
-
-            // Remap class references within the descriptor
             desc = remapDescriptorClasses(desc);
 
             return "L" + newOwner + ";" + newMethod + desc;
         }
 
-        // Check if it has a descriptor
+        // name with descriptor, no owner
         int descIdx = target.indexOf('(');
         if (descIdx >= 0) {
             String methodName = target.substring(0, descIdx);
             String desc = target.substring(descIdx);
 
-            // Never rename constructors/static initializers
+            // never rename constructors/static initializers
             String newMethod = methodName.startsWith("<")
                 ? methodName
                 : remapMethodName(methodName);
-            // Remap class references within the descriptor
             desc = remapDescriptorClasses(desc);
             return newMethod + desc;
         }
 
-        // Simple name: direct lookup (never rename constructors)
+        // bare name (never rename constructors)
         if (target.startsWith("<")) return target;
         return remapMethodName(target);
     }
@@ -967,11 +859,9 @@ public class MixinCompatibilityTransformer {
      * Remap a method name using shim redirects first, then intermediary→Mojang mappings.
      */
     private String remapMethodName(String methodName) {
-        // Check shim-based redirects first
         String redirected = methodTargetRedirects.get(methodName);
         if (redirected != null) return redirected;
 
-        // Check intermediary method names (method_XXXX → Mojang name)
         if (methodName.startsWith("method_")) {
             Map<String, String> intermediaryMethods = transformer.getIntermediaryMethodNames();
             String mojang = intermediaryMethods.get(methodName);
@@ -990,7 +880,7 @@ public class MixinCompatibilityTransformer {
             String mojang = intermediaryFields.get(fieldName);
             if (mojang != null) return mojang;
         }
-        // Also check shim-registered field redirects (e.g. boundKey → key)
+        // shim-registered field redirects (boundKey -> key)
         for (var entry : transformer.getFieldRedirects().entrySet()) {
             if (entry.getKey().name().equals(fieldName)) {
                 return entry.getValue().name();
@@ -1011,7 +901,6 @@ public class MixinCompatibilityTransformer {
         int i = 0;
         while (i < descriptor.length()) {
             if (descriptor.charAt(i) == 'L') {
-                // Found a class reference: find the semicolon
                 int semi = descriptor.indexOf(';', i);
                 if (semi > 0) {
                     String className = descriptor.substring(i + 1, semi);
@@ -1031,19 +920,10 @@ public class MixinCompatibilityTransformer {
     }
     
     /**
-     * Transform a refmap.json file.
-     * Refmaps contain mappings from dev names to obfuscated names.
+     * Transform a refmap.json file (dev names to obfuscated names). Refmap format varies
+     * by Mixin version; not yet implemented, returns the input unchanged.
      */
     public String transformRefmap(String refmapJson) {
-        // Parse JSON, transform mappings, serialize back
-        // This would use Gson to parse and transform
-        
-        // For each mapping entry, check if the target needs redirection
-        // and update accordingly
-        
-        // This is complex because refmap format varies by Mixin version
-        // For now, return unchanged; actual implementation would parse and transform
-        
         return refmapJson;
     }
     
@@ -1063,7 +943,6 @@ public class MixinCompatibilityTransformer {
             return configJson;
         }
 
-        // Extract the package prefix from the config
         String packagePrefix = extractJsonString(configJson, "package");
         if (packagePrefix == null) {
             return configJson;
@@ -1071,13 +950,8 @@ public class MixinCompatibilityTransformer {
 
         String packagePath = packagePrefix.replace('.', '/');
 
-        // Process "mixins" array (common/server)
         configJson = stripBrokenMixinEntries(configJson, "mixins", packagePath, classDataLookup);
-
-        // Process "client" array
         configJson = stripBrokenMixinEntries(configJson, "client", packagePath, classDataLookup);
-
-        // Process "server" array
         configJson = stripBrokenMixinEntries(configJson, "server", packagePath, classDataLookup);
 
         return configJson;
@@ -1091,17 +965,13 @@ public class MixinCompatibilityTransformer {
     }
 
     /**
-     * Process mixin entries: relocate targets where possible, partially strip broken methods,
-     * and only fully strip a mixin as a last resort.
-     *
-     * Three-phase approach per mixin class:
-     *   1. RELOCATE: rewrite annotation targets using redirect maps (method renames, class renames)
-     *   2. PARTIAL STRIP: if some methods reference removed APIs, remove just those methods
-     *   3. FULL STRIP: only if all mixin methods are broken or the class itself can't load
+     * Process the named mixin array per class: (1) relocate annotation targets via redirect
+     * maps, (2) partial-strip methods that reference removed APIs, (3) full-strip only when
+     * every handler is broken or the class itself can't load.
      */
     private String stripBrokenMixinEntries(String json, String arrayKey, String packagePath,
                                             Map<String, byte[]> classDataLookup) {
-        // Find the array in JSON: "client": ["entry1", "entry2", ...]
+        // "client": ["entry1", "entry2", ...]
         Pattern arrayPattern = Pattern.compile(
             "\"" + arrayKey + "\"\\s*:\\s*\\[([^\\]]*)]",
             Pattern.DOTALL
@@ -1114,7 +984,6 @@ public class MixinCompatibilityTransformer {
 
         String arrayContent = matcher.group(1);
 
-        // Extract individual entries
         Pattern entryPattern = Pattern.compile("\"([^\"]+)\"");
         Matcher entryMatcher = entryPattern.matcher(arrayContent);
 
@@ -1133,30 +1002,29 @@ public class MixinCompatibilityTransformer {
             }
 
             if (classData == null) {
-                // Can't find class data: keep it and let the mixin system handle it
+                // no class data: keep it and let the mixin system handle it
                 validEntries.add(mixinClassName);
                 continue;
             }
 
-            // Phase 1: Try to RELOCATE the mixin (rewrite targets using redirect maps)
+            // phase 1: relocate (rewrite targets via redirect maps)
             byte[] relocatedData = relocateMixinClass(classData, fullClassPath);
             boolean wasRelocated = (relocatedData != classData);
 
-            // Phase 2: Try PARTIAL STRIPPING (remove individual broken methods)
+            // phase 2: partial strip (remove individual broken methods)
             PartialStripResult stripResult = partialStripMixin(
                 wasRelocated ? relocatedData : classData, fullClassPath);
 
             if (stripResult.allBroken && !stripResult.isAccessorMixin) {
-                // Phase 3: FULL STRIP, entire mixin is unsalvageable
-                // NEVER strip accessor/invoker mixins (interfaces): stripping them causes
-                // IllegalClassLoadError when code references the mixin class directly.
-                // With required=false, the mixin just fails to apply gracefully instead.
+                // phase 3: full strip. Never strip accessor/invoker interfaces: that causes
+                // IllegalClassLoadError when code references the mixin directly. With
+                // required=false they fail to apply instead.
                 removedEntries.add(mixinClassName);
                 LOGGER.warn("Fully stripping mixin '{}' (all targets removed/broken)", mixinClassName);
             } else {
                 validEntries.add(mixinClassName);
 
-                // Update the class data in the lookup map so it gets written to the JAR
+                // write the updated class back to the lookup so it lands in the JAR
                 byte[] finalData = stripResult.modifiedData != null ? stripResult.modifiedData :
                                    (wasRelocated ? relocatedData : classData);
                 classDataLookup.put(fullClassPath + ".class", finalData);
@@ -1188,7 +1056,6 @@ public class MixinCompatibilityTransformer {
             LOGGER.info("Fully stripped {} mixin(s) from '{}' array: {}", removedEntries.size(), arrayKey, removedEntries);
         }
 
-        // Rebuild the array
         StringBuilder newArray = new StringBuilder("\"" + arrayKey + "\": [");
         for (int i = 0; i < validEntries.size(); i++) {
             if (i > 0) newArray.append(",");
@@ -1218,18 +1085,13 @@ public class MixinCompatibilityTransformer {
     }
 
     /**
-     * Relocate a mixin class by rewriting its annotation targets using the redirect maps.
-     * This handles method renames, class renames, and descriptor updates.
-     * Returns the original data if no relocation was needed.
+     * Relocate a mixin class by rewriting its annotation targets via the redirect maps
+     * (method renames, class renames, descriptor updates). Returns the original data when
+     * no relocation was needed.
      */
     private byte[] relocateMixinClass(byte[] classData, String className) {
         try {
-            // Use the existing transformMixinClass() which already rewrites
-            // @Inject/@Redirect method targets and @At targets using methodTargetRedirects
             byte[] result = transformMixinClass(classData);
-
-            // Also apply class redirects to the mixin's @Mixin target annotations
-            // and any type references in method descriptors
             if (result != classData) {
                 LOGGER.debug("Relocated mixin targets in {}", className);
             }
@@ -1241,8 +1103,8 @@ public class MixinCompatibilityTransformer {
     }
 
     /**
-     * Partially strip a mixin class: remove individual broken methods while keeping working ones.
-     * This preserves partial mod functionality when only some mixin handlers reference removed APIs.
+     * Remove individual broken methods from a mixin while keeping working ones, so the mod
+     * keeps the handlers that don't reference removed APIs.
      */
     private PartialStripResult partialStripMixin(byte[] classData, String className) {
         try {
@@ -1258,13 +1120,11 @@ public class MixinCompatibilityTransformer {
             List<MethodNode> workingMethods = new ArrayList<>();
 
             for (MethodNode method : classNode.methods) {
-                // Skip constructors and non-mixin methods
                 if (method.name.equals("<init>") || method.name.equals("<clinit>")) {
                     workingMethods.add(method);
                     continue;
                 }
 
-                // Check if this specific method has broken references
                 if (isMethodBroken(method, classNode)) {
                     brokenMethods.add(method);
                 } else {
@@ -1273,7 +1133,7 @@ public class MixinCompatibilityTransformer {
             }
 
             if (brokenMethods.isEmpty()) {
-                // Nothing broken: check class-level issues (superclass, @Shadow fields)
+                // nothing broken: check class-level issues (superclass, @Shadow fields)
                 if (hasClassLevelBreakage(classNode)) {
                     boolean isAccessor = (classNode.access & Opcodes.ACC_INTERFACE) != 0;
                     return new PartialStripResult(true, null, 0, 0, isAccessor);
@@ -1281,25 +1141,21 @@ public class MixinCompatibilityTransformer {
                 return new PartialStripResult(false, null, 0, workingMethods.size());
             }
 
-            // Check if ALL mixin handler methods are broken
             long workingHandlers = workingMethods.stream()
                 .filter(m -> !m.name.equals("<init>") && !m.name.equals("<clinit>"))
                 .count();
 
             if (workingHandlers == 0) {
-                // All handlers are broken: full strip
-                // But check if it's an accessor mixin (interface with only abstract methods)
+                // all handlers broken: full strip (interface accessor mixins flagged separately)
                 boolean isAccessor = (classNode.access & Opcodes.ACC_INTERFACE) != 0;
                 return new PartialStripResult(true, null, brokenMethods.size(), 0, isAccessor);
             }
 
-            // Partial strip: remove broken methods, keep working ones
             for (MethodNode broken : brokenMethods) {
                 classNode.methods.remove(broken);
                 LOGGER.debug("Stripped broken method '{}' from mixin {}", broken.name, className);
             }
 
-            // Write modified class
             ClassWriter writer = new ClassWriter(0);
             classNode.accept(writer);
             byte[] modifiedData = writer.toByteArray();
@@ -1312,11 +1168,9 @@ public class MixinCompatibilityTransformer {
         }
     }
 
-    /**
-     * Check if a specific method in a mixin class has broken references.
-     */
+    /** Whether a mixin method references a removed/unresolved method, field, or class. */
     private boolean isMethodBroken(MethodNode method, ClassNode classNode) {
-        // Check bytecode instructions for removed method/field/class references
+        // bytecode references to removed methods/fields/classes
         if (method.instructions != null) {
             for (var insn : method.instructions) {
                 if (insn instanceof MethodInsnNode methodInsn) {
@@ -1331,7 +1185,7 @@ public class MixinCompatibilityTransformer {
             }
         }
 
-        // Check mixin annotation targets, BOTH visible and invisible
+        // mixin annotation targets (visible and invisible)
         for (List<AnnotationNode> annotations : List.of(
                 method.visibleAnnotations != null ? method.visibleAnnotations : List.<AnnotationNode>of(),
                 method.invisibleAnnotations != null ? method.invisibleAnnotations : List.<AnnotationNode>of())) {
@@ -1341,7 +1195,7 @@ public class MixinCompatibilityTransformer {
                     List<String> targets = extractAnnotationMethodTargets(ann);
                     for (String target : targets) {
                         if (isKnownRemovedMethod("." + target)) return true;
-                        // Detect unresolved intermediary method names (not in our mapping)
+                        // intermediary name not in our mapping
                         if (hasUnresolvedIntermediaryName(target)) return true;
                     }
                     List<String> atTargets = extractAtTargets(ann);
@@ -1350,19 +1204,15 @@ public class MixinCompatibilityTransformer {
                         if (hasUnresolvedIntermediaryName(atTarget)) return true;
                     }
                 }
-                // @Overwrite on removed method
                 if (OVERWRITE_DESC.equals(ann.desc)) {
                     if (isKnownRemovedMethod("." + method.name)) return true;
                 }
-                // @Shadow on unresolved intermediary method
                 if (SHADOW_DESC.equals(ann.desc)) {
                     if (method.name.startsWith("method_") || method.name.startsWith("field_")) {
                         return true;
                     }
                 }
-                // @Accessor/@Invoker with unresolved intermediary or removed targets
                 if (ACCESSOR_DESC.equals(ann.desc) || INVOKER_DESC.equals(ann.desc)) {
-                    // Check the "value" field if present
                     if (ann.values != null) {
                         for (int ai = 0; ai < ann.values.size(); ai += 2) {
                             if ("value".equals(ann.values.get(ai)) && ann.values.get(ai + 1) instanceof String val) {
@@ -1372,13 +1222,12 @@ public class MixinCompatibilityTransformer {
                             }
                         }
                     }
-                    // Also check the method's return type for removed classes
+                    // return type referencing a removed class
                     if (method.desc != null && method.desc.contains("class_")) {
                         return true;
                     }
-                    // If the accessor/invoker descriptor references a polyfill embedded class,
-                    // the original type was removed/changed and the accessor won't match
-                    // the target field's type in the new MC version.
+                    // a polyfill type in the descriptor means the original type changed,
+                    // so the accessor won't match the target field's new type
                     if (method.desc != null && method.desc.contains("com/retromod/polyfill/")) {
                         return true;
                     }
@@ -1386,7 +1235,7 @@ public class MixinCompatibilityTransformer {
             }
         }
 
-        // Check return type references
+        // return type referencing a removed class
         if (method.desc != null) {
             int retIdx = method.desc.lastIndexOf(')');
             if (retIdx >= 0) {
@@ -1401,17 +1250,13 @@ public class MixinCompatibilityTransformer {
         return false;
     }
 
-    /**
-     * Check for class-level breakage that affects the entire mixin
-     * (e.g., superclass removed, @Shadow fields on removed targets).
-     */
+    /** Class-level breakage affecting the whole mixin (removed superclass, @Shadow on removed targets). */
     private boolean hasClassLevelBreakage(ClassNode classNode) {
-        // Check superclass
         if (classNode.superName != null && isKnownRemovedClass(classNode.superName)) {
             return true;
         }
 
-        // Check @Shadow fields referencing removed types, both visible and invisible
+        // @Shadow fields referencing removed types (visible and invisible)
         for (FieldNode field : classNode.fields) {
             for (List<AnnotationNode> annotations : List.of(
                     field.visibleAnnotations != null ? field.visibleAnnotations : List.<AnnotationNode>of(),
@@ -1419,8 +1264,7 @@ public class MixinCompatibilityTransformer {
                 for (AnnotationNode ann : annotations) {
                     if (SHADOW_DESC.equals(ann.desc)) {
                         if (isKnownRemovedField("." + field.name)) return true;
-                        // Unresolved intermediary field names
-                        if (field.name.startsWith("field_")) return true;
+                        if (field.name.startsWith("field_")) return true; // unresolved intermediary
                         if (field.desc != null && field.desc.startsWith("L") && field.desc.endsWith(";")) {
                             String fieldType = field.desc.substring(1, field.desc.length() - 1);
                             if (isKnownRemovedClass(fieldType)) return true;
@@ -1449,12 +1293,11 @@ public class MixinCompatibilityTransformer {
                 return false;
             }
 
-            // Check for references to known-removed classes/methods
             Set<String> referencedClasses = new HashSet<>();
             Set<String> referencedMethods = new HashSet<>();
             Set<String> referencedFields = new HashSet<>();
 
-            // Scan bytecode instructions for class/method/field references
+            // scan bytecode for class/method/field references
             for (MethodNode method : classNode.methods) {
                 if (method.instructions == null) continue;
 
@@ -1471,7 +1314,7 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // Check @Shadow fields: if they reference return types that are removed inner classes
+            // @Shadow field types
             for (FieldNode field : classNode.fields) {
                 if (field.desc != null && field.desc.startsWith("L") && field.desc.endsWith(";")) {
                     String refClass = field.desc.substring(1, field.desc.length() - 1);
@@ -1479,7 +1322,7 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // Check method return types and parameter types
+            // method return types
             for (MethodNode method : classNode.methods) {
                 if (method.desc != null) {
                     int retIdx = method.desc.lastIndexOf(')');
@@ -1493,16 +1336,14 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // --- Check mixin annotation targets ---
-            // This catches @Inject(method="oldMethod"), @Redirect(target="..."),
-            // @Overwrite methods with old names, @Shadow fields with old names
+            // mixin annotation targets: @Inject(method=), @Redirect(target=),
+            // @Overwrite/@Shadow with old names
 
-            // Check @Overwrite methods: if the method name matches a removed/renamed method
             for (MethodNode method : classNode.methods) {
                 if (method.visibleAnnotations != null) {
                     for (AnnotationNode ann : method.visibleAnnotations) {
                         if (OVERWRITE_DESC.equals(ann.desc)) {
-                            // The method name IS the target: check if it's removed
+                            // for @Overwrite the method name is the target
                             if (isKnownRemovedMethod("." + method.name)) {
                                 LOGGER.debug("Mixin {} has @Overwrite on removed method: {}", className, method.name);
                                 return true;
@@ -1512,13 +1353,11 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // Check @Inject/@Redirect method targets from annotations
             for (MethodNode method : classNode.methods) {
                 if (method.visibleAnnotations == null) continue;
                 for (AnnotationNode ann : method.visibleAnnotations) {
                     if (INJECT_DESC.equals(ann.desc) || REDIRECT_DESC.equals(ann.desc) ||
                         MODIFY_ARG_DESC.equals(ann.desc) || MODIFY_VAR_DESC.equals(ann.desc)) {
-                        // Check "method" targets
                         List<String> targets = extractAnnotationMethodTargets(ann);
                         for (String target : targets) {
                             if (isKnownRemovedMethod("." + target)) {
@@ -1526,7 +1365,6 @@ public class MixinCompatibilityTransformer {
                                 return true;
                             }
                         }
-                        // Check @At targets
                         List<String> atTargets = extractAtTargets(ann);
                         for (String atTarget : atTargets) {
                             if (isKnownRemovedMethod(atTarget.replace(";", "."))) {
@@ -1538,7 +1376,7 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // Check @Shadow fields by name
+            // @Shadow fields by name
             for (FieldNode field : classNode.fields) {
                 if (field.visibleAnnotations != null) {
                     for (AnnotationNode ann : field.visibleAnnotations) {
@@ -1552,8 +1390,7 @@ public class MixinCompatibilityTransformer {
                 }
             }
 
-            // --- Check against known-removed registries ---
-
+            // referenced classes/methods/fields against the known-removed registries
             for (String refClass : referencedClasses) {
                 if (isKnownRemovedClass(refClass)) {
                     LOGGER.debug("Mixin {} references removed class: {}", className, refClass);
@@ -1654,10 +1491,7 @@ public class MixinCompatibilityTransformer {
         return null;
     }
 
-    // --- Known removed classes and methods registry ---
-    // These are classes/methods that were completely removed between MC versions
-    // and would cause mixin application to crash
-
+    // classes/methods removed between MC versions; referencing them crashes mixin application
     private static final Set<String> KNOWN_REMOVED_CLASSES = new HashSet<>();
     private static final Set<String> KNOWN_REMOVED_METHODS = new HashSet<>();
     private static final Set<String> KNOWN_REMOVED_FIELDS = new HashSet<>();
@@ -1707,16 +1541,12 @@ public class MixinCompatibilityTransformer {
         // handled by the shim's method redirect system, not stripped.
     }
 
-    /**
-     * Register additional known-removed classes. Called during polyfill registration.
-     */
+    /** Register a known-removed class (called during polyfill registration). */
     public static void registerRemovedClass(String internalName) {
         KNOWN_REMOVED_CLASSES.add(internalName);
     }
 
-    /**
-     * Register additional known-removed methods. Called during shim registration.
-     */
+    /** Register a known-removed method (called during shim registration). */
     public static void registerRemovedMethod(String ownerAndName) {
         KNOWN_REMOVED_METHODS.add(ownerAndName);
     }
@@ -1735,8 +1565,7 @@ public class MixinCompatibilityTransformer {
     }
 
     private boolean isKnownRemovedMethod(String refMethod) {
-        // refMethod format: "owner.nameDesc"
-        // Check against "owner.name" (without descriptor)
+        // refMethod is "owner.nameDesc"; the entries are "owner.name" prefixes
         for (String removed : KNOWN_REMOVED_METHODS) {
             if (refMethod.startsWith(removed)) {
                 return true;
@@ -1746,19 +1575,17 @@ public class MixinCompatibilityTransformer {
     }
 
     /**
-     * Check if a method target string contains unresolved intermediary names.
-     * If a method_XXXX or class_XXXX name survived all remapping passes, it means
-     * the target was removed from Minecraft and the reference is broken.
+     * Whether a method target still contains an intermediary name. A surviving
+     * method_XXXX/class_XXXX means the target was removed from Minecraft and the
+     * reference is broken.
      */
     private boolean hasUnresolvedIntermediaryName(String target) {
         if (target == null) return false;
-        // Check for unresolved class_XXXX in any part of the string (including descriptors)
         if (target.contains("class_")) return true;
-        // Extract method name part (before descriptor)
         int descIdx = target.indexOf('(');
         String methodPart;
         if (target.contains(";") && target.startsWith("L")) {
-            // Full reference: Lowner;methodName(desc)
+            // full reference: Lowner;methodName(desc)
             int semiIdx = target.indexOf(';');
             methodPart = descIdx >= 0 ? target.substring(semiIdx + 1, descIdx) : target.substring(semiIdx + 1);
         } else {

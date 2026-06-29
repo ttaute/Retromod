@@ -24,14 +24,8 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Tests for {@link ReflectionStringRemapper}. Covers:
- * <ul>
- *   <li>Basic {@code Class.forName("net.minecraft.X")} rewrite</li>
- *   <li>Inner-class {@code $} notation</li>
- *   <li>Non-sink LDCs are left alone (no false positives)</li>
- *   <li>Loader-API rename table is consulted as a fallback</li>
- *   <li>Metrics (rewrite count, suspicious unmapped)</li>
- * </ul>
+ * Tests for {@link ReflectionStringRemapper}: forName rewrites, inner-class
+ * notation, non-sink LDCs, the loader-API fallback table, and metrics.
  */
 class ReflectionStringRemapperTest {
 
@@ -39,7 +33,6 @@ class ReflectionStringRemapperTest {
 
     @BeforeEach
     void setUp() {
-        // Slashed-form class rename: net/minecraft/util/math/BlockPos → net/minecraft/core/BlockPos
         Map<String, String> slashedClassRedirects = new HashMap<>();
         slashedClassRedirects.put(
                 "net/minecraft/util/math/BlockPos",
@@ -48,7 +41,6 @@ class ReflectionStringRemapperTest {
                 "net/minecraft/util/text/TextFormatting",
                 "net/minecraft/ChatFormatting");
 
-        // Loader rename via the curated table (test-only factory)
         LoaderApiRenames loaderRenames = LoaderApiRenames.forTesting(
                 Map.of("net/minecraftforge/eventbus/api/IEventBus",
                        "net/neoforged/bus/api/IEventBus"),
@@ -78,8 +70,8 @@ class ReflectionStringRemapperTest {
     @Test
     @DisplayName("Loader-API rename is applied via the curated table fallback")
     void rewritesLoaderApiClassFqn() {
-        // NOTE: loader rename matches use slash-form internal names, but reflection
-        // strings use dotted FQNs. The remapper converts both directions internally.
+        // loader renames key on slash-form internal names; reflection strings are
+        // dotted FQNs, so the remapper converts both directions
         byte[] classBytes = classWithForNameCall("net.minecraftforge.eventbus.api.IEventBus");
         byte[] remapped = remapper.remap(classBytes);
         assertTrue(containsStringConstant(remapped, "net.neoforged.bus.api.IEventBus"),
@@ -98,10 +90,10 @@ class ReflectionStringRemapperTest {
     @Test
     @DisplayName("Strings not near reflection sinks are left alone")
     void leavesNonReflectionStringsAlone() {
-        // A class with the MC-looking string loaded but NOT followed by a reflection sink
+        // MC-looking string loaded but not followed by a reflection sink
         byte[] classBytes = classWithStringDataOnly("net.minecraft.util.math.BlockPos");
         byte[] remapped = remapper.remap(classBytes);
-        // No rewrite = same bytes reference returned (remapper's short-circuit)
+        // no rewrite returns the same bytes reference
         assertSame(classBytes, remapped,
                 "Remapper must not modify strings outside reflection sinks");
         assertEquals(0, remapper.getStringsRemapped());
@@ -110,7 +102,7 @@ class ReflectionStringRemapperTest {
     @Test
     @DisplayName("Unmapped MC-looking FQN at a sink is flagged as suspicious")
     void suspiciousUnmappedIsCounted() {
-        // MC-shaped string + reflection sink, but no rename registered for it
+        // MC-shaped string at a sink, but no rename registered for it
         byte[] classBytes = classWithForNameCall("net.minecraft.world.unknown.MadeUpClass");
         byte[] remapped = remapper.remap(classBytes);
         assertSame(classBytes, remapped, "No rewrite means same bytes returned");
@@ -125,8 +117,7 @@ class ReflectionStringRemapperTest {
         byte[] remapped = remapper.remap(classBytes);
         assertSame(classBytes, remapped);
         assertEquals(0, remapper.getStringsRemapped());
-        // java.util.ArrayList doesn't match the MC FQN pattern so it's not even
-        // "suspicious"; it's simply outside our scope of interest.
+        // java.util.ArrayList isn't an MC FQN, so not even flagged as suspicious
         assertEquals(0, remapper.getSuspiciousUnmapped());
     }
 
