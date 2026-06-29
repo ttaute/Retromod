@@ -147,6 +147,13 @@ def main():
             mcver = os.path.basename(os.path.dirname(jar))
             base = os.path.basename(jar)
             version_number = f"{args.version}+{mcver}-{loader_name}"
+            # Modrinth caps version_number at 32 chars. Shorten the loader suffix ONLY when the
+            # full name would exceed that (e.g. a long snapshot string + 8-char MC + "-neoforge"),
+            # so every name that already fits is left unchanged and re-runs stay idempotent. The
+            # loaders=[...] field is what actually tags the version's loader, not this suffix.
+            if len(version_number) > 32:
+                short = {"fabric": "fa", "neoforge": "nf", "forge": "fg"}.get(loader_name, loader_name[:2])
+                version_number = f"{args.version}+{mcver}-{short}"
             name = f"Retromod {args.version} ({loader_dir} {mcver})"
             if loader_name not in loaders:
                 print(f"  SKIP {base}: Modrinth has no '{loader_name}' loader tag"); skipped += 1; continue
