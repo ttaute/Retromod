@@ -493,21 +493,21 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                 ║                                                            ║
                 ║   ⚠️  DO NOT PUT OLD MODS DIRECTLY IN THIS FOLDER!  ⚠️    ║
                 ║                                                            ║
-                ║   If you put old mods here, Minecraft will CRASH with      ║
-                ║   "mod requires Minecraft 1.20.x" errors!                  ║
+                ║   If you put old mods here, Minecraft will CRASH           ║
+                ║                                                            ║
                 ║                                                            ║
                 ╠════════════════════════════════════════════════════════════╣
                 ║                                                            ║
                 ║   WHERE TO PUT OLD MODS:                                   ║
                 ║                                                            ║
                 ║   Option 1 (Recommended):                                  ║
-                ║   📁 .minecraft/retromod-input/                            ║
+                ║   .minecraft/retromod-input/                               ║
                 ║                                                            ║
                 ║   Option 2 (Also works):                                   ║
-                ║   📁 .minecraft/mods/retromod-input/                       ║
+                ║   .minecraft/mods/retromod-input/                           ║
                 ║      (There's a folder inside THIS mods folder!)           ║
                 ║                                                            ║
-                ║   ⚠️  IMPORTANT: drop mods directly in retromod-input/.    ║
+                ║   IMPORTANT: drop mods directly in retromod-input/.       ║
                 ║   Do NOT put them in the `processed/` subfolder! That's    ║
                 ║   where Retromod moves originals AFTER it transforms       ║
                 ║   them - mods dropped there are skipped and won't load.   ║

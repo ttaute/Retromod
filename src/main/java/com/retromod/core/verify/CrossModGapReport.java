@@ -20,39 +20,6 @@ import java.util.Set;
 /**
  * Aggregates {@link VerificationReport}s across many mods into a single "gap"
  * report that ranks MC references by how many different mods miss them.
- *
- * <h3>Why aggregate?</h3>
- * <p>A per-mod report tells you "this mod is broken." The cross-mod view tells
- * you "these 20 missing references account for 80% of all breakage in the
- * ecosystem: write polyfills for them and most mods start working." That's
- * the data that drives shim/polyfill prioritization decisions.</p>
- *
- * <h3>Aggregation key</h3>
- * <p>References are grouped by {@link UnresolvedReference#identityKey()},
- * which includes kind + owner + name + descriptor, but NOT source location.
- * The same method-not-found reference from 50 different mods collapses into
- * one entry with {@code count=50}.</p>
- *
- * <h3>Usage</h3>
- * <pre>
- * CrossModGapReport agg = new CrossModGapReport(targetMcVersion);
- * for (Path modJar : mods) {
- *     VerificationReport perMod = verifier.verify(...);
- *     agg.merge(perMod);
- * }
- * agg.writeTo(System.out);
- * </pre>
- *
- * <h3>Thread safety</h3>
- * <p><b>Not thread-safe.</b> The aggregator uses plain {@link HashMap} /
- * {@link HashSet} + int counter, which means {@link #merge} calls must be
- * serialized externally. The CLI {@code gaps} command processes mods
- * sequentially, so a single aggregator instance is safe there. If mod
- * iteration is ever parallelized, callers must either use one aggregator
- * per worker thread and merge them afterward, OR externally synchronize
- * every {@code merge} call. Per-class work inside a single mod is already
- * parallelized; that concurrency is contained within the per-mod
- * {@link VerificationReport}, which IS thread-safe.</p>
  */
 public final class CrossModGapReport {
 
