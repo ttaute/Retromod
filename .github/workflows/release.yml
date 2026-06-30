@@ -79,7 +79,7 @@ jobs:
 
       - name: Produce per-loader, per-MC JARs via build-all.sh
         # build-all.sh strips fabric.mod.json/mods.toml/neoforge.mods.toml
-        # down to one per output JAR. The Fabric/26.1.2 directory is the
+        # down to one per output JAR. The Fabric/26.2 directory is the
         # one we publish.
         run: bash build-all.sh --skip-build
 
@@ -87,7 +87,7 @@ jobs:
         id: ver
         run: |
           POM_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-          MC_VERSION=26.1.2
+          MC_VERSION=26.2
 
           # build-all.sh emits dist/Fabric/<MC>/retromod-<ver>+<MC>.jar.
           # We rename to make the loader explicit in the downloaded filename

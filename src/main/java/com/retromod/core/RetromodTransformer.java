@@ -58,6 +58,14 @@ public class RetromodTransformer implements ClassFileTransformer {
     private final Set<MethodKey> neutralizedMethods = ConcurrentHashMap.newKeySet();
     private final Set<String> neutralizedMethodOwners = ConcurrentHashMap.newKeySet();
 
+    // Like methodRedirects, but the new method dropped one or more TRAILING parameters the call
+    // still passes. On match the extra trailing values are popped before the (renamed) call, so a
+    // method that was renamed AND lost a tail arg still links. Chunk force-loading needs this:
+    // ServerChunkCache.addRegionTicket(TicketType,ChunkPos,int,T) -> addTicketWithRadius(TicketType,
+    // ChunkPos,int) on 26.1 (the value arg was dropped). Keyed/owner-tracked like methodRedirects.
+    private final Map<MethodKey, MethodTarget> argDropRedirects = new ConcurrentHashMap<>();
+    private final Set<String> argDropOwners = ConcurrentHashMap.newKeySet();
+
     // oldClassName -> newClassName (JVM internal names). Fed into ClassRemapper, which
     // rewrites class refs everywhere (descriptors, signatures, annotations).
     private final Map<String, String> classRedirects = new ConcurrentHashMap<>(64);
@@ -101,6 +109,10 @@ public class RetromodTransformer implements ClassFileTransformer {
     // Super constructor descriptor changes: a parent ctor gained required params in newer
     // MC; pushes extra args before INVOKESPECIAL (e.g. Button gained CreateNarration).
     private final Map<ConstructorKey, SuperCtorRedirect> superCtorRedirects = new ConcurrentHashMap<>(8);
+
+    // Owners of removed classes whose static-field reads (e.g. 1.12.2 Material.IRON) become a
+    // pushed default instead of faulting on the missing class. See registerStaticFieldNuller.
+    private final Set<String> staticFieldNullers = ConcurrentHashMap.newKeySet();
 
     // Only classes in these packages get transformed (mod code, not MC itself).
     private final Set<String> transformablePackages = ConcurrentHashMap.newKeySet();
@@ -305,6 +317,22 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     /**
+     * Register a method redirect whose new method DROPPED one or more trailing parameters the call
+     * still passes. On match the extra trailing values are popped before the renamed call. The kept
+     * leading args must match the new method's params; only contiguous trailing args may be dropped.
+     * Use where a method was renamed AND lost a tail arg (e.g. 26.1
+     * {@code ServerChunkCache.addRegionTicket(TicketType,ChunkPos,int,T)} ->
+     * {@code addTicketWithRadius(TicketType,ChunkPos,int)}).
+     */
+    public void registerArgDropMethodRedirect(
+            String oldOwner, String oldName, String oldDesc,
+            String newOwner, String newName, String newDesc) {
+        argDropRedirects.put(new MethodKey(oldOwner, oldName, oldDesc),
+                new MethodTarget(newOwner, newName, newDesc));
+        argDropOwners.add(oldOwner);
+    }
+
+    /**
      * Register a vanilla Mojang->Mojang method rename (same owner + descriptor, name
      * only), e.g. {@code ResourceKey.location -> identifier} on 26.x. Unlike
      * {@link #registerMethodRedirect}, this goes through the ClassRemapper's
@@ -423,6 +451,20 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     /**
+     * Register a super-constructor descriptor change where the new params differ in TYPE from the
+     * old (not an append). At the {@code super(...)} call the old argument values are popped and a
+     * fresh default is pushed for each new param. 1.12.2 {@code Block(Material)} -> {@code Block(Properties)}:
+     * pop the (removed-type) Material, push {@code BlockBehaviour.Properties.of()}.
+     */
+    public void registerSuperConstructorReplace(String className, String oldDesc, String newDesc) {
+        superCtorRedirects.put(
+            new ConstructorKey(className, oldDesc),
+            new SuperCtorRedirect(newDesc, "__REPLACE_DEFAULTS__", "", ""));
+        LOGGER.debug("Registered super ctor replace: {}.{} -> {} (pop old, push defaults)",
+            className, oldDesc, newDesc);
+    }
+
+    /**
      * Register intermediary method and field name mappings for bytecode remapping.
      * These are used by the Remapper to translate method_XXXX and field_XXXX names
      * in method calls, field accesses, @Shadow annotations, etc.
@@ -535,6 +577,17 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     /**
+     * Owners of removed classes whose static-field reads should become a pushed default (null / 0)
+     * rather than fault on the missing class. Used by the 1.12.2 Block bridge: {@code super(Material.IRON)}
+     * reads {@code Material.IRON} before the super call, but Material was removed in 26.1, so the
+     * GETSTATIC would NoClassDefFoundError. We push the field type's default; the super-ctor replace
+     * bridge then pops it and substitutes a default {@code Properties}.
+     */
+    public void registerStaticFieldNuller(String owner) {
+        staticFieldNullers.add(owner);
+    }
+
+    /**
      * Mark a package as containing legacy mod code that should be transformed.
      */
     public void addTransformablePackage(String packagePrefix) {
@@ -617,6 +670,9 @@ public class RetromodTransformer implements ClassFileTransformer {
      */
     public void clearRedirectsForTesting() {
         methodRedirects.clear();
+        argDropRedirects.clear();
+        argDropOwners.clear();
+        staticFieldNullers.clear();
         mojangMethodRenames.clear();
         // These member-name maps drive the remap gate (hasIntermediaryNames); leaving them
         // populated lets a prior test's applyTo() / registerSrgNameMappings() leak into the next.
@@ -710,7 +766,7 @@ public class RetromodTransformer implements ClassFileTransformer {
         if (methodRedirects.isEmpty() && classRedirects.isEmpty() &&
                 fieldRedirects.isEmpty() && superclassRedirects.isEmpty() &&
                 neutralizedMethods.isEmpty() && staticFieldAccessors.isEmpty() &&
-                mojangMethodRenames.isEmpty() &&
+                mojangMethodRenames.isEmpty() && argDropRedirects.isEmpty() &&
                 constructorRedirects.isEmpty() && fieldAccessorRedirects.isEmpty()) {
             return originalBytes;
         }
@@ -1462,7 +1518,8 @@ public class RetromodTransformer implements ClassFileTransformer {
             // and the non-<init> invokespecial fixup also lives in the wrapper.
             if (methodRedirects.isEmpty() && fieldRedirects.isEmpty() && constructorRedirects.isEmpty()
                     && fieldAccessorRedirects.isEmpty() && superclassRedirects.isEmpty()
-                    && neutralizedMethods.isEmpty() && staticFieldAccessors.isEmpty()) {
+                    && neutralizedMethods.isEmpty() && staticFieldAccessors.isEmpty()
+                    && argDropRedirects.isEmpty()) {
                 return mv;
             }
             return new RetromodMethodVisitor(api, mv, currentClassName, currentSuperName,
@@ -1602,10 +1659,9 @@ public class RetromodTransformer implements ClassFileTransformer {
                 char c = paramFragment.charAt(i);
                 switch (c) {
                     case 'L' -> {
-                        // Object type → push null
-                        super.visitInsn(Opcodes.ACONST_NULL);
                         int end = paramFragment.indexOf(';', i);
                         if (end < 0) return; // malformed (no ';'): indexOf+1 would reset i to 0 and spin forever emitting ACONST_NULL
+                        pushDefaultObject(paramFragment.substring(i + 1, end));
                         i = end + 1;
                     }
                     case '[' -> {
@@ -1634,6 +1690,36 @@ public class RetromodTransformer implements ClassFileTransformer {
                     case 'B', 'C', 'S' -> { super.visitInsn(Opcodes.ICONST_0); i++; }
                     default -> i++; // skip unknown
                 }
+            }
+        }
+
+        /**
+         * Push a default value for an object-typed parameter. Most types get {@code null}, but a
+         * Block/Item {@code Properties} can't be null (the constructor dereferences it), so we
+         * construct a real default: {@code new Item.Properties()} / {@code BlockBehaviour.Properties.of()}.
+         * Used by the 1.12.2 super-constructor bridge, where {@code super(Material)} / {@code super()}
+         * become {@code super(Properties)} (26.1 made Block/Item Properties-constructed). The block/item
+         * gets vanilla-default properties; behaviour-specific settings are lost but it constructs.
+         */
+        private void pushDefaultObject(String internalType) {
+            switch (internalType) {
+                case "net/minecraft/world/item/Item$Properties" -> {
+                    super.visitTypeInsn(Opcodes.NEW, internalType);
+                    super.visitInsn(Opcodes.DUP);
+                    super.visitMethodInsn(Opcodes.INVOKESPECIAL, internalType, "<init>", "()V", false);
+                }
+                case "net/minecraft/world/level/block/state/BlockBehaviour$Properties" ->
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, internalType, "of",
+                            "()Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;", false);
+                default -> super.visitInsn(Opcodes.ACONST_NULL);
+            }
+        }
+
+        /** Pop the argument values of a descriptor off the stack (the implicit {@code this} is left). */
+        private void popArgsForDescriptor(String desc) {
+            org.objectweb.asm.Type[] args = org.objectweb.asm.Type.getArgumentTypes(desc);
+            for (int i = args.length - 1; i >= 0; i--) {
+                super.visitInsn(args[i].getSize() == 2 ? Opcodes.POP2 : Opcodes.POP);
             }
         }
 
@@ -1926,6 +2012,13 @@ public class RetromodTransformer implements ClassFileTransformer {
                         // Simple approach: parse parameter types from both
                         String extra = newParams.substring(oldParams.length());
                         pushDefaultsForDescriptor(extra);
+                    } else if ("__REPLACE_DEFAULTS__".equals(scr.extraFieldOwner())) {
+                        // New ctor params differ in TYPE from the old (not an append): pop every old
+                        // arg, then push a fresh default for each new param. 1.12.2 Block(Material) ->
+                        // Block(Properties): pop the Material, push BlockBehaviour.Properties.of().
+                        popArgsForDescriptor(descriptor);
+                        String newParams = scr.newDesc().substring(1, scr.newDesc().indexOf(')'));
+                        pushDefaultsForDescriptor(newParams);
                     } else if (scr.extraFieldOwner() != null) {
                         // Push extra argument from a static field
                         super.visitFieldInsn(Opcodes.GETSTATIC,
@@ -1973,7 +2066,7 @@ public class RetromodTransformer implements ClassFileTransformer {
 
             // Fast path: owner not in the redirect set. Still try pattern heuristics and fuzzy
             // resolution for unresolved references, since they cover the whole MC API surface.
-            if (!methodRedirectOwners.contains(owner)) {
+            if (!methodRedirectOwners.contains(owner) && !argDropOwners.contains(owner)) {
                 // Try pattern heuristics FIRST; faster and more reliable than fuzzy
                 PatternHeuristics patterns = patternHeuristics;
                 if (patterns != null) {
@@ -2025,6 +2118,25 @@ public class RetromodTransformer implements ClassFileTransformer {
                 if (!resolvedDesc.equals(descriptor)) {
                     MethodKey resolvedKey = new MethodKey(owner, name, resolvedDesc);
                     target = methodRedirects.get(resolvedKey);
+                }
+            }
+
+            // Arg-dropping redirect: the new method dropped trailing param(s) the call still passes.
+            if (target == null && !argDropRedirects.isEmpty()) {
+                MethodTarget drop = argDropRedirects.get(key);
+                if (drop == null && !classRedirects.isEmpty()) {
+                    String rd = resolveDescriptor(descriptor);
+                    if (!rd.equals(descriptor)) drop = argDropRedirects.get(new MethodKey(owner, name, rd));
+                }
+                if (drop != null) {
+                    org.objectweb.asm.Type[] oldArgs = org.objectweb.asm.Type.getArgumentTypes(descriptor);
+                    org.objectweb.asm.Type[] newArgs = org.objectweb.asm.Type.getArgumentTypes(drop.desc);
+                    // Pop the dropped trailing values (top of stack), last-pushed first, then call.
+                    for (int i = oldArgs.length - 1; i >= newArgs.length; i--) {
+                        super.visitInsn(oldArgs[i].getSize() == 2 ? Opcodes.POP2 : Opcodes.POP);
+                    }
+                    super.visitMethodInsn(opcode, drop.owner, drop.name, drop.desc, isInterface);
+                    return;
                 }
             }
 
@@ -2186,6 +2298,20 @@ public class RetromodTransformer implements ClassFileTransformer {
                     }
                     LOGGER.trace("Static-field accessor redirect: {}.{} -> {}.{}.{}()",
                             owner, name, sfa.collectionOwner(), sfa.collectionField(), sfa.methodName());
+                    return;
+                }
+                // Removed class's static constant -> push the field type's default (no class ref).
+                // 1.12.2 super(Material.IRON): Material is gone in 26.1; the super-ctor replace bridge
+                // pops this default and substitutes a real Properties.
+                if (staticFieldNullers.contains(owner)) {
+                    switch (descriptor.charAt(0)) {
+                        case 'J' -> super.visitInsn(Opcodes.LCONST_0);
+                        case 'D' -> super.visitInsn(Opcodes.DCONST_0);
+                        case 'F' -> super.visitInsn(Opcodes.FCONST_0);
+                        case 'I', 'Z', 'B', 'C', 'S' -> super.visitInsn(Opcodes.ICONST_0);
+                        default -> super.visitInsn(Opcodes.ACONST_NULL); // object or array
+                    }
+                    LOGGER.trace("Static-field nuller: GETSTATIC {}.{} -> default", owner, name);
                     return;
                 }
             }

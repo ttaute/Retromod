@@ -820,6 +820,17 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/client/rendering/v1/world/WorldRenderContext",
             "net/fabricmc/fabric/api/client/rendering/v1/level/LevelRenderContext"
         );
+
+        // Chunk force-loading: 26.1 renamed ServerChunkCache.addRegionTicket(TicketType,ChunkPos,int,T)
+        // to addTicketWithRadius(TicketType,ChunkPos,int) AND dropped the value arg. A plain rename
+        // can't (the arity changed); the arg-dropping redirect pops the dropped value then calls the
+        // 3-arg method. 1.18-era chunk-loading mods (Chunky) hit this, crashing worlds on load.
+        transformer.registerArgDropMethodRedirect(
+            "net/minecraft/server/level/ServerChunkCache", "addRegionTicket",
+            "(Lnet/minecraft/server/level/TicketType;Lnet/minecraft/world/level/ChunkPos;ILjava/lang/Object;)V",
+            "net/minecraft/server/level/ServerChunkCache", "addTicketWithRadius",
+            "(Lnet/minecraft/server/level/TicketType;Lnet/minecraft/world/level/ChunkPos;I)V"
+        );
     }
 
     @Override

@@ -226,6 +226,66 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraftforge/fml/common/SidedProxy",
             "com/retromod/shim/forge/embedded/SidedProxyShim"
         );
+
+        // Client sound interface: the 1.17 repackaging moved client/audio/ISound to
+        // client/resources/sounds/SoundInstance (same name on 1.20.1 and 26.1). Ungated: the target
+        // exists on every supported host (1.18+). The Betweenlands hit this as its only gap (#113).
+        transformer.registerClassRedirect(
+            "net/minecraft/client/audio/ISound",
+            "net/minecraft/client/resources/sounds/SoundInstance"
+        );
+
+        // 1.12.2 -> 26.1 class-move baseline (data-driven). 308 of the 344 issues on a real
+        // 1.12.2 mod (Metallurgy 4, #103) are class moves; this table is the dominant fix. Called
+        // last so its final 26.1 names win over the intermediate 1.13 names above. Gated to a 26.1+
+        // host inside the loader, since the targets are 26.1 names.
+        loadDirectClassMoves(transformer);
+    }
+
+    private static final String CLASS_MOVES_RESOURCE = "/retromod/forge-1.12.2-class-moves.tsv";
+
+    /**
+     * Load the bundled 1.12.2 (MCP) -> 26.1 (Mojang) class-move table. Direct final-name moves,
+     * every target validated against the 26.1 jar at harvest time. Additive and soft-failing: if
+     * the resource is missing or a line is malformed, the hardcoded chain redirects still apply.
+     */
+    void loadDirectClassMoves(RetromodTransformer transformer) {
+        if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
+                com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
+            return; // targets are 26.1 names; on a pre-26.1 host the per-version chain applies
+        }
+        try (java.io.InputStream is = getClass().getResourceAsStream(CLASS_MOVES_RESOURCE)) {
+            if (is == null) return;
+            try (java.io.BufferedReader r = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    if (line.isBlank() || line.charAt(0) == '#') continue;
+                    int t = line.indexOf('\t');
+                    if (t <= 0) continue;
+                    transformer.registerClassRedirect(line.substring(0, t).trim(), line.substring(t + 1).trim());
+                }
+            }
+        } catch (Exception e) {
+            // additive; the hardcoded chain redirects above still apply
+        }
+
+        // Block/Item Properties-constructor bridge. 26.1 made Block/Item Properties-constructed, so a
+        // 1.12.2 custom item's super() and a custom block's super(Material) have no matching ctor and
+        // fail at construction. Item: super() -> super(new Item.Properties()). Block: super(Material) ->
+        // super(BlockBehaviour.Properties.of()) (Material was removed; its GETSTATIC is nulled below and
+        // popped by the replace bridge). Default properties only (material-specific settings are lost),
+        // but the block/item constructs.
+        transformer.registerSuperConstructorRedirect(
+            "net/minecraft/world/item/Item", "()V",
+            "(Lnet/minecraft/world/item/Item$Properties;)V");
+        transformer.registerSuperConstructorReplace(
+            "net/minecraft/world/level/block/Block",
+            "(Lnet/minecraft/block/material/Material;)V",
+            "(Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;)V");
+        // Material was removed in 26.1; null its static-constant reads (e.g. Material.IRON) so the
+        // super(Material.X) read doesn't fault before the replace bridge pops it.
+        transformer.registerStaticFieldNuller("net/minecraft/block/material/Material");
     }
 
     @Override
