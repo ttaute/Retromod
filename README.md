@@ -6,6 +6,7 @@
 [![Minecraft 1.20 - 26.2](https://img.shields.io/badge/Minecraft-1.20%20--%2026.2-green.svg)](https://minecraft.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.1.0-blueviolet.svg)]()
+[![wakatime](https://wakatime.com/badge/github/Bownlux/Retromod.svg)](https://wakatime.com/badge/github/Bownlux/Retromod)
 
 **Made by the developers of [RevivalSMP.net](https://revivalsmp.net)**
 
