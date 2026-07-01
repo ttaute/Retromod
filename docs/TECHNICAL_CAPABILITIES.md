@@ -1,13 +1,19 @@
-# THIS FILE IS DEPRECATED! IT'S LAST BIG UPDATE WAS IN IN [eba9142](https://github.com/Bownlux/Retromod/commit/eba91426ae0a8bee6f7eef57b66175e4e13dbf18) OR ON MARCH 6. THIS IN ONLY AVALIBLE STILL FOR PERSERVING WHAT RETROMOD WAS.
+# THIS FILE IS DEPRECATED! IT'S LAST BIG UPDATE WAS IN IN [eba9142](https://github.com/Bownlux/Retromod/commit/eba91426ae0a8bee6f7eef57b66175e4e13dbf18) OR ON MARCH 6. THIS IS ONLY AVALIBLE STILL FOR PERSERVING WHAT RETROMOD WAS. SOME STUFF IS STILL VALID BUT SOME STUFF ISENT VALID ANYMORE.
 
 
-# Retromod Technical Capabilities
+<details>
+  <summary>File as it was historically made</summary>
+  
+ # Retromod Technical Capabilities
 
 ## What Can Be Done vs What Cannot
 
 This document explains the technical possibilities and limitations of mod transformation.
 
 ---
+
+
+
 
 ## TIER 1: Definitely Possible (We Do This Now)
 
@@ -354,3 +360,5 @@ Fresh Animations is a **resource pack** (JSON + textures), not Java code:
 - ✅ We rename texture paths
 - The companion mod (like Entity Model Features) is separate
 
+
+</details>
