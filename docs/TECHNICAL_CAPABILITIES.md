@@ -1,3 +1,6 @@
+# THIS FILE IS DEPRECATED! IT'S LAST BIG UPDATE WAS IN IN [eba9142](https://github.com/Bownlux/Retromod/commit/eba91426ae0a8bee6f7eef57b66175e4e13dbf18) OR ON MARCH 6. THIS IN ONLY AVALIBLE STILL FOR PERSERVING WHAT RETROMOD WAS.
+
+
 # Retromod Technical Capabilities
 
 ## What Can Be Done vs What Cannot
@@ -342,10 +345,6 @@ Here's how this breaks down for mods that do more than just use public APIs.
 | Shader code | ❌ No |
 | Custom physics engine (if native) | ❌ No |
 
-**Realistic assessment:**
-- Simple updates (1.21.4 → 1.21.11): 70% chance with enhanced system
-- Major updates (1.20.4 → 1.21.11): 40% chance
-- Very old (1.19 → 1.21.11): 20% chance
 
 **Example: a resource pack like Fresh Animations**
 
