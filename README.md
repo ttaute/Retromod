@@ -66,7 +66,7 @@ There's no `.exe`/`.app`/installer. Retromod is a Minecraft mod, loaded by your 
 
 > **On MC 26.2, use the OpenGL renderer.** 26.2 makes the new **Vulkan** backend the default, but translated old mods that do their own OpenGL rendering can glitch, render nothing, or crash on Vulkan: they need the still-present OpenGL backend. Retromod sets `preferredGraphicsBackend:"opengl"` automatically the first time it runs on a 26.2+ client (it won't override a backend you picked yourself); to set or confirm it manually, use **Video Settings → Graphics API → OpenGL**. Opt out with `-Dretromod.graphics.noPreference=true`. (No-op on macOS, which runs OpenGL-over-Metal anyway. OpenGL is expected to be removed in 26.3; see the [roadmap](ROADMAP.md).)
 
-Experimental chains (1.12.2-1.15.2) cross enormous API breaks like The Flattening. 1.14-1.15 mods often work with rough edges; 1.12.2 support is currently transform-level (mods convert and get scanned, but full in-game loading is still ahead, targeted at 1.2.0 final). Stable chains (1.16.5+) translate cleanly for the vast majority of mods.
+Experimental chains (1.12.2-1.15.2) cross enormous API breaks like The Flattening. 1.14-1.15 mods often work with rough edges; 1.12.2 support is currently transform-level (mods convert and get scanned, but full in-game loading is still ahead, targeted at 1.2.0 - 1.5.0 final). Stable chains (1.16.5+) translate cleanly for the vast majority of mods.
 
 ---
 
