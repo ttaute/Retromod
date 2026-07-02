@@ -61,11 +61,11 @@ public class HybridTransformationEngine {
         this.versionDetector = new ModVersionDetector();
         this.performanceMonitor = MemorySafetyMonitor.getInstance();
 
-        try {
-            Files.createDirectories(AOT_CACHE_DIR);
-        } catch (IOException e) {
-            LOGGER.warn("Could not create AOT cache directory", e);
-        }
+        // Creates the cache dir AND wipes it when the Retromod build changed since it was
+        // written. Critical here: the per-class preload below (loadAotCache) trusts every
+        // .class file in the directory with no version check, so without this stamp an
+        // updated Retromod kept serving the PREVIOUS build's cached transforms.
+        com.retromod.aot.AotCacheStamp.ensureCurrent(AOT_CACHE_DIR);
 
         this.backgroundExecutor = Executors.newFixedThreadPool(
             Math.max(1, Runtime.getRuntime().availableProcessors() - 1),

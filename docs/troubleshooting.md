@@ -128,7 +128,7 @@ Retromod has a `quilt.mod.json` baked into the Fabric JAR specifically so Quilt'
 
 These are Forge SRG names, short numeric identifiers that old Forge mods (anything built with ForgeGradle's `reobfJar` task, basically every Forge mod for MC < 1.20.5) use to reference Minecraft members. Forge's runtime used to remap them back to real names; Forge 64.x for MC 26.1+ dropped that remap layer, so reobf'd mods crash on first reference.
 
-Retromod ships a dictionary that handles the common ones (~120 entries covering Block/Item statics and the highest-frequency Component/ResourceLocation methods), but it's an explicitly incomplete starter set. The full SRG namespace has tens of thousands of entries.
+Retromod ships a dictionary generated from Forge's MCPConfig data joined with Mojang's official mappings (~53,000 field and method entries; SRG ids are version-stable, so the 1.20.1 harvest covers the whole 1.17-1.20.4 SRG era), so the overwhelming majority of SRG names resolve out of the box. A name can still be missing if the member didn't exist in 1.20.1, i.e. it was added in 1.20.2-1.20.4 or removed in an earlier version.
 
 If you hit one of these errors:
 
@@ -234,7 +234,7 @@ The usual cause: a mod **bundles** a library inside itself (jar-in-jar: you'll s
 
 **Fix: remove the standalone copy** of the duplicated library from `mods/`. The bundled one is already provided by the mod that ships it. Look at the two module names in the error: the one *with* a suffix like `.forge` is typically the bundled copy; remove the other (plain) standalone jar, or vice-versa, leaving exactly one.
 
-If removing the duplicate leaves you with the *original* "library missing" crash, that's the real problem. The bundled library is a Forge build inside a NeoForge mod (or a jar-in-jar dependency Retromod hasn't translated). Translating Forge-API libraries onto NeoForge and recursing metadata-patching into jar-in-jar dependencies are both tracked for a future release; for now those mods are most reliable on a matching **Forge** instance. (#95)
+If removing the duplicate leaves you with the *original* "library missing" crash, that's the real problem. The bundled library is a Forge build inside a NeoForge mod (or a jar-in-jar dependency Retromod hasn't translated). Retromod now recurses its full transform and metadata patching into jar-in-jar dependencies (a Forge-built nested library on a NeoForge host also gets its `mods.toml` promoted), and snapshot.7 adds a Forge→NeoForge API migration layer, so update to the latest build first. If the nested library still fails, those mods also run reliably on a matching **Forge** instance. (#95)
 
 ## NeoForge: my old (1.20.1) mod doesn't appear at all
 
@@ -244,11 +244,11 @@ If a 1.20.1 (Neo)Forge mod simply isn't in the mod list (often with a log line l
 
 ## NeoForge: a 1.20.1 *Forge* mod loads, then crashes (IForgeRegistry / FMLJavaModLoadingContext)
 
-If a 1.20.1 mod gets scanned but then crashes during mod construction with `NoClassDefFoundError: …/FMLJavaModLoadingContext`, `NoSuchFieldError: NeoForgeRegistries … BLOCKS`, or similar registry errors, this is a **known limitation**, not a bug to chase.
+If a 1.20.1 mod gets scanned but then crashes during mod construction with `NoClassDefFoundError: …/FMLJavaModLoadingContext`, `NoSuchFieldError: NeoForgeRegistries … BLOCKS`, or similar registry errors, update to **1.2.0-snapshot.7 or later**, which ships a Forge→NeoForge migration layer that bridges exactly these APIs. If it still crashes on snapshot.7+, please file an issue with the log.
 
-1.20.1 was NeoForge's first release, when it still shared Forge's API (`ForgeRegistries`/`IForgeRegistry`, the old `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext`, `net.minecraftforge.*` packages). NeoForge replaced all of it in 1.20.2+, so a 1.20.1 *Forge* mod uses APIs modern NeoForge no longer has. Translating it onto NeoForge is the entire Forge→NeoForge migration, which is **planned for Retromod 1.2.0**, not the rc line.
+1.20.1 was NeoForge's first release, when it still shared Forge's API (`ForgeRegistries`/`IForgeRegistry`, the old `DeferredRegister.create(IForgeRegistry, …)` signature, `FMLJavaModLoadingContext`, `net.minecraftforge.*` packages). NeoForge replaced all of it in 1.20.2+, so a 1.20.1 *Forge* mod uses APIs modern NeoForge no longer has. Translating it onto NeoForge is the entire Forge→NeoForge migration, and **Retromod 1.2.0-snapshot.7 ships the first cut of it**: bridges for `FMLJavaModLoadingContext`, the old registry idiom, and the mod event bus, verified in-game on NeoForge 26.2.
 
-**What to do today:** run a Forge mod on a **Forge** host. On Forge 26.1.x those APIs still exist natively, so it's a within-loader version bump rather than a cross-loader rewrite. (NeoForge mods translate onto NeoForge fine; this is specifically *Forge mod → NeoForge host*.) Details: [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}).
+**If you're on an older build, or the mod still crashes on snapshot.7+:** run the Forge mod on a **Forge** host. Retromod ships Forge builds for every MC version through 26.2, and those APIs still exist natively on Forge, so it's a within-loader version bump rather than a cross-loader rewrite. (NeoForge mods translate onto NeoForge fine; this is specifically *Forge mod → NeoForge host*.) Details: [Mods That Can't Be Translated]({{ '/incompatible-mods' | relative_url }}).
 
 ## Pre-26.1 host: old mod crashes on a 26.1-only name (`BeforeExtract`, `LevelRenderContext`, `ItemHandler`)
 

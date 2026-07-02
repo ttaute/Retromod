@@ -9,9 +9,9 @@ Retromod installs like any other Minecraft mod: drop the JAR in your `mods/` fol
 
 ## Requirements
 
-- **Minecraft:** 26.1.2 (the current target). 26.2 is supported as of 1.1.0-snapshot.4; that jar ships when Minecraft 26.2 releases. Hosts back to 1.20 are also supported.
+- **Minecraft:** 1.20 through 26.2 on Fabric and Forge; 1.20.1 through 26.2 on NeoForge (NeoForge skipped the 26.1 and 26.1.1 patches, so its 26.x line is 26.1.2 and 26.2).
 - **Mod loader:** Fabric, NeoForge, or Forge
-- **Java:** 25 or newer (Minecraft 26.1 ships its own Java runtime, so this is usually taken care of automatically)
+- **Java:** whatever your Minecraft version needs: 17 for 1.20-1.20.4, 21 for 1.20.5-1.21.x, 25 for 26.x (Minecraft ships its own Java runtime, so this is usually taken care of automatically)
 
 ## Get the JAR
 
@@ -19,7 +19,7 @@ Grab the latest release from GitHub:
 
 > [github.com/Bownlux/Retromod/releases](https://github.com/Bownlux/Retromod/releases)
 
-The file you want is named something like `retromod-1.1.0.jar`. Download it somewhere you'll remember. Your Downloads folder is fine.
+The file you want is named something like `retromod-1.2.0-snapshot.7+26.2.jar`; grab the jar matching your Minecraft version and mod loader. Download it somewhere you'll remember. Your Downloads folder is fine.
 
 ## Find your Minecraft game directory
 
@@ -37,13 +37,13 @@ If you're using a launcher like Prism, MultiMC, or ATLauncher, each instance has
 
 1. Open your game directory.
 2. If there's no `mods/` folder, create one.
-3. Drop `retromod-1.1.0.jar` into `mods/`.
+3. Drop `retromod-1.2.0-snapshot.7+<your MC version>.jar` into `mods/`.
 4. Launch Minecraft.
 
 That's it. On macOS, the command-line version of step 3 looks like:
 
 ```bash
-cp ~/Downloads/retromod-1.1.0.jar \
+cp ~/Downloads/retromod-1.2.0-snapshot.7+26.2.jar \
   ~/Library/Application\ Support/minecraft/mods/
 ```
 

@@ -32,7 +32,26 @@ public final class McReflect {
     private static volatile Method mapClassNameMethod;
     private static volatile boolean resolverInitialized = false;
 
+    // Offline override so the CLI can force the Forge -> NeoForge migration path (shim redirects,
+    // toml promotion) without a live NeoForge runtime. Default false; only the CLI --target-loader
+    // neoforge flag flips it, so nothing changes for a normal in-game run.
+    private static volatile boolean forceNeoForge = false;
+
     private McReflect() {}
+
+    /**
+     * Force {@link #isNeoForge()} to report true regardless of the runtime. Used by the CLI's
+     * {@code --target-loader neoforge} to drive the offline Forge -> NeoForge transform (there is
+     * no live NeoForge on the CLI classpath). Off by default; never set on an in-game path.
+     */
+    public static void setForceNeoForge(boolean force) {
+        forceNeoForge = force;
+    }
+
+    /** Whether the offline NeoForge-target override is active. */
+    public static boolean isForceNeoForge() {
+        return forceNeoForge;
+    }
 
     /**
      * Find a Minecraft class by trying each name via Class.forName (dev + Mojang
@@ -227,7 +246,7 @@ public final class McReflect {
      * Check if we're running on NeoForge.
      */
     public static boolean isNeoForge() {
-        return classExists("net.neoforged.neoforge.common.NeoForge");
+        return forceNeoForge || classExists("net.neoforged.neoforge.common.NeoForge");
     }
 
     /**

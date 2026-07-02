@@ -63,6 +63,20 @@ public class ForgeEventApiShim implements VersionShim {
         loadBulkEventRenames(transformer);
         loadBulkFmlRenames(transformer);
 
+        // FMLJavaModLoadingContext.get().getModEventBus() is the first thing almost every Forge @Mod
+        // constructor calls, and NeoForge DELETED the class (unlike the fml/** classes above that it
+        // kept under the same name, so it's excluded from the bulk FML table). Redirect the Forge
+        // reference to the name ForgeNeoForgeSynthetics registers the B4 bridge synthetic under, so
+        // SyntheticEmbedder embeds that bridge per-mod (com/retromod/embedded/<mod>/). Without this the
+        // Forge reference survives, the embedder never matches it, and the mod dies at construct with
+        // NoClassDefFoundError (#85, Macaw's on NeoForge 26.2). Registered here (not in the runtime-only
+        // Forge_1_20_to_NeoForge_1_21 shim) so it applies on BOTH the offline CLI/AOT batch and the
+        // live NeoForge runtime; the API shims run on both paths, that migration shim only at runtime.
+        transformer.registerClassRedirect(
+            "net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext",
+            "net/neoforged/fml/javafmlmod/FMLJavaModLoadingContext"
+        );
+
         // event bus
         transformer.registerClassRedirect(
             "net/minecraftforge/eventbus/api/IEventBus",
@@ -287,8 +301,10 @@ public class ForgeEventApiShim implements VersionShim {
 
     /**
      * Forge {@code fml/**} classes NeoForge kept under the same name in {@code net/neoforged/fml/**}
-     * (the {@code @Mod} lifecycle: FMLCommonSetupEvent, ModConfigEvent, ...). Classes handled in
-     * {@code Forge_1_20_to_NeoForge_1_21} and the FMLJavaModLoadingContext synthetic are excluded.
+     * (the {@code @Mod} lifecycle: FMLCommonSetupEvent, ModConfigEvent, ...). FMLJavaModLoadingContext
+     * is NOT in this table because NeoForge deleted it; {@link #registerRedirects} redirects it to the
+     * B4 bridge synthetic's name explicitly (a same-name bulk entry would point at a class that
+     * doesn't exist on NeoForge).
      */
     void loadBulkFmlRenames(RetromodTransformer transformer) {
         loadRenameTable(transformer, FML_RENAMES_RESOURCE, "FML");

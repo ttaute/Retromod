@@ -58,14 +58,48 @@ class DyedBlockAccessorTest {
     }
 
     @Test
-    @DisplayName("all 4 dyed-block families x 16 colours register as static-field accessors")
+    @DisplayName("all 28 dyed families (14 block + 14 item) x 16 colours register as static-field accessors")
     void allFamiliesRegistered() {
         RetromodTransformer t = RetromodTransformer.getInstance();
         t.clearRedirectsForTesting();
         try {
             Mc26_1To26_2CoreMoves.register(t);
-            assertEquals(64, t.getStaticFieldAccessorCount(),
-                    "CANDLE + CANDLE_CAKE + SHULKER_BOX + TERRACOTTA, 16 colours each");
+            assertEquals(448, t.getStaticFieldAccessorCount(),
+                    "14 Blocks families + 14 Items families, 16 colours each");
+        } finally {
+            t.clearRedirectsForTesting();
+        }
+    }
+
+    @Test
+    @DisplayName("a removed per-color ITEM field becomes Items.<collection>.pick(color) cast to Item (not Block)")
+    void itemFamilyCastsToItem() {
+        String ITEMS = "net/minecraft/world/item/Items";
+        String ITEM = "net/minecraft/world/item/Item";
+        String ITEM_DESC = "Lnet/minecraft/world/item/Item;";
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        cw.visit(V17, ACC_PUBLIC, "test/item/UsesDyedItem", null, "java/lang/Object", null);
+        MethodVisitor a = cw.visitMethod(ACC_PUBLIC, "whiteWoolItem", "()" + ITEM_DESC, null, null);
+        a.visitCode();
+        a.visitFieldInsn(GETSTATIC, ITEMS, "WHITE_WOOL", ITEM_DESC);
+        a.visitInsn(ARETURN);
+        a.visitMaxs(1, 1);
+        a.visitEnd();
+        cw.visitEnd();
+
+        RetromodTransformer t = RetromodTransformer.getInstance();
+        t.clearRedirectsForTesting();
+        try {
+            Mc26_1To26_2CoreMoves.register(t);
+            ClassNode cn = new ClassNode();
+            new ClassReader(t.transformClass(cw.toByteArray(), "test/item/UsesDyedItem")).accept(cn, 0);
+            MethodNode m = method(cn, "whiteWoolItem");
+            assertFalse(hasField(m, GETSTATIC, ITEMS, "WHITE_WOOL"), "Items.WHITE_WOOL should be rewritten away");
+            assertTrue(hasField(m, GETSTATIC, ITEMS, "WOOL"), "should load Items.WOOL (the ColorCollection)");
+            assertTrue(hasField(m, GETSTATIC, DYE_COLOR, "WHITE"), "should load DyeColor.WHITE");
+            assertTrue(hasMethod(m, INVOKEVIRTUAL, COLOR_COLLECTION, "pick"), "should call ColorCollection.pick");
+            assertTrue(hasCast(m, ITEM), "should checkcast to Item (a Block cast here would VerifyError at load)");
+            assertFalse(hasCast(m, BLOCK), "must NOT cast an Item collection result to Block");
         } finally {
             t.clearRedirectsForTesting();
         }

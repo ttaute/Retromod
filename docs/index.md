@@ -10,7 +10,7 @@ permalink: /
 
 Run old Minecraft mods on new Minecraft versions. It transforms mod bytecode at load time so a mod built for, say, 1.16.5 can run on 26.1 without recompiling anything or asking the original author to update.
 
-It works on Fabric, NeoForge, and Forge. The shim chain covers MC 1.12.2 (the Java 8 floor) through 26.1.
+It works on Fabric, NeoForge, and Forge. The shim chain covers MC 1.12.2 (the Java 8 floor) through 26.2.
 
 <div class="retromod-hero-cta" style="margin: 1.5em 0;">
   <a class="retromod-btn retromod-btn-primary" href="https://github.com/Bownlux/Retromod/releases">Download</a>

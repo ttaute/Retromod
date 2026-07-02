@@ -87,8 +87,8 @@ You have to preserve the copyright notice and MIT license text somewhere in the 
 
 ## What Minecraft versions are supported?
 
-- **Target:** Minecraft 26.1.2 and **26.2** (26.2 support landed in 1.1.0-snapshot.4; as of 1.1.0 the **Fabric and NeoForge** 26.2 jars ship now that those loaders have released for 26.2; **Forge has no 26.2 build yet**, so a Forge 26.2 jar follows when it does). This is the version your transformed mods run *on*. On 26.2, use the **OpenGL** renderer (see below).
-- **Source:** mods built for 1.12.2 and newer. That's the version the mod was originally released for.
+- **Target:** Minecraft 1.20 through **26.2**, with a host jar for every version in between (Fabric and Forge hosts start at 1.20, NeoForge at 1.20.1; NeoForge skipped the 26.1 and 26.1.1 patches, so its 26.x jars are 26.1.2 and 26.2). As of the 1.2.0 snapshots all three loaders ship 26.2 jars: **Fabric, NeoForge, and Forge** (Forge 65.x has released for 26.2, and the Forge 26.2 jar is verified in-game). This is the version your transformed mods run *on*. On 26.2, use the **OpenGL** renderer (see below).
+- **Source:** mods built for 1.12.2 and newer. That's the version the mod was originally released for. (1.12.2 specifically is transform-level so far: the mod gets translated and scanned, but full in-game loading is still ahead, targeted for 1.2.0 final.)
 
 So you can take a Fabric mod built for 1.20.1 and run it on 26.1.2, or a mod built for 1.16.5 and run it on 26.1.2. 1.12.2 is the oldest source we currently support.
 

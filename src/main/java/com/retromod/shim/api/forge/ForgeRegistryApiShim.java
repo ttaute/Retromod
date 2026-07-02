@@ -7,7 +7,9 @@
 package com.retromod.shim.api.forge;
 
 import com.retromod.core.RetromodTransformer;
+import com.retromod.core.RetromodVersion;
 import com.retromod.core.VersionShim;
+import com.retromod.shim.forge.RegistryIdBridgeSynthetic;
 import com.retromod.util.McReflect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +87,39 @@ public class ForgeRegistryApiShim implements VersionShim {
             "create",
             "(Lnet/minecraft/core/Registry;Ljava/lang/String;)Lnet/neoforged/neoforge/registries/DeferredRegister;"
         );
+
+        // #87: MC 26.x (1.21.3+) requires the registry id stamped on Block/Item Properties BEFORE the
+        // object is constructed (BlockBehaviour.<init> -> requireNonNull(id, "Block id not set")). A Forge
+        // 1.20.1 mod's DeferredRegister.register(String, Supplier) builds the object inside the supplier
+        // with no id, so it dies at RegisterEvent. Route registration + Properties creation through the
+        // RegistryIdBridge synthetic, which threads the id via a ThreadLocal (set by the register wrapper,
+        // read by the Properties factories). Gated to 26.1+ hosts: pre-1.21.3 has no Properties.setId, so
+        // these would NoSuchMethodError there.
+        if (RetromodVersion.isUnobfuscatedTarget(RetromodVersion.TARGET_MC_VERSION)) {
+            final String B = RegistryIdBridgeSynthetic.INTERNAL;
+            // dr.register(name, supplier) -> RegistryIdBridge.register(dr, name, supplier) [devirtualize: receiver becomes arg 0]
+            transformer.registerMethodRedirect(
+                "net/neoforged/neoforge/registries/DeferredRegister", "register",
+                "(Ljava/lang/String;Ljava/util/function/Supplier;)Lnet/neoforged/neoforge/registries/DeferredHolder;",
+                B, "register", RegistryIdBridgeSynthetic.REGISTER_DESC, true);
+            // Block Properties factories -> id-stamping helpers (no-op when the thread-local isn't set).
+            transformer.registerMethodRedirect(
+                "net/minecraft/world/level/block/state/BlockBehaviour$Properties", "of",
+                "()Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;",
+                B, "blockOf", RegistryIdBridgeSynthetic.BLOCK_OF_DESC);
+            transformer.registerMethodRedirect(
+                "net/minecraft/world/level/block/state/BlockBehaviour$Properties", "ofFullCopy",
+                "(Lnet/minecraft/world/level/block/state/BlockBehaviour;)Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;",
+                B, "blockOfFullCopy", RegistryIdBridgeSynthetic.BLOCK_COPY_DESC);
+            transformer.registerMethodRedirect(
+                "net/minecraft/world/level/block/state/BlockBehaviour$Properties", "ofLegacyCopy",
+                "(Lnet/minecraft/world/level/block/state/BlockBehaviour;)Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;",
+                B, "blockOfLegacyCopy", RegistryIdBridgeSynthetic.BLOCK_COPY_DESC);
+            // new Item.Properties() -> id-stamping factory.
+            transformer.registerConstructorRedirect(
+                "net/minecraft/world/item/Item$Properties", "()V",
+                B, "itemProps", RegistryIdBridgeSynthetic.ITEM_PROPS_DESC);
+        }
 
         // Do NOT class-redirect ForgeRegistries: a class redirect rewrites the GETSTATIC owner before
         // the field redirects below can match, and NeoForgeRegistries has no BLOCKS/ITEMS/... so the

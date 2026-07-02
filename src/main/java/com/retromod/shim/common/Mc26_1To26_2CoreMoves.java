@@ -28,6 +28,20 @@ public final class Mc26_1To26_2CoreMoves {
     private Mc26_1To26_2CoreMoves() {}
 
     public static void register(RetromodTransformer t) {
+        // 26.2 changed the STRUCTURE_PROCESSOR registry to hold MapCodecs directly; a 1.21.x
+        // mod's SAM-lambda registration then breaks every datapack processor_list that
+        // references it. Convert at the Registry.register boundary (#98 worldgen chain).
+        WorldgenTypeBridgeSynthetic.register(t);
+
+        // StructureProcessor itself became an INTERFACE on 26.2 (26.1: abstract class), so a
+        // 1.21.x processor's `extends StructureProcessor` dies at class definition with
+        // IncompatibleClassChangeError "has interface ... as super class" (YUNG's Better
+        // Dungeons processors on the 26.2 server). Rebase to Object + implement the interface.
+        t.registerSuperclassRebase(
+            "net/minecraft/world/level/levelgen/structure/templatesystem/StructureProcessor",
+            "java/lang/Object",
+            "net/minecraft/world/level/levelgen/structure/templatesystem/StructureProcessor");
+
         t.registerClassRedirect("com/mojang/blaze3d/pipeline/RenderPipeline$UniformDescription",
                 "com/mojang/blaze3d/pipeline/BindGroupLayout$UniformDescription");
 
@@ -423,16 +437,52 @@ public final class Mc26_1To26_2CoreMoves {
                     "net/minecraft/world/level/block/entity/BlockEntityTypes", f);
         }
 
-        // 26.2 folded the 16 per-color block families into ColorCollection<Block> fields
-        // (Blocks.DYED_CANDLE) and dropped the per-color ones (Blocks.WHITE_CANDLE). Rewrite
-        // each old GETSTATIC as Blocks.DYED_<FAMILY>.pick(DyeColor.<COLOR>) cast to Block.
-        registerDyedBlockFields(t, "CANDLE", "DYED_CANDLE");
-        registerDyedBlockFields(t, "CANDLE_CAKE", "DYED_CANDLE_CAKE");
-        registerDyedBlockFields(t, "SHULKER_BOX", "DYED_SHULKER_BOX");
-        registerDyedBlockFields(t, "TERRACOTTA", "DYED_TERRACOTTA");
+        // 26.2 folded each per-color family (16 colors) of Block/Item constants into a single
+        // ColorCollection field and dropped the per-color constants (Blocks.WHITE_WOOL -> Blocks.WOOL,
+        // Blocks.WHITE_CANDLE -> Blocks.DYED_CANDLE). Rewrite each old GETSTATIC as
+        // <owner>.<collection>.pick(DyeColor.<COLOR>) cast back to Block/Item. The collection field name
+        // is IRREGULAR (WOOL keeps its name; CANDLE/TERRACOTTA/SHULKER_BOX gain a DYED_ prefix), so each
+        // family carries its exact collection field. Every collection field below was verified present on
+        // 26.2 Blocks/Items, and every per-color constant was verified REMOVED (so an accessor never
+        // shadows a live field). Shared across loaders: 26.2 is Mojang-named on Fabric/NeoForge/Forge alike.
+        // Blocks (suffix -> collection field on Blocks):
+        registerDyedFields(t, BLOCKS, BLOCK, "WOOL", "WOOL");
+        registerDyedFields(t, BLOCKS, BLOCK, "CARPET", "CARPET");
+        registerDyedFields(t, BLOCKS, BLOCK, "CONCRETE", "CONCRETE");
+        registerDyedFields(t, BLOCKS, BLOCK, "CONCRETE_POWDER", "CONCRETE_POWDER");
+        registerDyedFields(t, BLOCKS, BLOCK, "STAINED_GLASS", "STAINED_GLASS");
+        registerDyedFields(t, BLOCKS, BLOCK, "STAINED_GLASS_PANE", "STAINED_GLASS_PANE");
+        registerDyedFields(t, BLOCKS, BLOCK, "BED", "BED");
+        registerDyedFields(t, BLOCKS, BLOCK, "BANNER", "BANNER");
+        registerDyedFields(t, BLOCKS, BLOCK, "WALL_BANNER", "WALL_BANNER");
+        registerDyedFields(t, BLOCKS, BLOCK, "GLAZED_TERRACOTTA", "GLAZED_TERRACOTTA");
+        registerDyedFields(t, BLOCKS, BLOCK, "TERRACOTTA", "DYED_TERRACOTTA");
+        registerDyedFields(t, BLOCKS, BLOCK, "SHULKER_BOX", "DYED_SHULKER_BOX");
+        registerDyedFields(t, BLOCKS, BLOCK, "CANDLE", "DYED_CANDLE");
+        registerDyedFields(t, BLOCKS, BLOCK, "CANDLE_CAKE", "DYED_CANDLE_CAKE");
+        // Items (suffix -> collection field on Items). Items adds DYE and DYED_BUNDLE (no block form) and
+        // omits CANDLE_CAKE / WALL_BANNER (block-only). HARNESS is new in 26.2 with no pre-26.2 per-color
+        // constant, so it needs no accessor.
+        registerDyedFields(t, ITEMS, ITEM, "WOOL", "WOOL");
+        registerDyedFields(t, ITEMS, ITEM, "CARPET", "CARPET");
+        registerDyedFields(t, ITEMS, ITEM, "CONCRETE", "CONCRETE");
+        registerDyedFields(t, ITEMS, ITEM, "CONCRETE_POWDER", "CONCRETE_POWDER");
+        registerDyedFields(t, ITEMS, ITEM, "STAINED_GLASS", "STAINED_GLASS");
+        registerDyedFields(t, ITEMS, ITEM, "STAINED_GLASS_PANE", "STAINED_GLASS_PANE");
+        registerDyedFields(t, ITEMS, ITEM, "BED", "BED");
+        registerDyedFields(t, ITEMS, ITEM, "BANNER", "BANNER");
+        registerDyedFields(t, ITEMS, ITEM, "GLAZED_TERRACOTTA", "GLAZED_TERRACOTTA");
+        registerDyedFields(t, ITEMS, ITEM, "TERRACOTTA", "DYED_TERRACOTTA");
+        registerDyedFields(t, ITEMS, ITEM, "SHULKER_BOX", "DYED_SHULKER_BOX");
+        registerDyedFields(t, ITEMS, ITEM, "CANDLE", "DYED_CANDLE");
+        registerDyedFields(t, ITEMS, ITEM, "DYE", "DYE");
+        registerDyedFields(t, ITEMS, ITEM, "BUNDLE", "DYED_BUNDLE");
     }
 
     private static final String BLOCKS = "net/minecraft/world/level/block/Blocks";
+    private static final String ITEMS = "net/minecraft/world/item/Items";
+    private static final String BLOCK = "net/minecraft/world/level/block/Block";
+    private static final String ITEM = "net/minecraft/world/item/Item";
     private static final String COLOR_COLLECTION = "net/minecraft/world/level/block/ColorCollection";
     private static final String DYE_COLOR = "net/minecraft/world/item/DyeColor";
     private static final String[] DYE_COLORS = {
@@ -440,15 +490,18 @@ public final class Mc26_1To26_2CoreMoves {
         "LIGHT_GRAY", "CYAN", "PURPLE", "BLUE", "BROWN", "GREEN", "RED", "BLACK"
     };
 
-    // Maps a family's 16 per-color fields (WHITE_CANDLE) to DYED_<F>.pick(color).
-    private static void registerDyedBlockFields(RetromodTransformer t, String suffix, String dyedField) {
+    // Maps a family's 16 per-color fields (WHITE_WOOL) to <owner>.<collection>.pick(color) cast to castType.
+    // ColorCollection lives in the block package even for the Item-typed collections (erased descriptor is
+    // the same), so both owners share COLOR_COLLECTION; only the final CHECKCAST type differs.
+    private static void registerDyedFields(RetromodTransformer t, String owner, String castType,
+                                           String suffix, String collectionField) {
         for (String color : DYE_COLORS) {
             t.registerStaticFieldAccessor(
-                    BLOCKS, color + "_" + suffix,
-                    BLOCKS, dyedField, "Lnet/minecraft/world/level/block/ColorCollection;",
+                    owner, color + "_" + suffix,
+                    owner, collectionField, "Lnet/minecraft/world/level/block/ColorCollection;",
                     DYE_COLOR, color, "Lnet/minecraft/world/item/DyeColor;",
                     COLOR_COLLECTION, "pick", "(Lnet/minecraft/world/item/DyeColor;)Ljava/lang/Object;",
-                    "net/minecraft/world/level/block/Block");
+                    castType);
         }
     }
 

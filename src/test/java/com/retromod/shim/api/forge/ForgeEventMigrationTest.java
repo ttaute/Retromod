@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.retromod.core.RetromodTransformer;
 import com.retromod.core.RetromodVersion;
+import com.retromod.util.McReflect;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -50,6 +51,62 @@ class ForgeEventMigrationTest {
     void reset() {
         RetromodTransformer.getInstance().clearRedirectsForTesting();
         RetromodVersion.TARGET_MC_VERSION = "26.1";
+        McReflect.setForceNeoForge(false); // never leak the offline override to another test
+    }
+
+    /**
+     * Regression for #85/#115 (Macaw's / Management Wanted on NeoForge 26.2). NeoForge DELETED
+     * FMLJavaModLoadingContext, so it can't be a same-name bulk rename; the B4 bridge synthetic
+     * supplies it, but a Forge mod references the {@code net/minecraftforge/...} name and the
+     * {@code SyntheticEmbedder} only embeds a synthetic whose EXACT registered name the mod
+     * references. So the migration MUST redirect the Forge name to the synthetic's NeoForge name,
+     * and that redirect must live on the API-shim path ({@code registerRedirects}) which runs on
+     * BOTH the offline CLI/AOT batch and the live NeoForge runtime, not only in the runtime-only
+     * {@code Forge_1_20_to_NeoForge_1_21}. Before the fix the Forge reference survived, the embedder
+     * never matched, and the mod crashed at construct with NoClassDefFoundError.
+     */
+    @Test
+    @DisplayName("registerRedirects redirects the deleted FMLJavaModLoadingContext to the B4 synthetic name")
+    void fmlJavaModLoadingContextRedirectedToSyntheticName() {
+        McReflect.setForceNeoForge(true); // the offline --target-loader neoforge override
+        RetromodTransformer t = RetromodTransformer.getInstance();
+        t.clearRedirectsForTesting();
+        new ForgeEventApiShim().registerRedirects(t); // the on-both-paths entry point, not the bulk worker
+
+        assertEquals("net/neoforged/fml/javafmlmod/FMLJavaModLoadingContext",
+                t.getClassRedirects().get("net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext"),
+                "the deleted FMLJavaModLoadingContext must be redirected to the synthetic's NeoForge name");
+    }
+
+    @Test
+    @DisplayName("a @Mod ctor's FMLJavaModLoadingContext.get().getModEventBus() call owner is rewritten")
+    void fmlJavaModLoadingContextCallSiteRewritten() {
+        McReflect.setForceNeoForge(true);
+        RetromodTransformer t = RetromodTransformer.getInstance();
+        t.clearRedirectsForTesting();
+        new ForgeEventApiShim().registerRedirects(t);
+
+        // a class whose ctor does FMLJavaModLoadingContext.get().getModEventBus() (the near-universal idiom)
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "test/ModFixture", null, "java/lang/Object", null);
+        MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        mv.visitCode();
+        mv.visitMethodInsn(Opcodes.INVOKESTATIC, "net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext",
+                "get", "()Lnet/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext;", false);
+        mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext",
+                "getModEventBus", "()Lnet/minecraftforge/eventbus/api/IEventBus;", false);
+        mv.visitInsn(Opcodes.POP);
+        mv.visitInsn(Opcodes.RETURN);
+        mv.visitMaxs(0, 0);
+        mv.visitEnd();
+        cw.visitEnd();
+
+        byte[] out = t.transformClass(cw.toByteArray(), "test/ModFixture");
+        String text = new String(out, StandardCharsets.ISO_8859_1);
+        assertFalse(text.contains("net/minecraftforge/fml/javafmlmod/FMLJavaModLoadingContext"),
+                "no Forge FMLJavaModLoadingContext reference may survive (embedder keys on the NeoForge name)");
+        assertTrue(text.contains("net/neoforged/fml/javafmlmod/FMLJavaModLoadingContext"),
+                "the call owner must be rewritten to the NeoForge name the synthetic is registered under");
     }
 
     @Test

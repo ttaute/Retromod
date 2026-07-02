@@ -56,12 +56,11 @@ public class FullAotCompiler {
         this.shimRegistry = new ShimRegistry();
         this.targetVersion = targetVersion;
         this.cacheDir = gameDir.resolve(CACHE_DIR);
-        
-        try {
-            Files.createDirectories(cacheDir);
-        } catch (IOException e) {
-            LOGGER.error("Could not create cache directory", e);
-        }
+
+        // Creates the cache dir AND wipes it when the Retromod build changed since it was
+        // written: nothing below validates the cached per-class files, so without the stamp
+        // an updated Retromod would keep serving the previous build's transforms.
+        AotCacheStamp.ensureCurrent(cacheDir);
     }
     
     public static synchronized FullAotCompiler getInstance(Path gameDir, String targetVersion) {

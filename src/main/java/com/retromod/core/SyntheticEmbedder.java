@@ -68,6 +68,7 @@ public final class SyntheticEmbedder {
             }
             referenced.retainAll(synthetics.keySet());
             if (referenced.isEmpty()) return 0;
+            expandTransitively(referenced, synthetics);
 
             String base = PREFIX + sanitize(uniqueKey) + "/";
             Map<String, String> rename = new HashMap<>();
@@ -97,6 +98,23 @@ public final class SyntheticEmbedder {
     }
 
     /**
+     * A synthetic may reference OTHER registered synthetics (e.g. the Forge 26.2 LegacyEventBus
+     * bridge constructs ReflectedConsumer, which no mod class names directly). Expand the
+     * mod-referenced set to its transitive closure so an embedded copy never dangles on a
+     * helper that was renamed away with it - or worse, never embedded at all.
+     */
+    private static void expandTransitively(Set<String> referenced, Map<String, byte[]> synthetics) {
+        java.util.ArrayDeque<String> work = new java.util.ArrayDeque<>(referenced);
+        while (!work.isEmpty()) {
+            byte[] bytes = synthetics.get(work.poll());
+            if (bytes == null) continue;
+            for (String dep : referencedClasses(bytes)) {
+                if (synthetics.containsKey(dep) && referenced.add(dep)) work.add(dep);
+            }
+        }
+    }
+
+    /**
      * Jar-based variant for the offline CLI/AOT paths: reads {@code jarPath}, embeds the referenced
      * synthetics, rewrites references, and writes the jar back. Uses {@code Zip*Stream} so
      * {@code META-INF/MANIFEST.MF} and every other entry survive.
@@ -109,7 +127,9 @@ public final class SyntheticEmbedder {
             try (var zis = new java.util.zip.ZipInputStream(Files.newInputStream(jarPath))) {
                 java.util.zip.ZipEntry e;
                 while ((e = zis.getNextEntry()) != null) {
-                    if (!e.isDirectory()) entries.put(e.getName(), zis.readAllBytes());
+                    // directory entries are retained: dropping them breaks package-resource
+                    // lookups and classpath scanners in the rewritten jar
+                    entries.put(e.getName(), e.isDirectory() ? new byte[0] : zis.readAllBytes());
                 }
             }
             Set<String> referenced = new HashSet<>();
@@ -118,6 +138,7 @@ public final class SyntheticEmbedder {
             }
             referenced.retainAll(synthetics.keySet());
             if (referenced.isEmpty()) return 0;
+            expandTransitively(referenced, synthetics);
 
             String base = PREFIX + sanitize(uniqueKey) + "/";
             Map<String, String> rename = new HashMap<>();
@@ -132,13 +153,20 @@ public final class SyntheticEmbedder {
             }
             for (String n : referenced) out.put(rename.get(n) + ".class", remap(synthetics.get(n), remapper));
 
-            try (var zos = new java.util.zip.ZipOutputStream(Files.newOutputStream(jarPath))) {
+            // write to a sibling temp + move: rewriting in place with a truncating stream
+            // destroys the jar if anything throws mid-write (review finding)
+            Path tmp = jarPath.resolveSibling(jarPath.getFileName() + ".rmtmp");
+            try (var zos = new java.util.zip.ZipOutputStream(Files.newOutputStream(tmp))) {
                 for (var en : out.entrySet()) {
                     zos.putNextEntry(new java.util.zip.ZipEntry(en.getKey()));
                     zos.write(en.getValue());
                     zos.closeEntry();
                 }
+            } catch (Exception e) {
+                Files.deleteIfExists(tmp);
+                throw e;
             }
+            Files.move(tmp, jarPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             LOGGER.info("Embedded {} referenced synthetic class(es) into jar '{}' under {}",
                     referenced.size(), uniqueKey, base);
             return referenced.size();

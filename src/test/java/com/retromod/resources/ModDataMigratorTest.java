@@ -261,4 +261,62 @@ class ModDataMigratorTest {
         assertEquals(in, mig("data/m/worldgen/template_pool/x.json", in, "1.21.1"),
                 "lenient JSON is fine on a 1.21.x target - leave it");
     }
+
+    @Test
+    void entityPredicateKeysAreNamespaced() {
+        String in = "{\"effects\":{\"minecraft:damage\":[{\"requirements\":{\"condition\":\"minecraft:entity_properties\",\"entity\":\"this\",\"predicate\":{\"type\":\"minecraft:player\",\"flags\":{\"is_baby\":true},\"vehicle\":{\"type\":\"minecraft:pig\"}}}}]}}";
+        String out = mig("data/minecraft/enchantment/x.json", in, "26.2");
+        assertTrue(out.contains("\"minecraft:entity_type\":\"minecraft:player\""), "type -> minecraft:entity_type");
+        assertTrue(out.contains("\"minecraft:flags\""), "flags namespaced");
+        assertTrue(out.contains("\"minecraft:vehicle\":{\"minecraft:entity_type\":\"minecraft:pig\"}"),
+                "nested vehicle predicate migrated recursively");
+        assertFalse(out.contains("\"type\":\"minecraft:player\""), "old key gone");
+    }
+
+    @Test
+    void alreadyNamespacedPredicatesUntouched() {
+        String in = "{\"a\":[{\"condition\":\"minecraft:entity_properties\",\"predicate\":{\"minecraft:entity_type\":\"#minecraft:skeletons\"}}]}";
+        assertEquals(in, mig("data/m/enchantment/x.json", in, "26.2"), "26.x-shaped predicate passes through");
+    }
+
+    // --- 1.21.4+ client item definitions (items/*.json) ---
+
+    @Test
+    void itemDefinitionSynthesizedForBareItemModel() {
+        var names = java.util.Set.of(
+                "assets/mcwbridges/models/item/iron_bridge.json",
+                "assets/mcwbridges/models/item/parts/rail.json",     // nested = template, not an item
+                "assets/mcwbridges/textures/item/iron_bridge.png",   // not a model
+                "assets/mcwroofs/models/item/black_roof.json",
+                "assets/mcwroofs/items/black_roof.json");            // this one already has a definition
+        var defs = ModDataMigrator.synthesizeItemDefinitionEntries(names, "26.2");
+
+        assertEquals(1, defs.size(), "only the bare top-level item model gets a definition");
+        byte[] def = defs.get("assets/mcwbridges/items/iron_bridge.json");
+        assertNotNull(def, "definition must land at assets/<ns>/items/<id>.json");
+        String json = new String(def, StandardCharsets.UTF_8);
+        assertTrue(json.contains("\"minecraft:model\""), "must use the model definition type");
+        assertTrue(json.contains("\"mcwbridges:item/iron_bridge\""), "must point at the existing item model");
+    }
+
+    @Test
+    void itemDefinitionsGatedTo26xTargets() {
+        var names = java.util.Set.of("assets/m/models/item/thing.json");
+        assertTrue(ModDataMigrator.synthesizeItemDefinitionEntries(names, "1.21.1").isEmpty(),
+                "pre-26.x targets are untouched");
+    }
+
+    @Test
+    void migrateTreeWritesItemDefinitions(@TempDir Path dir) throws Exception {
+        Path model = dir.resolve("assets/m/models/item/gadget.json");
+        Files.createDirectories(model.getParent());
+        Files.writeString(model, "{\"parent\":\"minecraft:item/generated\"}");
+
+        int changed = ModDataMigrator.migrateTree(dir, "26.2");
+
+        Path def = dir.resolve("assets/m/items/gadget.json");
+        assertTrue(Files.exists(def), "migrateTree must create the item definition");
+        assertTrue(changed >= 1, "the created definition counts as a change");
+        assertTrue(Files.readString(def).contains("\"m:item/gadget\""));
+    }
 }

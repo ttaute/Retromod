@@ -156,7 +156,11 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "net/minecraftforge/fml/loading/FMLPaths",
             "net/neoforged/fml/loading/FMLPaths"
         );
-        
+        // FMLJavaModLoadingContext (the get().getModEventBus() entry point NeoForge deleted) is
+        // redirected to the B4 synthetic's name in ForgeEventApiShim, an API shim that runs on BOTH
+        // the offline CLI/AOT batch and the live runtime. This migration shim only runs at runtime
+        // (ServiceLoader), so the redirect lives there, not here, to keep the two paths consistent.
+
         // network
         transformer.registerClassRedirect(
             "net/minecraftforge/network/NetworkRegistry",
@@ -182,7 +186,45 @@ public class Forge_1_20_to_NeoForge_1_21 implements VersionShim {
             "net/minecraftforge/data/event/GatherDataEvent",
             "net/neoforged/neoforge/data/event/GatherDataEvent"
         );
-        
+
+        // Mod lifecycle + server events (verified against NeoForge 26.2; used by the
+        // snapshot.7 acceptance set Macaw's Roofs/Trapdoors/Bridges). FML lifecycle events
+        // stay under net.neoforged.fml; server events move to the neoforge package.
+        transformer.registerClassRedirect(
+            "net/minecraftforge/fml/event/lifecycle/FMLCommonSetupEvent",
+            "net/neoforged/fml/event/lifecycle/FMLCommonSetupEvent"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/fml/event/lifecycle/FMLClientSetupEvent",
+            "net/neoforged/fml/event/lifecycle/FMLClientSetupEvent"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/event/server/ServerStartingEvent",
+            "net/neoforged/neoforge/event/server/ServerStartingEvent"
+        );
+        // Forge extension interfaces (the IForgeItem/IForgeBlock/... a mod's custom Item/Block/
+        // Entity/BlockEntity implements) were renamed on NeoForge to I<Type>Extension. Verified
+        // present in neoforge-26.2.0.0-beta-universal.jar. A Forge mod's custom Item implements
+        // IForgeItem, so without these it dies at construct with NoClassDefFoundError (Macaw's on
+        // NeoForge 26.2). NOTE: Forge_1_21_11_to_26_1 has the FORGE-host counterpart (drop just the
+        // "I", stay forge-packaged) gated OFF on NeoForge so it can't clobber these.
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/extensions/IForgeItem",
+            "net/neoforged/neoforge/common/extensions/IItemExtension"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/extensions/IForgeBlock",
+            "net/neoforged/neoforge/common/extensions/IBlockExtension"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/extensions/IForgeEntity",
+            "net/neoforged/neoforge/common/extensions/IEntityExtension"
+        );
+        transformer.registerClassRedirect(
+            "net/minecraftforge/common/extensions/IForgeBlockEntity",
+            "net/neoforged/neoforge/common/extensions/IBlockEntityExtension"
+        );
+
         transformer.registerFieldRedirect(
             "net/minecraftforge/common/MinecraftForge",
             "EVENT_BUS",

@@ -106,6 +106,20 @@ public class ForgeModTransformer {
             return directCopy;
         }
 
+        // Skip the extract + re-transform when a previous run already produced an
+        // up-to-date output for this exact source + Retromod version + loader. The
+        // key mirrors the AOT cache (Retromod version + source hash); the loader is
+        // folded in because the transform differs by host (e.g. NeoForge toml promotion).
+        // (adapted from Sinytra Connector (MIT))
+        String cacheKey = transformCacheKey(sourceJar);
+        if (cacheKey != null && isCacheUpToDate(outputJar, cacheKey)) {
+            LOGGER.info("  {} is up to date in the transform cache - reusing {}",
+                    originalName, outputName);
+            return outputJar;
+        }
+        // Stale or absent: drop any previous output + sidecar so we do not read a partial one.
+        invalidateCache(outputJar);
+
         LOGGER.info("Transforming Forge/NeoForge mod: {} -> {}", originalName, outputName);
 
         Path tempDir = Files.createTempDirectory("retromod-forge-");
@@ -129,6 +143,12 @@ public class ForgeModTransformer {
                 LOGGER.info("Embedded {} referenced synthetic class(es)", synthetics);
             }
 
+            // Pre-1.13 (1.12.2) mods ship only mcmod.info; modern Forge/NeoForge needs a
+            // mods.toml or they are never scanned. Synthesize one so the loader recognizes the
+            // mod (#79, the first 1.12.2 in-game prerequisite). promoteToNeoForgeToml below then
+            // renames it to neoforge.mods.toml on a NeoForge host.
+            generateTomlFromMcmodInfo(tempDir);
+
             updateModsToml(tempDir, "META-INF/mods.toml");
             updateModsToml(tempDir, "META-INF/neoforge.mods.toml");
             promoteToNeoForgeToml(tempDir);
@@ -147,8 +167,19 @@ public class ForgeModTransformer {
                 LOGGER.info("Migrated 26.x data formats in {} data file(s)", dataMigrated);
             }
 
+            // Stamp the manifest so a runtime membership predicate can tell "Retromod brought
+            // this mod in" from a native mod (pitfalls #14/#46). The Fabric path already stamps
+            // Retromod-Transformed; this extends the stamp to the Forge/NeoForge path.
+            stampTransformedManifest(tempDir, originalName);
+
             repackageJar(tempDir, outputJar);
             LOGGER.info("Created transformed mod: {}", outputJar.getFileName());
+
+            // Record the cache sidecar for this exact source + version + loader so a later
+            // launch can skip the whole extract/transform when nothing changed.
+            if (cacheKey != null) {
+                writeCacheSidecar(outputJar, cacheKey);
+            }
 
             if (TransformVerifier.isEnabled()) {
                 TransformVerifier.verifyAndReport(outputJar, originalName, targetMcVersion);
@@ -273,6 +304,10 @@ public class ForgeModTransformer {
                 // inside FabricModTransformer) (#48).
                 byte[] preStripped = mixinTransformer.stripBlocklistedHandlers(original);
                 byte[] transformed = bytecodeTransformer.transformClass(preStripped, className);
+                // Forge 26.2 only (self-gating): EventBus 7's auto-subscriber rejects
+                // @Mod.EventBusSubscriber classes with <2 static handlers; strip those (#85).
+                transformed = com.retromod.shim.forge.ForgeEventBusSynthetics
+                        .stripLenientAutoSubscriber(transformed);
                 boolean wroteFirst = false;
                 if (transformed != null && transformed != original) {
                     Files.write(classFile, transformed);
@@ -376,6 +411,154 @@ public class ForgeModTransformer {
         }
     }
 
+    /**
+     * Synthesize a {@code META-INF/mods.toml} from a pre-1.13 {@code mcmod.info} (#79). 1.12.2 mods
+     * predate the toml format, so modern Forge/NeoForge never scans them; without a toml the class
+     * moves and ctor bridge never run. No-op unless the mod has {@code mcmod.info} and neither toml.
+     * Fields are extracted by regex (mcmod.info is JSON but we only need a few), matching the
+     * codebase's TOML-parsing approach. The minecraft/forge ranges are relaxed to {@code [1,)}.
+     */
+    void generateTomlFromMcmodInfo(Path tempDir) throws IOException {
+        Path forgeToml = tempDir.resolve("META-INF/mods.toml");
+        Path neoToml = tempDir.resolve("META-INF/neoforge.mods.toml");
+        Path mcmod = tempDir.resolve("mcmod.info");
+        if (Files.exists(forgeToml) || Files.exists(neoToml) || !Files.exists(mcmod)) return;
+
+        String json = Files.readString(mcmod);
+        String modId = firstGroup(json, "\"modid\"\\s*:\\s*\"([^\"]+)\"");
+        if (modId == null) modId = firstGroup(json, "\"modId\"\\s*:\\s*\"([^\"]+)\"");
+        if (modId == null || modId.isBlank()) return; // can't build a toml without the id
+
+        String version = firstGroup(json, "\"version\"\\s*:\\s*\"([^\"]+)\"");
+        String name = firstGroup(json, "\"name\"\\s*:\\s*\"([^\"]*)\"");
+        String desc = firstGroup(json, "\"description\"\\s*:\\s*\"([^\"]*)\"");
+
+        // The synthesized modId becomes a FML modid and feeds the derived JPMS module
+        // name, so sanitize it: '-' is illegal in a module segment, and a reserved Java
+        // keyword segment (e.g. "package") breaks resolution. (adapted from Sinytra Connector (MIT))
+        if (name == null || name.isBlank()) name = modId;
+        modId = normalizeModId(modId);
+
+        // mcmod.info often leaves ${version}/@VERSION@ placeholders; fall back to a valid literal.
+        if (version == null || version.isBlank() || version.contains("$") || version.contains("@")) {
+            version = "1.0.0";
+        }
+        version = normalizeVersion(version);
+        String safeName = tomlEscape(name);
+        String safeDesc = tomlEscape(desc == null ? "" : desc);
+
+        // A side-only mod (mcmod.info clientSideOnly/serverSideOnly) must tell FML to skip
+        // the other side's version handshake, or a vanilla/other-side peer rejects the
+        // connection. (adapted from Sinytra Connector (MIT))
+        String displayTest = displayTestForMcmod(json);
+        String displayTestLine = displayTest == null ? "" : "displayTest=\"" + displayTest + "\"\n";
+
+        String toml = "# Generated by Retromod from legacy mcmod.info (pre-1.13 Forge mod, #79)\n"
+                + "modLoader=\"javafml\"\n"
+                + "loaderVersion=\"[1,)\"\n"
+                + "license=\"All Rights Reserved\"\n\n"
+                + "[[mods]]\n"
+                + "modId=\"" + modId + "\"\n"
+                + "version=\"" + version + "\"\n"
+                + "displayName=\"" + safeName + "\"\n"
+                + displayTestLine
+                + "description=\"" + safeDesc + "\"\n\n"
+                + "[[dependencies." + modId + "]]\n"
+                + "modId=\"minecraft\"\nmandatory=true\nversionRange=\"[1,)\"\nordering=\"NONE\"\nside=\"BOTH\"\n\n"
+                + "[[dependencies." + modId + "]]\n"
+                + "modId=\"forge\"\nmandatory=true\nversionRange=\"[1,)\"\nordering=\"NONE\"\nside=\"BOTH\"\n";
+
+        Files.createDirectories(forgeToml.getParent());
+        Files.writeString(forgeToml, toml);
+        LOGGER.info("Generated META-INF/mods.toml from legacy mcmod.info (modId={}, #79)", modId);
+    }
+
+    private static String firstGroup(String s, String regex) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile(regex).matcher(s);
+        return m.find() ? m.group(1) : null;
+    }
+
+    /** Make a string safe inside a double-quoted TOML value (no quotes/backslashes/newlines). */
+    private static String tomlEscape(String s) {
+        return s.replace("\\", " ").replace("\"", "'").replace("\n", " ").replace("\r", " ").trim();
+    }
+
+    /**
+     * Java reserved words. A JPMS module-name segment equal to one of these is illegal,
+     * so a synthesized modid that lands on one gets a suffix. (adapted from Sinytra Connector (MIT))
+     */
+    private static final Set<String> JAVA_RESERVED = Set.of(
+        "abstract", "assert", "boolean", "break", "byte", "case", "catch", "char",
+        "class", "const", "continue", "default", "do", "double", "else", "enum",
+        "extends", "final", "finally", "float", "for", "goto", "if", "implements",
+        "import", "instanceof", "int", "interface", "long", "native", "new", "package",
+        "private", "protected", "public", "return", "short", "static", "strictfp",
+        "super", "switch", "synchronized", "this", "throw", "throws", "transient",
+        "try", "void", "volatile", "while", "true", "false", "null", "_"
+    );
+
+    /**
+     * Normalize a synthesized modid so the derived JPMS module name is valid: FML forbids
+     * '-' (and other non [a-z0-9_] chars) in a modid, and a segment equal to a Java keyword
+     * breaks module resolution. Lowercase, map illegal chars to '_', and if the result is a
+     * reserved word (or would start with a digit) append '_'. (adapted from Sinytra Connector (MIT))
+     */
+    static String normalizeModId(String modId) {
+        String id = modId.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
+        if (id.isEmpty() || Character.isDigit(id.charAt(0))) {
+            id = "_" + id;
+        }
+        if (JAVA_RESERVED.contains(id)) {
+            id = id + "_";
+        }
+        return id;
+    }
+
+    /**
+     * Normalize a synthesized mod version for FML/JPMS: '+' (build metadata) is illegal in a
+     * module version, and a module version that does not start with a digit is rejected, so fall
+     * back to a valid literal in that case. (adapted from Sinytra Connector (MIT))
+     */
+    static String normalizeVersion(String version) {
+        String v = version.replace('+', '_');
+        if (v.isEmpty() || !Character.isDigit(v.charAt(0))) {
+            return "1.0.0";
+        }
+        return v;
+    }
+
+    /** FML displayTest value that suppresses the peer's version check for a client-only mod. */
+    private static final String IGNORE_ALL = "IGNORE_ALL_VERSION";
+    /** FML displayTest value that suppresses the server's version check for a server-only mod. */
+    private static final String IGNORE_SERVER = "IGNORE_SERVER_VERSION";
+
+    /**
+     * The FML {@code displayTest} value for a side, or {@code null} for BOTH/UNKNOWN (leave the
+     * default handshake in place). A client-only mod ignores the whole version check so a vanilla
+     * server accepts the client; a server-only mod ignores the server's side of the check.
+     * (adapted from Sinytra Connector (MIT))
+     */
+    static String displayTestForEnvironment(ModEnvironmentDetector.ModEnvironment env) {
+        return switch (env) {
+            case CLIENT -> IGNORE_ALL;
+            case SERVER -> IGNORE_SERVER;
+            default -> null;
+        };
+    }
+
+    /** Read mcmod.info's clientSideOnly/serverSideOnly booleans and map to a displayTest value. */
+    private static String displayTestForMcmod(String mcmodJson) {
+        if (Pattern.compile("\"clientSideOnly\"\\s*:\\s*true", Pattern.CASE_INSENSITIVE)
+                .matcher(mcmodJson).find()) {
+            return IGNORE_ALL;
+        }
+        if (Pattern.compile("\"serverSideOnly\"\\s*:\\s*true", Pattern.CASE_INSENSITIVE)
+                .matcher(mcmodJson).find()) {
+            return IGNORE_SERVER;
+        }
+        return null;
+    }
+
     /** Update mods.toml / neoforge.mods.toml to target the correct MC version. */
     private void updateModsToml(Path dir, String tomlPath) throws IOException {
         Path tomlFile = dir.resolve(tomlPath);
@@ -389,6 +572,9 @@ public class ForgeModTransformer {
         // Forge 1.16+ rejects a jar whose mods.toml lacks a top-level license;
         // supply a neutral default when the source has none (#62).
         content = ensureLicense(content);
+
+        // A side-only mod needs displayTest so the other side does not reject the connection.
+        content = ensureDisplayTest(content);
 
         if (!content.contains("retromod_transformed")) {
             content = content + "\n# Transformed by Retromod (original version modified)\n";
@@ -415,12 +601,21 @@ public class ForgeModTransformer {
         Path neoToml = tempDir.resolve("META-INF/neoforge.mods.toml");
         if (!Files.exists(forgeToml) || Files.exists(neoToml)) return;
 
-        String content = relaxLoaderVersion(Files.readString(forgeToml));
-        content = pointForgeDependencyAtNeoForge(content);
+        String content = promoteTomlContentForNeoForge(Files.readString(forgeToml));
         Files.writeString(neoToml, content);
         Files.delete(forgeToml); // NeoForge keys off the filename
         LOGGER.info("Promoted META-INF/mods.toml -> neoforge.mods.toml for NeoForge {} (#42)",
                 targetMcVersion);
+    }
+
+    /**
+     * Apply the mods.toml -> neoforge.mods.toml content transforms (relax the top-level
+     * loaderVersion, repoint the mandatory {@code forge} loader dependency at {@code neoforge})
+     * without touching the filesystem. Shared by the runtime {@link #promoteToNeoForgeToml} and the
+     * offline CLI promotion path, which renames the entry itself.
+     */
+    public static String promoteTomlContentForNeoForge(String toml) {
+        return pointForgeDependencyAtNeoForge(relaxLoaderVersion(toml));
     }
 
     /**
@@ -492,6 +687,59 @@ public class ForgeModTransformer {
             return toml.substring(0, firstTable.start()) + line + toml.substring(firstTable.start());
         }
         return toml.endsWith("\n") ? toml + line : toml + "\n" + line;
+    }
+
+    /**
+     * Ensure a side-only mod declares a {@code displayTest} in its {@code [[mods]]} block, so
+     * FML skips the other side's version handshake and a vanilla/other-side peer accepts the
+     * connection. No-op for BOTH/UNKNOWN mods or when the author already set displayTest.
+     *
+     * <p>Side is read ONLY from an explicit author-provided {@code side=} inside the mod's own
+     * {@code [[mods]]} block (a real per-mod signal FML honors). It is deliberately NOT inferred
+     * from a raw {@code side=} scan of the whole toml: in an FML toml {@code side=} otherwise
+     * appears inside {@code [[dependencies.<modid>]]} blocks, where it describes which side a
+     * DEPENDENCY is needed on, not the mod's own side. Scanning the whole file misreads a
+     * both-sided mod that declares a side-scoped dependency (e.g. an optional client-only
+     * integration) as single-sided and suppresses its version handshake wrongly. The
+     * mcmod.info path (clientSideOnly/serverSideOnly) remains the authoritative side source.
+     * (adapted from Sinytra Connector (MIT))
+     */
+    static String ensureDisplayTest(String toml) {
+        if (Pattern.compile("(?m)^\\s*displayTest\\s*=").matcher(toml).find()) {
+            return toml; // author already declares one
+        }
+        String value = displayTestForEnvironment(sideFromModsBlock(toml));
+        if (value == null) return toml; // BOTH / UNKNOWN / no explicit mod-level side
+
+        Matcher modsHeader = Pattern.compile("(?m)^\\s*\\[\\[mods\\]\\]\\s*$").matcher(toml);
+        if (!modsHeader.find()) return toml; // no [[mods]] table to attach it to
+
+        int insertAt = toml.indexOf('\n', modsHeader.end());
+        if (insertAt < 0) return toml;
+        String line = "\ndisplayTest=\"" + value + "\" # added by Retromod (side-only mod)";
+        return toml.substring(0, insertAt) + line + toml.substring(insertAt);
+    }
+
+    /**
+     * Read an explicit {@code side=} only from the mod's own {@code [[mods]]} block (bounded by
+     * the next table header), never from a {@code [[dependencies.*]]} block. Returns
+     * {@code UNKNOWN} when no {@code [[mods]]} block exists or it declares no {@code side}. This
+     * is the sound side signal for the displayTest decision: a dependency-scoped {@code side}
+     * describes where a DEPENDENCY is needed, not the mod's own side.
+     */
+    static ModEnvironmentDetector.ModEnvironment sideFromModsBlock(String toml) {
+        Matcher modsHeader = Pattern.compile("(?m)^\\s*\\[\\[mods\\]\\]\\s*$").matcher(toml);
+        if (!modsHeader.find()) return ModEnvironmentDetector.ModEnvironment.UNKNOWN;
+
+        int blockStart = modsHeader.end();
+        // The [[mods]] block ends at the next table header ([ ... ) on its own line.
+        Matcher nextTable = Pattern.compile("(?m)^\\s*\\[").matcher(toml);
+        int blockEnd = toml.length();
+        if (nextTable.find(blockStart)) {
+            blockEnd = nextTable.start();
+        }
+        String modsBlock = toml.substring(blockStart, blockEnd);
+        return ModEnvironmentDetector.parseSide(modsBlock);
     }
 
     /**
@@ -684,16 +932,39 @@ public class ForgeModTransformer {
     }
 
     /**
-     * Remove Fabric access wideners / class tweakers from a Forge/NeoForge jar
-     * (cross-loader mods ship both); Forge can't read the format. The Forge
-     * equivalent, META-INF/accesstransformer.cfg, is left intact.
+     * Convert Fabric access wideners / class tweakers in a Forge/NeoForge jar
+     * (cross-loader mods ship both) into a NeoForge/Forge AccessTransformer,
+     * then remove the AW file (Forge can't read that format).
+     *
+     * <p>The target loader here is NeoForge/Forge, which consumes
+     * {@code META-INF/accesstransformer.cfg} (auto-detected at the default
+     * path). Rather than dropping the widening outright, we emit an equivalent
+     * AT so the mod keeps its widened MC access. Gated on the jar not already
+     * declaring an AT at that path, so an author-provided AT is never clobbered.
+     * The converter does no name remapping and refuses an intermediary-namespace
+     * AW (returning empty), so such an AW is simply deleted as before rather than
+     * turned into an unresolvable AT; only a named/official-namespace AW is emitted.
      */
     private void stripAccessWideners(Path dir) {
+        Path atFile = dir.resolve("META-INF").resolve("accesstransformer.cfg");
+        boolean containsAT = Files.exists(atFile);
+        StringBuilder generatedAt = new StringBuilder();
+
         try (var stream = Files.walk(dir)) {
             for (Path file : stream.filter(Files::isRegularFile).toList()) {
                 String name = file.getFileName().toString();
                 String nameLower = name.toLowerCase(java.util.Locale.ROOT);
                 if (nameLower.endsWith(".accesswidener") || nameLower.endsWith(".classtweaker")) {
+                    if (!containsAT) {
+                        try {
+                            String at = AccessWidenerToAtConverter.convert(Files.readString(file));
+                            if (!at.isBlank()) {
+                                generatedAt.append(at);
+                            }
+                        } catch (Exception e) {
+                            LOGGER.debug("Could not convert access widener {}: {}", name, e.getMessage());
+                        }
+                    }
                     LOGGER.info("Removing Fabric access widener from Forge mod: {}", name);
                     Files.delete(file);
                 }
@@ -701,11 +972,145 @@ public class ForgeModTransformer {
         } catch (IOException e) {
             LOGGER.debug("Failed to scan for access wideners: {}", e.getMessage());
         }
+
+        if (generatedAt.length() > 0) {
+            try {
+                Files.createDirectories(atFile.getParent());
+                Files.writeString(atFile, generatedAt.toString());
+                LOGGER.info("Emitted META-INF/accesstransformer.cfg from Fabric access widener(s)");
+            } catch (IOException e) {
+                LOGGER.warn("Failed to write generated accesstransformer.cfg: {}", e.getMessage());
+            }
+        }
+    }
+
+    // --- Runtime transform cache + membership stamp (Sinytra Tier A #1/#2) ---
+
+    /** Manifest attribute stamped on every Retromod-transformed Forge/NeoForge jar. */
+    static final String TRANSFORMED_ATTRIBUTE = "Retromod-Transformed";
+    /** Suffix of the per-output cache sidecar holding the "version,loader,sha256" key. */
+    static final String CACHE_SIDECAR_SUFFIX = ".retromod-cache";
+
+    /** The loader tag folded into the cache key (the transform differs by host). */
+    private static String loaderTag() {
+        try {
+            return com.retromod.util.McReflect.isNeoForge() ? "neoforge" : "forge";
+        } catch (Throwable t) {
+            return "forge";
+        }
+    }
+
+    /**
+     * The cache key for a source jar: {@code retromodVersion,loader,sha256(source)}, mirroring the
+     * AOT key. Returns null if the source can't be hashed (then the cache is simply not used).
+     * (adapted from Sinytra Connector (MIT))
+     */
+    private String transformCacheKey(Path sourceJar) {
+        String hash = sha256(sourceJar);
+        if (hash == null) return null;
+        return RetromodVersion.RETROMOD_VERSION + "," + loaderTag() + "," + targetMcVersion + "," + hash;
+    }
+
+    /** The sidecar path for a given transformed output jar. */
+    private static Path cacheSidecar(Path outputJar) {
+        return outputJar.resolveSibling(outputJar.getFileName().toString() + CACHE_SIDECAR_SUFFIX);
+    }
+
+    /** True when the output jar and its sidecar both exist and the sidecar matches the current key. */
+    private boolean isCacheUpToDate(Path outputJar, String expectedKey) {
+        try {
+            Path sidecar = cacheSidecar(outputJar);
+            if (!Files.exists(outputJar) || !Files.exists(sidecar)) return false;
+            return expectedKey.equals(Files.readString(sidecar).trim());
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    /** Delete a stale/partial output and its sidecar so a re-transform starts clean. */
+    private void invalidateCache(Path outputJar) {
+        try {
+            Files.deleteIfExists(cacheSidecar(outputJar));
+        } catch (IOException ignored) {}
+    }
+
+    /** Write the cache sidecar next to a freshly transformed output jar. */
+    private void writeCacheSidecar(Path outputJar, String key) {
+        try {
+            Files.writeString(cacheSidecar(outputJar), key);
+        } catch (IOException e) {
+            LOGGER.debug("Could not write transform cache sidecar for {}: {}",
+                    outputJar.getFileName(), e.getMessage());
+        }
+    }
+
+    /** SHA-256 hex of a file, or null on error. */
+    private static String sha256(Path file) {
+        try {
+            java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(Files.readAllBytes(file));
+            StringBuilder sb = new StringBuilder(hash.length * 2);
+            for (byte b : hash) sb.append(String.format("%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Add the {@code Retromod-Transformed} manifest attribute to the extracted mod before
+     * repackaging, so {@link #isTransformedMod(Path)} (and pitfalls #14/#46 guards) can tell a
+     * Retromod-brought mod from a native one. Creates a manifest if the source lacked one.
+     */
+    private void stampTransformedManifest(Path tempDir, String originalName) {
+        Path manifestFile = tempDir.resolve("META-INF/MANIFEST.MF");
+        try {
+            Manifest manifest;
+            if (Files.exists(manifestFile)) {
+                try (InputStream is = Files.newInputStream(manifestFile)) {
+                    manifest = new Manifest(is);
+                }
+            } else {
+                manifest = new Manifest();
+                manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+            }
+            manifest.getMainAttributes().putValue(TRANSFORMED_ATTRIBUTE, "true");
+            manifest.getMainAttributes().putValue("Retromod-Target-Version", targetMcVersion);
+            manifest.getMainAttributes().putValue("Retromod-Original-Jar", originalName);
+            Files.createDirectories(manifestFile.getParent());
+            try (OutputStream os = Files.newOutputStream(manifestFile)) {
+                manifest.write(os);
+            }
+        } catch (IOException e) {
+            LOGGER.warn("Could not stamp Retromod-Transformed manifest for {}: {}",
+                    originalName, e.getMessage());
+        }
+    }
+
+    /**
+     * Runtime membership predicate: did Retromod transform this jar (Forge/NeoForge or Fabric)?
+     * Reads the {@code Retromod-Transformed} manifest attribute stamped at transform time. Used
+     * to ensure Retromod never mutates a native mod (pitfalls #14/#46). Returns false on any
+     * read error or when the attribute is absent.
+     */
+    public static boolean isTransformedMod(Path jar) {
+        if (jar == null || !Files.exists(jar)) return false;
+        try (JarFile jf = new JarFile(jar.toFile())) {
+            Manifest mf = jf.getManifest();
+            if (mf == null) return false;
+            return "true".equalsIgnoreCase(mf.getMainAttributes().getValue(TRANSFORMED_ATTRIBUTE));
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private void repackageJar(Path sourceDir, Path outputJar) throws IOException {
         try (JarOutputStream jos = new JarOutputStream(
                 new BufferedOutputStream(Files.newOutputStream(outputJar)))) {
+
+            // ZIP directory entries: package resources (ClassLoader.getResources) and classpath
+// scanners (Reflections - YungsApi @AutoRegister) silently find nothing without them.
+            com.retromod.util.JarDirectoryEntries.writeAll(jos, sourceDir);
 
             // A source mod's central directory can list an entry twice (or two
             // collide on a case-insensitive FS); the second putNextEntry would throw

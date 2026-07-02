@@ -73,7 +73,7 @@ A **shim** is a pair of rules: "in mods targeting MC version X, when you see cal
 
 A **polyfill** is a reimplementation of a removed API using current MC primitives. When the shim chain says "this method was removed in 1.20," the polyfill provides a drop-in replacement so old code continues to compile.
 
-Retromod currently ships 145 version shims and 30 polyfill providers covering 328 redirects.
+Retromod currently ships 143 version shims and 76 polyfill providers. (Counts drift between releases; the ServiceLoader files under `META-INF/services/` are the source of truth.)
 
 ## Security model
 
@@ -159,8 +159,8 @@ This catches the trivial case of "someone renamed retromod.jar to something mali
 The in-jar check is informational and can't defend against a determined attacker (there's no secret key). For real verification, compare the file's SHA-256 against the value published on the [GitHub releases page](https://github.com/Bownlux/Retromod/releases). Modrinth shows one per file too:
 
 ```bash
-sha256sum retromod-1.1.0+26.1.jar       # Linux
-shasum -a 256 retromod-1.1.0+26.1.jar   # macOS
+sha256sum retromod-1.2.0-snapshot.7+26.2.jar       # Linux
+shasum -a 256 retromod-1.2.0-snapshot.7+26.2.jar   # macOS
 ```
 
 If it matches the published hash, you have the exact official file. That reference lives out-of-band on the trusted page, where a tamperer can't change it. That's the guarantee an embedded self-hash can't make on its own.

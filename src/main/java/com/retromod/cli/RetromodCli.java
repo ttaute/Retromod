@@ -24,7 +24,7 @@ import java.util.*;
  */
 public class RetromodCli {
     
-    private static final String VERSION = "1.2.0-snapshot.6";
+    private static final String VERSION = "1.2.0-snapshot.7";
     // Overridable per-invocation via `--target <mc-version>`.
     private static String TARGET_MC_VERSION = "26.1";
     
@@ -51,13 +51,39 @@ public class RetromodCli {
 
         String command = args[0].toLowerCase();
 
+        // Keep RetromodVersion in sync with the CLI's default target too - version-gated shims
+        // (the #87 registry-id bridge, KNOWN_INTERFACES_26X, item-defs) read RetromodVersion, and
+        // syncing only inside the --target branch left default runs on the stale "1.21.4"
+        // (review finding).
+        com.retromod.core.RetromodVersion.TARGET_MC_VERSION = TARGET_MC_VERSION;
+
         // `--target <mc-version>` overrides the default target.
         for (int i = 1; i < args.length - 1; i++) {
             if ("--target".equals(args[i])) {
                 String v = args[i + 1].trim();
                 if (!v.isEmpty()) {
                     TARGET_MC_VERSION = v;
+                    // Keep RetromodVersion.TARGET_MC_VERSION (used by version-gated shims, e.g. the
+                    // #87 registry-id bridge) consistent with the CLI target on the offline path; at
+                    // runtime it's auto-detected. The CLI's own gating uses this class's field, so
+                    // this only fixes shims that read RetromodVersion directly.
+                    com.retromod.core.RetromodVersion.TARGET_MC_VERSION = v;
                     System.out.println("Target MC version: " + TARGET_MC_VERSION);
+                }
+                break;
+            }
+        }
+
+        // `--target-loader neoforge` forces the offline Forge -> NeoForge migration path: the shim
+        // redirects and the mods.toml -> neoforge.mods.toml promotion normally gate on a live
+        // NeoForge runtime (McReflect.isNeoForge()), which the CLI has none of. This lets us drive
+        // and verify the full migration offline. Off unless explicitly requested.
+        for (int i = 1; i < args.length - 1; i++) {
+            if ("--target-loader".equals(args[i])) {
+                String v = args[i + 1].trim();
+                if ("neoforge".equalsIgnoreCase(v)) {
+                    com.retromod.util.McReflect.setForceNeoForge(true);
+                    System.out.println("Target loader: NeoForge (offline Forge -> NeoForge migration forced)");
                 }
                 break;
             }
@@ -433,6 +459,12 @@ public class RetromodCli {
                 shim.registerRedirects(transformer);
             }
             transformJar(modPath, outputPath, transformer, info);
+            // Embed referenced deleted-class synthetics: the all-shims pass registers redirects
+            // onto them (e.g. the EventBus 7 bridge), so their classes must be copied in too or
+            // the rewritten references dangle (NoClassDefFoundError). Matches the version-detected
+            // path below.
+            com.retromod.core.SyntheticEmbedder.embedIntoJar(
+                    outputPath, modPath.getFileName().toString(), transformer);
             System.out.println("✓ Transformation complete (all shims applied): " + outputPath);
             verifyIfRequested(outputPath, modPath.getFileName().toString(), args);
             return;
@@ -980,12 +1012,29 @@ public class RetromodCli {
             // Offline analogue of the runtime mixin blocklist: neutralize blocklisted mixin
             // handlers / classes that fatally fail on the target MC.
             var mixinStripper = new com.retromod.mixin.MixinCompatibilityTransformer(transformer);
+
+            // Forge -> NeoForge toml promotion: on a NeoForge target (real host or the offline
+            // --target-loader neoforge override) a Forge mod's META-INF/mods.toml must be renamed
+            // to neoforge.mods.toml (NeoForge 1.20.2+ skips a jar that only has mods.toml). Only
+            // when the jar has mods.toml and no neoforge.mods.toml already. Mirrors
+            // ForgeModTransformer.promoteToNeoForgeToml, done at the CLI entry-writing boundary.
+            boolean promoteToml = com.retromod.util.McReflect.isNeoForge()
+                    && !com.retromod.core.RetromodVersion.mcVersionExceeds("1.20.2", TARGET_MC_VERSION)
+                    && inJar.getEntry("META-INF/mods.toml") != null
+                    && inJar.getEntry("META-INF/neoforge.mods.toml") == null;
+
             var entries = inJar.entries();
             while (entries.hasMoreElements()) {
                 var entry = entries.nextElement();
-                // safeEntryName throws on path-traversal patterns
+
+                // Decide the output entry name up front so a promoted mods.toml lands under its
+                // NeoForge filename. safeEntryName throws on path-traversal patterns.
+                String outName = entry.getName();
+                if (promoteToml && "META-INF/mods.toml".equals(entry.getName())) {
+                    outName = "META-INF/neoforge.mods.toml";
+                }
                 outJar.putNextEntry(new java.util.jar.JarEntry(
-                        com.retromod.util.ZipSecurity.safeEntryName(entry.getName())));
+                        com.retromod.util.ZipSecurity.safeEntryName(outName)));
 
                 if (!entry.isDirectory()) {
                     try (var is = inJar.getInputStream(entry)) {
@@ -999,6 +1048,10 @@ public class RetromodCli {
                             // neutralize blocklisted mixins; always runs since a mixin can need
                             // it even when its bytecode otherwise needs no transformation
                             data = mixinStripper.stripBlocklistedHandlers(data);
+                            // Forge 26.2 only (self-gating): strip @Mod.EventBusSubscriber
+                            // where EventBus 7's auto-subscriber would throw (#85)
+                            data = com.retromod.shim.forge.ForgeEventBusSynthetics
+                                    .stripLenientAutoSubscriber(data);
                         } else if (entry.getName().equals("fabric.mod.json")) {
                             data = relaxFabricModDependencies(data);
                         } else if (entry.getName().equals("quilt.mod.json")) {
@@ -1006,6 +1059,14 @@ public class RetromodCli {
                         } else if (entry.getName().equals("META-INF/mods.toml") ||
                                    entry.getName().equals("META-INF/neoforge.mods.toml")) {
                             data = relaxNeoForgeDependencies(data);
+                            if (promoteToml && entry.getName().equals("META-INF/mods.toml")) {
+                                // repoint the mandatory `forge` loader dep at `neoforge` and relax
+                                // the loaderVersion, as the runtime promotion does.
+                                data = com.retromod.core.ForgeModTransformer
+                                        .promoteTomlContentForNeoForge(new String(data,
+                                                java.nio.charset.StandardCharsets.UTF_8))
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                            }
                         } else if (entry.getName().endsWith(".mixins.json") ||
                                    entry.getName().endsWith("mixin.json") ||
                                    (entry.getName().contains("mixin") && entry.getName().endsWith(".json"))) {
@@ -1028,6 +1089,20 @@ public class RetromodCli {
                     }
                 }
 
+                outJar.closeEntry();
+            }
+
+            // 1.21.4+ client item definitions: synthesize assets/<ns>/items/<id>.json for item
+            // models without one, or every item renders as the purple/black missing model.
+            // Mirrors ModDataMigrator.migrateTree on the runtime (extracted-tree) paths.
+            java.util.Set<String> entryNames = new java.util.HashSet<>();
+            var nameScan = inJar.entries();
+            while (nameScan.hasMoreElements()) entryNames.add(nameScan.nextElement().getName());
+            for (var def : com.retromod.resources.ModDataMigrator
+                    .synthesizeItemDefinitionEntries(entryNames, TARGET_MC_VERSION).entrySet()) {
+                outJar.putNextEntry(new java.util.jar.JarEntry(
+                        com.retromod.util.ZipSecurity.safeEntryName(def.getKey())));
+                outJar.write(def.getValue());
                 outJar.closeEntry();
             }
         }

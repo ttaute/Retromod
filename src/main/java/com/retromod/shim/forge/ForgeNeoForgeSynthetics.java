@@ -66,6 +66,9 @@ public final class ForgeNeoForgeSynthetics {
 
     /** Register the bridges whose original class is absent on the host (runtime entry points). */
     public static void register(RetromodTransformer t) {
+        // The registry-id bridge is not a stand-in for a deleted class; it's always needed on 26.x
+        // (blocks/items require their id on Properties before construction). Register unconditionally.
+        registerRegistryIdBridge(t);
         registerIfAbsent(t, FMLJMLC, ForgeNeoForgeSynthetics::generateFmlJavaModLoadingContext);
         registerIfAbsent(t, DSEI, ForgeNeoForgeSynthetics::generateDeferredSpawnEggItem);
         registerIfAbsent(t, IFORGE_REGISTRY, ForgeNeoForgeSynthetics::generateIForgeRegistry);
@@ -82,6 +85,7 @@ public final class ForgeNeoForgeSynthetics {
      */
     public static void registerAll(RetromodTransformer t) {
         try {
+            t.registerSyntheticClass(RegistryIdBridgeSynthetic.INTERNAL, RegistryIdBridgeSynthetic.generate());
             t.registerSyntheticClass(FMLJMLC, generateFmlJavaModLoadingContext());
             t.registerSyntheticClass(DSEI, generateDeferredSpawnEggItem());
             t.registerSyntheticClass(IFORGE_REGISTRY, generateIForgeRegistry());
@@ -91,6 +95,15 @@ public final class ForgeNeoForgeSynthetics {
             t.registerSyntheticClass(DE_SAFE_SUPPLIER, markerInterface(DE_SAFE_SUPPLIER, SUPPLIER));
         } catch (Throwable e) {
             LOGGER.warn("Could not register Forge/NeoForge synthetics (offline): {}", e.toString());
+        }
+    }
+
+    /** Register the DeferredRegister id bridge (#87). Unconditional: it's Retromod-owned, never on the host. */
+    private static void registerRegistryIdBridge(RetromodTransformer t) {
+        try {
+            t.registerSyntheticClass(RegistryIdBridgeSynthetic.INTERNAL, RegistryIdBridgeSynthetic.generate());
+        } catch (Throwable e) {
+            LOGGER.warn("Could not register registry-id bridge: {}", e.toString());
         }
     }
 

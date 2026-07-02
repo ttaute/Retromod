@@ -47,6 +47,21 @@ public class RetromodForge {
 
         loadForgeShims(transformer);
 
+        // Load the PolyfillProviders. This was MISSING on the Forge entry point (Fabric, NeoForge,
+        // and the CLI all load them), so removed-API polyfills like DirectionPropertyLookup (#24)
+        // never applied on a Forge host - hit in-game on Forge 26.2 as
+        // NoSuchMethodError: EnumProperty.create(String, Direction[]) killing block <clinit>s.
+        // Same category exclusion as NeoForge: the "neoforge" category re-implements the NeoForge
+        // transfer-API rework and would be wrong on a Forge runtime.
+        try {
+            com.retromod.polyfill.PolyfillRegistry polyfillRegistry =
+                    new com.retromod.polyfill.PolyfillRegistry();
+            polyfillRegistry.setCategoryEnabled("neoforge", false);
+            polyfillRegistry.loadAndRegister(transformer);
+        } catch (Exception e) {
+            LOGGER.warn("Could not load polyfills", e);
+        }
+
         // Forge mods built with ForgeGradle's reobfJar carry SRG names
         // (Blocks.f_50069_, ...); Forge 64.x dropped its SRG remap for MC 26.1+,
         // so reobf'd mods crash with NoSuchFieldError without this. Forge is the

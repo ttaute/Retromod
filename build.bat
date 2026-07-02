@@ -9,7 +9,7 @@ REM   - Fabric mod (for Fabric Loader)
 REM   - NeoForge mod (for NeoForge Loader)
 REM ============================================================================
 
-set VERSION=1.2.0-snapshot.6
+set VERSION=1.2.0-snapshot.7
 
 echo ============================================
 echo   Retromod Build Script v%VERSION%
@@ -98,7 +98,7 @@ REM Update manifest for NeoForge
 (
 echo Manifest-Version: 1.0
 echo Implementation-Title: Retromod
-echo Implementation-Version: 1.2.0-snapshot.6
+echo Implementation-Version: 1.2.0-snapshot.7
 echo Automatic-Module-Name: retromod
 ) > META-INF\MANIFEST.MF
 

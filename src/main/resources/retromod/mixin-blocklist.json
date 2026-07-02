@@ -23,25 +23,32 @@
     "handlers - Retromod repoints the @Mixin annotation at a non-existent target so",
     "the framework skips it entirely (the harmless 'target not found' path). Use this",
     "for mixins that ADD AN INTERFACE to their target (handler-stripping leaves the",
-    "interface unapplied → ClassCastException downstream, #68) or that have an",
+    "interface unapplied \u2192 ClassCastException downstream, #68) or that have an",
     "interdependent critical @Inject failure where partial stripping leaves orphans (#69)."
   ],
   "blocked": [
     {
       "mixin": "com/kyanite/deeperdarker/mixin/PaintingItemMixin",
-      "methods": ["deeperdarker$decrementStackOnServer"],
+      "methods": [
+        "deeperdarker$decrementStackOnServer"
+      ],
       "issue": "#28",
       "reason": "MixinExtras @WrapOperation + @Local Level on HangingEntityItem.useOn, wrapping ItemStack.shrink(I). MC 26.1 restructured useOn, so the @Local Level resolves to a non-existent slot and MixinExtras emits an invalid bridge (VerifyError: Bad local variable type) that crashes at bootstrap. Stripping just this handler lets Deeper and Darker boot; the painting stack-decrement tweak is inert."
     },
     {
       "mixin": "com/naterbobber/darkerdepths/mixin/PlayerMixin",
-      "methods": ["G$addAdditionalSaveData", "G$readAdditionalSaveData"],
+      "methods": [
+        "G$addAdditionalSaveData",
+        "G$readAdditionalSaveData"
+      ],
       "issue": "#48",
       "reason": "@Inject handlers on Entity.addAdditionalSaveData/readAdditionalSaveData capture CompoundTag, but MC moved those params to ValueOutput/ValueInput in the 1.21.5 serialization (ValueIO/codec) refactor -> InvalidInjectionException (Invalid descriptor: expected ValueOutput, found CompoundTag) on 1.21.11. Not a rename (ValueOutput has a different API than CompoundTag), so the handler body can't be auto-retyped yet. Stripping these handlers removes the injection error. NOTE (#48): Darker Depths' death-anchor feature is interdependent (the stripped handlers leave orphaned helper lambdas + a @Unique field/interface), so this mod still does not fully construct after the strip - it's a PARTIAL soft-fail, kept here because the handlers are genuinely broken and the strip is correct as far as it goes. Mods with a self-contained broken handler soft-fail cleanly."
     },
     {
       "mixin": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
-      "methods": ["revamped_phantoms$getDefaultDimensions"],
+      "methods": [
+        "revamped_phantoms$getDefaultDimensions"
+      ],
       "issue": "#50",
       "reason": "@ModifyReturnValue handler on a getDefaultDimensions/getDimensions method (returns EntityDimensions) fails injection on 1.21.11 with 'failed injection check, (0/1) succeeded. Scanned 0 target(s)' - the target method couldn't be resolved on the newer MC (renamed/re-signatured; mod ships no refMap). The handler body only rescales the dimensions' EntityAttachments via the mod's own Accessors util - it does NOT touch the mod's shared-goals feature (revamped_phantoms$goalHolder/registerGoals/getGoalHolder/HasSharedGoals), which injects fine - so this is a CLEAN, self-contained soft-fail: stripping it lets Revamped Phantoms construct with goals intact and only the phantom-size tweak inert. Contrast #48, which was interdependent."
     },
@@ -74,6 +81,16 @@
       "strip": "class",
       "issue": "Yung's API world-gen crash on 26.2",
       "reason": "The @Accessor interface paired with BeardifierMixin (above). getPieceIterator()/getJunctionIterator() target Beardifier's pieceIterator/junctionIterator fields, which 26.2 replaced with the pieces/junctions Lists, so the accessors can't bind and resolve to abstract methods -> AbstractMethodError when called. Whole-class stripped alongside BeardifierMixin so the broken accessor never applies; its only caller (EnhancedBeardifierHelper, reached via BeardifierMixin's now-stripped handler) is gone too."
+    },
+    {
+      "mixin": "com.yungnickyoung.minecraft.yungsapi.mixin.NoiseChunkMixin",
+      "strip": "class",
+      "reason": "@Shadow field noiseSettings removed from NoiseChunk on 26.x; the failed apply poisons NoiseChunk class-load, killing ALL worldgen (vanilla /place and /locate included, captured on the 26.2 dedicated server). YungsApi's noise-modification API goes inert; structure generation itself works without it."
+    },
+    {
+      "mixin": "com.yungnickyoung.minecraft.yungsapi.mixin.accessor.NoiseChunkAccessor",
+      "strip": "class",
+      "reason": "Companion accessor for NoiseChunkMixin, same removed-field target on 26.x."
     }
   ]
 }

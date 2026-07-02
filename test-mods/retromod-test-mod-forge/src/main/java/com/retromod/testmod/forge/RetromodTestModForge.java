@@ -56,6 +56,23 @@ public class RetromodTestModForge {
         n++; passed += check(n, "BlockState round-trip", () ->
             Blocks.STONE.defaultBlockState().getBlock() == Blocks.STONE);
 
+        // ─── #85/#115: FMLJavaModLoadingContext Forge->NeoForge bridge ───
+        // The idiom nearly every Forge @Mod constructor opens with, to grab its event bus for
+        // DeferredRegister. On a Forge host this is the native FML class and the check passes
+        // trivially. On a NeoForge host NeoForge DELETED
+        // net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext, so Retromod must redirect
+        // this reference to the B4 bridge synthetic and EMBED it per-mod
+        // (com/retromod/embedded/<mod>/FMLJavaModLoadingContext). If that redirect+embed
+        // regresses, this line throws NoClassDefFoundError for the Forge class - exactly the
+        // #85/#115 construct crash (Macaw's / Management Wanted on NeoForge 26.2). The guarding
+        // try/catch in check() turns a regression into a visible fail line instead of taking the
+        // whole mod down, but the reference a native @Mod would crash on is the same one.
+        // ONLY meaningful when this Forge mod runs on a NeoForge host (deploy this jar to a
+        // NeoForge instance's retromod-input/); on a Forge host it is native. The host-independent
+        // redirect assertion lives in the JUnit ForgeEventMigrationTest.
+        n++; passed += check(n, "#85/#115 FMLJavaModLoadingContext.get().getModEventBus() bridge", () ->
+            net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext.get().getModEventBus() != null);
+
         LOG.info("{} SUMMARY: {}/{} passed", PREFIX, passed, n);
     }
 

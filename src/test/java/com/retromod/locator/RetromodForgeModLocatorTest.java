@@ -44,16 +44,18 @@ class RetromodForgeModLocatorTest {
 
     @Test
     void forgeIModLocatorServiceMustNotBeRegistered() {
-        // #102: Forge's ModDirTransformerDiscoverer claims any mods/ jar declaring the
-        // IModLocator service onto the early service layer, where it is NOT scanned as a @Mod.
-        // Registering it in Retromod's main jar stopped Retromod from initializing on Forge at all,
-        // so it must stay unregistered. The NeoForge SPI uses a different mechanism and is unaffected.
+        // #102 (Forge) + #90 (NeoForge): a mods/ jar declaring a locator SPI gets claimed onto the
+        // early-service layer, where it is NOT scanned as a @Mod. On Forge that stopped Retromod
+        // initializing at all (#102); NeoForge 26.2's IModFileCandidateLocator was found to have the
+        // SAME trap in-game (#90, RetromodNeoForge never constructed). So NEITHER service is registered
+        // in the main jar; the locator classes stay (com/retromod/** uniform for the self-hash), and
+        // CF-export loading from mods/Retromod/ moves to a separate stub jar.
         assertNull(getClass().getResourceAsStream(
                         "/META-INF/services/net.minecraftforge.forgespi.locating.IModLocator"),
                 "Forge IModLocator service must NOT be registered (it blocks Retromod's @Mod on Forge, #102)");
-        assertNotNull(getClass().getResourceAsStream(
+        assertNull(getClass().getResourceAsStream(
                         "/META-INF/services/net.neoforged.neoforgespi.locating.IModFileCandidateLocator"),
-                "the NeoForge locator service is unaffected and stays");
+                "NeoForge IModFileCandidateLocator service must NOT be registered either (same @Mod trap, #90)");
     }
 
     @Test

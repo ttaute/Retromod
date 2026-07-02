@@ -1429,6 +1429,10 @@ public class FabricModTransformer {
         try (JarOutputStream jos = new JarOutputStream(
                 new FileOutputStream(outputJar.toFile()), manifest)) {
 
+            // ZIP directory entries: package resources (ClassLoader.getResources) and classpath
+// scanners (Reflections - YungsApi @AutoRegister) silently find nothing without them.
+            com.retromod.util.JarDirectoryEntries.writeAll(jos, sourceDir);
+
             // Populated lazily while processing mixin configs; modified class bytes are
             // written from here rather than re-read from disk.
             Map<String, byte[]> classLookupForStripping = null;
@@ -1763,6 +1767,9 @@ public class FabricModTransformer {
                     Path tempJar = jijJar.getParent().resolve(name + ".tmp");
                     try (JarOutputStream jos = new JarOutputStream(
                             new FileOutputStream(tempJar.toFile()), manifest)) {
+                        // ZIP directory entries: package resources (ClassLoader.getResources) and classpath
+// scanners (Reflections - YungsApi @AutoRegister) silently find nothing without them.
+                        com.retromod.util.JarDirectoryEntries.writeAll(jos, tempDir);
                         try (var stream = Files.walk(tempDir)) {
                             for (Path file : stream.filter(Files::isRegularFile).toList()) {
                                 String entryName = tempDir.relativize(file).toString()

@@ -32,9 +32,9 @@ mvn exec:java \
   -Dexec.args="transform path/to/mod.jar" -q
 ```
 
-Transforms `mod.jar` in-place to target the current `TARGET_MC_VERSION` (26.1.2). The original is backed up next to it with a `.bak` suffix.
+Transforms `mod.jar` to target the current `TARGET_MC_VERSION` (26.1 by default; override with `--target <version>`). The transformed copy is written next to the original as `mod-transformed.jar` (or wherever `--output <jar>` points); the original is left untouched.
 
-Output: `path/to/mod.jar` (transformed), `path/to/mod.jar.bak` (original).
+Output: `path/to/mod-transformed.jar` (transformed); `path/to/mod.jar` (original, untouched).
 
 ### `transform --verify`: transform and verify
 
@@ -74,7 +74,7 @@ Runs the full AOT compiler over every mod in the folder, writing cache entries i
 
 Useful for bulk-preparing a modpack on a faster machine before shipping it out.
 
-### `embed`: bake Retromod into a mod JAR
+### `embed`: bake removed APIs into a mod JAR
 
 ```bash
 mvn exec:java \
@@ -82,17 +82,17 @@ mvn exec:java \
   -Dexec.args="embed path/to/mod.jar" -q
 ```
 
-Embeds a minimal Retromod runtime directly into `mod.jar` so the mod can self-transform at load time without needing Retromod installed separately. Produces a self-contained JAR that works on a vanilla Fabric/NeoForge/Forge install.
+Scans `mod.jar` for calls into loader APIs that have since been removed and, if any are found, extracts the archived implementations of those APIs, relocates them under a `retromod_embedded/` package, and rewrites the mod's calls to use the embedded copies. The result is written next to the original as `mod-retromod.jar`, so the mod carries the removed APIs with it instead of needing them from the loader. If the mod uses no removed APIs, nothing is embedded and no output jar is produced.
 
-### `diff`: show what transformation *would* do
+### `diff`: show API differences between two versions
 
 ```bash
 mvn exec:java \
   -Dexec.mainClass="com.retromod.cli.RetromodCli" \
-  -Dexec.args="diff path/to/mod.jar" -q
+  -Dexec.args="diff fabric 1.21.1 26.1" -q
 ```
 
-Dry-run: prints the class/method/field renames, mixin target rewrites, and metadata changes Retromod would apply, without actually writing anything. Great for "what is Retromod going to do to my mod?" before you commit.
+Shows the API differences between two MC versions for a loader: `diff <loader> <version1> [version2]` (the target defaults to the CLI's `TARGET_MC_VERSION` if omitted) walks the shim chain between the two versions and prints each shim's method/class redirect counts and embedded helper classes, without inspecting or writing any mod. For a per-mod preview, run `transform`: it writes to a separate `-transformed.jar`, so the original is untouched.
 
 ### `shims`: list registered shims
 
@@ -102,19 +102,18 @@ mvn exec:java \
   -Dexec.args="shims" -q
 ```
 
-Prints every registered version shim, grouped by loader (Fabric / NeoForge / Forge / API), with `fromVersion → toVersion` and redirect count. Useful for confirming a shim is actually loaded.
+Prints every registered version shim, grouped by loader (Fabric / NeoForge / Forge / API), with `fromVersion → toVersion` and the shim name, plus a total shim count at the end. Useful for confirming a shim is actually loaded.
 
 Abbreviated output:
 
 ```
-Fabric shims (112):
-  1.20.1 → 1.20.2   (18 redirects)
-  1.20.2 → 1.20.4   (23 redirects)
-  ...
+┌─ FABRIC ────────────────────────────────────────
+│  1.20.1 → 1.20.2  (Fabric 1.20.1 to 1.20.2)
+│  1.20.2 → 1.20.3  (Fabric 1.20.2 to 1.20.3)
+│  ...
+└──────────────────────────────────────────────────────
 
-NeoForge shims (21):
-  1.20.4 → 1.20.6   (5 redirects)
-  ...
+Total: 143 shims registered
 ```
 
 ## Flags

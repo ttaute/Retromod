@@ -33,26 +33,16 @@ public class AotCompiler {
 
     private static final String AOT_MANIFEST_KEY = "Retromod-AOT-Version";
 
-    // bump when shims change
-    private static final String AOT_VERSION = "1.2.0-snapshot.6";
+    // bump when shims change (package-visible: AotCacheStamp folds it into the generation stamp)
+    static final String AOT_VERSION = "1.2.0-snapshot.7";
 
     // Self-hash of the running Retromod jar, stamped on every cache entry so any change to Retromod's
     // own classes invalidates stale caches (AOT_VERSION alone only catches version bumps). Empty hash
     // means "don't stamp, don't check", degrading to AOT_VERSION-only when the verifier can't find the
-    // running jar (dev/IDE classpath). See CLAUDE.md pitfall #4.
-    private static volatile String selfHashCache;
+    // running jar (dev/IDE classpath). The same value drives AotCacheStamp's directory-level
+    // generation stamp, which physically clears the cache on any Retromod change.
     private static String currentSelfHash() {
-        String s = selfHashCache;
-        if (s != null) return s;
-        try {
-            com.retromod.security.SignatureVerifier.VerificationResult r =
-                com.retromod.security.SignatureVerifier.verify();
-            String h = r.selfHash();
-            selfHashCache = (h != null ? h : "");
-        } catch (Throwable t) {
-            selfHashCache = "";
-        }
-        return selfHashCache;
+        return AotCacheStamp.currentSelfHash();
     }
 
     private final ShimRegistry shimRegistry;
@@ -71,12 +61,10 @@ public class AotCompiler {
         this.versionDetector = new ModVersionDetector();
         this.apiEmbedder = new ApiEmbedder();
         this.targetMcVersion = targetMcVersion;
-        
-        try {
-            Files.createDirectories(AOT_CACHE_DIR);
-        } catch (IOException e) {
-            LOGGER.warn("Could not create AOT cache directory", e);
-        }
+
+        // Creates the cache dir AND wipes it when the Retromod build changed since it was
+        // written, so users never have to clear config/retromod/aot-cache by hand.
+        AotCacheStamp.ensureCurrent(AOT_CACHE_DIR);
     }
     
     /** Returns the AOT-compiled JAR for {@code modJar} (possibly a cached copy), or the original if no transform applies. */
@@ -276,7 +264,9 @@ public class AotCompiler {
                 if (entry.isDirectory()) continue;
                 
                 try (InputStream is = jar.getInputStream(entry)) {
-                    byte[] data = is.readAllBytes();
+                    // bounded read: a crafted jar with a huge/decompression-bomb entry would OOM
+                    // the game JVM via readAllBytes (review finding; extractJar already bounds)
+                    byte[] data = ZipSecurity.safeReadAllBytes(is);
 
                     if (entry.getName().endsWith(".class")) {
                         String className = entry.getName().replace(".class", "");
@@ -327,6 +317,12 @@ public class AotCompiler {
             jos.putNextEntry(new JarEntry("META-INF/MANIFEST.MF"));
             manifest.write(jos);
             jos.closeEntry();
+
+            // ZIP directory entries: package resources (ClassLoader.getResources) and classpath
+// scanners (Reflections - YungsApi @AutoRegister) silently find nothing without them.
+            java.util.List<String> allNames = new java.util.ArrayList<>(transformedClasses.keySet());
+            allNames.addAll(originalResources.keySet());
+            com.retromod.util.JarDirectoryEntries.writeAllForNames(jos, allNames);
 
             // safeEntryName guards against zip-slip: entry names come from the input JAR, so a malicious
             // mod could ship a class whose name traverses out of the archive ("../../etc/foo.class").

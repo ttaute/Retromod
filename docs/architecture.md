@@ -59,7 +59,7 @@ src/main/java/com/retromod/
 ├── shim/       version shims organized by loader (fabric/ neoforge/ forge/ api/)
 ├── mapping/    IntermediaryToMojangMapper, MappingComposer
 ├── mixin/      MixinCompatibilityTransformer, MixinTargetRedirector
-├── polyfill/   72+ polyfills across 10 providers
+├── polyfill/   76 polyfill providers (removed-API reimplementations)
 ├── embedder/   embeds Retromod runtime into a mod JAR
 ├── resources/  resource pack / data pack transforms
 ├── gui/        in-game GUI (title screen button, settings screen, file picker)
@@ -146,7 +146,7 @@ TOML parsing is careful here because the standard TOML library doesn't round-tri
 
 The transformed JAR is written with a deterministic file structure: original class files replaced with transformed versions, metadata files rewritten in place, mixin refmaps updated, polyfill classes injected where needed.
 
-If AOT is on, a serialized cache entry is also written to `config/retromod/aot-cache/` keyed by the source mod's hash.
+If AOT is on, a serialized cache entry is also written to `config/retromod/aot-cache/` keyed by the source mod's hash. The whole directory is stamped with the owning Retromod build (version + self-hash); when you update Retromod, the stale cache is wiped automatically at startup.
 
 ## Runtime entry points
 

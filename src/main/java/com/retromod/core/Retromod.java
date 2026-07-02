@@ -27,6 +27,16 @@ public class Retromod implements ModInitializer {
     public static final String MOD_ID = "retromod";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+    /**
+     * Runtime membership predicate: did Retromod transform this mod jar? Reads the
+     * {@code Retromod-Transformed} manifest attribute stamped at transform time, so
+     * runtime helpers never touch a native mod (pitfalls #14/#46). Loader-agnostic:
+     * delegates to {@link ForgeModTransformer#isTransformedMod(Path)}.
+     */
+    public static boolean isTransformedMod(Path jar) {
+        return ForgeModTransformer.isTransformedMod(jar);
+    }
+
     // Auto-detected at runtime from the loader.
     public static String TARGET_MC_VERSION = "1.21.4";
 
@@ -543,6 +553,16 @@ public class Retromod implements ModInitializer {
             String loaderType = shim.getModLoaderType();
             if (!"fabric".equals(loaderType) && !"common".equals(loaderType)) {
                 skippedNonFabric++;
+                continue;
+            }
+
+            // Pitfall #9: never register a shim whose target exceeds the host. The other entry
+            // points had this; the Fabric onInitialize path didn't, so e.g. the 26.2 dyed-field
+            // accessors would rewrite a 1.21.11 host's live Blocks.WHITE_WOOL reads to a
+            // nonexistent ColorCollection (review finding).
+            if (RetromodVersion.mcVersionExceeds(shim.getTargetVersion(), TARGET_MC_VERSION)) {
+                LOGGER.debug("Skipping shim {} (target {} exceeds host {})",
+                        shim.getShimName(), shim.getTargetVersion(), TARGET_MC_VERSION);
                 continue;
             }
 

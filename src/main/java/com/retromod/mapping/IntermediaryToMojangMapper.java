@@ -152,6 +152,10 @@ public class IntermediaryToMojangMapper {
     private static final Pattern CLASS_PATTERN = Pattern.compile("class_\\d+");
     private static final Pattern FIELD_PATTERN = Pattern.compile("field_\\d+");
     private static final Pattern METHOD_PATTERN = Pattern.compile("method_\\d+");
+    // Record-component accessors (1.20.5+) are keyed like methods in the intermediary
+    // mapping. The bytecode remapper already handles comp_ via methodMap; string-level
+    // refmaps/reflection strings need it too. (adapted from Sinytra Connector (MIT))
+    private static final Pattern COMP_PATTERN = Pattern.compile("comp_\\d+");
     // Fully-qualified "net/minecraft/class_XXXX" style paths
     private static final Pattern FQ_CLASS_PATTERN = Pattern.compile("[a-z]+(?:/[a-z]+)*/class_\\d+");
 
@@ -174,6 +178,10 @@ public class IntermediaryToMojangMapper {
 
         if (result.contains("method_")) {
             result = replaceByPattern(result, METHOD_PATTERN, methodMap);
+        }
+
+        if (result.contains("comp_")) {
+            result = replaceByPattern(result, COMP_PATTERN, methodMap);
         }
 
         return result;

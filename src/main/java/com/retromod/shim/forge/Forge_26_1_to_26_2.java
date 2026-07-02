@@ -38,5 +38,22 @@ public class Forge_26_1_to_26_2 implements VersionShim {
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
         Mc26_1To26_2CoreMoves.register(transformer);
+
+        // Forge 26.2 (65.x) swapped EventBus 6 for EventBus 7: IEventBus is gone, so every old
+        // Forge mod dies at construction on getModEventBus()/DeferredRegister.register(bus)/
+        // MinecraftForge.EVENT_BUS. Bridge the old idiom onto BusGroup (#85). LexForge-only:
+        // on a NeoForge runtime (or the CLI's neoforge target) the Forge->NeoForge migration owns
+        // these idioms, and this shim only survives there by services-ordering luck (review).
+        if (com.retromod.util.McReflect.isNeoForge()) {
+            return;
+        }
+        ForgeEventBusSynthetics.register(transformer);
+
+        // MC 26.x requires the registry id stamped on Block/Item Properties BEFORE construction,
+        // and Forge's DeferredRegister.register(String, Supplier) builds the object with no id
+        // (RegisterEvent dies "Block/Item id not set" - same domino as NeoForge #87, hit in-game
+        // on Macaw's here too). Forge has no id-aware register overload, so the supplier is
+        // wrapped and the id comes from the returned RegistryObject.getKey().
+        RegistryIdBridgeSynthetic.registerForgeRedirects(transformer);
     }
 }

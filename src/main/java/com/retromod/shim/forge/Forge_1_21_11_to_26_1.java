@@ -12,7 +12,9 @@
 package com.retromod.shim.forge;
 
 import com.retromod.core.RetromodTransformer;
+import com.retromod.core.RetromodVersion;
 import com.retromod.core.VersionShim;
+import com.retromod.util.McReflect;
 
 /**
  * Compatibility shim for Forge mods built for 1.21.11 to run on 26.1+.
@@ -48,6 +50,10 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
         // blaze3d refactor. Forge doesn't share the Common class-moves path, so
         // wire it here directly.
         com.retromod.shim.common.RemovedRenderStateNeutralize.register(transformer);
+
+        // 26.1 removed the single-arg is() overloads from BlockState/ItemStack/FluidState;
+        // same wiring note as above (Forge doesn't run the Common class-moves path).
+        com.retromod.shim.common.IsOverloadBridgeSynthetic.register(transformer);
 
         // Forge 64.x for MC 26.1 renamed net.minecraft.resources.ResourceLocation
         // to .Identifier; pre-26.1 mods reference the old name and crash with
@@ -177,23 +183,37 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
         // a class redirect would rewrite the GETSTATIC owner first (ClassRemapper runs
         // before field redirects) and re-break them.
 
-        // Forge dropped the "I" prefix: IForgeItem -> ForgeItem, etc.
-        transformer.registerClassRedirect(
-            "net/minecraftforge/common/extensions/IForgeItem",
-            "net/minecraftforge/common/extensions/ForgeItem"
-        );
-        transformer.registerClassRedirect(
-            "net/minecraftforge/common/extensions/IForgeBlock",
-            "net/minecraftforge/common/extensions/ForgeBlock"
-        );
-        transformer.registerClassRedirect(
-            "net/minecraftforge/common/extensions/IForgeEntity",
-            "net/minecraftforge/common/extensions/ForgeEntity"
-        );
-        transformer.registerClassRedirect(
-            "net/minecraftforge/common/extensions/IForgeBlockEntity",
-            "net/minecraftforge/common/extensions/ForgeBlockEntity"
-        );
+        // Forge dropped the "I" prefix on its extension interfaces: IForgeItem -> ForgeItem, etc.
+        // These target net/minecraftforge/common/extensions/, which only exists on a FORGE 26.1
+        // host. On a NeoForge host the Forge -> NeoForge migration (Forge_1_20_to_NeoForge_1_21)
+        // maps the same interfaces to NeoForge's IItemExtension/IBlockExtension/... instead;
+        // registering the Forge-package rename on NeoForge too would clobber that (the redirect map
+        // is last-writer-wins across ServiceLoader-discovered shims) and crash a Forge mod's custom
+        // Item at construct with NoClassDefFoundError: net/minecraftforge/common/extensions/ForgeItem
+        // (Macaw's on NeoForge 26.2). So gate these to Forge hosts only.
+        // ALSO version-gated to a 26.1 host: the I-drop was Forge 26.1 (64.x) only - Forge 26.2
+        // (65.x) RESTORED the I-names (verified: forge-26.2-65.0.0-universal ships IForgeItem and
+        // no ForgeItem), so applying the rename on a 26.2 host recreates the same
+        // NoClassDefFoundError: net/minecraftforge/common/extensions/ForgeItem it once fixed.
+        if (!McReflect.isNeoForge()
+                && RetromodVersion.mcVersionExceeds("26.2", RetromodVersion.TARGET_MC_VERSION)) {
+            transformer.registerClassRedirect(
+                "net/minecraftforge/common/extensions/IForgeItem",
+                "net/minecraftforge/common/extensions/ForgeItem"
+            );
+            transformer.registerClassRedirect(
+                "net/minecraftforge/common/extensions/IForgeBlock",
+                "net/minecraftforge/common/extensions/ForgeBlock"
+            );
+            transformer.registerClassRedirect(
+                "net/minecraftforge/common/extensions/IForgeEntity",
+                "net/minecraftforge/common/extensions/ForgeEntity"
+            );
+            transformer.registerClassRedirect(
+                "net/minecraftforge/common/extensions/IForgeBlockEntity",
+                "net/minecraftforge/common/extensions/ForgeBlockEntity"
+            );
+        }
 
         // Catch javax.annotation refs for mods that skip intermediate shims via direct BFS.
         transformer.registerClassRedirect(

@@ -18,6 +18,11 @@ public final class Common_1_21_11_to_26_1_ClassMoves {
     private Common_1_21_11_to_26_1_ClassMoves() {}
 
     public static void register(RetromodTransformer transformer) {
+        // 26.1 removed the single-arg is() overloads from BlockState/ItemStack/FluidState
+        // (NoSuchMethodError on block placement, tag checks, item comparisons - the Macaw's
+        // Bridge_Block.onPlace crash). Bridged by a per-mod synthetic.
+        IsOverloadBridgeSynthetic.register(transformer);
+
         // GuiGraphics -> GuiGraphicsExtractor
         transformer.registerClassRedirect(
             "net/minecraft/client/gui/GuiGraphics",

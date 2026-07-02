@@ -5,7 +5,7 @@
 [![Java 25+](https://img.shields.io/badge/Java-25+-blue.svg)](https://adoptium.net/)
 [![Minecraft 1.20 - 26.2](https://img.shields.io/badge/Minecraft-1.20%20--%2026.2-green.svg)](https://minecraft.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.1.0-blueviolet.svg)]()
+[![Version](https://img.shields.io/badge/Version-1.2.0--snapshot.7-blueviolet.svg)]()
 [![wakatime](https://wakatime.com/badge/github/Bownlux/Retromod.svg)](https://wakatime.com/badge/github/Bownlux/Retromod)
 
 **Made by the developers of [RevivalSMP.net](https://revivalsmp.net)**
@@ -15,10 +15,10 @@
 ## TL;DR
 
 - **What it is**: a drop-in mod (and a CLI) that rewrites old mods' bytecode at load time (renamed methods, moved classes, removed APIs, broken mixins, version-range rejections) so they run on modern Minecraft. **Fabric, NeoForge, Forge.**
-- **Versions**: translates mods built for **1.12.2 and up** onto a host running **MC 1.20 → 26.2** (Fabric/NeoForge reach 26.2; Forge tops out at 26.1 until its 26.2 loader ships).
+- **Versions**: translates mods built for **1.12.2 and up** onto a host running **MC 1.20 → 26.2** (Fabric, NeoForge, and Forge all reach 26.2).
 - **Install (Fabric)**: put the jar in `mods/`, launch once, drop old mods in `retromod-input/`, launch, restart. **Forge/NeoForge:** jar + old mods both in `mods/`, launch, restart.
 - **MC 26.2 → use OpenGL.** Vulkan is 26.2's new default and breaks old mods' OpenGL rendering; Retromod auto-selects OpenGL for you (Video Settings → Graphics API → OpenGL to confirm).
-- **Status**: **1.1.0** is the current stable release (26.x coverage). Keep backups of your mod JARs.
+- **Status**: **1.2.0-snapshot.7** is the current release (Forge 26.2 hosts, worldgen on 26.x). Keep backups of your mod JARs.
 - **Won't work for** deep-integration / rendering mods (Create, OptiFine, …). [Why](docs/incompatible-mods.md).
 - **Help**: [Troubleshooting](docs/troubleshooting.md) · [FAQ](docs/faq.md) · [Compatibility](COMPATIBILITY.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/Bownlux/Retromod/issues)
 
@@ -30,7 +30,7 @@
 
 ### Fabric
 
-1. Put `retromod-1.1.0+<your-mc>.jar` in `mods/`.
+1. Put `retromod-1.2.0-snapshot.7+<your-mc>.jar` in `mods/`.
 2. Launch once and close it. This creates the `retromod-input/` folder.
 3. Drop your old mods into `retromod-input/` (directly, **not** its `processed/` subfolder).
 4. Launch again. Retromod converts them and shows a restart prompt.
@@ -60,19 +60,19 @@ There's no `.exe`/`.app`/installer. Retromod is a Minecraft mod, loaded by your 
 |---|---|---|---|
 | **Fabric** | 1.20 → 26.2 | 1.14.4+ | 1.16.5+ stable · 1.14-1.15 experimental |
 | **NeoForge** | 1.20.1 → 26.2 | 1.20.1+ | Stable |
-| **Forge** | 1.20 → 26.1 | 1.12.2+ | 1.16.5+ stable · 1.12-1.15 experimental |
+| **Forge** | 1.20 → 26.2 | 1.12.2+ | 1.16.5+ stable · 1.12-1.15 experimental |
 
-> Forge has no MC 26.2 build yet, so its host tops out at 26.1 until one ships (the Fabric/NeoForge 26.2 jars are already built).
+> All three loaders reach MC 26.2 (Forge 26.2 = Forge 65.x); Retromod is verified in-game on Forge 26.2.
 
 > **On MC 26.2, use the OpenGL renderer.** 26.2 makes the new **Vulkan** backend the default, but translated old mods that do their own OpenGL rendering can glitch, render nothing, or crash on Vulkan: they need the still-present OpenGL backend. Retromod sets `preferredGraphicsBackend:"opengl"` automatically the first time it runs on a 26.2+ client (it won't override a backend you picked yourself); to set or confirm it manually, use **Video Settings → Graphics API → OpenGL**. Opt out with `-Dretromod.graphics.noPreference=true`. (No-op on macOS, which runs OpenGL-over-Metal anyway. OpenGL is expected to be removed in 26.3; see the [roadmap](ROADMAP.md).)
 
-Experimental chains (1.12.2-1.15.2) cross enormous API breaks like The Flattening. Many mods work, but expect rough edges. Stable chains (1.16.5+) translate cleanly for the vast majority of mods.
+Experimental chains (1.12.2-1.15.2) cross enormous API breaks like The Flattening. 1.14-1.15 mods often work with rough edges; 1.12.2 support is currently transform-level (mods convert and get scanned, but full in-game loading is still ahead, targeted at 1.2.0 final). Stable chains (1.16.5+) translate cleanly for the vast majority of mods.
 
 ---
 
 ## Key Features
 
-- **534+ bytecode redirects** (class / method / field / constructor / accessor), **170+ version shims** (1.12.2 → 26.2), and **72+ polyfills** that reimplement removed APIs against modern equivalents (so old mods *work*, not just load).
+- **534+ bytecode redirects** (class / method / field / constructor / accessor), **140+ version shims** (1.12.2 → 26.2), and **72+ polyfills** that reimplement removed APIs against modern equivalents (so old mods *work*, not just load).
 - **Intermediary → Mojang mapping** for 26.1+: 8,800+ intermediary names composed with 600+ 26.1 package moves, plus reflection-string remapping and bridge-method synthesis.
 - **Smart mixin compatibility**: relocates broken targets and soft-fails bad injections so one bad mixin can't crash the game.
 - **34+ modding APIs handled** (Fabric API, REI/JEI, Cloth Config, Curios/Trinkets, GeckoLib, Architectury, …) + legacy bridges (Baubles→Curios, NEI→JEI, RF→Forge Energy, WAILA→Jade) + version-constraint relaxation for 60+ mod IDs.
@@ -145,7 +145,7 @@ git clone https://github.com/Bownlux/Retromod.git && cd Retromod
 
 - **Deep-integration / rendering mods don't translate:** Create (ships Flywheel's native GL), OptiFine, Applied Energistics 2, Tinkers' Construct, rendering frameworks. Bytecode rewriting can't bridge native code or a rebuilt render pipeline; those need an author port. [Full list + rules](docs/incompatible-mods.md).
 - **MC 26.2:** use the OpenGL renderer (see above). **26.3** is expected to remove OpenGL entirely, tracked on the [roadmap](ROADMAP.md).
-- **Forge → NeoForge migration is experimental:** package renames work; the rewritten capability / networking / registry systems mostly don't.
+- **Forge → NeoForge migration is young:** 1.20.1 Forge mods get a working migration spine on NeoForge 26.2 (registries, event bus, lifecycle bridges); the rewritten capability and networking systems are still ahead.
 - **1.12.2-1.15.2 chains are experimental** (The Flattening renamed nearly everything), the least-reliable part of the project.
 - **Can't fix Java-version mismatches:** a mod compiled for newer Java than you have fails with `UnsupportedClassVersionError` before Retromod runs; install the Java your MC needs.
 - Already-loaded classes need agent mode; complex non-standard mixins may need manual shim work; resource/data-pack conversion is alpha.
@@ -181,7 +181,9 @@ If you used Retromod to translate your mod, you can add this badge to your mod p
 
 ## Credits
 
-**Bownlux** (author) · **[RevivalSMP.net](https://revivalsmp.net)** (development) · **[ASM](https://asm.ow2.io/)** · **[FabricMC](https://fabricmc.net/)** · **[NeoForged](https://neoforged.net/)** · **[MinecraftForge](https://minecraftforge.net/)**
+**Bownlux** (author) · **[RevivalSMP.net](https://revivalsmp.net)** (development) · **[ASM](https://asm.ow2.io/)** · **[FabricMC](https://fabricmc.net/)** · **[NeoForged](https://neoforged.net/)** · **[MinecraftForge](https://minecraftforge.net/)** · **[Sinytra Connector](https://github.com/Sinytra/Connector)**
+
+**Techniques adapted from [Sinytra Connector](https://github.com/Sinytra/Connector)** (MIT, Copyright (c) 2023 Su5eD): the descriptor-qualified member-name fallback, the AccessWidener-to-AccessTransformer conversion table, and the sidecar transform-cache scheme were re-implemented clean-room from Connector's approach. Retromod does not bundle Connector code; the analysis is in [docs/dev/sinytra-connector-analysis.md](docs/dev/sinytra-connector-analysis.md).
 
 **Mapping data:** Retromod's bundled name tables are derived/transformed works composed from Minecraft obfuscation mappings © Mojang Studios / Microsoft (used for development & interoperability), Fabric intermediary ([FabricMC/intermediary](https://github.com/FabricMC/intermediary), CC0-1.0), and Forge SRG ([MinecraftForge/MCPConfig](https://github.com/MinecraftForge/MCPConfig), © Forge Development LLC). They are *not* redistributions of the original mapping files.
 

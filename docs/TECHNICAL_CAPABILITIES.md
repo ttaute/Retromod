@@ -84,7 +84,7 @@ OLD MIXIN CODE                    RETROMOD                         MINECRAFT
 **What it handles:**
 - Method name changes (`breakBlock` → `destroyBlock`)
 - Class target changes (`World` → `Level`)
-- Method signature changes (different parameters)
+- Method signature changes (different parameters): not yet; handlers keep their old parameter types, so these are soft-failed via the mixin blocklist for now (see 3.1)
 
 **Limitation:** If the new method has COMPLETELY different logic (not just renamed), we can't help.
 
@@ -221,9 +221,9 @@ MinecraftForge.EVENT_BUS.post(new BlockBreakEvent(world, pos, state, player));
 NeoForge.EVENT_BUS.post(new BlockEvent.BreakEvent(level, pos, state, player, drops));
 ```
 
-**Possible solution:** Intercept event registration, translate event types.
+**Solution:** Intercept event registration, translate event types.
 
-**Status:** Complex but doable for known events.
+**Status:** Shipped in 1.2.0-snapshot.7. Retromod bridges Forge event-bus calls onto NeoForge (the Forge to NeoForge migration spine) and translates EventBus 6 listeners, including priorities, to EventBus 7 on Forge 26.2.
 
 ### 3.3 Comprehensive Internal Mapping Database
 
@@ -329,10 +329,10 @@ public void init() {
 | Class package moves | ✅ Done | Easy | Core feature |
 | Simple Mixin redirects | ✅ Done | Easy | Core feature |
 | Mixin middle-man | ✅ Done | Medium | Intercepts and translates calls |
-| Internal class mapping | 🔄 Possible | Hard | Needs large mapping database |
+| Internal class mapping | ✅ Done | Hard | 143 version shims + intermediary→Mojang mapping pipeline (see 2.2) |
 | AOT caching | ✅ Done | Medium | Already implemented |
 | Signature changes | 🔄 Possible | Hard | Per-method work |
-| Event system changes | 🔄 Possible | Hard | Known events only |
+| Event system changes | ✅ Done | Hard | Forge→NeoForge event bridge, EventBus 6→7 incl. priorities |
 | Native code | ❌ Impossible | - | Different language |
 | Shader code | ❌ Impossible | - | Not Java bytecode |
 | Closed source (full) | ❌ Impractical | - | Can't predict behavior |

@@ -156,7 +156,11 @@ public class QuiltModTransformer {
         
         try (var jos = new java.util.jar.JarOutputStream(
                 new FileOutputStream(targetJar.toFile()))) {
-            
+
+            // ZIP directory entries: package resources (ClassLoader.getResources) and classpath
+// scanners (Reflections - YungsApi @AutoRegister) silently find nothing without them.
+            com.retromod.util.JarDirectoryEntries.writeAll(jos, sourceDir);
+
             try (var stream = Files.walk(sourceDir)) {
                 stream.filter(p -> !Files.isDirectory(p)).forEach(path -> {
                     try {

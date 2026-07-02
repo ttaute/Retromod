@@ -90,6 +90,14 @@ public class ModEnvironmentDetector {
         return ModEnvironment.UNKNOWN;
     }
 
+    /**
+     * Infer a mod's side from raw {@code mods.toml}/{@code neoforge.mods.toml} content
+     * (used by {@code ForgeModTransformer} while patching the extracted toml text).
+     */
+    public static ModEnvironment parseSide(String toml) {
+        return parseForgeEnvironment(toml);
+    }
+
     private static ModEnvironment parseForgeEnvironment(String toml) {
         Pattern pattern = Pattern.compile("side\\s*=\\s*\"?(BOTH|CLIENT|SERVER|DEDICATED_SERVER)\"?",
             Pattern.CASE_INSENSITIVE);

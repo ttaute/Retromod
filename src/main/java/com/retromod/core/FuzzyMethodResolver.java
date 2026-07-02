@@ -339,6 +339,15 @@ public class FuzzyMethodResolver {
     public MethodInfo resolveMethod(String owner, String name, String descriptor) {
         if (!indexed) return null;
 
+        // A reference that already resolves (hierarchy-aware) needs no fixing. Without this
+        // guard the scorer can rewrite a VALID call: an inherited method has no exact-owner
+        // candidate (owner match only scores RELATED, 25), so a same-descriptor sibling declared
+        // ON the owner (exact, 40) can tie or beat it and win by candidate order. Live case:
+        // Registry.get(ResourceKey) - inherited from HolderGetter - was rewritten to
+        // Registry.getOptional, the VALUE getter, and YUNG's worldgen died CCE
+        // "StructureTemplatePool cannot be cast to Holder" at first structure piece.
+        if (hasMethod(owner, name, descriptor)) return null;
+
         String cacheKey = owner + "." + name + "." + descriptor;
         MethodInfo cached = methodResolveCache.get(cacheKey);
         if (cached != null) {
@@ -381,6 +390,9 @@ public class FuzzyMethodResolver {
                         + "{}.{}{} -> {}.{}{} (would VerifyError; left unresolved)",
                         owner, name, descriptor,
                         bestMatch.owner(), bestMatch.name(), bestMatch.descriptor());
+                FuzzyMatchReport.record("METHOD", FuzzyMatchReport.BAND_SUPPRESSED, bestScore,
+                        owner, name, descriptor,
+                        bestMatch.owner(), bestMatch.name(), bestMatch.descriptor());
                 boundedCachePut(methodResolveCache, cacheKey, EMPTY_METHOD_INFO);
                 return null;
             }
@@ -388,6 +400,9 @@ public class FuzzyMethodResolver {
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore);
+            FuzzyMatchReport.record("METHOD", FuzzyMatchReport.BAND_AUTO, bestScore,
+                    owner, name, descriptor,
+                    bestMatch.owner(), bestMatch.name(), bestMatch.descriptor());
             boundedCachePut(methodResolveCache, cacheKey, bestMatch);
             return bestMatch;
         } else if (bestMatch != null && bestScore >= THRESHOLD_LOG_WARNING) {
@@ -396,6 +411,9 @@ public class FuzzyMethodResolver {
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore, THRESHOLD_AUTO_APPLY);
+            FuzzyMatchReport.record("METHOD", FuzzyMatchReport.BAND_NEAR, bestScore,
+                    owner, name, descriptor,
+                    bestMatch.owner(), bestMatch.name(), bestMatch.descriptor());
         } else if (bestMatch != null) {
             LOGGER.debug("[Retromod-Fuzzy] Low confidence match for {}.{}{} -> {}.{}{} ({}%)",
                     owner, name, descriptor,
@@ -543,6 +561,9 @@ public class FuzzyMethodResolver {
     public FieldInfo resolveField(String owner, String name, String descriptor) {
         if (!indexed) return null;
 
+        // Same guard as resolveMethod: never rewrite a field reference that already resolves.
+        if (hasField(owner, name, descriptor)) return null;
+
         String cacheKey = owner + "." + name + "." + descriptor;
         FieldInfo cached = fieldResolveCache.get(cacheKey);
         if (cached != null) {
@@ -575,6 +596,9 @@ public class FuzzyMethodResolver {
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore);
+            FuzzyMatchReport.record("FIELD", FuzzyMatchReport.BAND_AUTO, bestScore,
+                    owner, name, descriptor,
+                    bestMatch.owner(), bestMatch.name(), bestMatch.descriptor());
             boundedCachePut(fieldResolveCache, cacheKey, bestMatch);
             return bestMatch;
         } else if (bestMatch != null && bestScore >= THRESHOLD_LOG_WARNING) {
@@ -583,6 +607,9 @@ public class FuzzyMethodResolver {
                     owner, name, descriptor,
                     bestMatch.owner(), bestMatch.name(), bestMatch.descriptor(),
                     bestScore, THRESHOLD_AUTO_APPLY);
+            FuzzyMatchReport.record("FIELD", FuzzyMatchReport.BAND_NEAR, bestScore,
+                    owner, name, descriptor,
+                    bestMatch.owner(), bestMatch.name(), bestMatch.descriptor());
         }
 
         boundedCachePut(fieldResolveCache, cacheKey, EMPTY_FIELD_INFO);

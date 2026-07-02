@@ -66,6 +66,12 @@ public class RetromodTransformer implements ClassFileTransformer {
     private final Map<MethodKey, MethodTarget> argDropRedirects = new ConcurrentHashMap<>();
     private final Set<String> argDropOwners = ConcurrentHashMap.newKeySet();
 
+    // Indy-typed call rewrites: a call immediately preceded by a Consumer LambdaMetafactory indy
+    // is retargeted with the lambda's reified event type appended as a Class constant
+    // (EventBus 7 addListener bridging; see registerIndyTypedCallRewrite).
+    private final Map<MethodKey, MethodTarget> indyTypedRewrites = new ConcurrentHashMap<>();
+    private final Set<String> indyTypedOwners = ConcurrentHashMap.newKeySet();
+
     // oldClassName -> newClassName (JVM internal names). Fed into ClassRemapper, which
     // rewrites class refs everywhere (descriptors, signatures, annotations).
     private final Map<String, String> classRedirects = new ConcurrentHashMap<>(64);
@@ -78,6 +84,20 @@ public class RetromodTransformer implements ClassFileTransformer {
     // using intermediary names must be remapped. Applied via the ClassRemapper overrides.
     private final Map<String, String> intermediaryMethodNames = new ConcurrentHashMap<>(40000);
     private final Map<String, String> intermediaryFieldNames = new ConcurrentHashMap<>(40000);
+
+    // Descriptor-qualified fallback for AMBIGUOUS intermediary short-names, keyed by
+    // "name|descriptor". A short-name is ambiguous when the offline harvest couldn't make
+    // it globally unique, i.e. the same method_XXXX/field_XXXX maps to more than one distinct
+    // Mojang name depending on descriptor. The flat maps above are last-writer-wins for those,
+    // which silently produces a wrong rename (NoSuchMethodError/VerifyError at runtime). At
+    // lookup time, if a name is in the ambiguous set, we resolve via name+descriptor here
+    // instead of trusting the flat map. Unambiguous names never touch these and stay on the
+    // fast name-only path with zero behavior change.
+    // Adapted from Sinytra Connector (MIT): IntermediateMapping.extendedMappings + getMappingKey.
+    private final Map<String, String> intermediaryMethodNamesByDesc = new ConcurrentHashMap<>();
+    private final Map<String, String> intermediaryFieldNamesByDesc = new ConcurrentHashMap<>();
+    private final Set<String> ambiguousIntermediaryMethodNames = ConcurrentHashMap.newKeySet();
+    private final Set<String> ambiguousIntermediaryFieldNames = ConcurrentHashMap.newKeySet();
 
     // m_NNNNNN_ / f_NNNNN_ -> Mojang names. Forge mods reobf'd by ForgeGradle ship SRG
     // names (Blocks.f_50069_); Forge 64.x dropped its SRG->Mojang runtime remap on 26.1+,
@@ -123,6 +143,8 @@ public class RetromodTransformer implements ClassFileTransformer {
     // ASM-generated classes for polyfills needing MC-typed members that can't be compiled
     // from Java source (MC isn't on the compile classpath).
     private final Map<String, byte[]> syntheticClasses = new ConcurrentHashMap<>();
+    // Synthetic classes generated as INTERFACES; redirect emission consults this for the itf flag.
+    private final Set<String> interfaceSyntheticTargets = ConcurrentHashMap.newKeySet();
 
     // Indexes the target MC JAR and scores candidate methods/fields when no hardcoded
     // redirect is found. Never overrides a hardcoded redirect. Lazily initialized.
@@ -333,6 +355,27 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     /**
+     * Register an invokedynamic-typed call rewrite: when a call to {@code owner.name(descriptor)}
+     * is IMMEDIATELY preceded by a {@code LambdaMetafactory} invokedynamic producing a
+     * {@code java.util.function.Consumer}, the call is rewritten to {@code INVOKESTATIC
+     * newOwner.newName(newDesc)} with the lambda's reified event type appended as a trailing
+     * {@code Class} constant (from the indy's instantiatedMethodType, which javac always carries).
+     *
+     * <p>This recovers the listener event type that EventBus 6 read from the lambda's constant
+     * pool and EventBus 7 cannot: {@code bus.addListener(this::onSetup)} compiles to
+     * [captures..., INDY, INVOKEINTERFACE], so at transform time the type is right there. Calls
+     * NOT immediately preceded by a Consumer indy (a stored variable, a field) fall through to
+     * the normal pipeline (the bridge's default method does runtime generics recovery instead).
+     */
+    public void registerIndyTypedCallRewrite(
+            String owner, String name, String desc,
+            String newOwner, String newName, String newDesc) {
+        indyTypedRewrites.put(new MethodKey(owner, name, desc),
+                new MethodTarget(newOwner, newName, newDesc));
+        indyTypedOwners.add(owner);
+    }
+
+    /**
      * Register a vanilla Mojang->Mojang method rename (same owner + descriptor, name
      * only), e.g. {@code ResourceKey.location -> identifier} on 26.x. Unlike
      * {@link #registerMethodRedirect}, this goes through the ClassRemapper's
@@ -479,6 +522,55 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     /**
+     * Register a single descriptor-qualified intermediary member mapping, enabling a
+     * descriptor-aware fallback for AMBIGUOUS short-names.
+     *
+     * <p>The flat {@link #registerIntermediaryNameMappings} maps a short intermediary name
+     * ({@code method_XXXX} / {@code field_XXXX}) straight to one Mojang name. When the offline
+     * harvest cannot make a short-name globally unique (the same short-name resolves to two
+     * different Mojang names depending on descriptor), that flat map is last-writer-wins, which
+     * silently produces a wrong rename that surfaces as {@code NoSuchMethodError}/{@code VerifyError}.
+     *
+     * <p>This overload records the target under the short-name (populating the same fast-path map)
+     * AND under a {@code name+descriptor} key. If two distinct targets are ever registered for the
+     * same short-name, the short-name is flagged ambiguous, and the remapper resolves it via
+     * {@code name+descriptor} at lookup instead of trusting the flat map. Unambiguous names keep the
+     * exact same fast name-only behavior as before.
+     *
+     * <p>Adapted from Sinytra Connector (MIT): {@code IntermediateMapping.extendedMappings} +
+     * {@code getMappingKey}.
+     *
+     * @param name       intermediary short-name (e.g. {@code method_5773} or {@code field_6017})
+     * @param descriptor JVM descriptor of the member at this site
+     * @param mojang     the Mojang name this (name, descriptor) resolves to
+     * @param isField    {@code true} for a field mapping, {@code false} for a method mapping
+     */
+    public void registerIntermediaryMemberMapping(
+            String name, String descriptor, String mojang, boolean isField) {
+        if (name == null || descriptor == null || mojang == null) {
+            throw new IllegalArgumentException("name, descriptor and mojang must not be null");
+        }
+        Map<String, String> flat = isField ? intermediaryFieldNames : intermediaryMethodNames;
+        Map<String, String> byDesc = isField ? intermediaryFieldNamesByDesc : intermediaryMethodNamesByDesc;
+        Set<String> ambiguous = isField ? ambiguousIntermediaryFieldNames : ambiguousIntermediaryMethodNames;
+
+        // Collision detection: if this short-name already resolved to a DIFFERENT Mojang name,
+        // it is not globally unique, so name-only is unsafe. Flag it; the by-desc map carries
+        // every variant (including the one already in the flat map, re-keyed below).
+        String prior = flat.putIfAbsent(name, mojang);
+        if (prior != null && !prior.equals(mojang)) {
+            ambiguous.add(name);
+        }
+        byDesc.put(memberDescKey(name, descriptor), mojang);
+        cachedRemapper = null; // Invalidate cached remapper
+    }
+
+    /** Key for the descriptor-qualified fallback maps. */
+    private static String memberDescKey(String name, String descriptor) {
+        return name + "|" + descriptor;
+    }
+
+    /**
      * Register Forge SRG → Mojang member name mappings.
      *
      * <p>Same shape as {@link #registerIntermediaryNameMappings} but for
@@ -616,6 +708,17 @@ public class RetromodTransformer implements ClassFileTransformer {
      */
     public void registerSyntheticClass(String internalName, byte[] classBytes) {
         syntheticClasses.put(internalName, classBytes);
+        // Track interface synthetics: a redirect whose TARGET is an interface must emit an
+        // InterfaceMethodref regardless of the original call's flag (review finding: pre-1.19.3
+        // mods' itf=false Registry.register calls redirected to the WorldgenTypeBridge interface
+        // died IncompatibleClassChangeError at first registration).
+        try {
+            if ((new org.objectweb.asm.ClassReader(classBytes).getAccess()
+                    & Opcodes.ACC_INTERFACE) != 0) {
+                interfaceSyntheticTargets.add(internalName);
+            }
+        } catch (Exception ignored) {
+        }
         // Also register as embedded shim so the embedder picks it up
         embeddedShimClasses.add(internalName.replace('/', '.'));
         LOGGER.debug("Registered synthetic class: {}", internalName);
@@ -662,6 +765,22 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     /**
+     * Rebase variant for a base class that BECAME AN INTERFACE: {@code extends oldSuperclass}
+     * becomes {@code extends newSuperclass implements addInterfaces}, and {@code super(...)}
+     * calls to the old base are rewritten to the new one (which must provide matching
+     * constructors - typically {@code java/lang/Object} for the old no-arg super()).
+     * E.g. 26.2 turned StructureProcessor into an interface; a 1.21.x processor subclass
+     * otherwise dies at definition (IncompatibleClassChangeError) or, with only the extends
+     * edge rewritten, at {@code <init>} verification ("Bad &lt;init&gt; method call").
+     */
+    public void registerSuperclassRebase(String oldSuperclass, String newSuperclass,
+            String... addInterfaces) {
+        superclassRedirects.put(oldSuperclass, new SuperclassRedirect(newSuperclass, addInterfaces, true));
+        LOGGER.debug("Registered superclass REBASE (extends + super ctor + {} interfaces): {} -> {}",
+                addInterfaces.length, oldSuperclass, newSuperclass);
+    }
+
+    /**
      * Test-only: wipe all registered redirect state so a test can assert on the absence of
      * registrations (e.g. that a host-gated shim registers nothing on a pre-26.1 host). The
      * singleton accumulates state across the JVM otherwise. Also clears the intermediary and
@@ -670,6 +789,7 @@ public class RetromodTransformer implements ClassFileTransformer {
      */
     public void clearRedirectsForTesting() {
         methodRedirects.clear();
+        interfaceSyntheticTargets.clear();
         argDropRedirects.clear();
         argDropOwners.clear();
         staticFieldNullers.clear();
@@ -678,6 +798,10 @@ public class RetromodTransformer implements ClassFileTransformer {
         // populated lets a prior test's applyTo() / registerSrgNameMappings() leak into the next.
         intermediaryMethodNames.clear();
         intermediaryFieldNames.clear();
+        intermediaryMethodNamesByDesc.clear();
+        intermediaryFieldNamesByDesc.clear();
+        ambiguousIntermediaryMethodNames.clear();
+        ambiguousIntermediaryFieldNames.clear();
         srgMethodNames.clear();
         srgFieldNames.clear();
         classRedirects.clear();
@@ -693,6 +817,8 @@ public class RetromodTransformer implements ClassFileTransformer {
         methodRedirectOwners.clear();
         neutralizedMethods.clear();
         neutralizedMethodOwners.clear();
+        indyTypedRewrites.clear();
+        indyTypedOwners.clear();
         classRedirectsVersion.incrementAndGet();
         cachedRemapper = null;
     }
@@ -767,7 +893,9 @@ public class RetromodTransformer implements ClassFileTransformer {
                 fieldRedirects.isEmpty() && superclassRedirects.isEmpty() &&
                 neutralizedMethods.isEmpty() && staticFieldAccessors.isEmpty() &&
                 mojangMethodRenames.isEmpty() && argDropRedirects.isEmpty() &&
-                constructorRedirects.isEmpty() && fieldAccessorRedirects.isEmpty()) {
+                constructorRedirects.isEmpty() && fieldAccessorRedirects.isEmpty() &&
+                intermediaryMethodNames.isEmpty() && intermediaryFieldNames.isEmpty() &&
+                srgMethodNames.isEmpty() && srgFieldNames.isEmpty()) {
             return originalBytes;
         }
 
@@ -785,6 +913,22 @@ public class RetromodTransformer implements ClassFileTransformer {
         for (int pass = 1; pass <= MAX_TRANSFORM_ITERATIONS; pass++) {
             byte[] next = singleTransformPass(current, className);
             totalPassesPerformed.incrementAndGet();
+
+            if (pass == 1) {
+                // A pass RE-SERIALIZES the class even when no redirect matched (fresh constant
+                // pool + COMPUTE_FRAMES). For a class whose type hierarchy isn't loadable at
+                // transform time (a JiJ'd library: YungsApi's bundled javassist), the recomputed
+                // frames merge unknown sister types to java/lang/Object and the output fails
+                // VERIFICATION at runtime (VerifyError in javassist ConstPool.readOne, found on
+                // the 26.2 dedicated server once the directory-entry fix let Reflections load it).
+                // Compare pass 1 against an identity re-serialization: byte-equal means nothing
+                // semantically changed, so ship the ORIGINAL bytes - bit-perfect frames included.
+                // Cost-neutral: this replaces the pass-2 stability check for untouched classes.
+                byte[] baseline = identityReserialize(originalBytes, className);
+                if (baseline != null && Arrays.equals(next, baseline)) {
+                    return postProcess(originalBytes, className);
+                }
+            }
 
             if (Arrays.equals(current, next)) {
                 // Stable: nothing further was rewritten. activePasses = passes that changed
@@ -836,6 +980,45 @@ public class RetromodTransformer implements ClassFileTransformer {
     }
 
     /**
+     * Serialize {@code originalBytes} through the SAME writer/visitor shape as
+     * {@link #singleTransformPass} but with an identity mapping: same fresh-constant-pool and
+     * COMPUTE_FRAMES behavior, no semantic changes. Byte-equality between this and the real
+     * pass-1 output proves no redirect touched the class, so the caller can ship the original
+     * bytes and never expose recomputed (possibly Object-fallback-corrupted) frames.
+     * Returns null when the baseline can't be built - the caller then keeps today's behavior.
+     */
+    private byte[] identityReserialize(byte[] originalBytes, String className) {
+        try {
+            ClassReader reader = new ClassReader(originalBytes);
+            // mirror singleTransformPass's remapper-presence condition (line ~930)
+            boolean hasClassRemaps = cachedRemapper != null
+                    || !classRedirects.isEmpty()
+                    || !intermediaryMethodNames.isEmpty() || !intermediaryFieldNames.isEmpty()
+                    || !mojangMethodRenames.isEmpty();
+            ClassWriter writer = hasClassRemaps
+                    ? new SafeClassWriter(ClassWriter.COMPUTE_FRAMES)
+                    : new SafeClassWriter(reader, ClassWriter.COMPUTE_FRAMES);
+            // NO RetromodClassVisitor here: it consults the live redirect maps, which would make
+            // the baseline equal pass 1 for changed classes too (false "unchanged"). When nothing
+            // matches, RetromodClassVisitor is pure delegation, so leaving it out of the identity
+            // chain keeps the serialization byte-comparable for untouched classes; any visitor
+            // asymmetry only produces a false "changed", which falls back to today's behavior.
+            ClassVisitor visitor = writer;
+            if (hasClassRemaps) {
+                visitor = new ClassRemapper(visitor, new Remapper() { /* identity */ });
+            }
+            reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+            byte[] result = writer.toByteArray();
+            if (hasClassRemaps) {
+                result = deduplicateMethods(result, className);
+            }
+            return result;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * Run one bytecode transformation pass: a complete visitor-chain traversal
      * ({@code Reader -> ClassRemapper -> RetromodClassVisitor -> ClassWriter}). The
      * {@link #transformClass} outer loop invokes this until output stabilizes.
@@ -873,6 +1056,14 @@ public class RetromodTransformer implements ClassFileTransformer {
                                 // Remap intermediary method names (method_XXXX / comp_XXXX → Mojang name)
                                 if (!intermediaryMethodNames.isEmpty()
                                         && (name.startsWith("method_") || name.startsWith("comp_"))) {
+                                    // Ambiguous short-name: resolve by descriptor instead of the
+                                    // last-writer-wins flat entry. Fall through to the flat map only
+                                    // if this descriptor variant wasn't harvested.
+                                    if (ambiguousIntermediaryMethodNames.contains(name)) {
+                                        String byDesc = intermediaryMethodNamesByDesc.get(
+                                                memberDescKey(name, descriptor));
+                                        if (byDesc != null) return byDesc;
+                                    }
                                     String mojang = intermediaryMethodNames.get(name);
                                     if (mojang != null) return mojang;
                                 }
@@ -901,6 +1092,13 @@ public class RetromodTransformer implements ClassFileTransformer {
                             public String mapFieldName(String owner, String name, String descriptor) {
                                 // Remap intermediary field names (field_XXXX → Mojang name)
                                 if (!intermediaryFieldNames.isEmpty() && name.startsWith("field_")) {
+                                    // Ambiguous short-name: resolve by descriptor first (see the
+                                    // method case above), else fall through to the flat map.
+                                    if (ambiguousIntermediaryFieldNames.contains(name)) {
+                                        String byDesc = intermediaryFieldNamesByDesc.get(
+                                                memberDescKey(name, descriptor));
+                                        if (byDesc != null) return byDesc;
+                                    }
                                     String mojang = intermediaryFieldNames.get(name);
                                     if (mojang != null) return mojang;
                                 }
@@ -1411,6 +1609,25 @@ public class RetromodTransformer implements ClassFileTransformer {
         "net/minecraft/network/chat/Component"
     );
 
+    // Types that became interfaces only on 26.x - consulted ONLY on 26.x hosts. On 1.20.x-1.21.x
+    // hosts these are still abstract CLASSES, and rewriting a valid INVOKEVIRTUAL/Methodref call
+    // to interface form there corrupts working translations (review finding, empirically
+    // reproduced: IntProvider.codec itf=true / getMinValue INVOKEINTERFACE on a class).
+    // HeightProvider stayed a class even on 26.2 and stays out.
+    private static final Set<String> KNOWN_INTERFACES_26X = Set.of(
+        // Found on the headless 26.2 server: YungJigsawStructure's codec calls
+        // IntProvider.codec(int,int) and died "must be InterfaceMethodref".
+        "net/minecraft/util/valueproviders/IntProvider",
+        "net/minecraft/util/valueproviders/FloatProvider"
+    );
+
+    /** Owner is an interface on the CURRENT host (static set + host-gated 26.x additions). */
+    private static boolean isKnownInterface(String owner) {
+        return KNOWN_INTERFACES.contains(owner)
+                || (KNOWN_INTERFACES_26X.contains(owner)
+                    && RetromodVersion.isUnobfuscatedTarget(RetromodVersion.TARGET_MC_VERSION));
+    }
+
     private class RetromodClassVisitor extends ClassVisitor {
 
         // Bridge adapter generator for this class; handles method signature changes
@@ -1562,6 +1779,15 @@ public class RetromodTransformer implements ClassFileTransformer {
         // whether to redirect to a factory or emit normally
         private String pendingNewClass = null;
         private boolean pendingDup = false;
+
+        /**
+         * Event type reified by the Consumer LambdaMetafactory indy seen as the LAST instruction,
+         * armed for an indy-typed call rewrite (see registerIndyTypedCallRewrite). Any other
+         * stack-affecting instruction clears it: javac always emits the indy directly before the
+         * call when a lambda/method-ref is the trailing argument, so adjacency is the guard
+         * against attaching a stale type to an unrelated Consumer-taking call.
+         */
+        private String pendingIndyConsumerType = null;
 
         // Inherited from enclosing RetromodClassVisitor for invokespecial fixups
         private final String classOwnName;
@@ -1792,7 +2018,7 @@ public class RetromodTransformer implements ClassFileTransformer {
          * E.g., com.mojang.serialization.DataResult was a class, now an interface in newer DFU.
          */
         private int fixClassToInterfaceOpcode(int opcode, String owner) {
-            if (opcode == Opcodes.INVOKEVIRTUAL && KNOWN_INTERFACES.contains(owner)) {
+            if (opcode == Opcodes.INVOKEVIRTUAL && isKnownInterface(owner)) {
                 return Opcodes.INVOKEINTERFACE;
             }
             return opcode;
@@ -1846,6 +2072,7 @@ public class RetromodTransformer implements ClassFileTransformer {
 
         @Override
         public void visitTypeInsn(int opcode, String type) {
+            pendingIndyConsumerType = null;
             if (opcode == Opcodes.NEW) {
                 // Flush any previous pending NEW before buffering a new one
                 flushPendingNew();
@@ -1867,6 +2094,7 @@ public class RetromodTransformer implements ClassFileTransformer {
 
         @Override
         public void visitInsn(int opcode) {
+            pendingIndyConsumerType = null;
             if (opcode == Opcodes.DUP && pendingNewClass != null && !pendingDup) {
                 pendingDup = true;
                 return;
@@ -1914,6 +2142,22 @@ public class RetromodTransformer implements ClassFileTransformer {
                 }
             }
             super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle, bootstrapMethodArguments);
+
+            // Indy-typed rewrite arming: a LambdaMetafactory indy producing a Consumer carries the
+            // event type in its instantiatedMethodType (bsm arg 2). Remember it for the call that
+            // IMMEDIATELY follows (any other stack-affecting instruction clears it), so an
+            // addListener(lambda) call can be retargeted with the type as a Class constant.
+            pendingIndyConsumerType = null;
+            if (!indyTypedRewrites.isEmpty()
+                    && descriptor.endsWith(")Ljava/util/function/Consumer;")
+                    && "java/lang/invoke/LambdaMetafactory".equals(bootstrapMethodHandle.getOwner())
+                    && bootstrapMethodArguments != null && bootstrapMethodArguments.length >= 3
+                    && bootstrapMethodArguments[2] instanceof org.objectweb.asm.Type t
+                    && t.getSort() == org.objectweb.asm.Type.METHOD
+                    && t.getArgumentTypes().length == 1
+                    && t.getArgumentTypes()[0].getSort() == org.objectweb.asm.Type.OBJECT) {
+                pendingIndyConsumerType = t.getArgumentTypes()[0].getInternalName();
+            }
         }
 
         /**
@@ -1942,6 +2186,25 @@ public class RetromodTransformer implements ClassFileTransformer {
         @Override
         public void visitMethodInsn(int opcode, String owner, String name,
                 String descriptor, boolean isInterface) {
+
+            // Consume the armed indy Consumer type (whatever happens below, a method call ends
+            // the adjacency window). If this exact call has an indy-typed rewrite, retarget it
+            // with the reified event type appended as a Class constant.
+            final String indyConsumerType = pendingIndyConsumerType;
+            pendingIndyConsumerType = null;
+            if (indyConsumerType != null && !indyTypedRewrites.isEmpty()
+                    && indyTypedOwners.contains(owner)) {
+                MethodTarget typed = indyTypedRewrites.get(new MethodKey(owner, name, descriptor));
+                if (typed != null) {
+                    LOGGER.debug("Indy-typed rewrite {}.{}{} -> {}.{}{} (event type {})",
+                            owner, name, descriptor, typed.owner, typed.name, typed.desc,
+                            indyConsumerType);
+                    super.visitLdcInsn(org.objectweb.asm.Type.getObjectType(indyConsumerType));
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, typed.owner, typed.name,
+                            typed.desc, false);
+                    return;
+                }
+            }
 
             // Check for constructor→factory redirect
             if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name) && pendingNewClass != null) {
@@ -2099,9 +2362,14 @@ public class RetromodTransformer implements ClassFileTransformer {
                     }
                 }
 
-                // Still fix class→interface opcode even on fast path
+                // Still fix class→interface opcode even on fast path. INVOKESTATIC needs the
+                // isInterface flag too (static interface methods take an InterfaceMethodref):
+                // IntProvider.codec(int,int) is a static factory on a became-interface type, and
+                // the mismatch dies at datapack load with IncompatibleClassChangeError "must be
+                // InterfaceMethodref" (YungJigsawStructure on the 26.2 dedicated server).
                 int fixedOpcode = fixClassToInterfaceOpcode(opcode, owner);
-                boolean fixedIsInterface = fixedOpcode == Opcodes.INVOKEINTERFACE || isInterface;
+                boolean fixedIsInterface = fixedOpcode == Opcodes.INVOKEINTERFACE || isInterface
+                    || (opcode == Opcodes.INVOKESTATIC && isKnownInterface(owner));
                 emitMethodInsn(fixedOpcode, owner, name, descriptor, fixedIsInterface);
                 return;
             }
@@ -2177,11 +2445,13 @@ public class RetromodTransformer implements ClassFileTransformer {
                     }
                 } else {
                     int fixedOpcode = fixClassToInterfaceOpcode(opcode, target.owner);
-                    // Preserve isInterface from the original call so an interface
-                    // INVOKESPECIAL stays an interface methodref; emitMethodInsn
-                    // applies the direct-supertype fixup if the new owner isn't a
-                    // direct supertype of the calling class.
-                    boolean targetIsInterface = fixedOpcode == Opcodes.INVOKEINTERFACE || isInterface;
+                    // The itf flag must describe the TARGET: preserve the original call's flag,
+                    // but also force it for interface synthetics (WorldgenTypeBridge - a pre-1.19.3
+                    // mod's itf=false Registry.register call otherwise emits a plain Methodref
+                    // against the interface) and known-interface INVOKESTATIC targets.
+                    boolean targetIsInterface = fixedOpcode == Opcodes.INVOKEINTERFACE || isInterface
+                            || interfaceSyntheticTargets.contains(target.owner)
+                            || (opcode == Opcodes.INVOKESTATIC && isKnownInterface(target.owner));
                     emitMethodInsn(fixedOpcode, target.owner, target.name,
                             target.desc, targetIsInterface);
                     // Emit CHECKCAST when return type changed (e.g., Object vs Event)
@@ -2243,19 +2513,27 @@ public class RetromodTransformer implements ClassFileTransformer {
                 // - INVOKEVIRTUAL → INVOKEINTERFACE (handled by fixClassToInterfaceOpcode)
                 // - INVOKESTATIC stays INVOKESTATIC but needs isInterface=true
                 boolean fixedIsInterface = fixedOpcode == Opcodes.INVOKEINTERFACE || isInterface
-                    || (opcode == Opcodes.INVOKESTATIC && KNOWN_INTERFACES.contains(owner));
+                    || (opcode == Opcodes.INVOKESTATIC && isKnownInterface(owner));
                 emitMethodInsn(fixedOpcode, owner, name, descriptor, fixedIsInterface);
             }
         }
         
         @Override
         public void visitVarInsn(int opcode, int varIndex) {
+            pendingIndyConsumerType = null;
             // Don't flush; ALOAD/ILOAD etc. are constructor arguments
             super.visitVarInsn(opcode, varIndex);
         }
 
         @Override
+        public void visitJumpInsn(int opcode, org.objectweb.asm.Label label) {
+            pendingIndyConsumerType = null;
+            super.visitJumpInsn(opcode, label);
+        }
+
+        @Override
         public void visitLdcInsn(Object value) {
+            pendingIndyConsumerType = null;
             // Don't flush; LDC is commonly a constructor argument
             super.visitLdcInsn(value);
         }
@@ -2277,6 +2555,7 @@ public class RetromodTransformer implements ClassFileTransformer {
          */
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+            pendingIndyConsumerType = null;
             // Don't flush; field accesses can be constructor arguments
             FieldKey key = new FieldKey(owner, name);
 

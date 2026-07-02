@@ -17,6 +17,13 @@ public final class RetromodVersion {
     /** Target MC version, auto-detected at boot by whichever loader entry point runs first. */
     public static volatile String TARGET_MC_VERSION = "1.21.4";
 
+    /**
+     * Retromod's own version. Loader-agnostic so any transform path can fold it into
+     * a cache key (the runtime Forge/NeoForge transform cache mirrors the AOT key:
+     * Retromod version + source hash). Keep in sync with the other version refs.
+     */
+    public static final String RETROMOD_VERSION = "1.2.0-snapshot.7";
+
     private RetromodVersion() {}
 
     private static volatile boolean bannerLogged = false;
