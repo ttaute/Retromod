@@ -24,7 +24,7 @@ import java.util.*;
  */
 public class RetromodCli {
     
-    private static final String VERSION = "1.2.0-snapshot.7";
+    private static final String VERSION = "1.2.0-snapshot.8";
     // Overridable per-invocation via `--target <mc-version>`.
     private static String TARGET_MC_VERSION = "26.1";
     

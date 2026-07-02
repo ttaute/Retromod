@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
  * Mojang (runtime); both variants are registered.
  *
  * <p>Contracts checked against {@code minecraft-26.1.2-client} + {@code fabric-api-0.145.4+26.1.2};
- * the bridge fails soft on any reflective miss. See {@code docs/dev/cpn-v1-bridge-design.md}.
+ * the bridge fails soft on any reflective miss. See {@code docs-dev/cpn-v1-bridge-design.md}.
  */
 public class FabricClientNetworkingV1Shim implements VersionShim {
 

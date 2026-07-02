@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * with no unresolved references. A wrong name degrades to a logged no-op (networking inert)
  * rather than a {@code VerifyError}/{@code NoSuchMethodError}.
  *
- * <p>Written against 26.1.2 but not yet runtime-verified. See {@code docs/dev/cpn-v1-bridge-design.md}.
+ * <p>Written against 26.1.2 but not yet runtime-verified. See {@code docs-dev/cpn-v1-bridge-design.md}.
  */
 public final class ClientPlayNetworkingV1Bridge {
 
