@@ -17,36 +17,18 @@ public class Fabric_1_20_6_to_1_21 implements VersionShim {
 
     @Override
     public void registerRedirects(RetromodTransformer transformer) {
-        // Enchantments became data-driven (registry-based)
-        transformer.registerMethodRedirect(
-            "net/minecraft/enchantment/Enchantment", "getRarity",
-            "()Lnet/minecraft/enchantment/Enchantment$Rarity;",
-            "com/retromod/shim/fabric/embedded/EnchantmentShim", "getRarity",
-            "(Ljava/lang/Object;)Ljava/lang/Object;"
-        );
-        transformer.registerMethodRedirect(
-            "net/minecraft/enchantment/Enchantment", "getMaxLevel",
-            "()I",
-            "com/retromod/shim/fabric/embedded/EnchantmentShim", "getMaxLevel",
-            "(Ljava/lang/Object;)I"
-        );
-        transformer.registerMethodRedirect(
-            "net/minecraft/enchantment/Enchantment", "getMinLevel",
-            "()I",
-            "com/retromod/shim/fabric/embedded/EnchantmentShim", "getMinLevel",
-            "(Ljava/lang/Object;)I"
-        );
-        transformer.registerMethodRedirect(
-            "net/minecraft/enchantment/EnchantmentHelper", "getLevel",
-            "(Lnet/minecraft/enchantment/Enchantment;Lnet/minecraft/item/ItemStack;)I",
-            "com/retromod/shim/fabric/embedded/EnchantmentShim", "getLevel",
-            "(Ljava/lang/Object;Lnet/minecraft/item/ItemStack;)I"
-        );
-        // Trial chambers / Breeze
-        transformer.registerClassRedirect(
-            "net/minecraft/entity/mob/BreezeEntity",
-            "net/minecraft/entity/mob/BreezeEntity"
-        );
+        // NOTE: this shim previously redirected Enchantment.getRarity/getMaxLevel/getMinLevel
+        // and EnchantmentHelper.getLevel to a "com/retromod/shim/fabric/embedded/EnchantmentShim"
+        // that was never written (a phantom target). Those redirects were removed (#119):
+        //   - getMaxLevel()I and getMinLevel()I NEVER left the API (present 1.21 through 26.2,
+        //     backed by the data-driven definition), so redirecting them is wrong regardless.
+        //   - the keys are Yarn class names (net/minecraft/enchantment/Enchantment), which never
+        //     appear in distributed intermediary Fabric mods nor the Mojang runtime (pitfall 17),
+        //     so they were dead on Fabric anyway; the crash came from the NeoForge sibling firing
+        //     on Fabric (now gated by the loader filter in RetromodPreLaunch).
+        //   - getRarity was genuinely removed, but a call-site method-redirect alone can't bridge
+        //     it (the Enchantment$Rarity TYPE is gone too, so downstream CHECKCAST/field stores
+        //     would NoClassDefFoundError); a proper synthetic-Rarity bridge is deferred.
 
         // 1.21 removed the 2-arg ResourceLocation ctor; route to the static factory.
         transformer.registerConstructorRedirect(

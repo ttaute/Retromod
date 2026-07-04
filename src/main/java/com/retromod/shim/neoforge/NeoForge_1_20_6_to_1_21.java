@@ -25,30 +25,18 @@ public class NeoForge_1_20_6_to_1_21 implements VersionShim {
             "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;"
         );
 
-        transformer.registerMethodRedirect(
-            "net/minecraft/world/item/enchantment/Enchantment", "getRarity",
-            "()Lnet/minecraft/world/item/enchantment/Enchantment$Rarity;",
-            "com/retromod/shim/neoforge/embedded/EnchantmentShim", "getRarity",
-            "(Ljava/lang/Object;)Ljava/lang/Object;"
-        );
-        transformer.registerMethodRedirect(
-            "net/minecraft/world/item/enchantment/Enchantment", "getMaxLevel",
-            "()I",
-            "com/retromod/shim/neoforge/embedded/EnchantmentShim", "getMaxLevel",
-            "(Ljava/lang/Object;)I"
-        );
-        transformer.registerMethodRedirect(
-            "net/minecraft/world/item/enchantment/Enchantment", "getMinLevel",
-            "()I",
-            "com/retromod/shim/neoforge/embedded/EnchantmentShim", "getMinLevel",
-            "(Ljava/lang/Object;)I"
-        );
-        transformer.registerMethodRedirect(
-            "net/neoforged/neoforge/event/entity/EntityJoinLevelEvent", "getLevel",
-            "()Lnet/minecraft/world/level/Level;",
-            "com/retromod/shim/neoforge/embedded/EventShim", "getLevel",
-            "(Ljava/lang/Object;)Ljava/lang/Object;"
-        );
+        // NOTE (#119): the Enchantment.getRarity/getMaxLevel/getMinLevel redirects here
+        // targeted a "com/retromod/shim/neoforge/embedded/EnchantmentShim" that was never
+        // written (phantom target). This shim (typed "neoforge") was ALSO firing on Fabric
+        // hosts via the previously-unfiltered RetromodPreLaunch transform path: after the
+        // intermediary→Mojang harvest a Fabric mod's Enchantment.getMaxLevel matched this
+        // key and got rewritten to the nonexistent shim → NoClassDefFoundError the first
+        // time Apollo's Enchantment Rebalance ran the anvil. Both faults are fixed: the
+        // loader filter in RetromodPreLaunch stops the cross-loader bite, and these three
+        // redirects are deleted because getMaxLevel()I / getMinLevel()I never left the API
+        // (present 1.21 through 26.2, data-driven definition) and getRarity can't be bridged
+        // by a call-site redirect alone (its Rarity return TYPE is gone too).
+        // EventShim (EntityJoinLevelEvent.getLevel) was likewise a phantom target; removed.
     }
 
     @Override

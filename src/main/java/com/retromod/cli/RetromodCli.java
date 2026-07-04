@@ -1052,6 +1052,10 @@ public class RetromodCli {
                             // where EventBus 7's auto-subscriber would throw (#85)
                             data = com.retromod.shim.forge.ForgeEventBusSynthetics
                                     .stripLenientAutoSubscriber(data);
+                            // 1.12.2 only (self-gating): modernize @Mod(modid=...) and wire
+                            // the @Mod.EventHandler lifecycle (#103/#108/#117)
+                            data = com.retromod.shim.forge.Forge1122LifecycleSynthetics
+                                    .upgradeLegacyModClass(data);
                         } else if (entry.getName().equals("fabric.mod.json")) {
                             data = relaxFabricModDependencies(data);
                         } else if (entry.getName().equals("quilt.mod.json")) {

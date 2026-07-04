@@ -80,7 +80,12 @@ def load_game_versions(token):
                  "/api/game/version-types - aborting rather than uploading with wrong "
                  "game-version ids. (CF may have changed its type naming.)")
 
-    mc, loaders = {}, {}
+    # A NAME can legitimately appear under several Minecraft version-type ids (CF keeps
+    # older/duplicate groupings alive). Collect ALL candidate ids per name so we can pick
+    # deterministically and warn on ambiguity, instead of silently letting last-write-win
+    # pick a stale id that the upload API then 500s on.
+    mc_candidates = {}
+    loaders = {}
     for v in _get_json(token, "/api/game/versions"):
         name = (v.get("name") or "").strip()
         vid = v.get("id")
@@ -89,7 +94,29 @@ def load_game_versions(token):
                 and (not loader_type_ids or tid in loader_type_ids):
             loaders[name.lower()] = vid
         elif tid in mc_type_ids and re.fullmatch(r"\d+\.\d+(\.\d+)?", name):  # "1.20.1", "26.2"
-            mc[name] = vid
+            mc_candidates.setdefault(name, []).append(vid)
+
+    # Canonicalize: CF assigns ids monotonically, so the SMALLEST id for a name is the
+    # oldest/original (release) entry; newer duplicate ids are the re-typed/deprecated
+    # groupings that the upload API is most likely to choke on. Prefer the smallest.
+    mc = {}
+    for name, ids in mc_candidates.items():
+        ids = sorted(set(ids))
+        mc[name] = ids[0]
+        if len(ids) > 1:
+            print(f"  NOTE {name}: CF lists {len(ids)} ids {ids}; using {ids[0]} "
+                  f"(smallest = canonical release). Override with CF_FORCE_VERSION_IDS if wrong.")
+
+    # Escape hatch for the case where CF's canonical-id heuristic is wrong for some version:
+    # CF_FORCE_VERSION_IDS="1.20.1=1234,1.20.2=5678" pins exact ids.
+    forced = os.environ.get("CF_FORCE_VERSION_IDS", "").strip()
+    if forced:
+        for pair in forced.split(","):
+            if "=" in pair:
+                k, val = pair.split("=", 1)
+                if val.strip().isdigit():
+                    mc[k.strip()] = int(val.strip())
+                    print(f"  FORCED {k.strip()} -> {val.strip()} (CF_FORCE_VERSION_IDS)")
 
     if not mc:
         sys.exit("ERROR: resolved 0 Minecraft versions after type-filtering - the CF API "
@@ -115,15 +142,26 @@ def upload(project_id, token, jar, game_version_ids, display_name, changelog, re
         "gameVersions": game_version_ids,
         "releaseType": release_type,
     }
-    with open(jar, "rb") as fh:
-        r = requests.post(
-            f"{API}/api/projects/{project_id}/upload-file",
-            headers={"X-Api-Token": token},
-            data={"metadata": json.dumps(meta)},
-            files={"file": (os.path.basename(jar), fh, "application/java-archive")},
-            timeout=180,
-        )
     base = os.path.basename(jar)
+    # CF's upload API 500s transiently under load and also 500s (rather than a clean 400)
+    # on a bad gameVersion id. Retry 5xx a few times with backoff; a persistent 500 then
+    # points at the payload, so we surface the exact gameVersions sent for diagnosis.
+    r = None
+    for attempt in range(1, 4):
+        with open(jar, "rb") as fh:
+            r = requests.post(
+                f"{API}/api/projects/{project_id}/upload-file",
+                headers={"X-Api-Token": token},
+                data={"metadata": json.dumps(meta)},
+                files={"file": (base, fh, "application/java-archive")},
+                timeout=180,
+            )
+        if r.status_code < 500:
+            break
+        if attempt < 3:
+            wait = 3 * attempt
+            print(f"  ...  {base}  HTTP {r.status_code} (attempt {attempt}/3), retrying in {wait}s")
+            time.sleep(wait)
     if r.status_code == 200:
         try:
             print(f"  OK   {base} -> file {r.json().get('id')}")
@@ -136,7 +174,10 @@ def upload(project_id, token, jar, game_version_ids, display_name, changelog, re
             print(f"  FAIL {base}  HTTP 200 but unexpected (non-JSON) body - "
                   f"is CF_PROJECT_ID the numeric id? Body: {r.text[:200]!r}")
             return False
-    print(f"  FAIL {base}  HTTP {r.status_code}: {r.text[:300]}")
+    # Include the exact gameVersions sent: a persistent 500 is almost always one of these
+    # ids being unacceptable to CF for this file, and the id is the thing to check/override.
+    print(f"  FAIL {base}  HTTP {r.status_code} (gameVersions={game_version_ids}): "
+          f"{r.text[:300]}")
     return False
 
 
@@ -147,7 +188,12 @@ def main():
     ap.add_argument("--changelog-file", default="CHANGELOG.md")
     ap.add_argument("--dist", default="dist")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--only-mc", default="",
+                    help="comma-separated MC versions to upload (e.g. 1.20.1,1.20.2); "
+                         "the rest are skipped. Use to re-push just the files that failed "
+                         "a partial run without re-uploading the ones that succeeded.")
     args = ap.parse_args()
+    only_mc = {v.strip() for v in args.only_mc.split(",") if v.strip()}
 
     token = os.environ.get("CF_API_TOKEN")
     project = os.environ.get("CF_PROJECT_ID")
@@ -175,6 +221,8 @@ def main():
         for jar in sorted(glob.glob(f"{args.dist}/{loader_dir}/*/retromod-*.jar")):
             mcver = os.path.basename(os.path.dirname(jar))
             base = os.path.basename(jar)
+            if only_mc and mcver not in only_mc:
+                continue
             if loader_name not in loader_map:
                 print(f"  SKIP {base}: CF has no '{loader_name}' loader tag"); skipped += 1; continue
             if mcver not in mc_map:

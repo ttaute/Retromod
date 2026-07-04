@@ -77,8 +77,8 @@ class Forge1122ClassMovesTest {
     }
 
     @Test
-    @DisplayName("table is NOT applied on a pre-26.1 host (targets are 26.1 names)")
-    void gatedToUnobfuscatedHost() {
+    @DisplayName("on a 1.20.1 host the 1.20.x-target table applies (NOT the 26.1 names)")
+    void mapsCoreClassesTo1_20_1() {
         RetromodVersion.TARGET_MC_VERSION = "1.20.1";
         RetromodTransformer t = RetromodTransformer.getInstance();
         t.clearRedirectsForTesting();
@@ -86,8 +86,62 @@ class Forge1122ClassMovesTest {
         byte[] out = t.transformClass(fixture(), "test/Old1122");
         ClassNode cn = new ClassNode();
         new ClassReader(out).accept(cn, 0);
-        boolean has26 = cn.fields.stream().anyMatch(f -> f.desc.contains("resources/Identifier"));
-        assertFalse(has26, "26.1-named targets must not be applied on a 1.20.1 host");
+        Set<String> descs = new HashSet<>();
+        for (FieldNode f : cn.fields) descs.add(f.desc);
+
+        assertTrue(descs.contains("Lnet/minecraft/core/BlockPos;"), "BlockPos -> core: " + descs);
+        assertTrue(descs.contains("Lnet/minecraft/world/level/Level;"), "World -> Level: " + descs);
+        // 1.20.1 kept ResourceLocation; the 26.1-only Identifier name must NOT appear
+        assertTrue(descs.contains("Lnet/minecraft/resources/ResourceLocation;"),
+                "ResourceLocation -> resources (1.20.1 name): " + descs);
+        assertFalse(descs.stream().anyMatch(d -> d.contains("resources/Identifier")),
+                "26.1-only Identifier must not be applied on a 1.20.1 host: " + descs);
+        // the whole point of the 1.20.x table: families 26.1 removed but 1.20.x still has
+        assertTrue(descs.contains("Lnet/minecraft/world/item/SwordItem;"),
+                "ItemSword -> SwordItem (26.1-removed, 1.20.x-present): " + descs);
+    }
+
+    @Test
+    @DisplayName("no class-move table on a 1.21.x host (none validated against those jars)")
+    void noTableOn1_21() {
+        RetromodVersion.TARGET_MC_VERSION = "1.21.11";
+        RetromodTransformer t = RetromodTransformer.getInstance();
+        t.clearRedirectsForTesting();
+        new Forge_1_12_2_to_1_13_2().registerRedirects(t);
+        byte[] out = t.transformClass(fixture(), "test/Old1122");
+        ClassNode cn = new ClassNode();
+        new ClassReader(out).accept(cn, 0);
+        for (FieldNode f : cn.fields) {
+            assertFalse(f.desc.contains("resources/Identifier"),
+                    "26.1 table must not apply on 1.21.x: " + f.desc);
+            assertFalse(f.desc.contains("world/item/SwordItem"),
+                    "1.20.x table must not apply on 1.21.x: " + f.desc);
+        }
+    }
+
+    @Test
+    @DisplayName("the ctor bridge applies on a 1.20.1 host too (Material gone since 1.20)")
+    void blockCtorBridgeOn1_20_1() {
+        RetromodVersion.TARGET_MC_VERSION = "1.20.1";
+        RetromodTransformer t = RetromodTransformer.getInstance();
+        t.clearRedirectsForTesting();
+        new Forge_1_12_2_to_1_13_2().registerRedirects(t);
+
+        byte[] out = t.transformClass(customBlock(), "test/MyBlock");
+        ClassNode cn = new ClassNode();
+        new ClassReader(out).accept(cn, 0);
+        MethodNode init = cn.methods.stream().filter(m -> m.name.equals("<init>")).findFirst().orElseThrow();
+        boolean superTakesProps = Arrays.stream(init.instructions.toArray())
+                .filter(i -> i instanceof MethodInsnNode).map(i -> (MethodInsnNode) i)
+                .anyMatch(mi -> mi.name.equals("<init>")
+                        && mi.desc.equals("(Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;)V"));
+        assertTrue(superTakesProps,
+                "super(Material) must become super(BlockBehaviour.Properties) on 1.20.1 "
+                + "(Properties.of() verified present in Mojang's 1.20.1 mappings)");
+        boolean refsMaterial = Arrays.stream(init.instructions.toArray())
+                .filter(i -> i instanceof FieldInsnNode).map(i -> (FieldInsnNode) i)
+                .anyMatch(fi -> fi.owner.contains("block/material/Material"));
+        assertFalse(refsMaterial, "Material is gone on 1.20 too; its GETSTATIC must be nulled");
     }
 
     @Test
@@ -214,6 +268,7 @@ class Forge1122ClassMovesTest {
         cw.visitField(Opcodes.ACC_PUBLIC, "block", "Lnet/minecraft/block/Block;", null, null).visitEnd();
         cw.visitField(Opcodes.ACC_PUBLIC, "id", "Lnet/minecraft/util/ResourceLocation;", null, null).visitEnd();
         cw.visitField(Opcodes.ACC_PUBLIC, "sound", "Lnet/minecraft/client/audio/ISound;", null, null).visitEnd();
+        cw.visitField(Opcodes.ACC_PUBLIC, "sword", "Lnet/minecraft/item/ItemSword;", null, null).visitEnd();
         cw.visitEnd();
         return cw.toByteArray();
     }

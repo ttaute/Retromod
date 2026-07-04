@@ -17,6 +17,7 @@ import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -69,6 +70,21 @@ public class RetromodTransformer implements ClassFileTransformer {
     // Indy-typed call rewrites: a call immediately preceded by a Consumer LambdaMetafactory indy
     // is retargeted with the lambda's reified event type appended as a Class constant
     // (EventBus 7 addListener bridging; see registerIndyTypedCallRewrite).
+    /**
+     * Set when the CURRENT thread's transform pass emitted a rewrite that adds, removes, or
+     * reorders instructions (ctor->factory, super-ctor replace, arg-drop pops, neutralize,
+     * appended CHECKCASTs, indy-typed LDC). Irrelevant on the COMPUTE_FRAMES path (frames are
+     * recomputed), but the COMPUTE_MAXS fallback preserves the ORIGINAL StackMapTable, whose
+     * offsets such rewrites invalidate; the fallback consults this to refuse shipping a class
+     * that would die "StackMapTable format error" at load (hit live on Collective's DuskConfig).
+     */
+    private final ThreadLocal<Boolean> frameInvalidatingRewrite =
+            ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    void markFrameInvalidatingRewrite() {
+        frameInvalidatingRewrite.set(Boolean.TRUE);
+    }
+
     private final Map<MethodKey, MethodTarget> indyTypedRewrites = new ConcurrentHashMap<>();
     private final Set<String> indyTypedOwners = ConcurrentHashMap.newKeySet();
 
@@ -158,6 +174,9 @@ public class RetromodTransformer implements ClassFileTransformer {
     // classRedirects or the intermediary mappings change.
     private volatile Remapper cachedRemapper;
     private final AtomicInteger classRedirectsVersion = new AtomicInteger(0);
+
+    /** Guards the one-time phantom-target sweep (see dropPhantomComRetromodTargets). */
+    private final AtomicBoolean targetsValidated = new AtomicBoolean(false);
 
     // Owners that have method redirects. visitMethodInsn skips the methodRedirects lookup
     // when the call's owner isn't here.
@@ -449,9 +468,22 @@ public class RetromodTransformer implements ClassFileTransformer {
      */
     public void registerConstructorRedirect(String className, String constructorDesc,
             String factoryClass, String factoryMethod, String factoryDesc) {
+        registerConstructorRedirect(className, constructorDesc,
+                factoryClass, factoryMethod, factoryDesc, false);
+    }
+
+    /**
+     * Variant for factories declared on an INTERFACE (e.g. 1.19+'s {@code Text.translatable}:
+     * {@code class_2561} is an interface). Static interface methods must link through an
+     * InterfaceMethodref constant; INVOKESTATIC with a plain Methodref dies at link time with
+     * {@code IncompatibleClassChangeError: ... must be InterfaceMethodref constant}.
+     */
+    public void registerConstructorRedirect(String className, String constructorDesc,
+            String factoryClass, String factoryMethod, String factoryDesc,
+            boolean factoryIsInterface) {
         constructorRedirects.put(
             new ConstructorKey(className, constructorDesc),
-            new FactoryTarget(factoryClass, factoryMethod, factoryDesc));
+            new FactoryTarget(factoryClass, factoryMethod, factoryDesc, factoryIsInterface));
         constructorRedirectOwners.add(className);
         LOGGER.debug("Registered constructor redirect: new {}({}) -> {}.{}{}",
             className, constructorDesc, factoryClass, factoryMethod, factoryDesc);
@@ -821,6 +853,9 @@ public class RetromodTransformer implements ClassFileTransformer {
         indyTypedOwners.clear();
         classRedirectsVersion.incrementAndGet();
         cachedRemapper = null;
+        // A fresh redirect set must be re-validated for phantom targets on the next transform
+        // (the sweep is otherwise once per transformer lifetime).
+        targetsValidated.set(false);
     }
 
     @Override
@@ -870,7 +905,103 @@ public class RetromodTransformer implements ClassFileTransformer {
         }
         return false;
     }
-    
+
+    /**
+     * Fail-safe against phantom redirect targets: a redirect that points at a
+     * {@code com/retromod/*} class which will never resolve at runtime.
+     *
+     * <p>Historically several shims registered redirects to embedded helper classes that were
+     * never actually written (e.g. {@code com/retromod/shim/neoforge/embedded/EnchantmentShim},
+     * #119). Such a redirect transforms silently and only detonates the FIRST time the rewritten
+     * call executes, with a {@code NoClassDefFoundError} that takes down whatever ran it (an
+     * anvil, a render tick, mod construction). That is the worst possible failure shape: far from
+     * the cause, and it looks like the mod's fault. This sweep removes any redirect whose target
+     * owner is under {@code com/retromod/} yet is neither a registered synthetic (about to be
+     * embedded) nor loadable as one of Retromod's own shipped classes, turning a latent hard
+     * crash into a one-line warning and a no-op (the original call is left intact, which for a
+     * redundant redirect is exactly right and for a genuinely-removed method is no worse than the
+     * broken redirect was). Runs once, off the hot path, at the first {@link #transformClass}.
+     */
+    private void dropPhantomComRetromodTargets() {
+        ClassLoader loader = RetromodTransformer.class.getClassLoader();
+        Map<String, Boolean> resolvable = new java.util.HashMap<>();
+        java.util.function.Predicate<String> isPhantom = owner -> {
+            if (owner == null || !owner.startsWith("com/retromod/")) {
+                return false; // only our own targets can be phantom; MC/loader names aren't ours
+            }
+            return !resolvable.computeIfAbsent(owner, o -> {
+                if (syntheticClasses.containsKey(o)) {
+                    return true; // generated at runtime and embedded per-mod
+                }
+                try {
+                    Class.forName(o.replace('/', '.'), false, loader); // never initialize (#14)
+                    return true;
+                } catch (Throwable t) {
+                    return false;
+                }
+            });
+        };
+        java.util.Set<String> dropped = new java.util.TreeSet<>();
+
+        methodRedirects.entrySet().removeIf(e -> {
+            if (isPhantom.test(e.getValue().owner())) { dropped.add(e.getValue().owner()); return true; }
+            return false;
+        });
+        argDropRedirects.entrySet().removeIf(e -> {
+            if (isPhantom.test(e.getValue().owner())) { dropped.add(e.getValue().owner()); return true; }
+            return false;
+        });
+        classRedirects.entrySet().removeIf(e -> {
+            if (isPhantom.test(e.getValue())) { dropped.add(e.getValue()); return true; }
+            return false;
+        });
+        fieldRedirects.entrySet().removeIf(e -> {
+            if (isPhantom.test(e.getValue().owner())) { dropped.add(e.getValue().owner()); return true; }
+            return false;
+        });
+        fieldAccessorRedirects.entrySet().removeIf(e -> {
+            FieldAccessorTarget t = e.getValue();
+            if (isPhantom.test(t.getterOwner()) || isPhantom.test(t.setterOwner())) {
+                dropped.add(t.getterOwner()); return true;
+            }
+            return false;
+        });
+        constructorRedirects.entrySet().removeIf(e -> {
+            if (isPhantom.test(e.getValue().factoryClass())) { dropped.add(e.getValue().factoryClass()); return true; }
+            return false;
+        });
+        superclassRedirects.entrySet().removeIf(e -> {
+            if (isPhantom.test(e.getValue().newSuperclass())) { dropped.add(e.getValue().newSuperclass()); return true; }
+            return false;
+        });
+        superCtorRedirects.entrySet().removeIf(e -> {
+            if (isPhantom.test(e.getValue().extraFieldOwner())) { dropped.add(e.getValue().extraFieldOwner()); return true; }
+            return false;
+        });
+        staticFieldAccessors.entrySet().removeIf(e -> {
+            StaticFieldAccessor t = e.getValue();
+            if (isPhantom.test(t.collectionOwner()) || isPhantom.test(t.methodOwner())
+                    || isPhantom.test(t.argOwner()) || isPhantom.test(t.castType())) {
+                dropped.add(t.methodOwner()); return true;
+            }
+            return false;
+        });
+
+        if (!dropped.isEmpty()) {
+            // Rebuild the fast-path owner sets from the surviving redirects; the dropped
+            // entries may have been the only user of an owner.
+            methodRedirectOwners.clear();
+            methodRedirects.keySet().forEach(k -> methodRedirectOwners.add(k.owner()));
+            argDropOwners.clear();
+            argDropRedirects.keySet().forEach(k -> argDropOwners.add(k.owner()));
+            constructorRedirectOwners.clear();
+            constructorRedirects.keySet().forEach(k -> constructorRedirectOwners.add(k.className()));
+            LOGGER.warn("Dropped redirects to {} phantom com/retromod target(s) that would have "
+                    + "crashed at first use: {}", dropped.size(), dropped);
+        }
+    }
+
+
     /**
      * Transform a class's bytecode, rewriting method/field/class references. Core JIT
      * transformation logic, also used by AOT.
@@ -886,6 +1017,12 @@ public class RetromodTransformer implements ClassFileTransformer {
      * a single-pass visitor misses (it has moved past the instruction by the time it rewrites).
      */
     public byte[] transformClass(byte[] originalBytes, String className) {
+        // One-time safety sweep: drop any redirect whose target is a com/retromod/* class
+        // that will never resolve at runtime (see dropPhantomComRetromodTargets).
+        if (targetsValidated.compareAndSet(false, true)) {
+            dropPhantomComRetromodTargets();
+        }
+
         // No redirects registered: no pass would do anything, skip the loop.
         // constructorRedirects + fieldAccessorRedirects are included here too, or a
         // ctor-only / field-accessor-only redirect set would skip the transform entirely.
@@ -1041,7 +1178,12 @@ public class RetromodTransformer implements ClassFileTransformer {
         Remapper classRemapper = cachedRemapper;
         if (classRemapper == null) {
             boolean hasIntermediaryNames = !intermediaryMethodNames.isEmpty() || !intermediaryFieldNames.isEmpty();
-            if (!classRedirects.isEmpty() || hasIntermediaryNames || !mojangMethodRenames.isEmpty()) {
+            // SRG maps must also force the remapper into the chain: an SRG-only registration
+            // (no class redirects) previously built NO remapper at all, silently skipping the
+            // member remap (latent; production paths always had class redirects alongside).
+            boolean hasSrgNames = !srgMethodNames.isEmpty() || !srgFieldNames.isEmpty();
+            if (!classRedirects.isEmpty() || hasIntermediaryNames || hasSrgNames
+                    || !mojangMethodRenames.isEmpty()) {
                 synchronized (this) {
                     classRemapper = cachedRemapper; // re-check under lock
                     if (classRemapper == null) {
@@ -1069,11 +1211,13 @@ public class RetromodTransformer implements ClassFileTransformer {
                                 }
                                 // Remap Forge SRG method names (m_NNNNNN_ -> Mojang). Forge 64.x
                                 // dropped the SRG remap layer, so SRG-baked Forge mods would hit
-                                // NoSuchMethodError without this.
+                                // NoSuchMethodError without this. The 1.12.2-era SRG namespace
+                                // uses func_NNNNN_x instead of m_NNNNNN_; same dictionary, other
+                                // key pattern (#103/#108/#117).
                                 if (!srgMethodNames.isEmpty()
                                         && name.length() > 3
-                                        && name.startsWith("m_")
-                                        && name.endsWith("_")) {
+                                        && ((name.startsWith("m_") && name.endsWith("_"))
+                                            || name.startsWith("func_"))) {
                                     String mojang = srgMethodNames.get(name);
                                     if (mojang != null) return mojang;
                                 }
@@ -1103,11 +1247,15 @@ public class RetromodTransformer implements ClassFileTransformer {
                                     if (mojang != null) return mojang;
                                 }
                                 // Remap Forge SRG field names (f_NNNNN_ -> Mojang), same reasoning
-                                // as the method case above (f_50069_ is Blocks.STONE).
+                                // as the method case above (f_50069_ is Blocks.STONE). 1.12.2-era
+                                // SRG fields are field_NNNNN_x; the Fabric-intermediary branch
+                                // above shares the field_ prefix but its lookup already missed
+                                // (the two dictionaries have disjoint keys), so falling through
+                                // to the SRG map here is safe.
                                 if (!srgFieldNames.isEmpty()
                                         && name.length() > 3
-                                        && name.startsWith("f_")
-                                        && name.endsWith("_")) {
+                                        && ((name.startsWith("f_") && name.endsWith("_"))
+                                            || name.startsWith("field_"))) {
                                     String mojang = srgFieldNames.get(name);
                                     if (mojang != null) return mojang;
                                 }
@@ -1139,6 +1287,12 @@ public class RetromodTransformer implements ClassFileTransformer {
             visitor = new ClassRemapper(visitor, classRemapper);
         }
 
+        // Constructor->factory rewriting runs OUTERMOST (upstream of the remapper) so it
+        // sees pre-remap owner names; see CtorRedirectPrePass for why that matters.
+        if (!constructorRedirects.isEmpty()) {
+            visitor = new CtorRedirectPrePass(Opcodes.ASM9, visitor, classRemapper);
+        }
+
         try {
             // Use EXPAND_FRAMES to properly feed frame data into COMPUTE_FRAMES
             reader.accept(visitor, ClassReader.EXPAND_FRAMES);
@@ -1151,18 +1305,42 @@ public class RetromodTransformer implements ClassFileTransformer {
             }
             return result;
         } catch (Exception e) {
-            // Fallback: try with COMPUTE_MAXS and preserve existing frames
+            // Fallback: try with COMPUTE_MAXS and preserve existing frames. Log the primary
+            // failure: it used to be swallowed silently, which hid a frame-corruption bug for
+            // weeks (the fallback preserves ORIGINAL StackMapTable entries, so any structural
+            // rewrite that moves or removes instructions ships stale frames).
+            LOGGER.warn("COMPUTE_FRAMES failed for {}; retrying with preserved frames",
+                    className, e);
             try {
                 ClassWriter fallbackWriter = hasClassRemaps
                     ? new SafeClassWriter(ClassWriter.COMPUTE_MAXS)
                     : new SafeClassWriter(reader, ClassWriter.COMPUTE_MAXS);
                 ClassVisitor fallbackVisitor = fallbackWriter;
-                fallbackVisitor = new RetromodClassVisitor(Opcodes.ASM9, fallbackVisitor);
+                RetromodClassVisitor bodyVisitor =
+                        new RetromodClassVisitor(Opcodes.ASM9, fallbackVisitor);
+                fallbackVisitor = bodyVisitor;
                 if (classRemapper != null) {
                     fallbackVisitor = new ClassRemapper(fallbackVisitor, classRemapper);
                 }
+                if (!constructorRedirects.isEmpty()) {
+                    fallbackVisitor = new CtorRedirectPrePass(Opcodes.ASM9, fallbackVisitor,
+                            classRemapper);
+                }
                 // Don't skip frames; preserve existing StackMapTable entries
+                frameInvalidatingRewrite.set(Boolean.FALSE);
                 reader.accept(fallbackVisitor, 0);
+                // A structural rewrite (ctor->factory, super-ctor replace, arg-drop, ...)
+                // invalidates the preserved frames: the shipped class would die at CLASS LOAD
+                // with "StackMapTable format error: bad offset for Uninitialized" and take the
+                // whole mod down (hit live: Collective's DuskConfig on the 1.20.1 acceptance
+                // pass). Shipping the ORIGINAL bytes instead degrades to the pre-transform
+                // behavior for this one class (a NoSuchMethodError at the untransformed call,
+                // soft-failable) rather than corrupting it.
+                if (bodyVisitor.structurallyChangedFrames()) {
+                    LOGGER.warn("Fallback pass for {} made frame-invalidating rewrites; "
+                            + "shipping the original class instead of corrupt frames", className);
+                    return originalBytes;
+                }
                 byte[] result = fallbackWriter.toByteArray();
                 if (hasClassRemaps) {
                     result = deduplicateMethods(result, className);
@@ -1630,6 +1808,11 @@ public class RetromodTransformer implements ClassFileTransformer {
 
     private class RetromodClassVisitor extends ClassVisitor {
 
+        /** Whether this thread's pass emitted frame-invalidating rewrites (see the field). */
+        boolean structurallyChangedFrames() {
+            return frameInvalidatingRewrite.get();
+        }
+
         // Bridge adapter generator for this class; handles method signature changes
         // (e.g., mouseClicked(double,double,int) -> mouseClicked(MouseButtonEvent,boolean)).
         // Reset for each class in visit(). Bounded by BridgeAdapterGenerator.BRIDGES size.
@@ -1730,11 +1913,17 @@ public class RetromodTransformer implements ClassFileTransformer {
             // TODO: Only apply bridges when the method ACTUALLY has the old descriptor
 
             MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
-            // Only wrap if we have redirects. superclassRedirects is included because a
-            // class->class rebase rewrites super(...) <init> owners in the method body (#70),
-            // and the non-<init> invokespecial fixup also lives in the wrapper.
+            // Only wrap if we have redirects that act inside a method body. superclassRedirects
+            // is included because a class->class rebase rewrites super(...) <init> owners in the
+            // body (#70); superCtorRedirects likewise because it rewrites the super()/this()
+            // descriptor there (the 1.12.2 Block(Material)->Block(Properties) bridge). Omitting
+            // superCtorRedirects was a latent bug: a redirect set with ONLY super-ctor + class
+            // redirects skipped the wrapper and never applied the super-ctor rewrite. It was
+            // masked whenever the same shim also registered a method redirect, and surfaced once
+            // the phantom-target sweep dropped those (Forge_1_12_2_to_1_13_2's FlatteningShim).
             if (methodRedirects.isEmpty() && fieldRedirects.isEmpty() && constructorRedirects.isEmpty()
                     && fieldAccessorRedirects.isEmpty() && superclassRedirects.isEmpty()
+                    && superCtorRedirects.isEmpty()
                     && neutralizedMethods.isEmpty() && staticFieldAccessors.isEmpty()
                     && argDropRedirects.isEmpty()) {
                 return mv;
@@ -1750,6 +1939,269 @@ public class RetromodTransformer implements ClassFileTransformer {
         }
     }
     
+
+    /**
+     * Resolve class references in a descriptor through classRedirects.
+     * E.g., "(Lclass_3702$class_3703;)V" → "(Lcom/mojang/blaze3d/platform/InputConstants$Type;)V"
+     */
+    private String resolveDescriptor(String descriptor) {
+        if (classRedirects.isEmpty()) return descriptor;
+        // Quick check: does descriptor contain any 'L' type references?
+        if (descriptor.indexOf('L') < 0) return descriptor;
+
+        StringBuilder sb = new StringBuilder(descriptor.length());
+        int i = 0;
+        while (i < descriptor.length()) {
+            char c = descriptor.charAt(i);
+            if (c == 'L') {
+                // Find the closing ';'
+                int end = descriptor.indexOf(';', i);
+                if (end < 0) break;
+                String className = descriptor.substring(i + 1, end);
+                String resolved = classRedirects.getOrDefault(className, className);
+                sb.append('L').append(resolved).append(';');
+                i = end + 1;
+            } else {
+                sb.append(c);
+                i++;
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Constructor-to-factory rewriting pass, placed UPSTREAM of the {@link ClassRemapper}.
+     *
+     * <p>It must see PRE-remap owner names: when several old classes class-redirect onto ONE
+     * new class but their constructors map to DIFFERENT factories (the pre-1.19 Text bridge
+     * retypes both {@code class_2588} TranslatableText and {@code class_2585} LiteralText to
+     * {@code class_5250} MutableText, but their {@code <init>(String)}s go to
+     * {@code Text.translatable} vs {@code Text.literal}), only the pre-remap owner keeps the
+     * two {@code <init>}s distinct. Downstream of the remapper they collapse into one key.
+     * Registrations keyed on POST-remap names (the 26.1 Identifier redirects) still match:
+     * owners and descriptors are resolved through the remapper before lookup.
+     *
+     * <p>In JVM bytecode, {@code new Foo(args)} compiles to:
+     * <pre>
+     *   NEW Foo          // allocate uninitialized object
+     *   DUP              // duplicate reference (one for <init>, one stays on stack)
+     *   [push args]      // push constructor arguments
+     *   INVOKESPECIAL Foo.<init>(args)V  // call constructor
+     * </pre>
+     * To redirect to a static factory we suppress NEW+DUP, let the args flow, and replace the
+     * INVOKESPECIAL with INVOKESTATIC. The suppression state is a STACK, not a single slot:
+     * the args of a deferred {@code new} can themselves contain redirect-eligible {@code new}s,
+     * and javac brackets them properly (inner {@code <init>} always precedes the outer one).
+     * Crucially, an inner PLAIN NEW (no redirect) must NOT flush the outer entry: the args may
+     * contain branches (ternaries), and emitting the buffered NEW+DUP mid-expression puts them
+     * on ONE path only, so the paths reach the convergent {@code <init>} with different stack
+     * heights (ASM Frame.merge AIOOBE; hit live on Collective's DuskConfig, snapshot.8). The
+     * only branch-safe flush point is the {@code <init>} site itself, where every path has
+     * converged with the args on the stack.
+     *
+     * <p>Known gap: constructor REFERENCES ({@code TranslatableText::new}) are rewritten by
+     * {@link RetromodMethodVisitor}'s indy handling downstream, which sees post-remap names;
+     * a pre-remap-keyed registration won't match there. No mod in the acceptance corpus uses
+     * the removed Text constructors as method refs.</p>
+     */
+    private class CtorRedirectPrePass extends ClassVisitor {
+
+        /** Resolves pre-remap names to what the downstream remapper will emit; nullable. */
+        private final org.objectweb.asm.commons.Remapper resolver;
+
+        CtorRedirectPrePass(int api, ClassVisitor cv,
+                org.objectweb.asm.commons.Remapper resolver) {
+            super(api, cv);
+            this.resolver = resolver;
+        }
+
+        private String resolveType(String type) {
+            return resolver != null ? resolver.mapType(type)
+                    : classRedirects.getOrDefault(type, type);
+        }
+
+        private String resolveDesc(String desc) {
+            return resolver != null ? resolver.mapMethodDesc(desc) : resolveDescriptor(desc);
+        }
+
+        @Override
+        public MethodVisitor visitMethod(int access, String name, String descriptor,
+                String signature, String[] exceptions) {
+            MethodVisitor mv = super.visitMethod(access, name, descriptor, signature, exceptions);
+            if (mv == null) {
+                return null;
+            }
+            return new PrePassMethodVisitor(api, mv);
+        }
+
+        /** One deferred NEW awaiting its {@code <init>} (redirect-eligible owner). */
+        private static final class PendingNew {
+            final String type;
+            boolean dupSeen;
+            PendingNew(String type) { this.type = type; }
+        }
+
+        private class PrePassMethodVisitor extends MethodVisitor {
+
+            private final java.util.ArrayDeque<PendingNew> pendingNews =
+                    new java.util.ArrayDeque<>();
+
+            PrePassMethodVisitor(int api, MethodVisitor mv) {
+                super(api, mv);
+            }
+
+            @Override
+            public void visitTypeInsn(int opcode, String type) {
+                if (opcode == Opcodes.NEW
+                        && (constructorRedirectOwners.contains(type)
+                            || constructorRedirectOwners.contains(resolveType(type)))) {
+                    pendingNews.push(new PendingNew(type));
+                    return;
+                }
+                // A plain NEW inside a deferred one's args (nested constructor, e.g. the
+                // StringBuilder in `new TranslatableText("" + x)`) just emits through; the
+                // outer entry stays deferred until ITS <init>. Never flush it here: the args
+                // may hold branches, and a mid-expression flush lands on one path only
+                // (frame corruption). Other TypeInsns (CHECKCAST, ...) likewise pass through.
+                super.visitTypeInsn(opcode, type);
+            }
+
+            @Override
+            public void visitInsn(int opcode) {
+                if (opcode == Opcodes.DUP && !pendingNews.isEmpty()
+                        && !pendingNews.peek().dupSeen) {
+                    // javac emits DUP directly after NEW, so the first DUP while the top
+                    // entry is un-dup'd is that entry's dup. Any later DUP (e.g. after a
+                    // plain nested NEW) passes through below.
+                    pendingNews.peek().dupSeen = true;
+                    return;
+                }
+                super.visitInsn(opcode);
+            }
+
+            @Override
+            public void visitMethodInsn(int opcode, String owner, String name,
+                    String descriptor, boolean isInterface) {
+                if (opcode != Opcodes.INVOKESPECIAL || !"<init>".equals(name)
+                        || pendingNews.isEmpty()) {
+                    super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                    return;
+                }
+                PendingNew top = pendingNews.peek();
+                String resolvedOwner = resolveType(owner);
+                if (!owner.equals(top.type) && !resolvedOwner.equals(resolveType(top.type))) {
+                    // An <init> for some OTHER class while a NEW is deferred: a nested plain
+                    // constructor inside the deferred args (its NEW emitted through above).
+                    // Pass it through; the deferred entry waits for its own <init>.
+                    super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+                    return;
+                }
+                // This <init> completes the deferred NEW on top of the stack. Try the lookup
+                // in post-remap terms first (how the 26.1 shims register), then fully
+                // pre-remap (how the Text bridge must register, see the class javadoc).
+                String resolvedDesc = resolveDesc(descriptor);
+                FactoryTarget factory = constructorRedirects.get(
+                        new ConstructorKey(resolvedOwner, resolvedDesc));
+                if (factory == null && !resolvedDesc.equals(descriptor)) {
+                    factory = constructorRedirects.get(
+                            new ConstructorKey(resolvedOwner, descriptor));
+                }
+                if (factory == null && !resolvedOwner.equals(owner)) {
+                    factory = constructorRedirects.get(new ConstructorKey(owner, descriptor));
+                }
+                if (factory != null) {
+                    // Replace NEW+DUP+INVOKESPECIAL with INVOKESTATIC factory
+                    String originalClass = pendingNews.pop().type;
+                    markFrameInvalidatingRewrite();
+                    LOGGER.info("Constructor→factory redirect: new {}({}) -> {}.{}{}",
+                            owner, descriptor, factory.factoryClass(), factory.factoryMethod(),
+                            factory.factoryDesc());
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, factory.factoryClass(),
+                            factory.factoryMethod(), factory.factoryDesc(),
+                            factory.factoryIsInterface());
+                    // If the factory returns Object but the original class is specific, emit
+                    // CHECKCAST to satisfy the verifier. Cast to the ORIGINAL (pre-remap)
+                    // class; the downstream remapper retypes it along with everything else.
+                    String factoryReturnType = factory.factoryDesc().substring(
+                            factory.factoryDesc().lastIndexOf(')') + 1);
+                    if (factoryReturnType.equals("Ljava/lang/Object;")) {
+                        super.visitTypeInsn(Opcodes.CHECKCAST, originalClass);
+                    }
+                    return;
+                }
+                // Owner matches but no redirect for THIS descriptor: emit the deferred
+                // NEW+DUP below the already-emitted args (branch-safe here, at the
+                // convergence point), then the original call.
+                flushPendingNewBeforeArgs(pendingNews.pop(), descriptor);
+                super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+            }
+
+            /**
+         * Flush a deferred NEW+DUP when constructor args are already on the stack.
+         *
+         * <p>This handles the case where a class has SOME constructor redirects registered
+         * (causing NEW to be deferred) but the actual constructor descriptor doesn't match
+         * any redirect. The args were already emitted during the deferral period, so they're
+         * on the stack. We need NEW+DUP to appear BELOW the args for correct JVM verification.</p>
+         *
+         * <p>Strategy: store args to temp locals (reverse order), emit NEW+DUP,
+         * reload args from temp locals (forward order). COMPUTE_FRAMES handles max locals.</p>
+         *
+         * <p>Only ever called AT the {@code <init>} site: that is the point where every
+         * branch inside the arg expressions has converged with the args on the stack, so the
+         * insertion is consistent across paths (unlike a mid-expression flush).</p>
+         *
+         * @param entry the deferred NEW being materialized (already popped by the caller)
+         * @param constructorDesc the constructor descriptor, e.g. "(Ljava/lang/String;I)V"
+         */
+        private void flushPendingNewBeforeArgs(PendingNew entry, String constructorDesc) {
+            markFrameInvalidatingRewrite();
+
+            // Parse parameter types from the descriptor
+            Type[] paramTypes = Type.getArgumentTypes(constructorDesc);
+            if (paramTypes.length == 0) {
+                // No args on stack; just emit the deferred NEW (+DUP)
+                super.visitTypeInsn(Opcodes.NEW, entry.type);
+                if (entry.dupSeen) {
+                    super.visitInsn(Opcodes.DUP);
+                }
+                return;
+            }
+
+            // Use high base slot to avoid conflicts with existing locals.
+            // COMPUTE_FRAMES / COMPUTE_MAXS will adjust maxLocals automatically.
+            int tempSlotBase = 200;
+            int slot = tempSlotBase;
+
+            // Allocate slots for each parameter (some types use 2 slots)
+            int[] paramSlots = new int[paramTypes.length];
+            for (int i = 0; i < paramTypes.length; i++) {
+                paramSlots[i] = slot;
+                slot += paramTypes[i].getSize(); // 1 for int/float/object, 2 for long/double
+            }
+
+            // Store args from stack to temp locals (reverse order, top of stack first)
+            for (int i = paramTypes.length - 1; i >= 0; i--) {
+                super.visitVarInsn(paramTypes[i].getOpcode(Opcodes.ISTORE), paramSlots[i]);
+            }
+
+            // Now the stack is clear of args; emit the deferred NEW + DUP
+            super.visitTypeInsn(Opcodes.NEW, entry.type);
+            if (entry.dupSeen) {
+                super.visitInsn(Opcodes.DUP);
+            }
+
+            // Reload args from temp locals (forward order)
+            for (int i = 0; i < paramTypes.length; i++) {
+                super.visitVarInsn(paramTypes[i].getOpcode(Opcodes.ILOAD), paramSlots[i]);
+            }
+
+            // Stack is now: [..., uninit, uninit, arg1, arg2, ..., argN]
+            // which is the correct order for INVOKESPECIAL <init>
+            }
+        }
+    }
+
     /**
      * ASM MethodVisitor that rewrites individual method invocations.
      *
@@ -1775,11 +2227,6 @@ public class RetromodTransformer implements ClassFileTransformer {
      */
     private class RetromodMethodVisitor extends MethodVisitor {
 
-        // Buffered NEW instruction, held until we see the matching <init> to decide
-        // whether to redirect to a factory or emit normally
-        private String pendingNewClass = null;
-        private boolean pendingDup = false;
-
         /**
          * Event type reified by the Consumer LambdaMetafactory indy seen as the LAST instruction,
          * armed for an indy-typed call rewrite (see registerIndyTypedCallRewrite). Any other
@@ -1803,75 +2250,6 @@ public class RetromodTransformer implements ClassFileTransformer {
             this.classSuperName = superName;
             this.classSuperNameOriginal = superNameOriginal;
             this.classDirectInterfaces = directInterfaces;
-        }
-
-        private void flushPendingNew() {
-            if (pendingNewClass != null) {
-                super.visitTypeInsn(Opcodes.NEW, pendingNewClass);
-                pendingNewClass = null;
-            }
-            if (pendingDup) {
-                super.visitInsn(Opcodes.DUP);
-                pendingDup = false;
-            }
-        }
-
-        /**
-         * Flush a deferred NEW+DUP when constructor args are already on the stack.
-         *
-         * <p>This handles the case where a class has SOME constructor redirects registered
-         * (causing NEW to be deferred) but the actual constructor descriptor doesn't match
-         * any redirect. The args were already emitted during the deferral period, so they're
-         * on the stack. We need NEW+DUP to appear BELOW the args for correct JVM verification.</p>
-         *
-         * <p>Strategy: store args to temp locals (reverse order), emit NEW+DUP,
-         * reload args from temp locals (forward order). COMPUTE_FRAMES handles max locals.</p>
-         *
-         * @param constructorDesc the constructor descriptor, e.g. "(Ljava/lang/String;I)V"
-         */
-        private void flushPendingNewBeforeArgs(String constructorDesc) {
-            if (pendingNewClass == null) return;
-
-            // Parse parameter types from the descriptor
-            Type[] paramTypes = Type.getArgumentTypes(constructorDesc);
-            if (paramTypes.length == 0) {
-                // No args on stack; simple flush is fine
-                flushPendingNew();
-                return;
-            }
-
-            // Use high base slot to avoid conflicts with existing locals.
-            // COMPUTE_FRAMES / COMPUTE_MAXS will adjust maxLocals automatically.
-            int tempSlotBase = 200;
-            int slot = tempSlotBase;
-
-            // Allocate slots for each parameter (some types use 2 slots)
-            int[] paramSlots = new int[paramTypes.length];
-            for (int i = 0; i < paramTypes.length; i++) {
-                paramSlots[i] = slot;
-                slot += paramTypes[i].getSize(); // 1 for int/float/object, 2 for long/double
-            }
-
-            // Store args from stack to temp locals (reverse order, top of stack first)
-            for (int i = paramTypes.length - 1; i >= 0; i--) {
-                super.visitVarInsn(paramTypes[i].getOpcode(Opcodes.ISTORE), paramSlots[i]);
-            }
-
-            // Now the stack is clear of args; emit the deferred NEW + DUP
-            super.visitTypeInsn(Opcodes.NEW, pendingNewClass);
-            pendingNewClass = null;
-            if (pendingDup) {
-                super.visitInsn(Opcodes.DUP);
-                pendingDup = false;
-            }
-
-            // Reload args from temp locals (forward order)
-            for (int i = 0; i < paramTypes.length; i++) {
-                super.visitVarInsn(paramTypes[i].getOpcode(Opcodes.ILOAD), paramSlots[i]);
-            }
-
-            // Stack is now: [..., uninit, uninit, arg1, arg2, ..., argN]
-            // which is the correct order for INVOKESPECIAL <init>
         }
 
         /**
@@ -1960,6 +2338,7 @@ public class RetromodTransformer implements ClassFileTransformer {
          * and {@code COMPUTE_MAXS} absorbs the stack delta.
          */
         private void neutralizeCall(int opcode, String descriptor) {
+            markFrameInvalidatingRewrite();
             Type methodType = Type.getMethodType(descriptor);
             Type[] argTypes = methodType.getArgumentTypes();
             // Pop arguments off the stack, last-pushed first.
@@ -1982,35 +2361,6 @@ public class RetromodTransformer implements ClassFileTransformer {
                 case Type.DOUBLE -> super.visitInsn(Opcodes.DCONST_0);
                 default -> super.visitInsn(Opcodes.ICONST_0); // int/boolean/byte/char/short
             }
-        }
-
-        /**
-         * Resolve class references in a descriptor through classRedirects.
-         * E.g., "(Lclass_3702$class_3703;)V" → "(Lcom/mojang/blaze3d/platform/InputConstants$Type;)V"
-         */
-        private String resolveDescriptor(String descriptor) {
-            if (classRedirects.isEmpty()) return descriptor;
-            // Quick check: does descriptor contain any 'L' type references?
-            if (descriptor.indexOf('L') < 0) return descriptor;
-
-            StringBuilder sb = new StringBuilder(descriptor.length());
-            int i = 0;
-            while (i < descriptor.length()) {
-                char c = descriptor.charAt(i);
-                if (c == 'L') {
-                    // Find the closing ';'
-                    int end = descriptor.indexOf(';', i);
-                    if (end < 0) break;
-                    String className = descriptor.substring(i + 1, end);
-                    String resolved = classRedirects.getOrDefault(className, className);
-                    sb.append('L').append(resolved).append(';');
-                    i = end + 1;
-                } else {
-                    sb.append(c);
-                    i++;
-                }
-            }
-            return sb.toString();
         }
 
         /**
@@ -2073,33 +2423,14 @@ public class RetromodTransformer implements ClassFileTransformer {
         @Override
         public void visitTypeInsn(int opcode, String type) {
             pendingIndyConsumerType = null;
-            if (opcode == Opcodes.NEW) {
-                // Flush any previous pending NEW before buffering a new one
-                flushPendingNew();
-                if (!constructorRedirects.isEmpty()) {
-                    // Resolve through classRedirects since we see pre-remap names (class_2960)
-                    // but redirects are registered with post-remap names (Identifier).
-                    String resolvedType = classRedirects.getOrDefault(type, type);
-                    boolean hasRedirect = constructorRedirectOwners.contains(resolvedType);
-                    if (hasRedirect) {
-                        pendingNewClass = type;
-                        return;
-                    }
-                }
-            }
-            // Non-NEW TypeInsns (ANEWARRAY, CHECKCAST, INSTANCEOF, etc.) may appear
-            // as part of constructor arguments; don't flush the pending NEW
+            // NEW/<init> constructor redirects are handled by CtorRedirectPrePass UPSTREAM of
+            // the ClassRemapper (it must see pre-remap owner names; see that class's javadoc).
             super.visitTypeInsn(opcode, type);
         }
 
         @Override
         public void visitInsn(int opcode) {
             pendingIndyConsumerType = null;
-            if (opcode == Opcodes.DUP && pendingNewClass != null && !pendingDup) {
-                pendingDup = true;
-                return;
-            }
-            // Don't flush; instructions like ICONST_0, ACONST_NULL can be constructor args
             super.visitInsn(opcode);
         }
 
@@ -2135,7 +2466,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                         bootstrapMethodArguments[i] = new org.objectweb.asm.Handle(
                                 Opcodes.H_INVOKESTATIC,
                                 factory.factoryClass(), factory.factoryMethod(), factory.factoryDesc(),
-                                false);
+                                factory.factoryIsInterface());
                         LOGGER.info("Constructor-reference redirect: {}::new -> {}.{}{}",
                                 h.getOwner(), factory.factoryClass(), factory.factoryMethod(), factory.factoryDesc());
                     }
@@ -2199,6 +2530,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     LOGGER.debug("Indy-typed rewrite {}.{}{} -> {}.{}{} (event type {})",
                             owner, name, descriptor, typed.owner, typed.name, typed.desc,
                             indyConsumerType);
+                    markFrameInvalidatingRewrite();
                     super.visitLdcInsn(org.objectweb.asm.Type.getObjectType(indyConsumerType));
                     super.visitMethodInsn(Opcodes.INVOKESTATIC, typed.owner, typed.name,
                             typed.desc, false);
@@ -2206,56 +2538,12 @@ public class RetromodTransformer implements ClassFileTransformer {
                 }
             }
 
-            // Check for constructor→factory redirect
-            if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name) && pendingNewClass != null) {
-                // Resolve owner through classRedirects (we see pre-remap names like class_2960)
-                String resolvedOwner = classRedirects.getOrDefault(owner, owner);
-                // Also resolve the descriptor: class refs in the descriptor (e.g., intermediary
-                // class_3702$class_3703) need to be mapped to Mojang names (InputConstants$Type)
-                // to match constructor redirects registered with Mojang names.
-                String resolvedDesc = resolveDescriptor(descriptor);
-                ConstructorKey ckey = new ConstructorKey(resolvedOwner, resolvedDesc);
-                FactoryTarget factory = constructorRedirects.get(ckey);
-                if (factory == null && !resolvedDesc.equals(descriptor)) {
-                    // Also try with the original descriptor in case redirect was registered
-                    // with pre-remap names
-                    ckey = new ConstructorKey(resolvedOwner, descriptor);
-                    factory = constructorRedirects.get(ckey);
-                }
-                if (factory != null) {
-                    // Replace NEW+DUP+INVOKESPECIAL with INVOKESTATIC factory
-                    String originalClass = pendingNewClass;
-                    pendingNewClass = null;
-                    pendingDup = false;
-                    LOGGER.info("Constructor→factory redirect: new {}({}) -> {}.{}{}",
-                            owner, descriptor, factory.factoryClass(), factory.factoryMethod(), factory.factoryDesc());
-                    super.visitMethodInsn(Opcodes.INVOKESTATIC, factory.factoryClass(),
-                            factory.factoryMethod(), factory.factoryDesc(), false);
-                    // If factory returns Object but the original class is specific,
-                    // emit CHECKCAST to satisfy the JVM verifier.
-                    // We cast to the ORIGINAL class; the factory must return a compatible type.
-                    String factoryReturnType = factory.factoryDesc().substring(
-                            factory.factoryDesc().lastIndexOf(')') + 1);
-                    if (factoryReturnType.equals("Ljava/lang/Object;")) {
-                        super.visitTypeInsn(Opcodes.CHECKCAST, originalClass);
-                    }
-                    return;
-                }
-                // Not a redirect for this descriptor; flush the buffered NEW+DUP.
-                // Args are already on the stack (emitted during deferral), so we need
-                // to reorder: store args → emit NEW+DUP → reload args.
-                flushPendingNewBeforeArgs(descriptor);
-            } else if (pendingNewClass != null && opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)) {
-                // Different class <init> (nested constructor); don't flush, let it through
-                super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
-                return;
-            } else {
-                // Non-<init> method calls are fine as constructor args; don't flush
-            }
-
-            // Check for super() constructor descriptor changes (no pending NEW = super call)
+            // Check for super() constructor descriptor changes. Matches both genuine
+            // super()/this() calls AND plain `new X(...)` <init>s (dual use, e.g. the 1.12.2
+            // Block(Material) bridge); factory-redirected <init>s were already consumed by
+            // CtorRedirectPrePass and never reach this visitor.
             if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)
-                    && pendingNewClass == null && !superCtorRedirects.isEmpty()) {
+                    && !superCtorRedirects.isEmpty()) {
                 String resolvedOwner = classRedirects.getOrDefault(owner, owner);
                 String resolvedDesc = resolveDescriptor(descriptor);
                 ConstructorKey skey = new ConstructorKey(resolvedOwner, resolvedDesc);
@@ -2287,6 +2575,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                         super.visitFieldInsn(Opcodes.GETSTATIC,
                             scr.extraFieldOwner(), scr.extraFieldName(), scr.extraFieldDesc());
                     }
+                    markFrameInvalidatingRewrite();
                     LOGGER.info("Super ctor redirect: {}.{} -> {}",
                         owner, descriptor, scr.newDesc());
                     super.visitMethodInsn(opcode, owner, name, scr.newDesc(), isInterface);
@@ -2296,11 +2585,10 @@ public class RetromodTransformer implements ClassFileTransformer {
 
             // #70: rebased superclass; rewrite the super(...) <init> owner to the new base.
             // Scoped to the DIRECT super() call (owner == the class's original superclass,
-            // and pendingNewClass == null so it's not a `new`), so it never touches other
+            // and no NEW deferred so it's not a `new`), so it never touches other
             // references to the base type (e.g. a mixin @Inject handler capturing it as a
             // param, the Arcanus crash). Only fires for class→class rebases that opted in.
             if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)
-                    && pendingNewClass == null
                     && classSuperNameOriginal != null && owner.equals(classSuperNameOriginal)
                     && !superclassRedirects.isEmpty()) {
                 SuperclassRedirect rebase = superclassRedirects.get(owner);
@@ -2399,6 +2687,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                 if (drop != null) {
                     org.objectweb.asm.Type[] oldArgs = org.objectweb.asm.Type.getArgumentTypes(descriptor);
                     org.objectweb.asm.Type[] newArgs = org.objectweb.asm.Type.getArgumentTypes(drop.desc);
+                    markFrameInvalidatingRewrite();
                     // Pop the dropped trailing values (top of stack), last-pushed first, then call.
                     for (int i = oldArgs.length - 1; i >= newArgs.length; i--) {
                         super.visitInsn(oldArgs[i].getSize() == 2 ? Opcodes.POP2 : Opcodes.POP);
@@ -2441,6 +2730,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     String newReturn = target.desc.substring(target.desc.lastIndexOf(')') + 1);
                     if (!origReturn.equals(newReturn) && origReturn.startsWith("L")) {
                         String origReturnClass = origReturn.substring(1, origReturn.length() - 1);
+                        markFrameInvalidatingRewrite();
                         super.visitTypeInsn(Opcodes.CHECKCAST, origReturnClass);
                     }
                 } else {
@@ -2459,6 +2749,7 @@ public class RetromodTransformer implements ClassFileTransformer {
                     String newReturn = target.desc.substring(target.desc.lastIndexOf(')') + 1);
                     if (!origReturn.equals(newReturn) && origReturn.startsWith("L")) {
                         String origReturnClass = origReturn.substring(1, origReturn.length() - 1);
+                        markFrameInvalidatingRewrite();
                         super.visitTypeInsn(Opcodes.CHECKCAST, origReturnClass);
                     }
                 }
@@ -2707,7 +2998,12 @@ public class RetromodTransformer implements ClassFileTransformer {
     /** Lookup key for constructor redirects: matches (class being constructed, constructor descriptor). */
     public record ConstructorKey(String className, String constructorDesc) {}
     /** Target of a constructor→factory redirect: the static method to call instead. */
-    public record FactoryTarget(String factoryClass, String factoryMethod, String factoryDesc) {}
+    public record FactoryTarget(String factoryClass, String factoryMethod, String factoryDesc,
+            boolean factoryIsInterface) {
+        public FactoryTarget(String factoryClass, String factoryMethod, String factoryDesc) {
+            this(factoryClass, factoryMethod, factoryDesc, false);
+        }
+    }
     /**
      * Describes a super() constructor descriptor change.
      * When a subclass calls super(oldDesc), we redirect to super(newDesc)

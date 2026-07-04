@@ -92,19 +92,13 @@ public class Fabric_1_16_5_to_1_17 implements VersionShim {
         transformer.registerClassRedirect("net/minecraft/network/ClientConnection",
                 "net/minecraft/network/Connection");
 
-        // Fabric API tick callbacks renamed alongside World -> Level
-        transformer.registerClassRedirect(
-                "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartWorldTick",
-                "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$StartLevelTick");
-        transformer.registerClassRedirect(
-                "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$EndWorldTick",
-                "net/fabricmc/fabric/api/client/event/lifecycle/v1/ClientTickEvents$EndLevelTick");
-        transformer.registerClassRedirect(
-                "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartWorldTick",
-                "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$StartLevelTick");
-        transformer.registerClassRedirect(
-                "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndWorldTick",
-                "net/fabricmc/fabric/api/event/lifecycle/v1/ServerTickEvents$EndLevelTick");
+        // NOTE: the ClientTickEvents/ServerTickEvents *WorldTick -> *LevelTick inner-interface
+        // renames used to live here, which was WRONG: those are 26.x Fabric API renames, and
+        // applying them on a pre-26.1 host rewrote mods onto names the installed Fabric API
+        // does not have (caught live in the snapshot.8 acceptance pass: Stack Refill 1.16.5
+        // died NoClassDefFoundError ServerTickEvents$StartLevelTick on a 1.20.1 server). The
+        // correct copies live in Fabric_1_21_11_to_26_1, which the chain applies exactly when
+        // the host actually has the new names.
 
         // tags moved to net.minecraft.registry.tag
         transformer.registerClassRedirect(

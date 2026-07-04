@@ -308,6 +308,10 @@ public class ForgeModTransformer {
                 // @Mod.EventBusSubscriber classes with <2 static handlers; strip those (#85).
                 transformed = com.retromod.shim.forge.ForgeEventBusSynthetics
                         .stripLenientAutoSubscriber(transformed);
+                // 1.12.2 only (self-gating on the old @Mod(modid=...) shape): modernize the
+                // annotation and wire the @Mod.EventHandler lifecycle (#103/#108/#117).
+                transformed = com.retromod.shim.forge.Forge1122LifecycleSynthetics
+                        .upgradeLegacyModClass(transformed);
                 boolean wroteFirst = false;
                 if (transformed != null && transformed != original) {
                     Files.write(classFile, transformed);

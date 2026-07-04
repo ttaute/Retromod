@@ -240,21 +240,40 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
         // last so its final 26.1 names win over the intermediate 1.13 names above. Gated to a 26.1+
         // host inside the loader, since the targets are 26.1 names.
         loadDirectClassMoves(transformer);
+
+        // The pre-1.13 FML lifecycle: @Mod(modid=...) rewrite + @Mod.EventHandler wiring +
+        // FML*InitializationEvent stand-ins. Without it the mod is scanned (mcmod.info toml
+        // generation) but modern FML finds no mod id and never calls its setup.
+        Forge1122LifecycleSynthetics.register(transformer);
     }
 
     private static final String CLASS_MOVES_RESOURCE = "/retromod/forge-1.12.2-class-moves.tsv";
+    private static final String CLASS_MOVES_1201_RESOURCE =
+            "/retromod/forge-1.12.2-class-moves-1201.tsv";
 
     /**
-     * Load the bundled 1.12.2 (MCP) -> 26.1 (Mojang) class-move table. Direct final-name moves,
-     * every target validated against the 26.1 jar at harvest time. Additive and soft-failing: if
-     * the resource is missing or a line is malformed, the hardcoded chain redirects still apply.
+     * Load the bundled 1.12.2 (MCP) class-move table matching the host: on a 26.1+ host the
+     * 26.1-target table (every target validated against the 26.1 jar at harvest time), on a
+     * 1.20.x host the 1.20.x-target variant (validated against Mojang's official 1.20.1
+     * mappings; it also carries the families 26.1 removed but 1.20.x still has, e.g.
+     * {@code ItemSword -> SwordItem}, {@code EnumAction -> UseAnim}). 1.21.x hosts get
+     * neither for now: no table has been validated against those jars, and a wrong redirect
+     * is worse than none. Additive and soft-failing either way: if the resource is missing
+     * or a line is malformed, the hardcoded chain redirects still apply.
      */
     void loadDirectClassMoves(RetromodTransformer transformer) {
-        if (!com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
-                com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
-            return; // targets are 26.1 names; on a pre-26.1 host the per-version chain applies
+        String host = com.retromod.core.RetromodVersion.TARGET_MC_VERSION;
+        String resource;
+        if (com.retromod.core.RetromodVersion.isUnobfuscatedTarget(host)) {
+            resource = CLASS_MOVES_RESOURCE;
+        } else if (!com.retromod.core.RetromodVersion.mcVersionExceeds(host, "1.20.6")) {
+            // 1.20 - 1.20.6 host (Retromod hosts start at 1.20): the reported 1.12.2 hosts
+            // (#103/#108/#117 all ran 1.20.1)
+            resource = CLASS_MOVES_1201_RESOURCE;
+        } else {
+            return; // 1.21.x host: no validated table yet
         }
-        try (java.io.InputStream is = getClass().getResourceAsStream(CLASS_MOVES_RESOURCE)) {
+        try (java.io.InputStream is = getClass().getResourceAsStream(resource)) {
             if (is == null) return;
             try (java.io.BufferedReader r = new java.io.BufferedReader(
                     new java.io.InputStreamReader(is, java.nio.charset.StandardCharsets.UTF_8))) {
@@ -267,15 +286,16 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
                 }
             }
         } catch (Exception e) {
-            // additive; the hardcoded chain redirects above still apply
+            // additive; the hardcoded chain redirects still apply
         }
 
-        // Block/Item Properties-constructor bridge. 26.1 made Block/Item Properties-constructed, so a
-        // 1.12.2 custom item's super() and a custom block's super(Material) have no matching ctor and
-        // fail at construction. Item: super() -> super(new Item.Properties()). Block: super(Material) ->
-        // super(BlockBehaviour.Properties.of()) (Material was removed; its GETSTATIC is nulled below and
-        // popped by the replace bridge). Default properties only (material-specific settings are lost),
-        // but the block/item constructs.
+        // Block/Item Properties-constructor bridge. MC 1.20 already removed Material and made
+        // Block/Item Properties-constructed (verified against Mojang's official 1.20.1 mappings:
+        // Material is absent, BlockBehaviour$Properties.of() and Item$Properties() are present,
+        // same shapes as 26.1), so the same bridge serves both table hosts. Item: super() ->
+        // super(new Item.Properties()). Block: super(Material) -> super(BlockBehaviour.Properties.of())
+        // (the Material GETSTATIC is nulled below and popped by the replace bridge). Default
+        // properties only (material-specific settings are lost), but the block/item constructs.
         transformer.registerSuperConstructorRedirect(
             "net/minecraft/world/item/Item", "()V",
             "(Lnet/minecraft/world/item/Item$Properties;)V");
@@ -283,8 +303,8 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/world/level/block/Block",
             "(Lnet/minecraft/block/material/Material;)V",
             "(Lnet/minecraft/world/level/block/state/BlockBehaviour$Properties;)V");
-        // Material was removed in 26.1; null its static-constant reads (e.g. Material.IRON) so the
-        // super(Material.X) read doesn't fault before the replace bridge pops it.
+        // Material is gone on every table host; null its static-constant reads (e.g. Material.IRON)
+        // so the super(Material.X) read doesn't fault before the replace bridge pops it.
         transformer.registerStaticFieldNuller("net/minecraft/block/material/Material");
     }
 

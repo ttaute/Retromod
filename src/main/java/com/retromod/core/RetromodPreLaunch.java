@@ -187,6 +187,7 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
             ServiceLoader<VersionShim> shims = ServiceLoader.load(VersionShim.class);
             int shimCount = 0;
             int skippedNewer = 0;
+            int skippedOtherLoader = 0;
             java.util.Iterator<VersionShim> shimIt = shims.iterator();
             while (shimIt.hasNext()) {
                 VersionShim shim;
@@ -197,6 +198,22 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     continue;
                 }
                 try {
+                    // This is the FABRIC transform path (pre-launch, before Fabric scans
+                    // mods/): register ONLY Fabric and loader-agnostic ("common") shims, the
+                    // same filter the other three entry points already apply
+                    // (Retromod.onInitialize, RetromodForge, RetromodNeoForge). Without it,
+                    // a NeoForge/Forge shim's MOJANG-named redirect fires on a Fabric mod:
+                    // after the intermediary→Mojang harvest the mod's names match the shim's
+                    // keys, so e.g. NeoForge_1_20_6_to_1_21's Enchantment.getMaxLevel redirect
+                    // rewrote AER's anvil call to the nonexistent EnchantmentShim →
+                    // NoClassDefFoundError the first time the anvil ran (#119). Fabric-owned
+                    // shims that rewrite net/minecraft names into fabric-API targets are the
+                    // converse hazard on Forge/NeoForge, already handled by their filters.
+                    String loaderType = shim.getModLoaderType();
+                    if (!"fabric".equals(loaderType) && !"common".equals(loaderType)) {
+                        skippedOtherLoader++;
+                        continue;
+                    }
                     // Only register shims whose target version is <= the host MC. A shim
                     // X→Y rewrites references to Y-version names; if Y is newer than the
                     // host those names don't exist at runtime and the shim breaks the mod.
@@ -212,8 +229,9 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     LOGGER.debug("Could not register shim: {}", e.getMessage());
                 }
             }
-            LOGGER.info("Registered {} version shims for transformation ({} skipped as newer than host MC {})",
-                shimCount, skippedNewer, hostVersion);
+            LOGGER.info("Registered {} version shims for transformation "
+                    + "({} skipped as newer than host MC {}, {} skipped as non-Fabric)",
+                shimCount, skippedNewer, hostVersion, skippedOtherLoader);
 
             // Pre-26.1 hosts only: these bridges work in the intermediary namespace,
             // so on a Mojang-named 26.x runtime they'd fail to load (e.g. the model
@@ -228,6 +246,33 @@ public class RetromodPreLaunch implements PreLaunchEntrypoint {
                     LOGGER.info("Registered pre-1.17 entity-model bridge (ModelPart construction layer)");
                 } catch (Exception e) {
                     LOGGER.warn("Could not register pre-1.17 model bridge: {}", e.getMessage());
+                }
+                // 1.19 removed the TranslatableText/LiteralText constructors (Text factories
+                // replaced them); host-introspecting, so it no-ops on <=1.18.x hosts.
+                try {
+                    com.retromod.shim.fabric.Pre1_19TextBridge.register(transformer);
+                } catch (Exception e) {
+                    LOGGER.warn("Could not register pre-1.19 Text bridge: {}", e.getMessage());
+                }
+
+                // Entity.onGround went non-public in the 1.17 access cleanup; rewrite direct
+                // field access to the isOnGround/setOnGround accessors. Host-introspecting,
+                // so it no-ops on 1.16.x hosts where the field is still public.
+                try {
+                    com.retromod.shim.fabric.Pre1_17EntityFieldBridge.register(transformer);
+                } catch (Exception e) {
+                    LOGGER.warn("Could not register pre-1.17 Entity field bridge: {}",
+                            e.getMessage());
+                }
+
+                // 1.20 deleted the Material system (class_3614); retype every reference to
+                // the shipped MaterialPolyfill so pre-1.20 classes still load. Host-probing,
+                // so it no-ops on hosts that still have Material.
+                try {
+                    com.retromod.shim.fabric.Pre1_20MaterialBridge.register(transformer);
+                } catch (Exception e) {
+                    LOGGER.warn("Could not register pre-1.20 Material bridge: {}",
+                            e.getMessage());
                 }
 
                 // class_1269 became a sealed interface in 1.21.2, breaking pre-1.21.2 mods

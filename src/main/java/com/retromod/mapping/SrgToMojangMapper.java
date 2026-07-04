@@ -134,16 +134,37 @@ public final class SrgToMojangMapper {
     // LOADING
     // ═════════════════════════════════════════════════════════════════════
 
-    private static SrgToMojangMapper loadFromResource() {
-        try (InputStream in = SrgToMojangMapper.class.getResourceAsStream(RESOURCE_PATH)) {
-            if (in == null) {
-                LOGGER.warn("SRG → Mojang mapping data not found at {} - SRG remap disabled",
-                        RESOURCE_PATH);
-                return EMPTY;
-            }
+    /**
+     * The 1.12.2-era SRG dictionary ({@code func_NNN_x}/{@code field_NNN_x} -> readable names,
+     * harvested from the MCPBot 1.12.2 CSVs filtered against Mojang's official 1.20.1 names by
+     * {@code scripts/harvest-1.12.2-srg-members.py}). Loaded into the SAME maps as the modern
+     * {@code m_}/{@code f_} dictionary: the key patterns never collide, and the remapper picks
+     * the branch by prefix.
+     */
+    private static final String RESOURCE_PATH_1122 = "/retromod/srg-1.12.2-to-mojang.tsv";
 
-            Map<String, String> methods = new HashMap<>();
-            Map<String, String> fields = new HashMap<>();
+    private static SrgToMojangMapper loadFromResource() {
+        Map<String, String> methods = new HashMap<>();
+        Map<String, String> fields = new HashMap<>();
+        boolean any = loadOne(RESOURCE_PATH, methods, fields);
+        any |= loadOne(RESOURCE_PATH_1122, methods, fields);
+        if (!any) {
+            LOGGER.warn("SRG → Mojang mapping data not found ({} / {}) - SRG remap disabled",
+                    RESOURCE_PATH, RESOURCE_PATH_1122);
+            return EMPTY;
+        }
+        LOGGER.info("Loaded SRG → Mojang mappings: {} methods, {} fields",
+                methods.size(), fields.size());
+        return new SrgToMojangMapper(Map.copyOf(methods), Map.copyOf(fields));
+    }
+
+    /** Load one TSV resource into the shared maps; false if the resource is absent/unreadable. */
+    private static boolean loadOne(String resource,
+            Map<String, String> methods, Map<String, String> fields) {
+        try (InputStream in = SrgToMojangMapper.class.getResourceAsStream(resource)) {
+            if (in == null) {
+                return false;
+            }
 
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(in, StandardCharsets.UTF_8))) {
@@ -182,13 +203,12 @@ public final class SrgToMojangMapper {
                         }
                     }
                 }
-                LOGGER.info("Loaded SRG → Mojang mappings: {} methods, {} fields ({} parsed, {} skipped)",
-                        methods.size(), fields.size(), parsed, skipped);
-                return new SrgToMojangMapper(Map.copyOf(methods), Map.copyOf(fields));
+                LOGGER.debug("Loaded {}: {} parsed, {} skipped", resource, parsed, skipped);
+                return parsed > 0;
             }
         } catch (IOException e) {
-            LOGGER.warn("Failed to read SRG → Mojang mapping data: {}", e.getMessage());
-            return EMPTY;
+            LOGGER.warn("Failed to read SRG → Mojang mapping data {}: {}", resource, e.getMessage());
+            return false;
         }
     }
 }

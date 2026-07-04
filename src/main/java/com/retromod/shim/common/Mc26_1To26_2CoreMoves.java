@@ -33,6 +33,12 @@ public final class Mc26_1To26_2CoreMoves {
         // references it. Convert at the Registry.register boundary (#98 worldgen chain).
         WorldgenTypeBridgeSynthetic.register(t);
 
+        // 26.2 deleted MultiBufferSource/BufferSource/Tesselator and replaced VertexFormat$Mode
+        // with PrimitiveTopology; any mod class referencing them dies NoClassDefFoundError at
+        // class load on 26.2 even if the render path never runs. Stand-ins keep them loading
+        // (and their buffer-building code working); frame submission is staged.
+        RenderBufferSynthetics.register(t);
+
         // StructureProcessor itself became an INTERFACE on 26.2 (26.1: abstract class), so a
         // 1.21.x processor's `extends StructureProcessor` dies at class definition with
         // IncompatibleClassChangeError "has interface ... as super class" (YUNG's Better

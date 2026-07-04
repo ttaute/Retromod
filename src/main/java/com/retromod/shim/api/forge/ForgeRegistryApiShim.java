@@ -97,6 +97,12 @@ public class ForgeRegistryApiShim implements VersionShim {
         // these would NoSuchMethodError there.
         if (RetromodVersion.isUnobfuscatedTarget(RetromodVersion.TARGET_MC_VERSION)) {
             final String B = RegistryIdBridgeSynthetic.INTERNAL;
+            // Register the synthetic HERE, co-located with the redirects that target it, so the
+            // pair is always registered together. The entry points also register it via
+            // ForgeNeoForgeSynthetics, but registerSyntheticClass is idempotent, and this makes
+            // the shim self-contained: a redirect to a synthetic that isn't registered would be
+            // dropped by the transformer's phantom-target sweep (#119) and silently no-op.
+            transformer.registerSyntheticClass(B, RegistryIdBridgeSynthetic.generate());
             // dr.register(name, supplier) -> RegistryIdBridge.register(dr, name, supplier) [devirtualize: receiver becomes arg 0]
             transformer.registerMethodRedirect(
                 "net/neoforged/neoforge/registries/DeferredRegister", "register",

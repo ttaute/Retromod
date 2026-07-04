@@ -900,19 +900,28 @@ public class FuzzyMethodResolver {
     /** Locate the Minecraft client JAR from the running JVM, or null if not found. */
     public static Path findMcJarFromClasspath() {
         // Code source of an already-loaded MC class is the (patched) MC jar. Most reliable on
-        // NeoForge, where MC is a JPMS module off java.class.path. SharedConstants exists everywhere.
-        try {
-            Class<?> mc = Class.forName("net.minecraft.SharedConstants", false,
-                    Thread.currentThread().getContextClassLoader());
-            java.security.CodeSource cs = mc.getProtectionDomain().getCodeSource();
-            if (cs != null && cs.getLocation() != null) {
-                Path p = Path.of(cs.getLocation().toURI());
-                if (Files.exists(p) && p.toString().toLowerCase().endsWith(".jar")) {
-                    return p;
+        // NeoForge, where MC is a JPMS module off java.class.path. SharedConstants exists on
+        // every Mojang-named runtime; a PRE-26.1 Fabric runtime is INTERMEDIARY-named, so probe
+        // its spellings too (class_310 is the client Minecraft class; MinecraftServer keeps its
+        // readable name in intermediary, covering dedicated servers). Without these the fuzzy
+        // engine was silently disabled on exactly the pre-26.1 Fabric hosts SS A targets.
+        for (String probe : new String[]{
+                "net.minecraft.SharedConstants",
+                "net.minecraft.class_310",
+                "net.minecraft.server.MinecraftServer"}) {
+            try {
+                Class<?> mc = Class.forName(probe, false,
+                        Thread.currentThread().getContextClassLoader());
+                java.security.CodeSource cs = mc.getProtectionDomain().getCodeSource();
+                if (cs != null && cs.getLocation() != null) {
+                    Path p = Path.of(cs.getLocation().toURI());
+                    if (Files.exists(p) && p.toString().toLowerCase().endsWith(".jar")) {
+                        return p;
+                    }
                 }
+            } catch (Throwable ignored) {
+                // this spelling not present here, or a non-file code source; try the next
             }
-        } catch (Throwable ignored) {
-            // MC not loaded here, or a non-file (union/memory) code source; fall through.
         }
 
         // Classpath scan, matching on the jar file name. Matching the whole path false-matched
