@@ -205,37 +205,31 @@ public class RegistryPolyfill implements PolyfillProvider {
             "net/minecraft/util/registry/RegistryKey",
             "net/minecraft/resources/ResourceKey");
 
-        // ResourceLocation constructor -> factory method redirects (1.20.5+)
-        // new ResourceLocation(namespace, path) -> ResourceLocation.fromNamespaceAndPath(namespace, path)
-        // new ResourceLocation(location) -> ResourceLocation.parse(location)
-
-        // Constructor with two String args: ResourceLocation(String, String)
-        // In bytecode, constructors are <init> calls. We redirect to static factory.
-        transformer.registerMethodRedirect(
-            "net/minecraft/util/ResourceLocation", "<init>",
-            "(Ljava/lang/String;Ljava/lang/String;)V",
-            "net/minecraft/resources/ResourceLocation", "fromNamespaceAndPath",
-            "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;");
-
-        // Also handle the already-relocated path (mods targeting 1.14-1.20.4)
-        transformer.registerMethodRedirect(
-            "net/minecraft/resources/ResourceLocation", "<init>",
-            "(Ljava/lang/String;Ljava/lang/String;)V",
-            "net/minecraft/resources/ResourceLocation", "fromNamespaceAndPath",
-            "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;");
-
-        // Constructor with single String arg: ResourceLocation(String)
-        transformer.registerMethodRedirect(
-            "net/minecraft/util/ResourceLocation", "<init>",
-            "(Ljava/lang/String;)V",
-            "net/minecraft/resources/ResourceLocation", "parse",
-            "(Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;");
-
-        // Also handle the already-relocated path
-        transformer.registerMethodRedirect(
-            "net/minecraft/resources/ResourceLocation", "<init>",
-            "(Ljava/lang/String;)V",
-            "net/minecraft/resources/ResourceLocation", "parse",
-            "(Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;");
+        // ResourceLocation constructor -> static factory redirects.
+        //   new ResourceLocation(namespace, path) -> ResourceLocation.fromNamespaceAndPath(namespace, path)
+        //   new ResourceLocation(location)        -> ResourceLocation.parse(location)
+        //
+        // Gated to hosts >= 1.20.5, where the (String) / (String,String) constructors were removed for
+        // the static factories. On 1.20.1-1.20.4 those ctors STILL exist, so a pure class-move leaves a
+        // valid `new ResourceLocation(ns, path)`; firing this there corrupted the mod (#135 Wyrms of
+        // Nyrus, #136, #121). And it MUST use registerConstructorRedirect, not a plain method redirect:
+        // a ctor->factory conversion has to delete the NEW/DUP and emit INVOKESTATIC (which only
+        // CtorRedirectPrePass does). A plain method redirect only swapped the Methodref, leaving the
+        // uninitialized NEW on the stack + an INVOKESPECIAL against the factory -> "Type uninitialized 0
+        // ... is not assignable" VerifyError. Both the pre-1.13 (util/) and relocated (resources/) source
+        // names are registered so the prepass matches whichever a mod's bytecode uses.
+        if (com.retromod.core.RetromodVersion.mcVersionExceeds(
+                com.retromod.core.RetromodVersion.TARGET_MC_VERSION, "1.20.4")) {
+            final String RL = "net/minecraft/resources/ResourceLocation";
+            final String FROM_NS = "fromNamespaceAndPath";
+            final String FROM_NS_DESC = "(Ljava/lang/String;Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;";
+            final String PARSE_DESC = "(Ljava/lang/String;)Lnet/minecraft/resources/ResourceLocation;";
+            for (String src : new String[]{"net/minecraft/util/ResourceLocation", RL}) {
+                transformer.registerConstructorRedirect(
+                    src, "(Ljava/lang/String;Ljava/lang/String;)V", RL, FROM_NS, FROM_NS_DESC);
+                transformer.registerConstructorRedirect(
+                    src, "(Ljava/lang/String;)V", RL, "parse", PARSE_DESC);
+            }
+        }
     }
 }

@@ -4,7 +4,7 @@
 
 | Version | Supported |
 |---------|-----------|
-| 1.2.0-snapshot.x (active pre-release) | Yes |
+| 1.2.0 pre-releases (snapshot.x, rc.x) | Yes |
 | 1.1.x (latest stable) | Yes |
 | 1.0.x and earlier | No |
 

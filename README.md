@@ -18,7 +18,7 @@
 - **Versions**: translates mods built for **1.12.2 and up** onto a host running **MC 1.20 → 26.2** (Fabric, NeoForge, and Forge all reach 26.2).
 - **Install (Fabric)**: put the jar in `mods/`, launch once, drop old mods in `retromod-input/`, launch, restart. **Forge/NeoForge:** jar + old mods both in `mods/`, launch, restart.
 - **MC 26.2 → use OpenGL.** Vulkan is 26.2's new default and breaks old mods' OpenGL rendering; Retromod auto-selects OpenGL for you (Video Settings → Graphics API → OpenGL to confirm).
-- **Status**: **1.2.0-snapshot.7** is the current release (Forge 26.2 hosts, worldgen on 26.x). Keep backups of your mod JARs.
+- **Status**: **1.2.0-rc.1** is the current pre-release (Forge 26.2 hosts, worldgen on 26.x). Keep backups of your mod JARs.
 - **Won't work for** deep-integration / rendering mods (Create, OptiFine, …). [Why](docs/incompatible-mods.md).
 - **Help**: [Troubleshooting](docs/troubleshooting.md) · [FAQ](docs/faq.md) · [Compatibility](COMPATIBILITY.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/Bownlux/Retromod/issues)
 
@@ -30,7 +30,7 @@
 
 ### Fabric
 
-1. Put `retromod-1.2.0-snapshot.7+<your-mc>.jar` in `mods/`.
+1. Put `retromod-1.2.0-rc.1+<your-mc>.jar` in `mods/`.
 2. Launch once and close it. This creates the `retromod-input/` folder.
 3. Drop your old mods into `retromod-input/` (directly, **not** its `processed/` subfolder).
 4. Launch again. Retromod converts them and shows a restart prompt.

@@ -34,7 +34,7 @@ public class AotCompiler {
     private static final String AOT_MANIFEST_KEY = "Retromod-AOT-Version";
 
     // bump when shims change (package-visible: AotCacheStamp folds it into the generation stamp)
-    static final String AOT_VERSION = "1.2.0-snapshot.8";
+    static final String AOT_VERSION = "1.2.0-rc.1";
 
     // Self-hash of the running Retromod jar, stamped on every cache entry so any change to Retromod's
     // own classes invalidates stale caches (AOT_VERSION alone only catches version bumps). Empty hash
@@ -465,16 +465,35 @@ public class AotCompiler {
 
     /** Transforms a whole class in one pass, no per-method analysis. */
     private byte[] transformClassSimple(byte[] classBytes, String className) {
-        ClassReader reader = new ClassReader(classBytes);
-        // SafeClassWriter's getCommonSuperClass override catches the TypeNotPresentException raw ClassWriter
-        // throws when ASM can't resolve an MC class via Class.forName(): a target-MC class absent from the
-        // source classpath would otherwise blow up the whole AOT pass.
-        ClassWriter writer = new com.retromod.util.SafeClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        try {
+            ClassReader reader = new ClassReader(classBytes);
+            // SafeClassWriter's getCommonSuperClass override catches the TypeNotPresentException raw ClassWriter
+            // throws when ASM can't resolve an MC class via Class.forName(): a target-MC class absent from the
+            // source classpath would otherwise blow up the whole AOT pass.
+            ClassWriter writer = new com.retromod.util.SafeClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
 
-        ClassVisitor visitor = new AotClassVisitor(Opcodes.ASM9, writer, className);
-        reader.accept(visitor, ClassReader.EXPAND_FRAMES);
+            ClassVisitor visitor = new AotClassVisitor(Opcodes.ASM9, writer, className);
+            reader.accept(visitor, ClassReader.EXPAND_FRAMES);
 
-        return writer.toByteArray();
+            return writer.toByteArray();
+        } catch (Throwable frameFailure) {
+            // COMPUTE_FRAMES can throw deep inside ASM (Frame.merge -> ArrayIndexOutOfBounds /
+            // NegativeArraySize) on classes whose stack map can't be recomputed after our rewrites.
+            // A single such class must NOT abort the whole jar's AOT (that dropped every mod back to
+            // un-transformed bytes: #125 MineColonies, #127 The Flying Things). Delegate to the main
+            // JIT transformer, which has its own COMPUTE_MAXS + ship-original frame-corruption guard and
+            // never throws; if even that yields nothing, ship the untouched bytes for this one class.
+            LOGGER.warn("AOT simple transform failed for {} ({}); falling back to JIT transform",
+                    className, frameFailure.toString());
+            try {
+                byte[] jit = transformer.transformClass(classBytes, className);
+                return jit != null ? jit : classBytes;
+            } catch (Throwable jitFailure) {
+                LOGGER.warn("JIT fallback also failed for {} ({}); shipping original bytes",
+                        className, jitFailure.toString());
+                return classBytes;
+            }
+        }
     }
 
     private class AotClassVisitor extends ClassVisitor {

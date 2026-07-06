@@ -120,7 +120,7 @@ public class RetromodClient implements ClientModInitializer {
 
             Method writeString = buf.getClass().getMethod("writeString", String.class);
             writeString.invoke(buf, "retromod");
-            writeString.invoke(buf, "1.2.0-snapshot.8");
+            writeString.invoke(buf, "1.2.0-rc.1");
 
             Class<?> identifierClass = McReflect.findClass(
                 "net.minecraft.util.Identifier",              // yarn

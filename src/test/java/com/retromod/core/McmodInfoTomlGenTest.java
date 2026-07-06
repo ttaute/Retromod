@@ -4,6 +4,7 @@
  */
 package com.retromod.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -42,6 +43,50 @@ class McmodInfoTomlGenTest {
     }
 
     @Test
+    void emitsAModsBlockPerEntryForAMultiModJar(@TempDir Path dir) throws Exception {
+        // #115: a 1.12.2 jar can declare several modids in one mcmod.info (The Betweenlands ships
+        // "thebetweenlands" + "mclib"). The pre-#115 first-entry-only toml left "mclib" undeclared.
+        Files.createDirectories(dir.resolve("META-INF"));
+        Files.writeString(dir.resolve("mcmod.info"),
+                "[{\"modid\": \"thebetweenlands\", \"name\": \"The Betweenlands\", \"version\": \"3.9.9\"},"
+                        + "{\"modid\": \"mclib\", \"name\": \"MCLib\", \"version\": \"20.2\"}]");
+
+        new ForgeModTransformer("26.1").generateTomlFromMcmodInfo(dir);
+
+        String c = Files.readString(dir.resolve("META-INF/mods.toml"));
+        assertTrue(c.contains("modId=\"thebetweenlands\""), "first modid declared: " + c);
+        assertTrue(c.contains("modId=\"mclib\""), "SECOND modid must also be declared: " + c);
+        assertTrue(c.contains("version=\"3.9.9\""), "first version: " + c);
+        assertTrue(c.contains("version=\"20.2\""), "second version: " + c);
+        assertEquals(2, countOccurrences(c, "[[mods]]"), "one [[mods]] block per entry: " + c);
+        assertTrue(c.contains("[[dependencies.thebetweenlands]]"), "first deps block: " + c);
+        assertTrue(c.contains("[[dependencies.mclib]]"), "second deps block: " + c);
+    }
+
+    @Test
+    void handlesV2ModListWrapper(@TempDir Path dir) throws Exception {
+        // The mcmod.info v2 form wraps entries in {"modListVersion":2,"modList":[...]}.
+        Files.createDirectories(dir.resolve("META-INF"));
+        Files.writeString(dir.resolve("mcmod.info"),
+                "{\"modListVersion\": 2, \"modList\": ["
+                        + "{\"modid\": \"aaa\", \"version\": \"1\"},"
+                        + "{\"modid\": \"bbb\", \"version\": \"2\"}]}");
+
+        new ForgeModTransformer("26.1").generateTomlFromMcmodInfo(dir);
+
+        String c = Files.readString(dir.resolve("META-INF/mods.toml"));
+        assertTrue(c.contains("modId=\"aaa\""), "v2 wrapper: first modid: " + c);
+        assertTrue(c.contains("modId=\"bbb\""), "v2 wrapper: second modid: " + c);
+        assertEquals(2, countOccurrences(c, "[[mods]]"), "v2 wrapper: two [[mods]] blocks: " + c);
+    }
+
+    private static int countOccurrences(String haystack, String needle) {
+        int n = 0, i = 0;
+        while ((i = haystack.indexOf(needle, i)) >= 0) { n++; i += needle.length(); }
+        return n;
+    }
+
+    @Test
     void noopWhenModsTomlAlreadyPresent(@TempDir Path dir) throws Exception {
         Files.createDirectories(dir.resolve("META-INF"));
         Files.writeString(dir.resolve("mcmod.info"), "[{\"modid\":\"x\",\"version\":\"1\"}]");
@@ -59,5 +104,38 @@ class McmodInfoTomlGenTest {
         Files.createDirectories(dir.resolve("META-INF"));
         new ForgeModTransformer("26.1").generateTomlFromMcmodInfo(dir);
         assertFalse(Files.exists(dir.resolve("META-INF/mods.toml")), "nothing to generate without mcmod.info");
+    }
+
+    @Test
+    void maliciousVersionCannotInjectToml(@TempDir Path dir) throws Exception {
+        // Security (rc.1 review): the gson parse path DECODES JSON escapes into real quotes and
+        // newlines, so a crafted "version" must not break out of the quoted TOML value to inject a
+        // spoofed [[mods]] block (mod-identity forgery) or a displayTest that suppresses FML's
+        // version handshake. The unescaped-version path was a diff-introduced regression (#115);
+        // the old regex reader was immune because [^"]+ stopped at the first quote.
+        Files.createDirectories(dir.resolve("META-INF"));
+        Files.writeString(dir.resolve("mcmod.info"),
+                "[{\"modid\":\"evil\",\"name\":\"Evil\","
+                        + "\"version\":\"1.0\\\"\\ndisplayTest=\\\"IGNORE_ALL_VERSION\\\"\\n\\n"
+                        + "[[mods]]\\nmodId=\\\"jei\"}]");
+
+        new ForgeModTransformer("26.1").generateTomlFromMcmodInfo(dir);
+
+        String c = Files.readString(dir.resolve("META-INF/mods.toml"));
+        assertEquals(1, countOccurrences(c, "[[mods]]"), "an injected second [[mods]] block must not appear: " + c);
+        assertFalse(c.contains("modId=\"jei\""), "must not let a crafted version spoof another modid: " + c);
+        assertFalse(c.contains("IGNORE_ALL_VERSION"), "must not inject a version-handshake bypass: " + c);
+        assertTrue(c.contains("version=\"1.0.0\""), "an unsafe version falls back to the literal: " + c);
+    }
+
+    @Test
+    void normalizeVersionRejectsTomlBreakingValues() {
+        // Legit versions pass through; anything with a TOML/JPMS-illegal char falls back to 1.0.0.
+        assertEquals("1.8.5", ForgeModTransformer.normalizeVersion("1.8.5"));
+        assertEquals("1.2.3-beta", ForgeModTransformer.normalizeVersion("1.2.3-beta"));
+        assertEquals("1.0.0", ForgeModTransformer.normalizeVersion("1.0\"\ndisplayTest=\"x"), "quote+newline rejected");
+        assertEquals("1.0.0", ForgeModTransformer.normalizeVersion("1 0"), "space rejected");
+        assertEquals("1.0.0", ForgeModTransformer.normalizeVersion("beta"), "non-digit lead rejected");
+        assertEquals("1.0.0", ForgeModTransformer.normalizeVersion(""), "empty rejected");
     }
 }

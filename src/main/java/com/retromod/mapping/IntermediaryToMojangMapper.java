@@ -263,6 +263,7 @@ public class IntermediaryToMojangMapper {
         }
         transformer.registerIntermediaryNameMappings(
                 mapper.getMethodMap(), mapper.getFieldMap());
+        registerAmbiguousMemberOverrides(transformer);
 
         // Also register class-moves on their own, for mods already using Mojang
         // names (1.20+ with GuiGraphics): the intermediary step is skipped but
@@ -277,6 +278,44 @@ public class IntermediaryToMojangMapper {
                 classRedirects, composed, mapper.getMethodMap().size(),
                 mapper.getFieldMap().size(), classMoves);
         return classRedirects;
+    }
+
+    /**
+     * Register descriptor-qualified overrides for intermediary short-names that the flat
+     * (name-only) {@code intermediary-to-mojang.tsv} collapses to the WRONG Mojang name.
+     *
+     * <p>A Fabric intermediary {@code method_XXXX} can name more than one method (distinguished
+     * only by descriptor). The 1.21.4 harvest that built the tsv is name-only, so it keeps just
+     * one Mojang name per short-name (last writer wins); the other meaning is silently mis-renamed.
+     *
+     * <p><b>{@code method_14452}</b> is such a case: verified against Fabric Yarn 1.18.2-1.21.4 it is
+     * BOTH {@code PlacementModifier.getPositions(context, random, BlockPos) -> Stream} (Mojang
+     * {@code getPositions}) AND a separate {@code getCount(random, BlockPos) -> int} (Mojang
+     * {@code count}). The tsv kept only {@code count}, so a mod overriding {@code getPositions} had its
+     * override renamed to {@code count}: it no longer overrode the abstract method and threw
+     * {@code AbstractMethodError} during chunk generation on 26.x (YUNG's Extras and any mod with a
+     * custom placement). Registering every descriptor variant makes {@code method_14452} resolve by
+     * descriptor (via the transformer's ambiguous-name fallback), independent of the flat entry.
+     * Two descriptor eras: 1.18.x uses {@code java/util/Random}, 1.19+ uses {@code class_5819}
+     * (RandomSource). Descriptors are intermediary (the remapper sees them pre-class-remap).
+     *
+     * <p>Future ambiguous short-names go here as they are found; a full descriptor-qualified harvest
+     * (so the tsv itself carries the ambiguity) is the systemic follow-up.
+     */
+    private static void registerAmbiguousMemberOverrides(com.retromod.core.RetromodTransformer transformer) {
+        // PlacementModifier.getPositions(FeaturePlacementContext, random, BlockPos) -> Stream
+        transformer.registerIntermediaryMemberMapping("method_14452",
+                "(Lnet/minecraft/class_5444;Ljava/util/Random;Lnet/minecraft/class_2338;)Ljava/util/stream/Stream;",
+                "getPositions", false); // 1.18.x
+        transformer.registerIntermediaryMemberMapping("method_14452",
+                "(Lnet/minecraft/class_5444;Lnet/minecraft/class_5819;Lnet/minecraft/class_2338;)Ljava/util/stream/Stream;",
+                "getPositions", false); // 1.19+
+        // getCount(random, BlockPos) -> int  (Mojang: count) — the variant the tsv already keeps,
+        // registered explicitly so method_14452 is fully descriptor-resolved even if the flat tsv changes.
+        transformer.registerIntermediaryMemberMapping("method_14452",
+                "(Ljava/util/Random;Lnet/minecraft/class_2338;)I", "count", false); // 1.18.x
+        transformer.registerIntermediaryMemberMapping("method_14452",
+                "(Lnet/minecraft/class_5819;Lnet/minecraft/class_2338;)I", "count", false); // 1.19+
     }
 
     /**

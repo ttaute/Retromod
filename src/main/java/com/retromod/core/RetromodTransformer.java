@@ -1001,6 +1001,49 @@ public class RetromodTransformer implements ClassFileTransformer {
         }
     }
 
+    /**
+     * Read-only counterpart of {@link #dropPhantomComRetromodTargets}: returns every currently
+     * registered redirect target under {@code com/retromod/} that is neither a registered
+     * synthetic nor loadable, WITHOUT removing anything. The runtime guard makes these fail-safe;
+     * this exists so a CI test can assert the set is empty and prevent NEW phantom targets from
+     * being introduced (the shim tree carried a long tail of them, #119). Sorted for stable output.
+     */
+    public java.util.SortedSet<String> collectPhantomComRetromodTargets() {
+        ClassLoader loader = RetromodTransformer.class.getClassLoader();
+        Map<String, Boolean> resolvable = new java.util.HashMap<>();
+        java.util.function.Predicate<String> isPhantom = owner -> {
+            if (owner == null || !owner.startsWith("com/retromod/")) return false;
+            return !resolvable.computeIfAbsent(owner, o -> {
+                if (syntheticClasses.containsKey(o)) return true;
+                try {
+                    Class.forName(o.replace('/', '.'), false, loader);
+                    return true;
+                } catch (Throwable t) {
+                    return false;
+                }
+            });
+        };
+        java.util.SortedSet<String> phantoms = new java.util.TreeSet<>();
+        methodRedirects.values().forEach(v -> { if (isPhantom.test(v.owner())) phantoms.add(v.owner()); });
+        argDropRedirects.values().forEach(v -> { if (isPhantom.test(v.owner())) phantoms.add(v.owner()); });
+        classRedirects.values().forEach(v -> { if (isPhantom.test(v)) phantoms.add(v); });
+        fieldRedirects.values().forEach(v -> { if (isPhantom.test(v.owner())) phantoms.add(v.owner()); });
+        fieldAccessorRedirects.values().forEach(v -> {
+            if (isPhantom.test(v.getterOwner())) phantoms.add(v.getterOwner());
+            if (isPhantom.test(v.setterOwner())) phantoms.add(v.setterOwner());
+        });
+        constructorRedirects.values().forEach(v -> { if (isPhantom.test(v.factoryClass())) phantoms.add(v.factoryClass()); });
+        superclassRedirects.values().forEach(v -> { if (isPhantom.test(v.newSuperclass())) phantoms.add(v.newSuperclass()); });
+        superCtorRedirects.values().forEach(v -> { if (isPhantom.test(v.extraFieldOwner())) phantoms.add(v.extraFieldOwner()); });
+        staticFieldAccessors.values().forEach(v -> {
+            if (isPhantom.test(v.collectionOwner())) phantoms.add(v.collectionOwner());
+            if (isPhantom.test(v.methodOwner())) phantoms.add(v.methodOwner());
+            if (isPhantom.test(v.argOwner())) phantoms.add(v.argOwner());
+            if (isPhantom.test(v.castType())) phantoms.add(v.castType());
+        });
+        return phantoms;
+    }
+
 
     /**
      * Transform a class's bytecode, rewriting method/field/class references. Core JIT

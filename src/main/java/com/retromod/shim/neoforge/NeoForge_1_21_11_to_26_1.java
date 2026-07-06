@@ -192,6 +192,32 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "net/neoforged/neoforge/client/event/RecipesReceivedEvent"
         );
 
+        // AddReloadListenerEvent renamed to AddServerReloadListenersEvent around 26.x, and its
+        // addListener now REQUIRES an id (inherited from SortedReloadListenerEvent). Both are game-bus
+        // events (extend bus/api/Event, not IModBusEvent), so the class redirect retargets the
+        // @SubscribeEvent parameter + subscription and fixes the NoClassDefFoundError (#139). The
+        // one-arg addListener(listener) call is then bridged to the two-arg addListener(id, listener)
+        // via ReloadListenerEventShim (synthesizes an id); accessors (getRegistryAccess/... ) are
+        // unchanged and survive the class redirect. (verified vs NeoForge 26.2 universal jar)
+        transformer.registerClassRedirect(
+            "net/neoforged/neoforge/event/AddReloadListenerEvent",
+            "net/neoforged/neoforge/event/AddServerReloadListenersEvent"
+        );
+        // Register the addListener bridge under BOTH the old and remapped owner: the ClassRemapper
+        // rewrites the call owner before the method-redirect pass sees it, so the remapped name is what
+        // matches, but registering the old name too is a harmless belt-and-suspenders.
+        for (String owner : new String[]{
+                "net/neoforged/neoforge/event/AddServerReloadListenersEvent",
+                "net/neoforged/neoforge/event/AddReloadListenerEvent"}) {
+            transformer.registerMethodRedirect(
+                owner, "addListener",
+                "(Lnet/minecraft/server/packs/resources/PreparableReloadListener;)V",
+                "com/retromod/shim/neoforge/embedded/ReloadListenerEventShim", "addListener",
+                "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                true  // devirtualize: event.addListener(l) -> shim.addListener(event, l)
+            );
+        }
+
         // jspecify annotations: catch javax.annotation for mods that skip the
         // 1.21.10->1.21.11 shim via a direct BFS path.
         transformer.registerClassRedirect(
@@ -209,7 +235,9 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
         return new String[] {
             // Reuses Fabric's loader-agnostic ItemSafetyShim for safe
             // getDefaultInstance() and the setGain() no-op.
-            "com.retromod.shim.fabric.embedded.ItemSafetyShim"
+            "com.retromod.shim.fabric.embedded.ItemSafetyShim",
+            // Bridges the removed 1-arg AddReloadListenerEvent.addListener onto 26.2's id-requiring form (#139).
+            "com.retromod.shim.neoforge.embedded.ReloadListenerEventShim"
         };
     }
 }

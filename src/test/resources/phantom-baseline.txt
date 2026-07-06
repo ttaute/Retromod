@@ -1,0 +1,68 @@
+# Known-phantom redirect targets (snapshot.9 baseline, task #113).
+#
+# A "phantom" is a redirect whose target is a com/retromod/**/embedded/* class
+# that is never written to any transformed jar and is not a registered synthetic,
+# so at runtime dropPhantomComRetromodTargets() drops it fail-safe (the original
+# call is left intact). These are dead registrations inside otherwise-valid core
+# version shims; removing them needs per-registration surgery and is being paid
+# down over time.
+#
+# PhantomBaselineTest enforces this list EXACTLY:
+#   - a NEW entry (regression) fails the build: you registered a redirect to a
+#     class that will never resolve. Either write/register the embedded class, or
+#     do not register the redirect.
+#   - a REMOVED entry (a phantom you fixed) also fails, asking you to delete its
+#     line here so the baseline keeps shrinking toward zero.
+#
+# Blank lines and lines starting with '#' are ignored. One internal name per line.
+com/retromod/shim/fabric/embedded/AttributeShim
+com/retromod/shim/fabric/embedded/BiomeShim
+com/retromod/shim/fabric/embedded/BlockEntityRendererRegistryShim
+com/retromod/shim/fabric/embedded/BuiltinItemRendererRegistryStub
+com/retromod/shim/fabric/embedded/ChatShim
+com/retromod/shim/fabric/embedded/ChunkShim
+com/retromod/shim/fabric/embedded/ComponentBridgeShim
+com/retromod/shim/fabric/embedded/CoreShaderRegistrationCallbackShim
+com/retromod/shim/fabric/embedded/DamageSourceShim
+com/retromod/shim/fabric/embedded/DimensionShim
+com/retromod/shim/fabric/embedded/EntityRendererRegistryShim
+com/retromod/shim/fabric/embedded/FabricItemShim
+com/retromod/shim/fabric/embedded/FoodComponentShim
+com/retromod/shim/fabric/embedded/ItemGroupShim
+com/retromod/shim/fabric/embedded/ItemRendererShim
+com/retromod/shim/fabric/embedded/MaterialShim
+com/retromod/shim/fabric/embedded/NetworkShim
+com/retromod/shim/fabric/embedded/OreFeatureShim
+com/retromod/shim/fabric/embedded/PlacedFeatureShim
+com/retromod/shim/fabric/embedded/ProfilerShim
+com/retromod/shim/fabric/embedded/RecipeShim
+com/retromod/shim/fabric/embedded/ResourceConditionShim
+com/retromod/shim/fabric/embedded/ScreenShim
+com/retromod/shim/fabric/embedded/SignShim
+com/retromod/shim/fabric/embedded/TagShim
+com/retromod/shim/fabric/embedded/WorldHeightShim
+com/retromod/shim/fabric/embedded/WorldRendererShim
+com/retromod/shim/forge/embedded/ChatShim
+com/retromod/shim/forge/embedded/ChunkShim
+com/retromod/shim/forge/embedded/CreativeTabShim
+com/retromod/shim/forge/embedded/DamageSourceShim
+com/retromod/shim/forge/embedded/DimensionShim
+com/retromod/shim/forge/embedded/FeatureShim
+com/retromod/shim/forge/embedded/FlatteningShim
+com/retromod/shim/forge/embedded/MaterialShim
+com/retromod/shim/forge/embedded/PlacedFeatureShim
+com/retromod/shim/forge/embedded/RegistryShim
+com/retromod/shim/forge/embedded/RenderShim
+com/retromod/shim/forge/embedded/SidedProxyShim
+com/retromod/shim/forge/embedded/SignShim
+com/retromod/shim/forge/embedded/TagShim
+com/retromod/shim/forge/embedded/WorldHeightShim
+com/retromod/shim/neoforge/embedded/AttributeShim
+com/retromod/shim/neoforge/embedded/ComponentBridgeShim
+com/retromod/shim/neoforge/embedded/ComponentItemHandlerShim
+com/retromod/shim/neoforge/embedded/FMLLoaderShim
+com/retromod/shim/neoforge/embedded/FoodPropertiesShim
+com/retromod/shim/neoforge/embedded/ItemStackHandlerShim
+com/retromod/shim/neoforge/embedded/NetworkShim
+com/retromod/shim/neoforge/embedded/RenderHighlightEventShim
+com/retromod/shim/neoforge/embedded/RenderHighlightEventShim$Block

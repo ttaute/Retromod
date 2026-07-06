@@ -235,6 +235,15 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
             "net/minecraft/client/resources/sounds/SoundInstance"
         );
 
+        // Removed pre-1.13 Forge API types (#131/#132/#134/#135): a 1.12.2 mod's class
+        // implements/references a Forge type deleted in later Forge (IWorldGenerator [1.13],
+        // IGuiHandler [1.13], IMessage/IMessageHandler [1.13], IForgeRegistryEntry [1.17]), so it
+        // can't even LOAD (NoClassDefFoundError) on a modern Forge/NeoForge host. Empty stub
+        // interfaces let the classes load; the feature (worldgen/gui/networking) is inert until its
+        // registration idiom (GameRegistry.registerWorldGenerator / NetworkRegistry.registerGuiHandler
+        // / SimpleNetworkWrapper) is bridged. Fires on Forge, NeoForge, and the offline CLI.
+        registerRemovedForgeApiStubs(transformer);
+
         // 1.12.2 -> 26.1 class-move baseline (data-driven). 308 of the 344 issues on a real
         // 1.12.2 mod (Metallurgy 4, #103) are class moves; this table is the dominant fix. Called
         // last so its final 26.1 names win over the intermediate 1.13 names above. Gated to a 26.1+
@@ -245,6 +254,135 @@ public class Forge_1_12_2_to_1_13_2 implements VersionShim {
         // FML*InitializationEvent stand-ins. Without it the mod is scanned (mcmod.info toml
         // generation) but modern FML finds no mod id and never calls its setup.
         Forge1122LifecycleSynthetics.register(transformer);
+    }
+
+    /**
+     * Empty stub interfaces for pre-1.13 Forge API types that modern Forge/NeoForge deleted, so a
+     * 1.12.2 mod's class that {@code implements}/references them can LOAD instead of
+     * {@code NoClassDefFoundError} (#131 IWorldGenerator, #132 IGuiHandler, #134 IForgeRegistryEntry,
+     * #135 IMessage). An empty interface is sufficient: the JVM does not require the interface to
+     * declare the methods the mod's class defines, so {@code implements X} and a field/param of type
+     * {@code X} both resolve. The paired registration idiom (worldgen/gui/networking registration) is
+     * a separate follow-up; those calls target other removed classes and stay inert until bridged.
+     */
+    private static void registerRemovedForgeApiStubs(RetromodTransformer transformer) {
+        stubInterface(transformer,
+                "net/minecraftforge/fml/common/IWorldGenerator",
+                "com/retromod/generated/forge1122/IWorldGenerator");                 // Forge 1.13
+        stubInterface(transformer,
+                "net/minecraftforge/fml/common/network/IGuiHandler",
+                "com/retromod/generated/forge1122/IGuiHandler");                     // Forge 1.13
+        stubInterface(transformer,
+                "net/minecraftforge/fml/common/network/simpleimpl/IMessage",
+                "com/retromod/generated/forge1122/IMessage");                        // Forge 1.13
+        stubInterface(transformer,
+                "net/minecraftforge/fml/common/network/simpleimpl/IMessageHandler",
+                "com/retromod/generated/forge1122/IMessageHandler");                 // Forge 1.13
+        stubInterface(transformer,
+                "net/minecraftforge/registries/IForgeRegistryEntry",
+                "com/retromod/generated/forge1122/IForgeRegistryEntry");             // Forge 1.17
+
+        // RegistryEvent (+ inner Register/MissingMappings) is the pre-1.13 registration EVENT, used as
+        // a @SubscribeEvent handler PARAMETER. Unlike the interfaces above, an empty stub is NOT enough:
+        // Forge's EventBus.registerListener rejects (throws at registration) a @SubscribeEvent param that
+        // is not assignable to the eventbus base Event. So the stub must be a CLASS extending the host's
+        // eventbus Event. The event never fires on a modern host, so the mod's registration-via-event
+        // stays inert (soft-fail), but registration completes without throwing (#134, the domino after
+        // the IForgeRegistryEntry stub).
+        // Resolve the host's eventbus base Event as a loaded Class so we can read isInterface(): the
+        // base is a CLASS on EventBus 6 (Forge 1.20.1, api/Event) and NeoForge (bus/api/Event), but an
+        // INTERFACE on EventBus 7 (Forge 26.2, internal/Event). A stub that `extends` an interface fails
+        // to load (IncompatibleClassChangeError), so we `implements` an interface base and `extends` a
+        // class base. Offline (no host on the classpath) it can't be resolved: skip the RegistryEvent
+        // stubs rather than bake a wrong/absent superclass -- the mod then hits its original
+        // NoClassDefFoundError, no worse than without this stub. (#134; verified against EventBus 6/7 + Neo.)
+        Class<?> eventBase = resolveEventBusBaseClass();
+        if (eventBase != null) {
+            String base = eventBase.getName().replace('.', '/');
+            boolean isInterface = eventBase.isInterface();
+            stubEventClass(transformer, "net/minecraftforge/event/RegistryEvent",
+                    "com/retromod/generated/forge1122/RegistryEvent", base, isInterface);
+            stubEventClass(transformer, "net/minecraftforge/event/RegistryEvent$Register",
+                    "com/retromod/generated/forge1122/RegistryEvent$Register", base, isInterface);
+            stubEventClass(transformer, "net/minecraftforge/event/RegistryEvent$MissingMappings",
+                    "com/retromod/generated/forge1122/RegistryEvent$MissingMappings", base, isInterface);
+            // ModelRegistryEvent: the pre-1.17 client model-registration event (removed when models
+            // went data-driven). Same @SubscribeEvent-parameter situation as RegistryEvent, so the same
+            // Event-subtype class stub. Surfaced in-game as the domino after the RegistryEvent stub (#134).
+            stubEventClass(transformer, "net/minecraftforge/client/event/ModelRegistryEvent",
+                    "com/retromod/generated/forge1122/ModelRegistryEvent", base, isInterface);
+        }
+    }
+
+    /**
+     * The host eventbus base Event as a loaded {@code Class} (so callers can read {@link Class#isInterface()}),
+     * or {@code null} if none is resolvable (the offline CLI, where the host classpath is absent).
+     * NeoForge {@code net/neoforged/bus/api/Event}, then EventBus 7 {@code .../eventbus/internal/Event},
+     * then EventBus 6 {@code .../eventbus/api/Event}.
+     */
+    private static Class<?> resolveEventBusBaseClass() {
+        String[] candidates = {
+                "net.neoforged.bus.api.Event",
+                "net.minecraftforge.eventbus.internal.Event",
+                "net.minecraftforge.eventbus.api.Event",
+        };
+        for (String c : candidates) {
+            try {
+                // initialize=false: only need the class shape, never run its <clinit>.
+                return Class.forName(c, false, Forge_1_12_2_to_1_13_2.class.getClassLoader());
+            } catch (Throwable ignore) {
+                // try next
+            }
+        }
+        return null;
+    }
+
+    /** Register a synthetic Event-subtype CLASS and redirect a removed event onto it. */
+    private static void stubEventClass(RetromodTransformer transformer, String removed, String stub,
+                                       String base, boolean baseIsInterface) {
+        transformer.registerSyntheticClass(stub, eventClassBytes(stub, base, baseIsInterface));
+        transformer.registerClassRedirect(removed, stub);
+    }
+
+    /**
+     * A loadable Event-subtype stub with a no-arg ctor. For a class base it {@code extends base}; for an
+     * interface base (EventBus 7's internal/Event) it {@code extends Object implements base}, since you
+     * cannot extend an interface.
+     */
+    static byte[] eventClassBytes(String internalName, String base, boolean baseIsInterface) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        String superName = baseIsInterface ? "java/lang/Object" : base;
+        String[] ifaces = baseIsInterface ? new String[]{base} : null;
+        cw.visit(org.objectweb.asm.Opcodes.V17,
+                org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_SUPER,
+                internalName, null, superName, ifaces);
+        org.objectweb.asm.MethodVisitor mv =
+                cw.visitMethod(org.objectweb.asm.Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        mv.visitCode();
+        mv.visitVarInsn(org.objectweb.asm.Opcodes.ALOAD, 0);
+        mv.visitMethodInsn(org.objectweb.asm.Opcodes.INVOKESPECIAL, superName, "<init>", "()V", false);
+        mv.visitInsn(org.objectweb.asm.Opcodes.RETURN);
+        mv.visitMaxs(1, 1);
+        mv.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    /** Register an empty synthetic interface and redirect a removed class name onto it. */
+    private static void stubInterface(RetromodTransformer transformer, String removed, String stub) {
+        transformer.registerSyntheticClass(stub, emptyInterface(stub));
+        transformer.registerClassRedirect(removed, stub);
+    }
+
+    /** A public empty interface: enough for {@code implements X} or a field/param of type {@code X} to load. */
+    private static byte[] emptyInterface(String internalName) {
+        org.objectweb.asm.ClassWriter cw = new org.objectweb.asm.ClassWriter(0);
+        cw.visit(org.objectweb.asm.Opcodes.V17,
+                org.objectweb.asm.Opcodes.ACC_PUBLIC | org.objectweb.asm.Opcodes.ACC_ABSTRACT
+                        | org.objectweb.asm.Opcodes.ACC_INTERFACE,
+                internalName, null, "java/lang/Object", null);
+        cw.visitEnd();
+        return cw.toByteArray();
     }
 
     private static final String CLASS_MOVES_RESOURCE = "/retromod/forge-1.12.2-class-moves.tsv";

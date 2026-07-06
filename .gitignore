@@ -113,3 +113,6 @@ description.md
 # Python bytecode cache from scripts/ (harvest tooling)
 __pycache__/
 *.pyc
+
+# Maven classpath dump (build-classpath output, used by dev harnesses)
+cp.txt
