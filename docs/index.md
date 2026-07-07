@@ -18,7 +18,7 @@ It works on Fabric, NeoForge, and Forge. The shim chain covers MC 1.12.2 (the Ja
   <a class="retromod-btn retromod-btn-ghost" href="{{ '/installation' | relative_url }}">Install guide →</a>
 </div>
 
-> **1.1.0 is the current stable release. 1.2.0 is in progress on the snapshot track** (`1.2.0-snapshot.N`), which is where the newest 26.1 and 26.2 compatibility work lands first. The pipeline handles the common case and most simple-to-moderate mods. What's left is the hard stuff: rendering replacement, heavy mixin mods, and mods built on APIs that were redesigned rather than just renamed. If a mod doesn't work, [file an issue with the log](https://github.com/Bownlux/Retromod/issues). That's the quickest way to get it covered in the next build.
+> **1.1.0 is the current stable release. 1.2.0 has reached its first release candidate** (`1.2.0-rc.1`), which carries the newest 26.1 and 26.2 compatibility work. The pipeline handles the common case and most simple-to-moderate mods. What's left is the hard stuff: rendering replacement, heavy mixin mods, and mods built on APIs that were redesigned rather than just renamed. If a mod doesn't work, [file an issue with the log](https://github.com/Bownlux/Retromod/issues). That's the quickest way to get it covered in the next build.
 
 ## What it does
 
@@ -31,7 +31,7 @@ When you launch Minecraft with Retromod installed, it scans the `retromod-input/
 
 Next time you launch, the transformed mod loads like any other. There's an in-game button on the title screen for the mod-management screen, but most people never need it. The whole thing is supposed to be invisible once it's set up.
 
-The CLI tool can do the same thing outside Minecraft (useful for batch-processing whole mod folders or checking compatibility before launch), but it's a power-user thing. See the [CLI page]({{ '/cli' | relative_url }}) if you want it.
+The CLI tool can do the same thing outside Minecraft (useful for batch-processing whole mod folders or checking compatibility before launch), but it's a power-user thing. See the [CLI page]({{ '/cli' | relative_url }}) if you want it. To pre-check a single mod jar with no install at all, drop it on the [Probe]({{ '/probe' | relative_url }}) page: it screens whether the mod is likely to transform, right in your browser.
 
 ## What it doesn't do
 

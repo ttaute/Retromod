@@ -1,0 +1,611 @@
+---
+title: Probe
+nav_order: 7
+layout: null
+permalink: /probe/
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retromod Probe: will this mod transform?</title>
+<meta name="description" content="Drop a Minecraft mod jar and Retromod Probe checks, in your browser, whether it is likely to transform onto a newer version. No upload, no server.">
+<style>
+:root {
+  --bg:#14161a; --bg2:#1c1f26; --bg3:#252a33; --line:#2f3540;
+  --fg:#e8eaed; --fg2:#9aa3af; --accent:#5ad0ff;
+  --green:#7fe7a8; --gold:#ffd24d; --copper:#ff9c54; --borked:#ff6b6b; --grey:#6b7280; --violet:#c79bff;
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+.topbar { display:flex; align-items:center; gap:1em; padding:.8em 1.2em; background:var(--bg2); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+.brand { font-weight:800; font-size:1.15em; letter-spacing:.3px; color:var(--fg); }
+.brand span { color:var(--accent); }
+.topbar .right { margin-left:auto; display:flex; gap:1.1em; font-size:.9em; }
+.hero { text-align:center; padding:2.2em 1em 1em; }
+.hero h1 { margin:.1em 0 .15em; font-size:1.9em; }
+.hero p { color:var(--fg2); margin:.2em auto .5em; max-width:44em; }
+main { max-width:860px; margin:0 auto; padding:0 1em 3em; }
+.controls { display:flex; flex-wrap:wrap; gap:.8em; align-items:center; justify-content:center; margin:.6em 0 1.1em; }
+.controls label { color:var(--fg2); font-size:.9em; }
+select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px solid var(--line); border-radius:8px; font-size:.95em; }
+#drop { border:2px dashed var(--line); border-radius:14px; background:var(--bg2); padding:2.4em 1.2em; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; }
+#drop.hot { border-color:var(--accent); background:#1a2630; }
+#drop b { color:var(--fg); } #drop .sub { color:var(--fg2); font-size:.88em; margin-top:.4em; }
+#file { display:none; }
+.privacy { text-align:center; color:var(--fg2); font-size:.8em; margin:.7em auto 0; max-width:44em; }
+.privacy b { color:var(--green); }
+#status { text-align:center; color:var(--fg2); margin:1.2em 0; display:none; }
+#result { display:none; margin-top:1.4em; }
+/* verdict card */
+.vcard { display:flex; gap:1em; background:var(--bg2); border:1px solid var(--line); border-radius:12px; padding:1em 1.1em; }
+.badge { flex:0 0 128px; align-self:stretch; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:9px; font-weight:800; font-size:.9em; color:#10141a; text-align:center; padding:.7em .4em; line-height:1.2; }
+.b-likely { background:var(--green); } .b-needs { background:var(--accent); } .b-risky { background:var(--copper); }
+.b-incompat { background:var(--borked); } .b-range { background:var(--grey); color:var(--fg); } .b-unknown { background:var(--grey); color:var(--fg); }
+.badge small { font-weight:600; opacity:.8; font-size:.8em; margin-top:.3em; }
+.vbody { flex:1; min-width:0; }
+.vbody h3 { margin:0 0 .1em; font-size:1.15em; }
+.vmeta { color:var(--fg2); font-size:.86em; margin:.2em 0; }
+.vmeta code { color:var(--fg); background:var(--bg3); padding:0 .35em; border-radius:5px; }
+.verdict-line { margin:.5em 0 .2em; font-size:1em; }
+.sections { margin-top:1.1em; display:grid; gap:.7em; }
+.sec { background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:.7em .9em; }
+.sec h4 { margin:0 0 .35em; font-size:.95em; display:flex; align-items:center; gap:.5em; }
+.pill { font-size:.7em; font-weight:800; border-radius:999px; padding:.12em .6em; color:#10141a; }
+.pk-green { background:var(--green); } .pk-accent { background:var(--accent); } .pk-copper { background:var(--copper); } .pk-borked { background:var(--borked); } .pk-grey { background:var(--grey); color:var(--fg); }
+.sec ul { margin:.2em 0 0; padding-left:1.1em; }
+.sec li { font-size:.86em; color:var(--fg2); margin:.15em 0; }
+.sec li code { color:var(--fg); background:var(--bg3); padding:0 .3em; border-radius:4px; font-size:.92em; }
+.sec .none { color:var(--fg2); font-size:.86em; }
+.caveat { background:#2a2417; border:1px solid #5c4d1f; color:#e8d9a0; border-radius:10px; padding:.7em 1em; font-size:.84em; margin:1.2em 0 0; }
+.err { background:#2a1a1a; border:1px solid #5c2727; color:#f0b7b7; border-radius:10px; padding:.7em 1em; font-size:.9em; }
+.dbline { text-align:center; color:var(--fg2); font-size:.76em; margin:1.4em 0 0; opacity:.85; }
+.foot-links { text-align:center; margin:1.6em 0 0; font-size:.85em; }
+/* input-mode toggle + Modrinth picker */
+.modes { display:flex; gap:.5em; justify-content:center; margin:0 0 1em; }
+.mode { padding:.45em 1.2em; border-radius:10px; border:1px solid var(--line); background:var(--bg3); color:var(--fg2); cursor:pointer; font-size:.95em; font-weight:600; }
+.mode.active { color:#10222b; background:var(--accent); border-color:var(--accent); }
+.mrbar { display:flex; gap:.5em; }
+.mrbar input { flex:1; padding:.7em 1em; color:var(--fg); background:var(--bg3); border:1px solid var(--line); border-radius:10px; font-size:1em; outline:none; }
+.mrbar input:focus { border-color:var(--accent); }
+.mrbar button { padding:.7em 1.3em; font-weight:700; color:#10222b; background:var(--accent); border:none; border-radius:10px; cursor:pointer; }
+#mr-results { margin:.7em 0 0; }
+.mrrow { display:flex; gap:.8em; align-items:center; padding:.55em .7em; border:1px solid var(--line); border-radius:10px; background:var(--bg2); margin:.4em 0; cursor:pointer; }
+.mrrow:hover { border-color:var(--accent); }
+.mrrow img { width:38px; height:38px; border-radius:7px; flex:0 0 38px; background:var(--bg3); object-fit:cover; }
+.mrrow .mrn { font-weight:600; }
+.mrrow .mrd { color:var(--fg2); font-size:.82em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mrrow .mrx { margin-left:auto; color:var(--fg2); font-size:.8em; white-space:nowrap; }
+#mr-versions { margin:.8em 0 0; display:none; background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:.8em .9em; }
+#mr-versions label { color:var(--fg2); font-size:.85em; display:block; margin-bottom:.4em; }
+#mr-versions .vsel { display:flex; gap:.5em; align-items:center; }
+#mr-versions select { flex:1; padding:.5em .7em; }
+#mr-versions button { padding:.55em 1.1em; font-weight:700; color:#10222b; background:var(--green); border:none; border-radius:8px; cursor:pointer; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand">Retromod <span>Probe</span></span>
+  <div class="right">
+    <a href="{{ '/' | relative_url }}">← Docs</a>
+    <a href="{{ '/compatdb/' | relative_url }}">Compat DB</a>
+    <a href="https://github.com/Bownlux/Retromod">GitHub</a>
+  </div>
+</div>
+
+<div class="hero">
+  <h1>Will this mod transform?</h1>
+  <p>Drop a Minecraft mod <code>.jar</code> and Probe checks whether Retromod is likely to translate it onto a newer version: what loader and version it is built for, which removed or renamed APIs it touches, and whether anything is a known wall. It is a pre-flight screen, not a guarantee.</p>
+</div>
+
+<main>
+  <div class="controls">
+    <label>Target Minecraft version:
+      <select id="target"></select>
+    </label>
+  </div>
+
+  <div class="modes" id="modes">
+    <button class="mode active" data-mode="upload">📁 Upload a jar</button>
+    <button class="mode" data-mode="modrinth">🔎 Search Modrinth</button>
+  </div>
+
+  <div id="panel-upload">
+    <div id="drop" tabindex="0" role="button" aria-label="Choose or drop a mod jar">
+      <b>Drop a mod .jar here</b>, or click to choose
+      <div class="sub">Fabric, NeoForge, or Forge. Nothing is uploaded.</div>
+    </div>
+    <input id="file" type="file" accept=".jar,application/java-archive,application/zip">
+    <p class="privacy"><b>100% in your browser.</b> The jar is unzipped and analyzed locally using the decompression built into your browser. It never leaves your machine: there is no upload and no server.</p>
+  </div>
+
+  <div id="panel-modrinth" style="display:none">
+    <div class="mrbar">
+      <input id="mr-q" type="search" placeholder="Search Modrinth for a mod (e.g. AppleSkin)" autocomplete="off">
+      <button id="mr-go">Search</button>
+    </div>
+    <div id="mr-results"></div>
+    <div id="mr-versions"></div>
+    <p class="privacy">The mod list comes from Modrinth's public API. The version you pick is fetched straight from Modrinth's CDN to <b>your browser</b> and analyzed locally: it is not sent to any Retromod server.</p>
+  </div>
+
+  <div id="status"></div>
+  <div id="result"></div>
+
+  <p class="dbline" id="dbline"></p>
+  <div class="foot-links">
+    Reports are only a screen. See how mods really ran in the <a href="{{ '/compatdb/' | relative_url }}">Compatibility DB</a>,
+    or the <a href="{{ '/incompatible-mods/' | relative_url }}">mods that cannot be translated</a>.
+  </div>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  var DB = null;
+  var MC_PKG = /^(net\/minecraft\/|net\/minecraftforge\/|net\/neoforged\/|net\/fabricmc\/)/;
+
+  var el = function (id) { return document.getElementById(id); };
+  function setStatus(msg) { var s = el("status"); s.style.display = msg ? "block" : "none"; s.textContent = msg || ""; }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+
+  // ---------- version compare (handles 26.2 > 1.21.11) ----------
+  function verTokens(v) { var m = String(v || "").match(/(\d+(?:\.\d+){0,3})/); return m ? m[1].split(".").map(Number) : null; }
+  function cmpVer(a, b) {
+    var x = verTokens(a), y = verTokens(b);
+    if (!x || !y) return null;
+    for (var i = 0; i < Math.max(x.length, y.length); i++) {
+      var d = (x[i] || 0) - (y[i] || 0); if (d) return d < 0 ? -1 : 1;
+    }
+    return 0;
+  }
+  // lowest release-looking version in a list (a Modrinth version's "built for" floor)
+  function minReleaseVersion(list) {
+    var best = null;
+    (list || []).forEach(function (g) { if (/^\d+\.\d+/.test(g) && (best === null || cmpVer(g, best) === -1)) best = g; });
+    return best;
+  }
+
+  // ---------- ZIP (central directory) + native deflate ----------
+  function u16(dv, o) { return dv.getUint16(o, true); }
+  function u32(dv, o) { return dv.getUint32(o, true); }
+
+  function findEOCD(dv) {
+    // scan backwards for the End Of Central Directory signature 0x06054b50
+    for (var i = dv.byteLength - 22; i >= 0 && i >= dv.byteLength - 22 - 65536; i--) {
+      if (u32(dv, i) === 0x06054b50) return i;
+    }
+    return -1;
+  }
+
+  function listEntries(buf) {
+    var dv = new DataView(buf);
+    var eocd = findEOCD(dv);
+    if (eocd < 0) throw new Error("Not a valid zip/jar (no end-of-central-directory record).");
+    var count = u16(dv, eocd + 10);
+    var cdOff = u32(dv, eocd + 16);
+    var entries = [], p = cdOff, totalUncomp = 0;
+    for (var n = 0; n < count && p + 46 <= dv.byteLength; n++) {
+      if (u32(dv, p) !== 0x02014b50) break;
+      var method = u16(dv, p + 10);
+      var compSize = u32(dv, p + 20);
+      var uncompSize = u32(dv, p + 24);
+      var nameLen = u16(dv, p + 28), extraLen = u16(dv, p + 30), commLen = u16(dv, p + 32);
+      var lho = u32(dv, p + 42);
+      var name = new TextDecoder().decode(new Uint8Array(buf, p + 46, nameLen));
+      totalUncomp += uncompSize;
+      if (totalUncomp > 600 * 1024 * 1024) throw new Error("Refusing to expand past 600 MB (possible zip bomb).");
+      entries.push({ name: name, method: method, compSize: compSize, lho: lho });
+      p += 46 + nameLen + extraLen + commLen;
+    }
+    return { buf: buf, entries: entries };
+  }
+
+  function rawData(buf, e) {
+    var dv = new DataView(buf);
+    if (u32(dv, e.lho) !== 0x04034b50) return null;
+    var nameLen = u16(dv, e.lho + 26), extraLen = u16(dv, e.lho + 28);
+    var start = e.lho + 30 + nameLen + extraLen;
+    return new Uint8Array(buf, start, e.compSize);
+  }
+
+  function inflate(bytes) {
+    // native deflate-raw; falls back to identity for stored entries
+    var ds = new DecompressionStream("deflate-raw");
+    var stream = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Response(stream).arrayBuffer().then(function (ab) { return new Uint8Array(ab); });
+  }
+
+  function readEntry(buf, e) {
+    var raw = rawData(buf, e);
+    if (!raw) return Promise.resolve(null);
+    if (e.method === 0) return Promise.resolve(raw);           // stored
+    if (e.method === 8) return inflate(raw);                    // deflate
+    return Promise.resolve(null);                              // unsupported method
+  }
+
+  function readText(buf, e) { return readEntry(buf, e).then(function (b) { return b ? new TextDecoder().decode(b) : null; }); }
+
+  // ---------- .class constant pool -> referenced class names ----------
+  var CP_SIZE = { 3: 4, 4: 4, 9: 4, 10: 4, 11: 4, 12: 4, 8: 2, 16: 2, 19: 2, 20: 2, 15: 3, 17: 4, 18: 4 };
+  function scanClass(bytes) {
+    var dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    if (bytes.length < 10 || dv.getUint32(0) !== 0xCAFEBABE) return null;
+    var major = dv.getUint16(6);
+    var count = dv.getUint16(8);
+    var utf = {}, classNameIdx = {}, p = 10;
+    for (var i = 1; i < count; i++) {
+      var tag = dv.getUint8(p); p += 1;
+      if (tag === 1) { var len = dv.getUint16(p); p += 2 + len; var s = new TextDecoder().decode(new Uint8Array(bytes.buffer, bytes.byteOffset + p - len, len)); utf[i] = s; }
+      else if (tag === 7) { classNameIdx[i] = dv.getUint16(p); p += 2; }
+      else if (tag === 5 || tag === 6) { p += 8; i++; }         // Long/Double take two slots
+      else { p += (CP_SIZE[tag] || 0); }
+    }
+    var refs = [];
+    for (var k in classNameIdx) { var nm = utf[classNameIdx[k]]; if (nm) refs.push(nm); }
+    return { refs: refs, javaMajor: major };
+  }
+
+  // ---------- metadata ----------
+  function firstVer(s) { var m = String(s || "").match(/(\d+\.\d+(?:\.\d+)?)/); return m ? m[1] : null; }
+  function tomlVal(t, key) { var m = t.match(new RegExp(key + '\\s*=\\s*"([^"]*)"')); return m ? m[1] : null; }
+
+  function parseMeta(text, kind) {
+    var out = { loader: null, name: null, id: null, sourceMc: null };
+    try {
+      if (kind === "fabric") {
+        var j = JSON.parse(text);
+        out.loader = "fabric"; out.id = j.id || null; out.name = j.name || j.id || null;
+        var mc = j.depends && (j.depends.minecraft || j.depends["minecraft"]);
+        if (Array.isArray(mc)) mc = mc.join(" ");
+        out.sourceMc = firstVer(mc);
+      } else if (kind === "mcmod") {
+        var arr = JSON.parse(text); if (arr && arr.modList) arr = arr.modList;
+        var e0 = Array.isArray(arr) ? arr[0] : arr;
+        if (e0) { out.loader = "forge"; out.id = e0.modid || null; out.name = e0.name || e0.modid || null; out.sourceMc = firstVer(e0.mcversion); }
+      } else { // toml (forge / neoforge)
+        out.loader = kind === "neoforge" ? "neoforge" : "forge";
+        out.id = tomlVal(text, "modId"); out.name = tomlVal(text, "displayName") || out.id;
+        // the minecraft dependency's versionRange, e.g. [1.20.1,1.21)
+        var mcBlock = text.split(/\[\[dependencies/).find(function (b) { return /modId\s*=\s*"minecraft"/.test(b); });
+        var range = mcBlock ? tomlVal(mcBlock, "versionRange") : null;
+        out.sourceMc = firstVer(range);
+      }
+    } catch (e) { /* leave nulls */ }
+    return out;
+  }
+
+  // ---------- the probe ----------
+  function analyze(buf) {
+    var zip = listEntries(buf);
+    var names = {}; zip.entries.forEach(function (e) { names[e.name] = e; });
+
+    // metadata (prefer neoforge.mods.toml, then mods.toml, then fabric, then mcmod.info)
+    var metaJobs = [];
+    if (names["fabric.mod.json"]) metaJobs.push(readText(buf, names["fabric.mod.json"]).then(function (t) { return { t: t, k: "fabric" }; }));
+    if (names["META-INF/neoforge.mods.toml"]) metaJobs.push(readText(buf, names["META-INF/neoforge.mods.toml"]).then(function (t) { return { t: t, k: "neoforge" }; }));
+    if (names["META-INF/mods.toml"]) metaJobs.push(readText(buf, names["META-INF/mods.toml"]).then(function (t) { return { t: t, k: "forge" }; }));
+    if (names["mcmod.info"]) metaJobs.push(readText(buf, names["mcmod.info"]).then(function (t) { return { t: t, k: "mcmod" }; }));
+
+    // structural flags
+    var mixinFiles = zip.entries.filter(function (e) { return /(^|\/)[^\/]*\.mixins\.json$/.test(e.name) || /(^|\/)mixins\.[^\/]*\.json$/.test(e.name); }).length;
+    var nestedJars = zip.entries.filter(function (e) { return /\.jar$/.test(e.name) && (e.name.indexOf("META-INF/jars/") === 0 || e.name.indexOf("META-INF/jarjar/") === 0 || /\/jars?\//.test(e.name)); }).length;
+    var classEntries = zip.entries.filter(function (e) { return /\.class$/.test(e.name) && e.name.indexOf("META-INF/") !== 0; });
+    var CAP = 4000, truncated = classEntries.length > CAP;
+    var toScan = classEntries.slice(0, CAP);
+
+    return Promise.all(metaJobs).then(function (metas) {
+      // merge metadata by precedence
+      var order = { neoforge: 0, fabric: 1, forge: 2, mcmod: 3 };
+      metas = metas.filter(Boolean).sort(function (a, b) { return (order[a.k] ?? 9) - (order[b.k] ?? 9); });
+      var meta = { loader: null, name: null, id: null, sourceMc: null };
+      metas.forEach(function (m) {
+        var p = parseMeta(m.t, m.k);
+        Object.keys(p).forEach(function (key) { if (!meta[key] && p[key]) meta[key] = p[key]; });
+      });
+      // Report every loader whose metadata is present (some old jars ship more than one).
+      var det = [];
+      if (names["fabric.mod.json"]) det.push("fabric");
+      if (names["META-INF/mods.toml"]) det.push("forge");
+      if (names["META-INF/neoforge.mods.toml"]) det.push("neoforge");
+      if (!det.length && names["mcmod.info"]) det.push("forge");
+      if (det.length) meta.loader = det.join("/");
+
+      // scan classes
+      setStatus("Scanning " + toScan.length + " classes...");
+      var seq = Promise.resolve(), refSet = {}, maxJava = 0, scanned = 0;
+      toScan.forEach(function (e) {
+        seq = seq.then(function () {
+          return readEntry(buf, e).then(function (b) {
+            if (!b) return;
+            var r = scanClass(b); if (!r) return;
+            scanned++;
+            if (r.javaMajor > maxJava) maxJava = r.javaMajor;
+            r.refs.forEach(function (nm) { if (MC_PKG.test(nm)) refSet[nm] = 1; });
+          }).catch(function () { /* skip a bad class */ });
+        });
+      });
+      return seq.then(function () {
+        return { meta: meta, refs: Object.keys(refSet), mixinFiles: mixinFiles, nestedJars: nestedJars,
+                 classCount: classEntries.length, scanned: scanned, truncated: truncated, maxJava: maxJava };
+      });
+    });
+  }
+
+  function verdict(a, target) {
+    var meta = a.meta, refs = a.refs;
+    var removedNoBridge = [], removedBridged = [], renamed = 0, moved = 0, incompat = [];
+
+    // known-incompatible: by name (jar display name and/or Modrinth title), or by referenced package prefix
+    var nameHay = ((meta.name || "") + " " + (a.searchName || "")).toLowerCase();
+    (DB.knownIncompatible || []).forEach(function (k) {
+      var byName = (k.match || []).some(function (s) { return nameHay.indexOf(s) !== -1; });
+      var byPkg = (k.pkg || []).some(function (px) { return refs.some(function (r) { return r.indexOf(px) === 0; }); });
+      if (byName || byPkg) incompat.push(k);
+    });
+
+    refs.forEach(function (r) {
+      if (DB.removedNoBridge[r]) removedNoBridge.push({ cls: r, why: DB.removedNoBridge[r] });
+      else if (DB.removedBridged.indexOf(r) !== -1) removedBridged.push(r);
+      else if (DB.renamed[r]) renamed++;
+      else if (DB.classMoves[r]) moved++;
+    });
+
+    // range check (for a multiloader jar, judge by the most permissive loader it ships)
+    var range = { ok: true, note: null };
+    var minS = null;
+    (meta.loader || "").split("/").forEach(function (t) { var m = DB.minSource[t]; if (m && (!minS || cmpVer(m, minS) === -1)) minS = m; });
+    if (meta.sourceMc && cmpVer(meta.sourceMc, target) === 1) { range.ok = false; range.note = "The mod targets MC " + meta.sourceMc + ", which is NEWER than the selected host " + target + ". Retromod moves mods forward, not backward."; }
+    else if (meta.sourceMc && minS && cmpVer(meta.sourceMc, minS) === -1) { range.note = "The mod targets MC " + meta.sourceMc + ", older than the oldest source Retromod covers for " + (meta.loader) + " (" + minS + "). It may still work but is out of the supported range."; }
+    else if (!meta.sourceMc) { range.note = "Could not read the mod's built-for MC version from its metadata; the range check was skipped."; }
+
+    // badge
+    var badge, cls, headline;
+    if (incompat.length) { badge = "INCOMPATIBLE"; cls = "b-incompat"; headline = "This is a known deep-integration / rendering mod that Retromod cannot translate."; }
+    else if (!range.ok) { badge = "OUT OF RANGE"; cls = "b-range"; headline = range.note; }
+    else if (a.scanned === 0) { badge = "UNKNOWN"; cls = "b-unknown"; headline = "No classes were read from this jar. It may be resource-only (likely fine) or a loader/container jar that nests or downloads its real code, which Probe cannot see into" + (a.nestedJars ? ": it bundles " + a.nestedJars + " nested jar(s)." : "."); }
+    else if (removedNoBridge.length) { badge = "RISKY"; cls = "b-risky"; headline = "References a removed API that Retromod has no bridge for yet. It may not fully load."; }
+    else if (removedBridged.length || renamed || moved) { badge = "NEEDS TRANSFORM"; cls = "b-needs"; headline = "References APIs that changed between versions; Retromod remaps or bridges them, so it should load through Retromod (but not raw)."; }
+    else if (!refs.length) { badge = "LIKELY OK"; cls = "b-likely"; headline = "No Minecraft/loader API references were flagged. Likely transforms cleanly (or is a resource-only mod)."; }
+    else { badge = "LIKELY OK"; cls = "b-likely"; headline = "The MC/loader APIs it references are not on any known-removed list. Likely transforms cleanly."; }
+
+    return { badge: badge, cls: cls, headline: headline, range: range,
+             removedNoBridge: removedNoBridge, removedBridged: removedBridged, renamed: renamed, moved: moved, incompat: incompat };
+  }
+
+  function render(a, v) {
+    var meta = a.meta;
+    var javaVer = a.maxJava ? (a.maxJava - 44) : null;
+    function list(items, mapper) { return items.length ? "<ul>" + items.map(mapper).join("") + "</ul>" : '<div class="none">none</div>'; }
+
+    var html = "";
+    html += '<div class="vcard">';
+    html += '  <div class="badge ' + v.cls + '">' + esc(v.badge) + '<small>target ' + esc(a.target) + '</small></div>';
+    html += '  <div class="vbody">';
+    html += '    <h3>' + esc(meta.name || meta.id || a.searchName || "Unknown mod") + '</h3>';
+    html += '    <div class="vmeta">loader <code>' + esc(meta.loader || "?") + '</code> · built for MC <code>' + esc(meta.sourceMc || "?") + '</code>'
+          + (meta.id ? ' · id <code>' + esc(meta.id) + '</code>' : "")
+          + (javaVer ? ' · Java ' + javaVer + ' bytecode' : "") + '</div>';
+    html += '    <div class="verdict-line">' + esc(v.headline) + '</div>';
+    if (v.range.note && v.range.ok) html += '    <div class="vmeta">' + esc(v.range.note) + '</div>';
+    html += '  </div>';
+    html += '</div>';
+
+    html += '<div class="sections">';
+
+    if (v.incompat.length) {
+      html += '<div class="sec"><h4><span class="pill pk-borked">WALL</span> Known-incompatible framework</h4>'
+            + list(v.incompat, function (k) { return "<li><b>" + esc(k.name) + "</b>: " + esc(k.reason) + "</li>"; }) + '</div>';
+    }
+    html += '<div class="sec"><h4><span class="pill pk-borked">REMOVED</span> Removed APIs with no bridge yet (' + v.removedNoBridge.length + ')</h4>'
+          + list(v.removedNoBridge, function (x) { return "<li><code>" + esc(x.cls) + "</code>: " + esc(x.why) + "</li>"; }) + '</div>';
+    html += '<div class="sec"><h4><span class="pill pk-copper">BRIDGED</span> Removed APIs Retromod stubs/bridges (' + v.removedBridged.length + ')</h4>'
+          + list(v.removedBridged, function (c) { return "<li><code>" + esc(c) + "</code></li>"; }) + '</div>';
+    html += '<div class="sec"><h4><span class="pill pk-green">REMAPPED</span> Renamed / moved APIs Retromod handles automatically</h4>'
+          + '<div class="none">' + v.renamed + ' renamed reference(s) + ' + v.moved + ' moved-class reference(s) that Retromod remaps.</div></div>';
+
+    var flags = [];
+    if (a.mixinFiles) flags.push(a.mixinFiles + " mixin config(s): mixin translation across a version gap is best-effort (crashing handlers are soft-failed; full re-signaturing is a later release).");
+    if (a.nestedJars) flags.push(a.nestedJars + " nested jar(s) (JiJ): bundled libraries are transformed recursively but add risk.");
+    if (a.truncated) flags.push("Large mod: only the first " + a.scanned + " of " + a.classCount + " classes were scanned in-browser.");
+    if (flags.length) {
+      html += '<div class="sec"><h4><span class="pill pk-grey">NOTES</span> Structure</h4>'
+            + "<ul>" + flags.map(function (f) { return "<li>" + esc(f) + "</li>"; }).join("") + "</ul></div>";
+    }
+
+    html += '</div>';
+    html += '<div class="caveat"><b>This is a static pre-flight screen, not a guarantee.</b> Probe reads metadata and referenced class names; it does not run Retromod\'s real transform (bridge synthesis, mixin re-signaturing, member-level remapping) or launch the game. False positives and false negatives both happen. The ground truth is the <a href="' + "{{ '/compatdb/' | relative_url }}" + '">community Compatibility DB</a> and actually running it.</div>';
+
+    var r = el("result"); r.innerHTML = html; r.style.display = "block";
+  }
+
+  // ---------- run pipeline (shared by the upload and Modrinth paths) ----------
+  var lastAnalysis = null;
+
+  function showAnalysis(a) {
+    a.target = el("target").value;
+    setStatus("");
+    render(a, verdict(a, a.target));
+  }
+
+  function analyzeBuf(buf, displayName, projectTitle, mrMeta) {
+    if (!DB) {
+      setStatus("");
+      el("result").style.display = "block";
+      el("result").innerHTML = '<div class="err">The probe database has not loaded yet, so analysis cannot run. Reload the page; if it keeps failing, the page may be opened directly from disk instead of served by the site.</div>';
+      return;
+    }
+    setStatus("Analyzing " + displayName + " ...");
+    el("result").style.display = "none";
+    analyze(buf).then(function (a) {
+      a.searchName = projectTitle || null;
+      // Modrinth knows the built-for MC + loader authoritatively; fill any gap the jar left.
+      if (mrMeta) {
+        if (!a.meta.sourceMc) a.meta.sourceMc = minReleaseVersion(mrMeta.gv);
+        if (!a.meta.loader && mrMeta.loaders && mrMeta.loaders.length) a.meta.loader = mrMeta.loaders.join("/");
+      }
+      lastAnalysis = a;
+      showAnalysis(a);
+    }).catch(function (e) {
+      setStatus("");
+      el("result").style.display = "block";
+      el("result").innerHTML = '<div class="err">Could not analyze ' + esc(displayName) + ': ' + esc(e && e.message || e) + '<br>Make sure it is an unencrypted mod .jar. Very old or oddly-packed jars may not parse.</div>';
+    });
+  }
+
+  function run(file) {
+    setStatus("Reading " + file.name + " ...");
+    file.arrayBuffer().then(function (buf) { analyzeBuf(buf, file.name); })
+      .catch(function (e) { setStatus(""); el("result").style.display = "block"; el("result").innerHTML = '<div class="err">Could not read the file: ' + esc(e && e.message || e) + '</div>'; });
+  }
+
+  // ---------- Modrinth picker (fetches jar bytes straight to the browser; no Retromod server) ----------
+  var MR_API = "https://api.modrinth.com/v2";
+  var mrSlug = null;  // the currently-picked Modrinth mod, for the shareable ?mod= deep link
+
+  // Keep the URL a shareable deep link to the picked mod + target (no page reload).
+  function syncUrl() {
+    if (!mrSlug) return;
+    var p = new URLSearchParams();
+    p.set("mod", mrSlug);
+    p.set("target", el("target").value);
+    try { history.replaceState(null, "", location.pathname + "?" + p.toString()); } catch (e) { /* file:// etc. */ }
+  }
+
+  function mrSearch() {
+    var q = el("mr-q").value.trim();
+    if (!q) return;
+    el("mr-versions").style.display = "none"; el("mr-versions").innerHTML = "";
+    el("mr-results").innerHTML = '<div class="privacy">Searching Modrinth...</div>';
+    var url = MR_API + "/search?limit=12&query=" + encodeURIComponent(q) + "&facets=" + encodeURIComponent('[["project_type:mod"]]');
+    fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      var hits = (d && d.hits) || [];
+      if (!hits.length) { el("mr-results").innerHTML = '<div class="privacy">No mods found for "' + esc(q) + '".</div>'; return; }
+      el("mr-results").innerHTML = hits.map(function (h) {
+        var dl = h.downloads ? Intl.NumberFormat().format(h.downloads) + " downloads" : "";
+        return '<div class="mrrow" data-slug="' + esc(h.slug || h.project_id) + '" data-title="' + esc(h.title) + '">'
+          + (h.icon_url ? '<img src="' + esc(h.icon_url) + '" alt="" loading="lazy">' : '<div style="width:38px;height:38px;flex:0 0 38px;background:var(--bg3);border-radius:7px"></div>')
+          + '<div style="min-width:0"><div class="mrn">' + esc(h.title) + '</div><div class="mrd">' + esc(h.description || "") + '</div></div>'
+          + '<div class="mrx">' + esc(dl) + '</div></div>';
+      }).join("");
+    }).catch(function (e) { el("mr-results").innerHTML = '<div class="err">Could not reach Modrinth: ' + esc(e && e.message || e) + '</div>'; });
+  }
+
+  function mrPickProject(slug, title) {
+    mrSlug = slug; syncUrl();
+    el("mr-versions").style.display = "block";
+    el("mr-versions").innerHTML = '<div class="privacy">Loading versions of ' + esc(title) + '...</div>';
+    fetch(MR_API + "/project/" + encodeURIComponent(slug) + "/version").then(function (r) { return r.json(); }).then(function (vers) {
+      vers = (vers || []).filter(function (v) { return v.files && v.files.length; });
+      if (!vers.length) { el("mr-versions").innerHTML = '<div class="err">No downloadable files for this mod.</div>'; return; }
+      var opts = vers.map(function (v, i) {
+        var mc = (v.game_versions || []).join(", "); if (mc.length > 42) mc = mc.slice(0, 42) + "...";
+        return '<option value="' + i + '">' + esc((v.loaders || []).join("/") + "  ·  MC " + mc + "  ·  " + (v.version_number || v.name)) + '</option>';
+      }).join("");
+      el("mr-versions").innerHTML = '<label>Pick a version of <b>' + esc(title) + '</b> to probe against your target:</label>'
+        + '<div class="vsel"><select id="mr-ver">' + opts + '</select><button id="mr-analyze">Probe this version</button></div>';
+      el("mr-analyze").addEventListener("click", function () {
+        var v = vers[+el("mr-ver").value];
+        var f = (v.files.filter(function (x) { return x.primary; })[0]) || v.files[0];
+        analyzeUrl(f.url, f.filename, title, { gv: v.game_versions, loaders: v.loaders });
+      });
+    }).catch(function (e) { el("mr-versions").innerHTML = '<div class="err">Could not load versions: ' + esc(e && e.message || e) + '</div>'; });
+  }
+
+  function analyzeUrl(url, filename, title, mrMeta) {
+    setStatus("Downloading " + filename + " from Modrinth...");
+    el("result").style.display = "none";
+    fetch(url).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); })
+      .then(function (buf) { analyzeBuf(buf, filename, title, mrMeta); })
+      .catch(function (e) { setStatus(""); el("result").style.display = "block"; el("result").innerHTML = '<div class="err">Could not download from Modrinth: ' + esc(e && e.message || e) + '</div>'; });
+  }
+
+  // ---------- wiring ----------
+  function onFile(f) { if (f) run(f); }
+
+  el("file").addEventListener("change", function (e) { onFile(e.target.files[0]); });
+  var drop = el("drop");
+  drop.addEventListener("click", function () { el("file").click(); });
+  drop.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el("file").click(); } });
+  ["dragenter", "dragover"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("hot"); }); });
+  ["dragleave", "drop"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("hot"); }); });
+  drop.addEventListener("drop", function (e) { onFile(e.dataTransfer.files[0]); });
+
+  // changing the target only re-runs the verdict, no re-download / re-scan
+  el("target").addEventListener("change", function () { syncUrl(); if (lastAnalysis) showAnalysis(lastAnalysis); });
+
+  // input-mode toggle (upload jar <-> search Modrinth)
+  function activateMode(mode) {
+    el("modes").querySelectorAll(".mode").forEach(function (x) { x.classList.toggle("active", x.dataset.mode === mode); });
+    var up = mode === "upload";
+    el("panel-upload").style.display = up ? "" : "none";
+    el("panel-modrinth").style.display = up ? "none" : "";
+  }
+  el("modes").addEventListener("click", function (ev) {
+    var b = ev.target.closest(".mode"); if (b) activateMode(b.dataset.mode);
+  });
+
+  // Modrinth events
+  el("mr-go").addEventListener("click", mrSearch);
+  el("mr-q").addEventListener("keydown", function (e) { if (e.key === "Enter") mrSearch(); });
+  el("mr-results").addEventListener("click", function (ev) {
+    var row = ev.target.closest(".mrrow"); if (!row) return;
+    mrPickProject(row.dataset.slug, row.dataset.title);
+  });
+
+  if (typeof DecompressionStream === "undefined") {
+    el("result").style.display = "block";
+    el("result").innerHTML = '<div class="err">Your browser does not support the built-in decompression Probe needs (DecompressionStream). Please use a recent Chrome, Edge, Firefox, or Safari.</div>';
+    drop.style.pointerEvents = "none"; drop.style.opacity = ".5";
+    return;
+  }
+
+  // Load the probe DB. Prefer the Jekyll-templated absolute path; but if Liquid was not processed
+  // (raw file / preview panel), that first entry still starts with "{", so it is dropped and the
+  // relative candidates are tried in turn. This keeps the page working outside a full Jekyll render.
+  var DB_URLS = ['{{ "/assets/probe-db.json" | relative_url }}', 'assets/probe-db.json', '../assets/probe-db.json', 'probe-db.json']
+    .filter(function (u) { return u.charAt(0) !== '{'; });
+  function tryFetchJson(urls, i) {
+    i = i || 0;
+    if (i >= urls.length) return Promise.reject(new Error("no probe-db.json reachable"));
+    return fetch(urls[i]).then(function (r) { if (!r.ok) throw 0; return r.json(); })
+      .catch(function () { return tryFetchJson(urls, i + 1); });
+  }
+  tryFetchJson(DB_URLS)
+    .then(function (d) {
+      DB = d;
+      var sel = el("target");
+      (d.hostTargets || []).slice().reverse().forEach(function (t) {
+        var o = document.createElement("option"); o.value = t; o.textContent = t; sel.appendChild(o);
+      });
+      sel.value = (d.hostTargets && d.hostTargets.indexOf("26.2") !== -1) ? "26.2" : (d.hostTargets ? d.hostTargets[d.hostTargets.length - 1] : "");
+      el("dbline").textContent = "Probe database: Retromod " + d.retromod_version + " · " + Object.keys(d.renamed).length + " renames · " + Object.keys(d.classMoves).length + " class moves · generated " + d.generated;
+
+      // deep link: ?mod=<slug|query> jumps to that mod's version picker (falls back to search);
+      // ?target=<mc> preselects the host. Both are written back into the URL when you interact,
+      // so a probed mod is a shareable link.
+      var params = new URLSearchParams(location.search);
+      var tp = params.get("target");
+      if (tp && [].some.call(sel.options, function (o) { return o.value === tp; })) sel.value = tp;
+      var mp = params.get("mod");
+      if (mp) {
+        activateMode("modrinth");
+        el("mr-q").value = mp;
+        fetch(MR_API + "/project/" + encodeURIComponent(mp))
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (p) { if (p && (p.slug || p.id)) mrPickProject(p.slug || mp, p.title || mp); else mrSearch(); })
+          .catch(function () { mrSearch(); });
+      }
+    })
+    .catch(function () {
+      el("dbline").textContent = "Could not load the probe database (assets/probe-db.json).";
+      el("result").style.display = "block";
+      el("result").innerHTML = '<div class="err">Could not load the probe database (<code>assets/probe-db.json</code>). The page needs to be served by the site (opening the file directly from disk will not work). Reload once it is deployed.</div>';
+    });
+})();
+</script>
+</body>
+</html>
