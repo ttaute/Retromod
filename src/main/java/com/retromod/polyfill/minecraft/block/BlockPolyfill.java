@@ -105,6 +105,15 @@ public class BlockPolyfill implements PolyfillProvider {
             "net/minecraft/block/BlockOre",
             "net/minecraft/world/level/block/DropExperienceBlock");
 
+        // OreBlock is the 1.13-1.18 post-Flattening name; 1.19 renamed it to DropExperienceBlock
+        // (ore-XP moved onto the block). A 1.18.x Forge/NeoForge mod that extends or references it
+        // dies NoClassDefFoundError on a 1.19+ host (#145, Isle of Berk). Same target as BlockOre
+        // above. (If a mod also calls the old super constructor, a follow-on NoSuchMethodError may
+        // surface, since DropExperienceBlock's ctor signature differs; that is a separate bridge.)
+        transformer.registerClassRedirect(
+            "net/minecraft/world/level/block/OreBlock",
+            "net/minecraft/world/level/block/DropExperienceBlock");
+
         transformer.registerClassRedirect(
             "net/minecraft/block/BlockSlab",
             "net/minecraft/world/level/block/SlabBlock");

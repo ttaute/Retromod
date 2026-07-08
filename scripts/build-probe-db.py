@@ -82,11 +82,13 @@ removed_bridged.update({
 })
 
 # ---- curated: removed classes with NO bridge yet (an honest "risky" flag) ----
+# Only genuinely-removed CLASSES belong here. A class that still exists but lost a specific
+# constructor/method (e.g. CreativeModeTab's old String ctor, #133) must NOT be listed: the probe
+# only sees class-level references, so listing a live class would flag every modern mod that uses
+# it as RISKY. Constructor/member-level regressions are out of scope for a class-name scan.
 removed_no_bridge = {
     "net/minecraft/world/WorldType":                                      # #62 custom world types (removed 1.16)
         "Custom world types were removed in 1.16 (no redirect exists).",
-    "net/minecraft/world/item/CreativeModeTab":                           # #133 ctor became a builder
-        "The old CreativeTabs(String) constructor was removed (builder now); the ctor bridge is planned for 1.4.0.",
 }
 
 # ---- curated: deep-integration / rendering mods that cannot be translated (docs/incompatible-mods.md) ----

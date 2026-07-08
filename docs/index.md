@@ -18,7 +18,7 @@ It works on Fabric, NeoForge, and Forge. The shim chain covers MC 1.12.2 (the Ja
   <a class="retromod-btn retromod-btn-ghost" href="{{ '/installation' | relative_url }}">Install guide →</a>
 </div>
 
-> **1.1.0 is the current stable release. 1.2.0 has reached its first release candidate** (`1.2.0-rc.1`), which carries the newest 26.1 and 26.2 compatibility work. The pipeline handles the common case and most simple-to-moderate mods. What's left is the hard stuff: rendering replacement, heavy mixin mods, and mods built on APIs that were redesigned rather than just renamed. If a mod doesn't work, [file an issue with the log](https://github.com/Bownlux/Retromod/issues). That's the quickest way to get it covered in the next build.
+> **1.1.0 is the current stable release. 1.2.0 is on its second release candidate** (`1.2.0-rc.2`), which carries the newest 26.1 and 26.2 compatibility work. The pipeline handles the common case and most simple-to-moderate mods. What's left is the hard stuff: rendering replacement, heavy mixin mods, and mods built on APIs that were redesigned rather than just renamed. If a mod doesn't work, [file an issue with the log](https://github.com/Bownlux/Retromod/issues). That's the quickest way to get it covered in the next build.
 
 ## What it does
 

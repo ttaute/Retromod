@@ -174,11 +174,16 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
   function u32(dv, o) { return dv.getUint32(o, true); }
 
   function findEOCD(dv) {
-    // scan backwards for the End Of Central Directory signature 0x06054b50
+    // scan backwards for the End Of Central Directory signature 0x06054b50; prefer one whose
+    // comment length lands exactly at end-of-file (rejects a signature that appears inside data).
+    var fallback = -1;
     for (var i = dv.byteLength - 22; i >= 0 && i >= dv.byteLength - 22 - 65536; i--) {
-      if (u32(dv, i) === 0x06054b50) return i;
+      if (u32(dv, i) === 0x06054b50) {
+        if (i + 22 + u16(dv, i + 20) === dv.byteLength) return i;
+        if (fallback < 0) fallback = i;
+      }
     }
-    return -1;
+    return fallback;
   }
 
   function listEntries(buf) {
@@ -187,6 +192,7 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
     if (eocd < 0) throw new Error("Not a valid zip/jar (no end-of-central-directory record).");
     var count = u16(dv, eocd + 10);
     var cdOff = u32(dv, eocd + 16);
+    if (count === 0xFFFF || cdOff === 0xFFFFFFFF) throw new Error("zip64 archives are not supported by the in-browser reader.");
     var entries = [], p = cdOff, totalUncomp = 0;
     for (var n = 0; n < count && p + 46 <= dv.byteLength; n++) {
       if (u32(dv, p) !== 0x02014b50) break;
@@ -201,6 +207,7 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
       entries.push({ name: name, method: method, compSize: compSize, lho: lho });
       p += 46 + nameLen + extraLen + commLen;
     }
+    if (count > 0 && entries.length === 0) throw new Error("could not read the jar's central directory (corrupt or unsupported).");
     return { buf: buf, entries: entries };
   }
 
@@ -212,11 +219,25 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
     return new Uint8Array(buf, start, e.compSize);
   }
 
+  var INFLATE_CAP = 256 * 1024 * 1024;  // per-entry decompressed ceiling: a zip bomb whose declared
+                                        // uncompressed size lies is aborted mid-stream, not buffered whole.
   function inflate(bytes) {
-    // native deflate-raw; falls back to identity for stored entries
-    var ds = new DecompressionStream("deflate-raw");
-    var stream = new Blob([bytes]).stream().pipeThrough(ds);
-    return new Response(stream).arrayBuffer().then(function (ab) { return new Uint8Array(ab); });
+    var reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader();
+    var chunks = [], total = 0;
+    function pump() {
+      return reader.read().then(function (res) {
+        if (res.done) {
+          var out = new Uint8Array(total), off = 0;
+          chunks.forEach(function (c) { out.set(c, off); off += c.length; });
+          return out;
+        }
+        total += res.value.length;
+        if (total > INFLATE_CAP) { reader.cancel(); throw new Error("entry decompresses past the size limit (possible zip bomb)"); }
+        chunks.push(res.value);
+        return pump();
+      });
+    }
+    return pump();
   }
 
   function readEntry(buf, e) {
@@ -245,7 +266,14 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
       else { p += (CP_SIZE[tag] || 0); }
     }
     var refs = [];
-    for (var k in classNameIdx) { var nm = utf[classNameIdx[k]]; if (nm) refs.push(nm); }
+    for (var k in classNameIdx) {
+      var nm = utf[classNameIdx[k]];
+      if (!nm) continue;
+      // Fold array descriptors ([Lnet/minecraft/Foo; or [[...) to the element class so an
+      // MC class referenced only as an array type is still counted.
+      nm = nm.replace(/^\[+/, "").replace(/^L(.+);$/, "$1");
+      refs.push(nm);
+    }
     return { refs: refs, javaMajor: major };
   }
 
@@ -314,8 +342,11 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
       if (!det.length && names["mcmod.info"]) det.push("forge");
       if (det.length) meta.loader = det.join("/");
 
-      // scan classes
+      // scan classes. Keep MC/loader refs (for the removed/renamed/moved lookups) AND refs whose
+      // package matches a known-incompatible framework (so verdict()'s byPkg check can flag a
+      // renamed/rebundled coremod that the by-name check misses, e.g. com/simibubi/create).
       setStatus("Scanning " + toScan.length + " classes...");
+      var incompatPkgs = ((DB && DB.knownIncompatible) || []).reduce(function (acc, k) { return acc.concat(k.pkg || []); }, []);
       var seq = Promise.resolve(), refSet = {}, maxJava = 0, scanned = 0;
       toScan.forEach(function (e) {
         seq = seq.then(function () {
@@ -324,7 +355,9 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
             var r = scanClass(b); if (!r) return;
             scanned++;
             if (r.javaMajor > maxJava) maxJava = r.javaMajor;
-            r.refs.forEach(function (nm) { if (MC_PKG.test(nm)) refSet[nm] = 1; });
+            r.refs.forEach(function (nm) {
+              if (MC_PKG.test(nm) || incompatPkgs.some(function (p) { return nm.indexOf(p) === 0; })) refSet[nm] = 1;
+            });
           }).catch(function () { /* skip a bad class */ });
         });
       });
@@ -484,13 +517,30 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
     fetch(url).then(function (r) { return r.json(); }).then(function (d) {
       var hits = (d && d.hits) || [];
       if (!hits.length) { el("mr-results").innerHTML = '<div class="privacy">No mods found for "' + esc(q) + '".</div>'; return; }
-      el("mr-results").innerHTML = hits.map(function (h) {
-        var dl = h.downloads ? Intl.NumberFormat().format(h.downloads) + " downloads" : "";
-        return '<div class="mrrow" data-slug="' + esc(h.slug || h.project_id) + '" data-title="' + esc(h.title) + '">'
-          + (h.icon_url ? '<img src="' + esc(h.icon_url) + '" alt="" loading="lazy">' : '<div style="width:38px;height:38px;flex:0 0 38px;background:var(--bg3);border-radius:7px"></div>')
-          + '<div style="min-width:0"><div class="mrn">' + esc(h.title) + '</div><div class="mrd">' + esc(h.description || "") + '</div></div>'
-          + '<div class="mrx">' + esc(dl) + '</div></div>';
-      }).join("");
+      // Build rows with the DOM API, NOT innerHTML string concatenation: a crafted Modrinth
+      // title/description/icon_url must not be able to break out of an attribute and inject a
+      // handler. All untrusted values go in via dataset / textContent / a validated https img src.
+      el("mr-results").innerHTML = "";
+      hits.forEach(function (h) {
+        var row = document.createElement("div"); row.className = "mrrow";
+        row.dataset.slug = String(h.slug || h.project_id || "");
+        row.dataset.title = String(h.title || "");
+        var icon;
+        if (typeof h.icon_url === "string" && /^https:\/\//i.test(h.icon_url)) {
+          icon = document.createElement("img"); icon.src = h.icon_url; icon.alt = ""; icon.loading = "lazy";
+        } else {
+          icon = document.createElement("div");
+          icon.style.cssText = "width:38px;height:38px;flex:0 0 38px;background:var(--bg3);border-radius:7px";
+        }
+        var mid = document.createElement("div"); mid.style.minWidth = "0";
+        var nm = document.createElement("div"); nm.className = "mrn"; nm.textContent = String(h.title || "");
+        var de = document.createElement("div"); de.className = "mrd"; de.textContent = String(h.description || "");
+        mid.appendChild(nm); mid.appendChild(de);
+        var x = document.createElement("div"); x.className = "mrx";
+        x.textContent = h.downloads ? Intl.NumberFormat().format(h.downloads) + " downloads" : "";
+        row.appendChild(icon); row.appendChild(mid); row.appendChild(x);
+        el("mr-results").appendChild(row);
+      });
     }).catch(function (e) { el("mr-results").innerHTML = '<div class="err">Could not reach Modrinth: ' + esc(e && e.message || e) + '</div>'; });
   }
 
@@ -516,9 +566,21 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
   }
 
   function analyzeUrl(url, filename, title, mrMeta) {
+    var host;
+    try { host = new URL(url).hostname; } catch (e) { host = ""; }
+    if (!/(^|\.)modrinth\.com$/i.test(host)) {   // only fetch from Modrinth's own CDN
+      el("result").style.display = "block";
+      el("result").innerHTML = '<div class="err">Refusing to fetch a mod file from a non-Modrinth host (' + esc(host || "?") + ').</div>';
+      return;
+    }
     setStatus("Downloading " + filename + " from Modrinth...");
     el("result").style.display = "none";
-    fetch(url).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.arrayBuffer(); })
+    fetch(url).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      var len = +(r.headers.get("content-length") || 0);
+      if (len > 300 * 1024 * 1024) throw new Error("file is too large to analyze in the browser (" + Math.round(len / 1048576) + " MB)");
+      return r.arrayBuffer();
+    })
       .then(function (buf) { analyzeBuf(buf, filename, title, mrMeta); })
       .catch(function (e) { setStatus(""); el("result").style.display = "block"; el("result").innerHTML = '<div class="err">Could not download from Modrinth: ' + esc(e && e.message || e) + '</div>'; });
   }

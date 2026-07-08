@@ -2,6 +2,17 @@
 
 All user-facing changes to Retromod. The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions are [semver](https://semver.org/). The 1.0.0 line ran `1.0.0-beta.N` → `1.0.0-rc.N` → stable `1.0.0`; from 1.1.0 on, minor/major releases use `snapshot.N` → `rc.N` → stable (patch releases ship directly).
 
+## [1.2.0-rc.2] - 2026-07-07
+
+Fix-forward release candidate: two removed-class crashes reported against rc.1, plus a security fix to the docs-site Probe tool.
+
+### Security
+- **Probe: fixed a stored DOM-XSS in the Modrinth search.** The client-side Probe page escaped `<`/`>`/`&` but not quotes, so a mod published on Modrinth with a crafted title or icon URL could break out of an HTML attribute and run script in the docs-site origin when a visitor searched for it (or opened a shared `?mod=` link). The Modrinth result rows are now built with the DOM API (`dataset` / `textContent` / a validated-`https` image `src`) instead of `innerHTML` string concatenation, so untrusted fields can never become markup. Also hardened the in-browser jar reader: a per-entry decompressed-size cap (zip-bomb guard), a Modrinth-CDN origin allowlist plus download size cap, zip64 / corrupt-central-directory detection, and array-descriptor class-reference handling. Probe-only; does not affect the mod jars. Fixed a false RISKY verdict for any modern mod that references `CreativeModeTab` (a live class), and a dead package-match path so known-incompatible frameworks are now also detected by referenced package.
+
+### Fixed
+- **`OreBlock` no longer crashes a 1.18.x mod on a 1.19+ host (#145, Isle of Berk).** `net.minecraft.world.level.block.OreBlock` was renamed to `DropExperienceBlock` in 1.19 (ore XP moved onto the block), so a 1.18.2 Forge/NeoForge mod that extends or references it died `NoClassDefFoundError` on a 1.20.1 host. `BlockPolyfill` now redirects the post-Flattening `OreBlock` name onto `DropExperienceBlock` (the pre-Flattening `BlockOre` was already mapped). Note: a mod that also calls the old super constructor may then surface a `NoSuchMethodError`, since the ctor signature differs; that is a separate bridge. Tested (`Rc2RemovedClassRedirectTest`).
+- **Nested `ExtendedScreenHandlerType$ExtendedFactory` now redirects on 26.1+ (#147, VillagerViewer).** The 1.21.11 -> 26.1 Fabric shim redirected the outer `ExtendedScreenHandlerType` to `ExtendedMenuType` but not the nested `$ExtendedFactory`, so a mod referencing the factory still crashed `NoClassDefFoundError` at class-load. Added the nested-class redirect to `ExtendedMenuType$ExtendedFactory` (target verified present in `fabric-menu-api-v1` on 26.2). Tested (`Rc2RemovedClassRedirectTest`).
+
 ## [1.2.0-rc.1] - 2026-07-05
 
 **First release candidate for 1.2.0 ("the general update").** Promotes the accumulated snapshot line (snapshot.1 through the unreleased snapshot.9) to a release candidate. Across the 1.2.0 line this delivers MC 26.1.x + 26.2 as the maintained targets on Fabric, NeoForge, and Forge (Forge 65.x, EventBus 6 -> 7), the Forge -> NeoForge migration spine, the 26.2 render-API stand-ins, worldgen on 26.x, and the transform-level 1.12.2 groundwork plus its load layer. The changes new since snapshot.8 are under Fixed below; this rc also closed a cleanup pass:

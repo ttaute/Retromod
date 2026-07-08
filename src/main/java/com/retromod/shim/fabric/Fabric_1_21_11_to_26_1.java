@@ -143,6 +143,13 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "net/fabricmc/fabric/api/screenhandler/v1/ExtendedScreenHandlerType",
             "net/fabricmc/fabric/api/menu/v1/ExtendedMenuType"
         );
+        // The nested factory moved with its outer class; without this a mod referencing it dies
+        // NoClassDefFoundError even though the outer redirect fired (#147, VillagerViewer). Target
+        // verified present in fabric-menu-api-v1 on 26.2: ExtendedMenuType$ExtendedFactory.
+        transformer.registerClassRedirect(
+            "net/fabricmc/fabric/api/screenhandler/v1/ExtendedScreenHandlerType$ExtendedFactory",
+            "net/fabricmc/fabric/api/menu/v1/ExtendedMenuType$ExtendedFactory"
+        );
         transformer.registerClassRedirect(
             "net/fabricmc/fabric/api/screenhandler/v1/FabricScreenHandlerFactory",
             "net/fabricmc/fabric/api/menu/v1/FabricMenuProvider"
