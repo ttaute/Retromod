@@ -106,6 +106,26 @@ known_incompatible = [
      "reason": "Wraps MC's rendering at a level that does not translate."},
     {"name": "ImmediatelyFast", "match": ["immediatelyfast"], "pkg": [],
      "reason": "A rendering-pipeline replacement; wraps rendering at a level that does not translate."},
+    # Deep-integration / coremod-class tech mods (docs/incompatible-mods.md "Specific mods that will never work").
+    {"name": "Applied Energistics 2", "match": ["applied energistics", "ae2"], "pkg": ["appeng/"],
+     "reason": "Decades of deep MC integration, a custom networking protocol, historically a coremod; the channel/quantum systems are re-architected between MC versions, not renamed."},
+    {"name": "Tinkers' Construct", "match": ["tinkers"], "pkg": ["slimeknights/tconstruct"],
+     "reason": "Replaces the tool/material system at the JSON-schema and bytecode level; the cross-version schema changes are larger than any redirect table can cover."},
+    {"name": "IndustrialCraft / IC2", "match": ["industrialcraft", "ic2"], "pkg": ["ic2/"],
+     "reason": "Very deep MC integration with coremod heritage; the energy-network internals are tied to MC's tick scheduler and break on every major update."},
+    {"name": "Thaumcraft", "match": ["thaumcraft"], "pkg": ["thaumcraft/"],
+     "reason": "Magic systems tied to MC internal data structures that change between versions; redesigned multiple times against specific MC internals."},
+    {"name": "Botania (deep mixin variants)", "match": ["botania"], "pkg": ["vazkii/botania"],
+     "reason": "Heavily mixin-based with injection points tied to specific bytecode offsets; some features may load but full compatibility does not translate."},
+    {"name": "AsyncParticles", "match": ["asyncparticles", "async particles"], "pkg": [],
+     "reason": "Wraps the Mixin service itself and @Overwrites particle-engine internals; its own machinery cancels most mixins on a non-matching host and the @Overwrite body cannot be redirected."},
+    # Rendering replacement / shader (load at best partially; injections target moving bytecode offsets).
+    {"name": "Sodium", "match": ["sodium"], "pkg": ["me/jellysquid/mods/sodium", "net/caffeinemc/mods/sodium"],
+     "reason": "Rendering-pipeline mod: mixin injections target specific renderer bytecode offsets that move between versions; partial functionality at best."},
+    {"name": "Iris Shaders", "match": ["iris shaders", "irisshaders"], "pkg": ["net/coderbot/iris", "net/irisshaders"],
+     "reason": "Shader pipeline: same moving-offset injection problem as Sodium; partial at best."},
+    {"name": "Embeddium", "match": ["embeddium"], "pkg": ["org/embeddedt/embeddium"],
+     "reason": "A Sodium-family rendering mod: injections target moving renderer offsets; partial at best."},
 ]
 
 db = {

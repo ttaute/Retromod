@@ -319,7 +319,16 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
     if (names["mcmod.info"]) metaJobs.push(readText(buf, names["mcmod.info"]).then(function (t) { return { t: t, k: "mcmod" }; }));
 
     // structural flags
-    var mixinFiles = zip.entries.filter(function (e) { return /(^|\/)[^\/]*\.mixins\.json$/.test(e.name) || /(^|\/)mixins\.[^\/]*\.json$/.test(e.name); }).length;
+    var mixinConfigs = zip.entries.filter(function (e) { return /(^|\/)[^\/]*\.mixins\.json$/.test(e.name) || /(^|\/)mixins\.[^\/]*\.json$/.test(e.name); });
+    var mixinFiles = mixinConfigs.length;
+    // Count actual mixin CLASSES (the mixins/client/server arrays in each config), not just config
+    // files: "1 config" hides a config with 15 mixins in it.
+    var mixinClassesP = Promise.all(mixinConfigs.map(function (e) {
+      return readText(buf, e).then(function (t) {
+        try { var j = JSON.parse(t); return ((j.mixins || []).length + (j.client || []).length + (j.server || []).length); }
+        catch (x) { return 0; }
+      }).catch(function () { return 0; });
+    }));
     var nestedJars = zip.entries.filter(function (e) { return /\.jar$/.test(e.name) && (e.name.indexOf("META-INF/jars/") === 0 || e.name.indexOf("META-INF/jarjar/") === 0 || /\/jars?\//.test(e.name)); }).length;
     var classEntries = zip.entries.filter(function (e) { return /\.class$/.test(e.name) && e.name.indexOf("META-INF/") !== 0; });
     var CAP = 4000, truncated = classEntries.length > CAP;
@@ -361,9 +370,11 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
           }).catch(function () { /* skip a bad class */ });
         });
       });
-      return seq.then(function () {
-        return { meta: meta, refs: Object.keys(refSet), mixinFiles: mixinFiles, nestedJars: nestedJars,
-                 classCount: classEntries.length, scanned: scanned, truncated: truncated, maxJava: maxJava };
+      return seq.then(function () { return mixinClassesP; }).then(function (mcCounts) {
+        var mixinClasses = mcCounts.reduce(function (a, b) { return a + b; }, 0);
+        return { meta: meta, refs: Object.keys(refSet), mixinFiles: mixinFiles, mixinClasses: mixinClasses,
+                 nestedJars: nestedJars, classCount: classEntries.length, scanned: scanned,
+                 truncated: truncated, maxJava: maxJava };
       });
     });
   }
@@ -405,6 +416,11 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
     else if (!refs.length) { badge = "LIKELY OK"; cls = "b-likely"; headline = "No Minecraft/loader API references were flagged. Likely transforms cleanly (or is a resource-only mod)."; }
     else { badge = "LIKELY OK"; cls = "b-likely"; headline = "The MC/loader APIs it references are not on any known-removed list. Likely transforms cleanly."; }
 
+    // Note: we deliberately do NOT downgrade the badge on mixin COUNT alone. A count can't tell a
+    // few simple HUD hooks (AppleSkin, works great) from deep-integration mixins (AE2, does not) -
+    // that judgment lives in the known-incompatible list. The mixin count is surfaced as an
+    // informative structure note instead, so a mixin-heavy mod reads as higher-risk without a
+    // false RISKY verdict on a legitimate one.
     return { badge: badge, cls: cls, headline: headline, range: range,
              removedNoBridge: removedNoBridge, removedBridged: removedBridged, renamed: renamed, moved: moved, incompat: incompat };
   }
@@ -441,7 +457,11 @@ select { padding:.5em .8em; color:var(--fg); background:var(--bg3); border:1px s
           + '<div class="none">' + v.renamed + ' renamed reference(s) + ' + v.moved + ' moved-class reference(s) that Retromod remaps.</div></div>';
 
     var flags = [];
-    if (a.mixinFiles) flags.push(a.mixinFiles + " mixin config(s): mixin translation across a version gap is best-effort (crashing handlers are soft-failed; full re-signaturing is a later release).");
+    if (a.mixinClasses || a.mixinFiles) {
+      var mx = (a.mixinClasses || 0) + " mixin" + (a.mixinClasses === 1 ? "" : "s")
+             + (a.mixinFiles > 1 ? " across " + a.mixinFiles + " configs" : "");
+      flags.push(mx + ": mixin translation across a version gap is best-effort (crashing handlers are soft-failed; full re-signaturing is the 1.3.0 line), so the more a mod relies on mixins, the higher the chance a feature does not fully translate.");
+    }
     if (a.nestedJars) flags.push(a.nestedJars + " nested jar(s) (JiJ): bundled libraries are transformed recursively but add risk.");
     if (a.truncated) flags.push("Large mod: only the first " + a.scanned + " of " + a.classCount + " classes were scanned in-browser.");
     if (flags.length) {
