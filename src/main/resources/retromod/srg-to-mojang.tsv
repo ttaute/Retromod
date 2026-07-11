@@ -2139,6 +2139,11 @@ FIELD	f_19279_	combatStartTime
 FIELD	f_19280_	combatEndTime
 FIELD	f_19281_	inCombat
 FIELD	f_19282_	takingDamage
+FIELD	f_19306_	LIGHTNING_BOLT
+FIELD	f_19312_	DROWN
+FIELD	f_19314_	CACTUS
+FIELD	f_19315_	FALL
+FIELD	f_19321_	ANVIL
 FIELD	f_19424_	multiplier
 FIELD	f_19446_	attributeModifiers
 FIELD	f_19447_	category
@@ -31325,6 +31330,7 @@ METHOD	m_7377_	deserialize
 METHOD	m_7378_	readAdditionalSaveData
 METHOD	m_7379_	onClose
 METHOD	m_7380_	addAdditionalSaveData
+METHOD	m_7381_	getDrops
 METHOD	m_7382_	processBlock
 METHOD	m_7383_	getStyle
 METHOD	m_7384_	fixBlock
@@ -35392,6 +35398,7 @@ METHOD	m_41475_	isFireResistant
 METHOD	m_41486_	fireResistant
 METHOD	m_41487_	stacksTo
 METHOD	m_41489_	food
+METHOD	m_41491_	tab
 METHOD	m_41495_	craftRemainder
 METHOD	m_41497_	rarity
 METHOD	m_41499_	defaultDurability
@@ -35823,6 +35830,7 @@ METHOD	m_46472_	dimension
 METHOD	m_46473_	getProfiler
 METHOD	m_46490_	getSunAngle
 METHOD	m_46496_	getBlockRandomPos
+METHOD	m_46511_	explode
 METHOD	m_46575_	loadedAndEntityCanStandOn
 METHOD	m_46578_	loadedAndEntityCanStandOnFace
 METHOD	m_46586_	neighborChanged
@@ -35844,6 +35852,7 @@ METHOD	m_46741_	isInSpawnableBounds
 METHOD	m_46745_	getChunkAt
 METHOD	m_46747_	removeBlockEntity
 METHOD	m_46749_	isLoaded
+METHOD	m_46755_	getBestNeighborSignal
 METHOD	m_46758_	isRainingAt
 METHOD	m_46791_	getDifficulty
 METHOD	m_46796_	levelEvent
@@ -36668,6 +36677,7 @@ METHOD	m_60918_	sound
 METHOD	m_60922_	isValidSpawn
 METHOD	m_60924_	isRedstoneConductor
 METHOD	m_60926_	copy
+METHOD	m_60939_	of
 METHOD	m_60953_	lightLevel
 METHOD	m_60955_	noOcclusion
 METHOD	m_60956_	speedFactor
@@ -47074,11 +47084,13 @@ METHOD	m_206470_	simpleRandomPatchConfiguration
 METHOD	m_206473_	simplePatchConfiguration
 METHOD	m_206476_	simplePatchConfiguration
 METHOD	m_206480_	simplePatchConfiguration
+METHOD	m_206488_	register
 METHOD	m_206493_	filteredByBlockSurvival
 METHOD	m_206495_	onlyWhenEmpty
 METHOD	m_206498_	filtered
 METHOD	m_206502_	inlinePlaced
 METHOD	m_206506_	inlinePlaced
+METHOD	m_206509_	register
 METHOD	m_206517_	isEmpty
 METHOD	m_206606_	create
 METHOD	m_206667_	homogenousList
