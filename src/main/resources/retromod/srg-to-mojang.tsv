@@ -53563,3 +53563,6 @@ METHOD	m_289999_	getLowerHalf
 METHOD	m_290001_	isUpper
 METHOD	m_290004_	sufficientLight
 METHOD	m_290025_	connect
+METHOD	m_292816_	blitSprite
+METHOD	m_293199_	getDebugOverlay
+METHOD	m_294516_	showDebugScreen
