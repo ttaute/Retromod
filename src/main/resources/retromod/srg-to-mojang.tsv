@@ -29970,6 +29970,7 @@ FIELD	f_289994_	pos
 FIELD	f_290019_	ABORT_CONNECTION
 FIELD	f_290020_	channelFuture
 FIELD	f_290021_	delayedDisconnect
+FIELD	f_302882_	TRIGGER_TYPES
 
 # -------------------------------------------------------------------------
 # METHODS
@@ -53565,4 +53566,6 @@ METHOD	m_290004_	sufficientLight
 METHOD	m_290025_	connect
 METHOD	m_292816_	blitSprite
 METHOD	m_293199_	getDebugOverlay
+METHOD	m_293284_	min
+METHOD	m_294019_	max
 METHOD	m_294516_	showDebugScreen
