@@ -483,6 +483,29 @@ public final class Mc26_1To26_2CoreMoves {
         registerDyedFields(t, ITEMS, ITEM, "CANDLE", "DYED_CANDLE");
         registerDyedFields(t, ITEMS, ITEM, "DYE", "DYE");
         registerDyedFields(t, ITEMS, ITEM, "BUNDLE", "DYED_BUNDLE");
+
+        // Minecraft.setScreen(Screen) was removed in 26.2 (setScreenAndShow, same descriptor, is the
+        // surviving variant; BOTH exist on 26.1, verified against 26.1-snapshot-10 vs the 26.2 jar,
+        // which is why this lives in the 26.1->26.2 shim and not 1.21.11->26.1). Extremely common
+        // in mods and mixin selectors (corpus scan: dynamic-fps MinecraftMixin).
+        t.registerMethodRedirect(
+            "net/minecraft/client/Minecraft", "setScreen",
+            "(Lnet/minecraft/client/gui/screens/Screen;)V",
+            "net/minecraft/client/Minecraft", "setScreenAndShow",
+            "(Lnet/minecraft/client/gui/screens/Screen;)V"
+        );
+
+        // AbstractContainerScreen.renderLabels -> extractLabels in 26.2 (renderLabels present on 26.1,
+        // gone on 26.2, which now has extractLabels(GuiGraphicsExtractor,II)V; the param GuiGraphics ->
+        // GuiGraphicsExtractor move is already handled). Mirrors the 26.1 render -> extractRenderState
+        // pair. Corpus scan: Apollo's Enchantment AnvilScreenMixin (#137) - its @WrapOperation on this
+        // method went inert, and a hard WrapOperation miss can abort sibling mixins in the same config.
+        t.registerMethodRedirect(
+            "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen", "renderLabels",
+            "(Lnet/minecraft/client/gui/GuiGraphics;II)V",
+            "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen", "extractLabels",
+            "(Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V"
+        );
     }
 
     private static final String BLOCKS = "net/minecraft/world/level/block/Blocks";

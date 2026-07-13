@@ -24,45 +24,37 @@
     "the framework skips it entirely (the harmless 'target not found' path). Use this",
     "for mixins that ADD AN INTERFACE to their target (handler-stripping leaves the",
     "interface unapplied \u2192 ClassCastException downstream, #68) or that have an",
-    "interdependent critical @Inject failure where partial stripping leaves orphans (#69)."
+    "interdependent critical @Inject failure where partial stripping leaves orphans (#69).",
+    "",
+    "RETIRED in 1.3.0 (now REAL translations, not soft-fails): #48 Darker Depths",
+    "PlayerMixin save-data (ValueIO adapter, repair-or-strip); #69 Revamped Phantoms",
+    "SweepAttackMixin doHurtTarget (the @At signature-drift rewrite); #50 Revamped",
+    "Phantoms PhantomMixin getDefaultDimensions (the FlyingMob->Mob owner-alias redirect -",
+    "getDefaultDimensions IS still declared by Phantom on 26.x, calling Mob.getDefaultDimensions",
+    "at the wrapped expression, so the @ModifyExpressionValue re-resolves)."
   ],
   "blocked": [
     {
-      "mixin": "com/kyanite/deeperdarker/mixin/PaintingItemMixin",
+      "mixin": "com/kyanite/deeperdarker/mixin/HangingEntityItemMixin",
       "methods": [
-        "deeperdarker$decrementStackOnServer"
+        "appendHoverText"
       ],
       "issue": "#28",
-      "reason": "MixinExtras @WrapOperation + @Local Level on HangingEntityItem.useOn, wrapping ItemStack.shrink(I). MC 26.1 restructured useOn, so the @Local Level resolves to a non-existent slot and MixinExtras emits an invalid bridge (VerifyError: Bad local variable type) that crashes at bootstrap. Stripping just this handler lets Deeper and Darker boot; the painting stack-decrement tweak is inert."
+      "reason": "Deeper and Darker (1.3.0 CORRECTION: the former #28 entry named a fictional 'PaintingItemMixin'/'deeperdarker$decrementStackOnServer' that does NOT exist in the 1.4.1 jar - a stale no-op that left the mod's real drift unhandled. The real classes are HangingEntityItemMixin and PaintingMixin, both verified against the 26.2 jar). appendHoverText is an @Inject(HEAD) whose target HangingEntityItem.appendHoverText was re-signatured on 26.x - the single List<Component> tooltip sink was SPLIT into TooltipDisplay + Consumer<Component> - so the handler descriptor no longer matches (a param split, not a leading insert, so the re-signature engine can't repair it). Worse, its body decodes the painting variant via Painting.VARIANT_MAP_CODEC + CustomData.read, BOTH deleted on 26.x, so even a repaired signature would NoClassDefFoundError at runtime. Strip the handler: the mod loads and only the painting-variant tooltip line is inert. PaintingMixin (below) and the decoration/Painting class-move (Common_1_21_11_to_26_1_ClassMoves) keep the rest of the mod working (getPickResult @Inject applies natively)."
     },
     {
-      "mixin": "com/naterbobber/darkerdepths/mixin/PlayerMixin",
+      "mixin": "com/kyanite/deeperdarker/mixin/PaintingMixin",
       "methods": [
-        "G$addAdditionalSaveData",
-        "G$readAdditionalSaveData"
+        "dropItem"
       ],
-      "issue": "#48",
-      "reason": "@Inject handlers on Entity.addAdditionalSaveData/readAdditionalSaveData capture CompoundTag, but MC moved those params to ValueOutput/ValueInput in the 1.21.5 serialization (ValueIO/codec) refactor -> InvalidInjectionException (Invalid descriptor: expected ValueOutput, found CompoundTag) on 1.21.11. Not a rename (ValueOutput has a different API than CompoundTag), so the handler body can't be auto-retyped yet. Stripping these handlers removes the injection error. NOTE (#48): Darker Depths' death-anchor feature is interdependent (the stripped handlers leave orphaned helper lambdas + a @Unique field/interface), so this mod still does not fully construct after the strip - it's a PARTIAL soft-fail, kept here because the handlers are genuinely broken and the strip is correct as far as it goes. Mods with a self-contained broken handler soft-fail cleanly."
-    },
-    {
-      "mixin": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
-      "methods": [
-        "revamped_phantoms$getDefaultDimensions"
-      ],
-      "issue": "#50",
-      "reason": "@ModifyReturnValue handler on a getDefaultDimensions/getDimensions method (returns EntityDimensions) fails injection on 1.21.11 with 'failed injection check, (0/1) succeeded. Scanned 0 target(s)' - the target method couldn't be resolved on the newer MC (renamed/re-signatured; mod ships no refMap). The handler body only rescales the dimensions' EntityAttachments via the mod's own Accessors util - it does NOT touch the mod's shared-goals feature (revamped_phantoms$goalHolder/registerGoals/getGoalHolder/HasSharedGoals), which injects fine - so this is a CLEAN, self-contained soft-fail: stripping it lets Revamped Phantoms construct with goals intact and only the phantom-size tweak inert. Contrast #48, which was interdependent."
-    },
-    {
-      "mixin": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
-      "strip": "class",
-      "issue": "#69 (re-open of #50)",
-      "reason": "@Inject handler revamped_phantoms$onHurtsTarget fails injection on 1.21.11 as a CRITICAL failure: 'InjectionError: failed injection check, (0/1) succeeded. Scanned 0 target(s). No refMap loaded' - the target method signature changed in vanilla and the mod ships no refMap, so it can't be repaired by remapping. Confirmed against the #69 re-open log (the crash that took down DataComponents/EntityType <clinit>). Upgraded from handler-strip to whole-class strip ('strip':'class'): the sweep-attack tweak is a single self-contained mixin, so neutralizing the whole class is equivalent in scope but guarantees the critical injection can never fire regardless of any @Unique/helper interdependency. Revamped Phantoms loads with the sweep-attack tweak inert; PhantomMixin's shared-goals + size features stay live via the separate handler-strip entry above."
+      "issue": "#28",
+      "reason": "Deeper and Darker's @Mixin(Painting). Painting moved to entity/decoration/painting/ (class-move redirect handles the @Mixin target) and its getPickResult @Inject applies natively on 26.x. But Painting.dropItem was re-signatured to dropItem(ServerLevel, Entity) on 26.2 (verified), so the mod's dropItem(Entity, CallbackInfo) @Inject at HEAD fails the captured-param descriptor check (a hard InvalidInjectionException that require=0 does not catch). A leading-ServerLevel re-signature WOULD fit mechanically, but 'dropItem' is a generic name shared across many classes, so adding it to the signature-change table risks false-positives; strip the one handler instead (its custom-drop tweak goes inert), keeping getPickResult live. The now-orphaned lambda$dropItem$0 is harmless dead code."
     },
     {
       "mixin": "grondag/darkness/mixin/MixinLightTexture",
       "strip": "class",
       "issue": "#68",
-      "reason": "True Darkness (grondag.darkness, the base mod that True Darkness Biomes depends on). MixinLightTexture does '@Mixin(LightTexture.class) implements LightmapAccess' - it makes the vanilla LightTexture implement darkness's LightmapAccess duck-interface. On 1.21.11 it fails to apply ('InvalidMixinException: @Shadow field lightTexture was not located in the target class LightTexture. No refMap loaded') because the shadowed field's surrounding structure changed and the mod ships no refMap. A field rename can't fix it (the structure moved, not just the name), and handler-stripping is useless here - there are no injector handlers, the mixin's whole job is adding the interface. Whole-class strip neutralizes it cleanly. Pairs with the MixinGameRenderer entry below."
+      "reason": "True Darkness (grondag.darkness, the base mod that True Darkness Biomes depends on). MixinLightTexture does '@Mixin(LightTexture.class) implements LightmapAccess' - it makes the vanilla LightTexture implement darkness's LightmapAccess duck-interface. 1.3.0 research (javap on 26.1+26.2) confirms this is genuinely IMPOSSIBLE to translate, not a mapping issue: class_765/LightTexture was DELETED and redesigned into net/minecraft/client/renderer/Lightmap, whose lightmap is a GPU texture (GpuTexture/GpuTextureView/UBO) produced by a separate LightmapRenderStateExtractor.extract(), NOT the CPU DynamicTexture (class_1043) the mixin @Shadows. All three @Shadow fields are gone: the DynamicTexture field has NO equivalent on Lightmap (genuinely removed, not renamed), and the flicker/dirty fields relocated onto a DIFFERENT class (LightmapRenderStateExtractor), which a @Shadow can't reach from the @Mixin(LightTexture) target. The 'No refMap loaded' message is a red herring - the fields are absent regardless of namespace. A real fix is porting True Darkness to the 26.x render-state/UBO lightmap pipeline, outside a mechanical transformer. Whole-class strip neutralizes it cleanly (darkening feature inert, mod loads). Pairs with the MixinGameRenderer entry below."
     },
     {
       "mixin": "grondag/darkness/mixin/MixinGameRenderer",
@@ -74,7 +66,7 @@
       "mixin": "com/yungnickyoung/minecraft/yungsapi/mixin/BeardifierMixin",
       "strip": "class",
       "issue": "Yung's API world-gen crash on 26.2",
-      "reason": "Yung's API's enhanced terrain-adaptation. BeardifierMixin does '@Mixin(Beardifier.class) implements EnhancedBeardifierData' (ADDS an interface) plus @Unique enhanced-iterator fields and two handlers (supportCustomTerrainAdaptations - an @Inject returning a custom Beardifier - and calculateDensity), and it reads Beardifier's internals through the paired accessor.BeardifierAccessor. 26.2 rewrote Beardifier: the fastutil ObjectListIterator fields pieceIterator/junctionIterator became plain java.util.List fields pieces/junctions, so the accessor's @Accessor getPieceIterator() resolves to an abstract method and the enhanced handler hits 'AbstractMethodError: Beardifier.getPieceIterator()' on EVERY chunk -> ALL world generation crashes (the user-visible symptom is a frozen 'Preparing for world creation', because the error churns in the async chunk pipeline rather than surfacing). Because the mixin adds an interface and its handlers are interdependent, this is a whole-class strip (handler-stripping would leave the interface unapplied -> ClassCastException). Neutralized, Beardifier falls back to vanilla terrain adaptation (which still blends structures into terrain); Yung's structures generate normally. This affects EVERY Yung's structure mod (Better Strongholds, Better Mineshafts, Extras, ...), since they all depend on Yung's API."
+      "reason": "Yung's API's enhanced terrain-adaptation. BeardifierMixin does '@Mixin(Beardifier.class) implements EnhancedBeardifierData' (ADDS an interface) plus @Unique enhanced-iterator fields and two handlers (supportCustomTerrainAdaptations - an @Inject returning a custom Beardifier - and calculateDensity), and it reads Beardifier's internals through the paired accessor.BeardifierAccessor. 26.2 rewrote Beardifier: the fastutil ObjectListIterator fields pieceIterator/junctionIterator became plain java.util.List fields pieces/junctions, so the accessor's @Accessor getPieceIterator() resolves to an abstract method and the enhanced handler hits 'AbstractMethodError: Beardifier.getPieceIterator()' on EVERY chunk -> ALL world generation crashes (the user-visible symptom is a frozen 'Preparing for world creation', because the error churns in the async chunk pipeline rather than surfacing). Because the mixin adds an interface and its handlers are interdependent, this is a whole-class strip (handler-stripping would leave the interface unapplied -> ClassCastException). Neutralized, Beardifier falls back to vanilla terrain adaptation (which still blends structures into terrain); Yung's structures generate normally. This affects EVERY Yung's structure mod (Better Strongholds, Better Mineshafts, Extras, ...), since they all depend on Yung's API. 1.3.0 RESEARCH (javap on 26.1+26.2): BeardifierMixin itself is REPAIRABLE - its two @Inject targets (forStructuresInChunk, compute) are byte-identical on 26.1/26.2 and its handlers read only @Unique mixin fields, never the renamed pieces/junctions; BeardifierAccessor is the sole broken piece and is DEAD CODE (zero .class references, confirmed by grep), so the real fix is: stop stripping BeardifierMixin and strip ONLY the dead BeardifierAccessor. HELD in this snapshot because it is interdependent with NoiseChunkMixin (which attaches the noise chunk to the beardifier) and re-enabling worldgen mixins requires a headless-server worldgen pass before the strip is retired (unit-green is not launch-green for worldgen; a mis-repair cascades to ALL chunk gen)."
     },
     {
       "mixin": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BeardifierAccessor",
@@ -85,7 +77,7 @@
     {
       "mixin": "com.yungnickyoung.minecraft.yungsapi.mixin.NoiseChunkMixin",
       "strip": "class",
-      "reason": "@Shadow field noiseSettings removed from NoiseChunk on 26.x; the failed apply poisons NoiseChunk class-load, killing ALL worldgen (vanilla /place and /locate included, captured on the 26.2 dedicated server). YungsApi's noise-modification API goes inert; structure generation itself works without it."
+      "reason": "@Shadow field noiseSettings removed from NoiseChunk on 26.x; the failed apply poisons NoiseChunk class-load, killing ALL worldgen (vanilla /place and /locate included, captured on the 26.2 dedicated server). YungsApi's noise-modification API goes inert; structure generation itself works without it. 1.3.0 RESEARCH (javap on 26.1+26.2): REPAIRABLE. Only field_35674 (noiseSettings) blocks apply - the other three @Shadow members (field_37113 -> beardifier, comp_371/372/373 -> blockX/Y/Z) re-resolve via the normal mapping, and both @Inject targets (<init>, getInterpolatedState) survive. The data is still live: NoiseSettings arrives as the 5th ctor param (verified descriptor unchanged) and the existing <init>-RETURN handler already captures it. Fix: demote noiseSettings from @Shadow @Final to a @Unique field and store the captured ctor param into it, so the lambda's noiseSettings.height()/minY() reads keep working; strip only the dead NoiseChunkAccessor (zero .class references). HELD in this snapshot pending a headless-server worldgen pass (interdependent with BeardifierMixin; re-enabling worldgen mixins un-verified could cascade to all chunk gen)."
     },
     {
       "mixin": "com.yungnickyoung.minecraft.yungsapi.mixin.accessor.NoiseChunkAccessor",

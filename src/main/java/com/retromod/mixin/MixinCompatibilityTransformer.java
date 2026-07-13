@@ -33,6 +33,8 @@ public class MixinCompatibilityTransformer {
     private static final String OVERWRITE_DESC = "Lorg/spongepowered/asm/mixin/Overwrite;";
     private static final String ACCESSOR_DESC = "Lorg/spongepowered/asm/mixin/gen/Accessor;";
     private static final String INVOKER_DESC = "Lorg/spongepowered/asm/mixin/gen/Invoker;";
+    /** MixinExtras injector annotations live under this package (incl. the wrapoperation subpackage). */
+    private static final String MIXINEXTRAS_INJECTOR_PREFIX = "Lcom/llamalad7/mixinextras/injector/";
     
     private final RetromodTransformer transformer;
 
@@ -53,20 +55,28 @@ public class MixinCompatibilityTransformer {
             String oldRef = key.name();
             String newRef = target.name();
 
-            if (!oldRef.equals(newRef)) {
-                // Owner-qualified form only matches a target naming this exact owner.
-                String oldFull = "L" + key.owner() + ";" + key.name() + key.desc();
-                String newFull = "L" + target.owner() + ";" + target.name() + target.desc();
+            // Owner-qualified form matches a target naming this exact owner. Add it for an OWNER or
+            // NAME change - an OWNER-ONLY change still needs the mixin @At/method target re-owned
+            // (the former "name changed" guard silently dropped owner-only redirects like
+            // FlyingMob.getDefaultDimensions -> Mob.getDefaultDimensions, the deleted-superclass alias,
+            // #50). A DESCRIPTOR-ONLY change is deliberately excluded: those are overload/codec-shape
+            // bridges (same owner+name, different signature), and rewriting a mixin @At target that
+            // legitimately names the old overload would break a working injection.
+            String oldFull = "L" + key.owner() + ";" + key.name() + key.desc();
+            String newFull = "L" + target.owner() + ";" + target.name() + target.desc();
+            boolean ownerOrNameChanged = !key.owner().equals(target.owner()) || !oldRef.equals(newRef);
+            if (ownerOrNameChanged) {
                 methodTargetRedirects.put(oldFull, newFull);
+            }
 
-                // Bare-name form is owner-agnostic, so restrict it to globally-unique
-                // obfuscated names. A plain name like "register" is ambiguous: a
-                // mod-API redirect (AutoRegLib NetworkHandler.register -> registerPacket)
-                // would otherwise rename every @Invoker/@At resolving to "register",
-                // including a vanilla BlockEntityType invoker (#66).
-                if (isGloballyUniqueName(oldRef)) {
-                    methodTargetRedirects.put(oldRef, newRef);
-                }
+            // Bare-name form is owner-agnostic, so restrict it to a genuine NAME change on a
+            // globally-unique obfuscated name. A plain name like "register" is ambiguous: a
+            // mod-API redirect (AutoRegLib NetworkHandler.register -> registerPacket) would
+            // otherwise rename every @Invoker/@At resolving to "register", including a vanilla
+            // BlockEntityType invoker (#66). An owner-only change (oldRef == newRef) never adds a
+            // bare-name entry (it would be a no-op name->same-name mapping anyway).
+            if (!oldRef.equals(newRef) && isGloballyUniqueName(oldRef)) {
+                methodTargetRedirects.put(oldRef, newRef);
             }
         }
 
@@ -162,89 +172,168 @@ public class MixinCompatibilityTransformer {
             }
         }
 
+        // Collect @Inject handlers whose target's parameter list changed (1.3.0 track A, #69):
+        // the target gained a leading arg the handler can ignore, so the handler must be re-signatured
+        // to keep matching the target's parameter prefix. Gated to 1.21.5+ hosts: on an older host
+        // those signatures are unchanged, so re-signaturing would break an otherwise-working handler.
+        boolean refactorHost = has1215Refactor();
+        List<MethodNode> resignTargets = new ArrayList<>();
+        List<List<MixinHandlerResignature.ParamInsert>> resignInserts = new ArrayList<>();
+        List<MixinHandlerResignature.DriftRepair> driftRepairs = new ArrayList<>();
         for (MethodNode method : classNode.methods) {
             modified |= transformMethodAnnotations(method);
+            if (!refactorHost) continue;
+            // Rewrite signature-drifted selectors inside @At(target=...)/method=/target= (#69: the
+            // old-descriptor CALL SITE no longer exists in the host method, so the injection-point
+            // scan finds 0 targets even though the handler itself is fine).
+            modified |= MixinHandlerResignature.rewriteAnnotationDrift(method);
+            List<MixinHandlerResignature.ParamInsert> ins = MixinHandlerResignature.injectSignatureChange(method);
+            if (ins != null) { resignTargets.add(method); resignInserts.add(ins); }
+            // Drifted @Redirect/@WrapOperation call sites + drifted @Overwrite methods
+            // (detection only; applied in the guarded re-emit).
+            driftRepairs.addAll(MixinHandlerResignature.detectRedirectDrift(method));
+            driftRepairs.addAll(MixinHandlerResignature.detectOverwriteDrift(method));
         }
 
         for (FieldNode field : classNode.fields) {
             modified |= transformFieldAnnotations(field);
         }
 
-        if (!modified) {
+        if (!modified && resignTargets.isEmpty() && driftRepairs.isEmpty()) {
             return classBytes;
         }
 
-        ClassWriter writer = new ClassWriter(0);
-        classNode.accept(writer);
-        return writer.toByteArray();
+        // Snapshot the annotation-only result FIRST. If a handler re-signature can't recompute valid
+        // stack-map frames (an unanalyzable body, or a slot-shift edge case), we ship this instead of
+        // a VerifyError-crashing class; the blocklist strip remains the ultimate safety net. The
+        // ValueIO save-data adapter (#48) runs separately as a post-remap pass (adaptValueIoHandlers).
+        ClassWriter annWriter = new ClassWriter(0);
+        classNode.accept(annWriter);
+        byte[] annotationOnly = annWriter.toByteArray();
+        return reemitWithResignatures(classNode, resignTargets, resignInserts, driftRepairs, annotationOnly);
     }
 
     /**
-     * Strip blocklisted mixin handler methods only, with no {@code @Mixin}/{@code @Inject}
-     * target remapping. Called from the NeoForge/Forge path (the Fabric path gets the same
-     * strip inside {@link #transformMixinClass}). NeoForge/Forge targets already resolve
-     * under Mojang names, but a handler can still need stripping to soft-fail an otherwise
-     * fatal injection (e.g. {@code addAdditionalSaveData}: {@code CompoundTag} ->
-     * {@code ValueOutput}, the 1.21.5 ValueIO refactor; #48). Returns the input unchanged
-     * for a non-blocklisted class, so it's safe to call on every class.
+     * Apply pending {@code @Inject} re-signatures (Track A, #69) to the already-parsed
+     * {@code classNode} and re-emit with recomputed frames. {@code fallbackBytes} is the valid,
+     * un-re-signatured snapshot to return when there is nothing to do or when frame recomputation
+     * throws: safety-by-construction, so a slot-shift bug can never ship a {@code VerifyError}-
+     * crashing class. Mutates {@code classNode}. Shared by the Fabric ({@link #transformMixinClass})
+     * and NeoForge/Forge ({@link #stripBlocklistedHandlers}) paths.
+     */
+    private byte[] reemitWithResignatures(ClassNode classNode, List<MethodNode> targets,
+            List<List<MixinHandlerResignature.ParamInsert>> inserts,
+            List<MixinHandlerResignature.DriftRepair> driftRepairs, byte[] fallbackBytes) {
+        if (targets.isEmpty() && driftRepairs.isEmpty()) return fallbackBytes;
+        try {
+            int applied = 0;
+            for (int i = 0; i < targets.size(); i++) {
+                if (MixinHandlerResignature.insertParams(targets.get(i), inserts.get(i))) applied++;
+            }
+            // Drift repairs: @Redirect/@WrapOperation call sites (rewrite the @At target AND
+            // re-signature the mirroring handler together) and drifted @Overwrite methods.
+            for (MixinHandlerResignature.DriftRepair d : driftRepairs) {
+                if (d.apply()) applied++;
+            }
+            if (applied == 0) return fallbackBytes;
+            ClassWriter cw = new com.retromod.util.SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
+            classNode.accept(cw);
+            byte[] out = cw.toByteArray();
+            LOGGER.info("Repaired {} drifted mixin handler(s)/call site(s) in {} (re-signature / redirect drift)",
+                    applied, classNode.name);
+            return out;
+        } catch (Throwable t) {
+            LOGGER.debug("Handler re-signature could not verify in {} ({}); keeping prior result",
+                    classNode.name, t.toString());
+            return fallbackBytes;
+        }
+    }
+
+    /**
+     * Whether the host has the 1.21.5 refactor that both moved save-data to ValueIO AND prepended a
+     * {@code ServerLevel} to many entity methods. Gates both the ValueIO adapter and the @Inject
+     * re-signature: on a pre-1.21.5 host those signatures are unchanged, so applying either would
+     * corrupt a working handler. Unparseable/unknown host declines (conservative).
+     */
+    private boolean has1215Refactor() {
+        return com.retromod.core.RetromodVersion.compareMcVersions(
+                com.retromod.core.RetromodVersion.TARGET_MC_VERSION, "1.21.5") >= 0;
+    }
+
+    /**
+     * Phase 4 (#48): adapt {@code CompoundTag} save-data {@code @Inject} handlers to the modern
+     * {@code ValueOutput}/{@code ValueInput} param. Run as a POST-remap pass (after the main
+     * bytecode remap) on BOTH loaders, because a Fabric mod's handler param is intermediary
+     * ({@code class_2487}) until then; here it is Mojang ({@code net/minecraft/nbt/CompoundTag}) on
+     * every loader, so identification is uniform. Returns the input unchanged when nothing applies;
+     * on a frame-computation failure, strips the identified handlers (soft-fail, = the blocklist
+     * behavior) rather than shipping the broken original. Safe to call on every class.
+     *
+     * @see MixinValueIoAdapter
+     */
+    public byte[] adaptValueIoHandlers(byte[] classBytes) {
+        if (!has1215Refactor()) return classBytes;
+        ClassNode classNode = new ClassNode();
+        new ClassReader(classBytes).accept(classNode, 0);
+        if (!isMixinClass(classNode)) return classBytes;
+
+        List<MixinValueIoAdapter.Target> targets = MixinValueIoAdapter.collect(classNode);
+        // Repair-or-strip: a save-data @Inject still capturing CompoundTag that the adapter can NOT
+        // repair is definitionally broken on this host (the target passes ValueIO now) and would
+        // throw InvalidInjectionException -> NeoForge "broken mod state" (#48). Strip those, the
+        // same soft-fail the curated blocklist used to provide, now automatic.
+        List<MethodNode> unrepairable = MixinValueIoAdapter.collectUnrepairable(classNode, targets);
+        if (targets.isEmpty() && unrepairable.isEmpty()) return classBytes;
+
+        if (!targets.isEmpty()) {
+            // Register the runtime bridge NOW (before the reference is emitted below), coupled to the
+            // adaptation itself so the Forge/NeoForge embedder always finds it - no loader entry point
+            // can forget it (the Forge path did not register it otherwise, review finding, #48).
+            MixinValueIoAdapter.ensureBridgeRegistered(transformer);
+        }
+
+        List<String> names = new ArrayList<>();
+        for (MixinValueIoAdapter.Target t : targets) names.add(t.originalName);
+        try {
+            int applied = MixinValueIoAdapter.apply(classNode, targets);
+            if (!unrepairable.isEmpty()) {
+                // Strip by IDENTITY, not name: apply() just synthesized adapters that reuse the
+                // adaptable handlers' names, and a name match could otherwise delete one of those.
+                classNode.methods.removeIf(unrepairable::contains);
+                LOGGER.info("ValueIO adapter: stripped {} unrepairable CompoundTag save-data handler(s) "
+                        + "in {} (soft-fail; the target passes ValueIO on this host)",
+                        unrepairable.size(), classNode.name);
+            }
+            if (applied == 0 && unrepairable.isEmpty()) return classBytes;
+            ClassWriter cw = new com.retromod.util.SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
+            classNode.accept(cw);
+            byte[] out = cw.toByteArray();
+            if (applied > 0) {
+                LOGGER.info("ValueIO adapter: wrapped {} CompoundTag save-data @Inject handler(s) in {} for "
+                        + "the ValueOutput/ValueInput refactor", applied, classNode.name);
+            }
+            return out;
+        } catch (Throwable t) {
+            LOGGER.debug("ValueIO adaptation could not verify in {} ({}); stripping the handler(s) (soft-fail)",
+                    classNode.name, t.toString());
+            // The fallback strips from the PRISTINE original bytes (a fresh ClassNode with no
+            // synthesized adapters), so name-based selection is correct there.
+            List<String> all = new ArrayList<>(names);
+            for (MethodNode m : unrepairable) all.add(m.name);
+            return MixinValueIoAdapter.stripTargetsFrom(classBytes, all);
+        }
+    }
+
+    /**
+     * NeoForge/Forge + CLI-offline entry point: runs the full {@link #transformMixinClass} pipeline.
+     * A mixin's {@code @Mixin}/{@code @At}/{@code method=}/{@code target=} selectors are annotation
+     * strings, so the bytecode {@code ClassRemapper} never reaches them; they still need the
+     * API-rename method/class redirects (#50 {@code FlyingMob -> Mob}, #28 {@code Painting}
+     * class-move on the NeoForge Deeper and Darker, GameNarrator/setScreen), so a blocklist strip
+     * alone is not enough. Safe on any class (a non-mixin returns unchanged).
      */
     public byte[] stripBlocklistedHandlers(byte[] classBytes) {
-        ClassReader reader = new ClassReader(classBytes);
-        ClassNode classNode = new ClassNode();
-        reader.accept(classNode, 0);
-
-        if (!isMixinClass(classNode)) {
-            return classBytes;
-        }
-
-        // Whole-class neutralization (see transformMixinClass). NeoForge/Forge needs
-        // this too: #68 (True Darkness) is a NeoForge mod whose interface-adding
-        // MixinLightTexture can't be soft-failed by removing handlers, only by making
-        // the whole mixin not apply.
-        if (MixinBlocklist.isFullStrip(classNode.name)) {
-            if (neutralizeMixin(classNode)) {
-                ClassWriter w = new ClassWriter(0);
-                classNode.accept(w);
-                LOGGER.info("Mixin blocklist: fully neutralized {} (whole-class strip) "
-                        + "- known to crash on the target MC; the mod loads with that "
-                        + "mixin's feature inert", classNode.name);
-                return w.toByteArray();
-            }
-        }
-
-        // Auto-neutralize a removed-target mixin (see transformMixinClass); NeoForge/
-        // Forge needs this too (#79 Spelunkery is a Forge mod).
-        String removedTarget = mixinTargetsRemovedClass(classNode);
-        if (removedTarget != null && neutralizeMixin(classNode)) {
-            ClassWriter w = new ClassWriter(0);
-            classNode.accept(w);
-            LOGGER.info("Mixin auto-neutralized {} - its @Mixin target {} was removed on "
-                    + "this MC and can't be remapped; applying it would crash the game. "
-                    + "The mod loads with that mixin's feature inert.",
-                    classNode.name, removedTarget);
-            return w.toByteArray();
-        }
-
-        Set<String> blockedMethods = MixinBlocklist.methodsToStrip(classNode.name);
-        if (blockedMethods == null) {
-            return classBytes;
-        }
-        int before = classNode.methods.size();
-        if (blockedMethods.isEmpty()) {
-            classNode.methods.removeIf(MixinCompatibilityTransformer::hasInjectorAnnotation);
-        } else {
-            classNode.methods.removeIf(m -> blockedMethods.contains(m.name));
-        }
-        int removed = before - classNode.methods.size();
-        if (removed == 0) {
-            return classBytes;
-        }
-        LOGGER.info("Mixin blocklist: stripped {} handler method(s) from {} "
-                + "- this mixin is known to crash on the target MC; the mod loads "
-                + "with that feature inert", removed, classNode.name);
-        ClassWriter writer = new ClassWriter(0);
-        classNode.accept(writer);
-        return writer.toByteArray();
+        return transformMixinClass(classBytes);
     }
 
     /**
@@ -527,7 +616,16 @@ public class MixinCompatibilityTransformer {
 
                 if (INJECT_DESC.equals(desc) || REDIRECT_DESC.equals(desc) ||
                     MODIFY_ARG_DESC.equals(desc) || MODIFY_VAR_DESC.equals(desc)) {
-                    modified |= transformInjectionAnnotation(annotation);
+                    modified |= transformInjectionAnnotation(annotation, false);
+                } else if (desc != null && desc.startsWith(MIXINEXTRAS_INJECTOR_PREFIX)) {
+                    // MixinExtras injectors (@ModifyReturnValue / @ModifyExpressionValue /
+                    // @WrapOperation / @ModifyReceiver / @WrapWithCondition / @WrapMethod) carry the
+                    // same method=/at=/target= selectors as core injectors but were never dispatched,
+                    // so a renamed target went un-remapped and the injection failed with "Scanned 0
+                    // target(s)" (#50 Revamped Phantoms). Route them through the same remap; only add
+                    // the require=0 soft-fail net when we actually rewrote a selector, so a working
+                    // MixinExtras mixin is left byte-identical.
+                    modified |= transformInjectionAnnotation(annotation, true);
                 } else if (SHADOW_DESC.equals(desc) || OVERWRITE_DESC.equals(desc)) {
                     modified |= transformShadowAnnotation(annotation, method);
                 } else if (ACCESSOR_DESC.equals(desc) || INVOKER_DESC.equals(desc)) {
@@ -542,7 +640,7 @@ public class MixinCompatibilityTransformer {
     /**
      * Transform @Inject, @Redirect, @ModifyArg, @ModifyVariable annotations.
      */
-    private boolean transformInjectionAnnotation(AnnotationNode annotation) {
+    private boolean transformInjectionAnnotation(AnnotationNode annotation, boolean mixinExtras) {
         boolean modified = false;
 
         if (annotation.values == null) {
@@ -654,8 +752,12 @@ public class MixinCompatibilityTransformer {
             }
         }
 
-        // require=0 makes injections soft-fail when a target method no longer exists.
-        if (!hasRequire) {
+        // require=0 makes injections soft-fail when a target method no longer exists. Core injectors
+        // get it unconditionally (the existing soft-fail net). MixinExtras injectors get it ONLY when
+        // we actually rewrote a selector above; otherwise a working MixinExtras handler would be
+        // needlessly weakened and its bytecode changed for no reason (breaking the byte-identical
+        // guarantee for mixins we did not touch).
+        if (!hasRequire && (!mixinExtras || modified)) {
             annotation.values.add("require");
             annotation.values.add(0);
             modified = true;

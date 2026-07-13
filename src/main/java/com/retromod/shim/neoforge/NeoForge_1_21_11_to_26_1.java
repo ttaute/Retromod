@@ -148,6 +148,36 @@ public class NeoForge_1_21_11_to_26_1 implements VersionShim {
             "(DD)Lnet/minecraft/world/inventory/Slot;"
         );
 
+        // GameNarrator.sayNow(Component) renamed to saySystemNow in 26.1 (verified absent in
+        // 26.1-snapshot-10, present in 1.21.11; corpus scan: Revamped Phantoms ClientPacketListenerMixin).
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/GameNarrator", "sayNow",
+            "(Lnet/minecraft/network/chat/Component;)V",
+            "net/minecraft/client/GameNarrator", "saySystemNow",
+            "(Lnet/minecraft/network/chat/Component;)V"
+        );
+
+        // FriendlyByteBuf.readJsonWithCodec renamed to readLenientJsonWithCodec in 26.1 (same
+        // descriptor; writeJsonWithCodec unchanged; corpus scan: NoChatReports MixinFriendlyByteBuf).
+        transformer.registerMethodRedirect(
+            "net/minecraft/network/FriendlyByteBuf", "readJsonWithCodec",
+            "(Lcom/mojang/serialization/Codec;)Ljava/lang/Object;",
+            "net/minecraft/network/FriendlyByteBuf", "readLenientJsonWithCodec",
+            "(Lcom/mojang/serialization/Codec;)Ljava/lang/Object;"
+        );
+
+        // FlyingMob was DELETED in ~1.21.2 (absent in 26.1/26.2); its former subclasses (Phantom,
+        // Ghast) now extend Mob directly, and getDefaultDimensions is inherited from LivingEntity, so
+        // every FlyingMob.getDefaultDimensions reference/injection point re-owners to Mob. Mojang key
+        // (NeoForge/Forge mods + their mixin @At targets are Mojang-named); repairs Revamped Phantoms'
+        // PhantomMixin @ModifyExpressionValue (#50, retired from the blocklist).
+        transformer.registerMethodRedirect(
+            "net/minecraft/world/entity/FlyingMob", "getDefaultDimensions",
+            "(Lnet/minecraft/world/entity/Pose;)Lnet/minecraft/world/entity/EntityDimensions;",
+            "net/minecraft/world/entity/Mob", "getDefaultDimensions",
+            "(Lnet/minecraft/world/entity/Pose;)Lnet/minecraft/world/entity/EntityDimensions;"
+        );
+
         // DataResult became an interface in DFU 9.x and get() was removed; redirect to polyfill.
         transformer.registerMethodRedirect(
             "com/mojang/serialization/DataResult", "get",

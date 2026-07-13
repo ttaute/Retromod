@@ -485,6 +485,16 @@ public class FabricModTransformer {
                     if (remapped != null && remapped != transformed) {
                         transformed = remapped;
                     }
+                    // Phase 4 (#48): ValueIO save-data adapter, POST-remap. A Fabric mod's handler
+                    // param is intermediary (class_2487) until the remap above; it is Mojang
+                    // (net/minecraft/nbt/CompoundTag) now, so the CompoundTag -> ValueOutput/ValueInput
+                    // adapter identifies it uniformly with the NeoForge/Forge path.
+                    if (transformed != null) {
+                        byte[] valio = mixinTransformer.adaptValueIoHandlers(transformed);
+                        if (valio != null && valio != transformed) {
+                            transformed = valio;
+                        }
+                    }
                 } else {
                     transformed = bytecodeTransformer.transformClass(original, className);
                 }

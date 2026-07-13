@@ -13,7 +13,7 @@ import static org.objectweb.asm.Opcodes.*;
 
 /**
  * MC 1.21.3+ made {@code BlockBehaviour.<init>}/{@code Item.<init>} call
- * {@code Objects.requireNonNull(properties.id, "Block/Item id not set")} — a block/item can no longer
+ * {@code Objects.requireNonNull(properties.id, "Block/Item id not set")}: a block/item can no longer
  * be constructed without its registry id stamped on its {@code Properties}. NeoForge's TYPED
  * {@code DeferredRegister.Blocks/Items} set that id, but only through the {@code Function<Properties,T>}
  * register overloads; the plain {@code register(String, Supplier<T>)} that Forge 1.20.1 mods use builds
@@ -116,7 +116,7 @@ public final class RegistryIdBridgeSynthetic {
 
         // Object apply(Object id): CURRENT.set(ResourceKey.create(this.key, (Identifier) id));
         //                          Object r = this.sup.get(); CURRENT.remove(); return r;
-        // (thread-local leaks only if the supplier throws — the registration has already failed then.)
+        // (thread-local leaks only if the supplier throws; the registration has already failed then.)
         MethodVisitor a = cw.visitMethod(ACC_PUBLIC, "apply", "(" + L_OBJ + ")" + L_OBJ, null, null);
         a.visitCode();
         a.visitFieldInsn(GETSTATIC, INTERNAL, "CURRENT", L_TL);

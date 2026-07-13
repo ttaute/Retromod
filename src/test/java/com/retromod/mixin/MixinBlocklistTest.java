@@ -82,14 +82,22 @@ class MixinBlocklistTest {
     }
 
     @Test
-    @DisplayName("Bundled blocklist includes Deeper&Darker's PaintingItemMixin handler (#28)")
+    @DisplayName("#28 correction: stale PaintingItemMixin retired; real HangingEntityItemMixin/PaintingMixin handlers listed")
     void loadsBundledDeeperDarkerEntry() {
         MixinBlocklist.resetForTesting(); // fresh load of the bundled resource
-        Set<String> m = MixinBlocklist.methodsToStrip(
-                "com/kyanite/deeperdarker/mixin/PaintingItemMixin");
-        assertNotNull(m, "bundled blocklist should include PaintingItemMixin");
-        assertTrue(m.contains("deeperdarker$decrementStackOnServer"),
-                "the crashing @WrapOperation handler must be listed");
+        // The fictional PaintingItemMixin/deeperdarker$decrementStackOnServer entry (absent from the
+        // 1.4.1 jar) is retired - it was a silent no-op that hid the mod's real drift.
+        assertNull(MixinBlocklist.methodsToStrip("com/kyanite/deeperdarker/mixin/PaintingItemMixin"),
+                "the fictional PaintingItemMixin entry must be retired");
+        // HangingEntityItemMixin.appendHoverText (param split + deleted-API body) is stripped.
+        Set<String> hei = MixinBlocklist.methodsToStrip("com/kyanite/deeperdarker/mixin/HangingEntityItemMixin");
+        assertNotNull(hei, "HangingEntityItemMixin must be blocklisted");
+        assertTrue(hei.contains("appendHoverText"), "the unrepairable appendHoverText handler must be listed");
+        // PaintingMixin.dropItem (ServerLevel drift) is stripped; getPickResult applies natively.
+        Set<String> pm = MixinBlocklist.methodsToStrip("com/kyanite/deeperdarker/mixin/PaintingMixin");
+        assertNotNull(pm, "PaintingMixin must be blocklisted");
+        assertTrue(pm.contains("dropItem"), "the drifted dropItem handler must be listed");
+        assertFalse(pm.contains("getPickResult"), "getPickResult applies natively - must NOT be stripped");
     }
 
     @Test
@@ -120,17 +128,17 @@ class MixinBlocklistTest {
     }
 
     @Test
-    @DisplayName("End-to-end: the BUNDLED PaintingItemMixin entry strips the handler via transformMixinClass")
+    @DisplayName("End-to-end (#28): the bundled entry strips PaintingMixin.dropItem, keeps getPickResult")
     void bundledEntryStripsRealMixin() {
         MixinBlocklist.resetForTesting(); // use the bundled list, not a test injection
         var t = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
 
-        Set<String> names = methodNames(t.transformMixinClass(
-                mixinClass("com/kyanite/deeperdarker/mixin/PaintingItemMixin")));
-        assertFalse(names.contains("deeperdarker$decrementStackOnServer"),
-                "bundled blocklist must strip the #28 handler from the real mixin name");
-        assertTrue(names.contains("plainHelper"), "unrelated helper survives");
-        assertTrue(names.contains("onSomething"), "non-listed handler survives");
+        Set<String> names = methodNames(t.stripBlocklistedHandlers(mixinClassWithMethods(
+                "com/kyanite/deeperdarker/mixin/PaintingMixin", "dropItem", "getPickResult")));
+        assertFalse(names.contains("dropItem"),
+                "the drifted dropItem @Inject must be stripped from the real mixin name");
+        assertTrue(names.contains("getPickResult"),
+                "getPickResult applies natively after the Painting class-move and must survive");
     }
 
     /** A minimal @Mixin class with two named handler methods plus a ctor. */
@@ -158,28 +166,25 @@ class MixinBlocklistTest {
     }
 
     @Test
-    @DisplayName("Bundled blocklist includes Revamped Phantoms' PhantomMixin handler (#50)")
-    void loadsBundledRevampedPhantomsEntry() {
+    @DisplayName("#50: PhantomMixin is RETIRED from the bundled blocklist (repaired by the owner-alias redirect)")
+    void phantomMixinRetiredFromBlocklist() {
         MixinBlocklist.resetForTesting();
-        Set<String> m = MixinBlocklist.methodsToStrip(
-                "dev/lukebemish/revampedphantoms/mixin/PhantomMixin");
-        assertNotNull(m, "bundled blocklist should include PhantomMixin");
-        assertTrue(m.contains("revamped_phantoms$getDefaultDimensions"),
-                "the failing getDefaultDimensions handler must be listed");
+        assertNull(MixinBlocklist.methodsToStrip("dev/lukebemish/revampedphantoms/mixin/PhantomMixin"),
+                "PhantomMixin is no longer blocklisted - the FlyingMob->Mob owner-alias redirect repairs it");
     }
 
     @Test
-    @DisplayName("#50 NeoForge path: strip getDefaultDimensions, keep the goals handler")
-    void stripsPhantomDimensionsKeepsGoals() {
+    @DisplayName("#50: the strip pass leaves the retired PhantomMixin's handlers intact")
+    void phantomMixinPassesStripUntouched() {
         MixinBlocklist.resetForTesting(); // use the bundled list
         var t = new MixinCompatibilityTransformer(RetromodTransformer.getInstance());
         Set<String> names = methodNames(t.stripBlocklistedHandlers(mixinClassWithMethods(
                 "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
                 "revamped_phantoms$getDefaultDimensions", "revamped_phantoms$registerGoals")));
-        assertFalse(names.contains("revamped_phantoms$getDefaultDimensions"),
-                "the failing dimension handler must be stripped (NeoForge path)");
+        assertTrue(names.contains("revamped_phantoms$getDefaultDimensions"),
+                "the dimension handler survives - PhantomMixin is retired; the owner-alias redirect repairs it");
         assertTrue(names.contains("revamped_phantoms$registerGoals"),
-                "the unrelated goals handler must survive - self-contained soft-fail");
+                "the goals handler survives too");
     }
 
     @Test
@@ -304,13 +309,26 @@ class MixinBlocklistTest {
     }
 
     @Test
-    @DisplayName("Bundled blocklist marks Revamped Phantoms' SweepAttackMixin as full-class strip (#69)")
-    void bundledSweepAttackIsFullStrip() {
+    @DisplayName("1.3.0: the repairable #48/#69/#50 entries are RETIRED; unrepairable strips remain")
+    void repairableEntriesRetired() {
         MixinBlocklist.resetForTesting();
-        assertTrue(MixinBlocklist.isFullStrip("dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin"),
-                "SweepAttackMixin's critical injection failure needs whole-class strip");
-        // PhantomMixin stays a surgical handler-strip (preserves the shared-goals feature).
+        // #69 SweepAttackMixin: repaired by the @At signature-drift rewrite (doHurtTarget INVOKE
+        // injection point); every other anchor verified present in the 26.2 jar. No longer stripped.
+        assertFalse(MixinBlocklist.isFullStrip("dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin"),
+                "SweepAttackMixin is repaired by the @At drift rewrite, not stripped");
+        assertNull(MixinBlocklist.methodsToStrip("dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin"),
+                "no handler strip for SweepAttackMixin either");
+        // #48 Darker Depths PlayerMixin: repaired by the ValueIO adapter (repair-or-strip). Retired.
+        assertNull(MixinBlocklist.methodsToStrip("com/naterbobber/darkerdepths/mixin/PlayerMixin"),
+                "PlayerMixin save-data handlers are ValueIO-adapted now, not blocklist-stripped");
+        // #50 PhantomMixin: RETIRED. Phantom STILL declares getDefaultDimensions(Pose) on 26.1/26.2
+        // (its body calls Mob.getDefaultDimensions, the former super.getDefaultDimensions), so the
+        // @ModifyExpressionValue's only break was the @At INVOKE target still naming the deleted
+        // FlyingMob. The FlyingMob->Mob owner-alias redirect (in the 1.21.11->26.1 shims) repairs it,
+        // so the phantom-size tweak is live again, not stripped.
+        assertNull(MixinBlocklist.methodsToStrip("dev/lukebemish/revampedphantoms/mixin/PhantomMixin"),
+                "PhantomMixin is repaired by the FlyingMob->Mob owner-alias redirect, not stripped");
         assertFalse(MixinBlocklist.isFullStrip("dev/lukebemish/revampedphantoms/mixin/PhantomMixin"),
-                "PhantomMixin must remain handler-strip so goals/size features stay live");
+                "PhantomMixin is fully retired from the blocklist");
     }
 }

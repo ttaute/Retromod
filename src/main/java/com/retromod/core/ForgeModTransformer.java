@@ -304,6 +304,11 @@ public class ForgeModTransformer {
                 // inside FabricModTransformer) (#48).
                 byte[] preStripped = mixinTransformer.stripBlocklistedHandlers(original);
                 byte[] transformed = bytecodeTransformer.transformClass(preStripped, className);
+                // Phase 4 (#48): ValueIO save-data adapter, POST-remap (NeoForge/Forge names are
+                // already Mojang, but running it here keeps identification uniform with Fabric).
+                if (transformed != null) {
+                    transformed = mixinTransformer.adaptValueIoHandlers(transformed);
+                }
                 // Forge 26.2 only (self-gating): EventBus 7's auto-subscriber rejects
                 // @Mod.EventBusSubscriber classes with <2 static handlers; strip those (#85).
                 transformed = com.retromod.shim.forge.ForgeEventBusSynthetics

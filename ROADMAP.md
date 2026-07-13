@@ -5,7 +5,7 @@
 > Forward-looking plans only. Anything already shipped lives in the [changelog](CHANGELOG.md), not here.
 > No fixed dates. Retromod ships a release when it's ready, not on a calendar.
 >
-> Last updated: 2026-07-09 · **v1.2.0 shipped** (stable) · 1.3.0 in development
+> Last updated: 2026-07-11 · **v1.2.0 shipped** (stable) · **1.3.0-snapshot.1** in development (mixin translation)
 
 ---
 
@@ -157,11 +157,19 @@ MC rendering (RenderSystem / GpuDevice)
 
 ## 1.3.0 - Mixin translation
 
-**Theme:** stop *soft-failing* mixins and actually translate them. Today, when a mod's mixin targets an MC method whose signature changed, or uses MixinExtras inner annotations against renamed classes, Retromod can only **strip** the handler (the feature goes inert) via the blocklist. This release makes those mixins work:
+**Theme:** stop *soft-failing* mixins and actually translate them. Today, when a mod's mixin targets an MC method whose signature changed, or uses MixinExtras inner annotations against renamed classes, Retromod can only **strip** the handler (the feature goes inert) via the blocklist. This release makes those mixins work. **`1.3.0-snapshot.1` is the first cut.**
 
-- **Re-signature `@Inject` / `@Redirect` handlers** when the target MC method's parameters changed, e.g. `CompoundTag` → `ValueOutput`/`ValueInput` (the 1.21.5 ValueIO refactor, #48). Rewrite the captured types (and, where mechanical, the handler body) instead of stripping.
-- **Rewrite MixinExtras inner targets** (the `target = "net/minecraft/…"` strings inside `@ModifyExpressionValue` / `@WrapOperation`, and `@Shadow` field names) against the host's renamed/moved classes (this inner-target rewriter is currently incomplete).
-- Shrink the mixin blocklist as these become real translations rather than soft-fails.
+### Landed in snapshot.1
+- **Save-data re-signaturing across the ValueIO refactor (#48).** `@Inject` save-data handlers capturing a `CompoundTag` (`Entity.add/readAdditionalSaveData`, BlockEntity `save/loadAdditional`) are wrapped onto the modern `ValueOutput`/`ValueInput` param through a reflective, Minecraft-free runtime bridge, keeping the handler body unchanged. Repair-or-strip (never a `VerifyError`). Retires the Darker Depths `PlayerMixin` soft-fail.
+- **`ServerLevel`-threading signature-drift re-signaturing (#69).** `@Inject`/`@Redirect`/`@WrapOperation`/`@Overwrite` handlers for the 1.21.5 methods that gained a leading `ServerLevel` (`doHurtTarget`, `actuallyHurt`, ...) are re-signatured and their `@At(INVOKE)` targets rewritten. Retires Revamped Phantoms' `SweepAttackMixin` soft-fail.
+- **MixinExtras injector dispatch + a deleted-superclass owner-alias (#50).** MixinExtras selectors now ride the same remap as core injectors; the `FlyingMob` to `Mob` `getDefaultDimensions` alias re-owns Revamped Phantoms' `PhantomMixin` `@ModifyExpressionValue` injection point (Phantom still declares the method), retiring that soft-fail too.
+- **A stale `#28` blocklist entry corrected** (it named a mixin class absent from the jar, a silent no-op), plus the vanilla class moves the corpus scan surfaced (`Painting`/`PaintingVariant`/`Husk` sub-packages, `MobSpawnType` to `EntitySpawnReason`).
+
+### Remaining
+- **The MixinExtras inner-target rewriter is still incomplete** for the `@Local` slot re-resolution case (the roadmap's original example, Deeper and Darker's older `@WrapOperation` + `@Local Level`); the current jars did not exercise it, so it is deferred until a mod does.
+- **Re-enable the Yung's API worldgen mixins (`BeardifierMixin`/`NoiseChunkMixin`).** Research confirmed both are mechanically repairable (Beardifier: un-strip the mixin, strip only the dead accessor; NoiseChunk: demote the removed `@Shadow @Final noiseSettings` to a `@Unique` field captured from the surviving constructor param), but re-enabling interdependent worldgen mixins needs a headless-server worldgen pass before the strips are retired, since a mis-repair cascades to all chunk generation.
+- **True Darkness (#68) confirmed out of scope:** `LightTexture` was deleted and redesigned into a GPU/UBO `Lightmap`, so the mixin's `@Shadow` of the old CPU `DynamicTexture` field has no equivalent. A real fix is a mod port, not a transform. The strip stays.
+- Keep shrinking the mixin blocklist as more soft-fails become real translations.
 
 ---
 

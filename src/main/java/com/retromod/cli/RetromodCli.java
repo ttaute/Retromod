@@ -24,7 +24,7 @@ import java.util.*;
  */
 public class RetromodCli {
     
-    private static final String VERSION = "1.2.0";
+    private static final String VERSION = "1.3.0-snapshot.1";
     // Overridable per-invocation via `--target <mc-version>`.
     private static String TARGET_MC_VERSION = "26.1";
     
@@ -1060,6 +1060,10 @@ public class RetromodCli {
                             // neutralize blocklisted mixins; always runs since a mixin can need
                             // it even when its bytecode otherwise needs no transformation
                             data = mixinStripper.stripBlocklistedHandlers(data);
+                            // Phase 4 (#48): ValueIO save-data adapter, POST-remap (params are Mojang
+                            // after transformClass above). Self-registers its runtime bridge into
+                            // `transformer`, which the embedIntoJar step relocates per-mod (#48 review).
+                            data = mixinStripper.adaptValueIoHandlers(data);
                             // Forge 26.2 only (self-gating): strip @Mod.EventBusSubscriber
                             // where EventBus 7's auto-subscriber would throw (#85)
                             data = com.retromod.shim.forge.ForgeEventBusSynthetics

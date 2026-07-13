@@ -649,6 +649,38 @@ public class Fabric_1_21_11_to_26_1 implements VersionShim {
             "(DD)Lnet/minecraft/world/inventory/Slot;"
         );
 
+        // GameNarrator.sayNow(Component) renamed to saySystemNow in 26.1 (verified absent in
+        // 26.1-snapshot-10, present in 1.21.11; corpus scan: Revamped Phantoms ClientPacketListenerMixin).
+        transformer.registerMethodRedirect(
+            "net/minecraft/client/GameNarrator", "sayNow",
+            "(Lnet/minecraft/network/chat/Component;)V",
+            "net/minecraft/client/GameNarrator", "saySystemNow",
+            "(Lnet/minecraft/network/chat/Component;)V"
+        );
+
+        // FriendlyByteBuf.readJsonWithCodec renamed to readLenientJsonWithCodec in 26.1 (same
+        // descriptor; writeJsonWithCodec unchanged; corpus scan: NoChatReports MixinFriendlyByteBuf).
+        transformer.registerMethodRedirect(
+            "net/minecraft/network/FriendlyByteBuf", "readJsonWithCodec",
+            "(Lcom/mojang/serialization/Codec;)Ljava/lang/Object;",
+            "net/minecraft/network/FriendlyByteBuf", "readLenientJsonWithCodec",
+            "(Lcom/mojang/serialization/Codec;)Ljava/lang/Object;"
+        );
+
+        // FlyingMob was DELETED in ~1.21.2 (absent in 26.1/26.2); its former subclasses (Phantom,
+        // Ghast) now extend Mob directly, and getDefaultDimensions is inherited from LivingEntity, so
+        // every FlyingMob.getDefaultDimensions reference/injection point re-owners to Mob. Intermediary
+        // key (Fabric mixin @At target = Lclass_1307;method_55694(class_4050)class_4048) -> Mojang Mob;
+        // repairs Revamped Phantoms' PhantomMixin @ModifyExpressionValue (#50, retired from the
+        // blocklist: getDefaultDimensions IS still declared by Phantom on 26.x, calling
+        // Mob.getDefaultDimensions at the wrapped expression).
+        transformer.registerMethodRedirect(
+            "net/minecraft/class_1307", "method_55694",
+            "(Lnet/minecraft/class_4050;)Lnet/minecraft/class_4048;",
+            "net/minecraft/world/entity/Mob", "getDefaultDimensions",
+            "(Lnet/minecraft/world/entity/Pose;)Lnet/minecraft/world/entity/EntityDimensions;"
+        );
+
         // Item.getDefaultInstance() -> safe wrapper. 26.1 binds item components during
         // data pack loading, so mods creating ItemStacks at class init crash; the wrapper
         // catches the NPE and returns EMPTY.

@@ -59,6 +59,28 @@ public final class Common_1_21_11_to_26_1_ClassMoves {
             "net/minecraft/world/level/ChunkPos", "unpack",
             "(J)Lnet/minecraft/world/level/ChunkPos;");
 
+        // Painting + PaintingVariant moved into an entity/decoration/painting sub-package in 26.1
+        // (verified: absent at the old path, present at the new path on 26.1 and 26.2). Fixes any mod
+        // referencing them AND the @Mixin(Painting) target of Deeper and Darker's PaintingMixin (#28).
+        transformer.registerClassRedirect(
+            "net/minecraft/world/entity/decoration/Painting",
+            "net/minecraft/world/entity/decoration/painting/Painting");
+        transformer.registerClassRedirect(
+            "net/minecraft/world/entity/decoration/PaintingVariant",
+            "net/minecraft/world/entity/decoration/painting/PaintingVariant");
+
+        // Husk moved into an entity/monster/zombie sub-package in 26.1 (verified: old monster/Husk
+        // absent, monster/zombie/Husk present on 26.1 and 26.2).
+        transformer.registerClassRedirect(
+            "net/minecraft/world/entity/monster/Husk",
+            "net/minecraft/world/entity/monster/zombie/Husk");
+
+        // MobSpawnType was renamed to EntitySpawnReason in 26.1 (verified: MobSpawnType absent,
+        // EntitySpawnReason present on 26.1). Very common in mob-spawn checkXxxSpawnRules signatures.
+        transformer.registerClassRedirect(
+            "net/minecraft/world/entity/MobSpawnType",
+            "net/minecraft/world/entity/EntitySpawnReason");
+
         // Neutralize the imperative RenderSystem state setters deleted in the blaze3d
         // GpuDevice/RenderPipeline refactor (Forge wires this directly instead).
         RemovedRenderStateNeutralize.register(transformer);
