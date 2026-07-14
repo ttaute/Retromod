@@ -13963,6 +13963,7 @@ FIELD	f_122798_	x
 FIELD	f_122799_	y
 FIELD	f_122800_	z
 FIELD	f_122881_	CONFIGURED_FEATURE_REGISTRY
+FIELD	f_122885_	BIOME_REGISTRY
 FIELD	f_123047_	LOGGER
 FIELD	f_123146_	x
 FIELD	f_123147_	y
@@ -23451,6 +23452,7 @@ FIELD	f_210914_	narration
 FIELD	f_210915_	message
 FIELD	f_211050_	LOGGER
 FIELD	f_211051_	holdersInOrder
+FIELD	f_211073_	STRUCTURE_SET_REGISTRY
 FIELD	f_211544_	TICKER
 FIELD	f_211548_	cache
 FIELD	f_211701_	CODEC
@@ -41625,6 +41627,8 @@ METHOD	m_129583_	getById
 METHOD	m_129592_	getProtocolForPacket
 METHOD	m_129600_	protocol
 METHOD	m_129625_	addFlow
+METHOD	m_129783_	overworld
+METHOD	m_129910_	getWorldData
 METHOD	m_130012_	waitUntilNextTick
 METHOD	m_130038_	gaussianSampleVec3
 METHOD	m_130041_	fetch
@@ -42813,6 +42817,7 @@ METHOD	m_142005_	setMat2x4
 METHOD	m_142009_	getFloor
 METHOD	m_142011_	getCeiling
 METHOD	m_142016_	getId
+METHOD	m_142022_	offset
 METHOD	m_142023_	onDestroyed
 METHOD	m_142030_	getHeight
 METHOD	m_142033_	getInkParticle
@@ -42838,6 +42843,7 @@ METHOD	m_142074_	sendSlotChange
 METHOD	m_142075_	usePlayerItem
 METHOD	m_142078_	getListenerRadius
 METHOD	m_142079_	canFreeze
+METHOD	m_142082_	offset
 METHOD	m_142085_	canBeReplaced
 METHOD	m_142087_	canReceiveStalactiteDrip
 METHOD	m_142095_	canFitInsideContainerItems
@@ -43023,6 +43029,7 @@ METHOD	m_142558_	set
 METHOD	m_142559_	alwaysAccepts
 METHOD	m_142562_	getNarrationMessage
 METHOD	m_142567_	cycle
+METHOD	m_142572_	getServer
 METHOD	m_142579_	getChartedPaths
 METHOD	m_142582_	hasLineOfSight
 METHOD	m_142586_	clampHeadRotationToBody
@@ -45889,6 +45896,7 @@ METHOD	m_183479_	compute
 METHOD	m_183494_	onWorldLoadedStarted
 METHOD	m_183497_	name
 METHOD	m_183502_	parityConfigString
+METHOD	m_183503_	getLevel
 METHOD	m_183508_	onPacketSent
 METHOD	m_183510_	onPacketReceived
 METHOD	m_183514_	handleLightUpdatePacket
@@ -47227,6 +47235,7 @@ METHOD	m_209536_	createKey
 METHOD	m_209563_	getSphaghettiRarity2D
 METHOD	m_209565_	getSpaghettiRarity3D
 METHOD	m_209667_	create
+METHOD	m_209803_	withLayers
 METHOD	m_209810_	structureOverrides
 METHOD	m_209838_	register
 METHOD	m_209872_	createKey
