@@ -68,7 +68,7 @@
 # once. Verify after manual edits:
 #   awk -F'\t' '!/^#/&&NF{print $1,$2}' srg-to-mojang.tsv | sort | uniq -d
 #
-# Entries below: 29891 FIELD, 23582 METHOD.
+# Entries below: 30011 FIELD, 23643 METHOD.
 # =========================================================================
 
 # -------------------------------------------------------------------------
@@ -2139,13 +2139,37 @@ FIELD	f_19279_	combatStartTime
 FIELD	f_19280_	combatEndTime
 FIELD	f_19281_	inCombat
 FIELD	f_19282_	takingDamage
+FIELD	f_19300_	isFireSource
+FIELD	f_19301_	isProjectile
+FIELD	f_19302_	scalesWithDifficulty
+FIELD	f_19303_	isMagic
+FIELD	f_19304_	isExplosion
+FIELD	f_19305_	IN_FIRE
 FIELD	f_19306_	LIGHTNING_BOLT
 FIELD	f_19307_	ON_FIRE
+FIELD	f_19308_	LAVA
+FIELD	f_19309_	HOT_FLOOR
+FIELD	f_19310_	IN_WALL
+FIELD	f_19311_	CRAMMING
 FIELD	f_19312_	DROWN
+FIELD	f_19313_	STARVE
 FIELD	f_19314_	CACTUS
 FIELD	f_19315_	FALL
+FIELD	f_19316_	FLY_INTO_WALL
+FIELD	f_19317_	OUT_OF_WORLD
 FIELD	f_19318_	GENERIC
+FIELD	f_19319_	MAGIC
+FIELD	f_19320_	WITHER
 FIELD	f_19321_	ANVIL
+FIELD	f_19322_	FALLING_BLOCK
+FIELD	f_19323_	DRAGON_BREATH
+FIELD	f_19324_	DRY_OUT
+FIELD	f_19325_	SWEET_BERRY_BUSH
+FIELD	f_19326_	msgId
+FIELD	f_19327_	bypassArmor
+FIELD	f_19328_	bypassInvul
+FIELD	f_19329_	bypassMagic
+FIELD	f_19330_	exhaustion
 FIELD	f_19424_	multiplier
 FIELD	f_19446_	attributeModifiers
 FIELD	f_19447_	category
@@ -6152,6 +6176,7 @@ FIELD	f_48406_	maxCount
 FIELD	f_48424_	DIRECT_CODEC
 FIELD	f_48425_	CODEC
 FIELD	f_48435_	parameters
+FIELD	f_48438_	preset
 FIELD	f_48617_	CODEC
 FIELD	f_48621_	end
 FIELD	f_48622_	highlands
@@ -8119,6 +8144,7 @@ FIELD	f_62055_	maxZ
 FIELD	f_62056_	shape
 FIELD	f_62136_	CODEC
 FIELD	f_62137_	biomeSource
+FIELD	f_62138_	runtimebiomeSource
 FIELD	f_62245_	level
 FIELD	f_62246_	gameType
 FIELD	f_62247_	stats
@@ -8237,16 +8263,32 @@ FIELD	f_63779_	type
 FIELD	f_63836_	infiniburn
 FIELD	f_63837_	effectsLocation
 FIELD	f_63838_	ambientLight
+FIELD	f_63839_	brightnessRamp
+FIELD	f_63840_	OVERWORLD_EFFECTS
+FIELD	f_63841_	NETHER_EFFECTS
+FIELD	f_63842_	END_EFFECTS
 FIELD	f_63843_	DIRECT_CODEC
 FIELD	f_63844_	MOON_BRIGHTNESS_PER_PHASE
+FIELD	f_63845_	OVERWORLD_LOCATION
+FIELD	f_63846_	NETHER_LOCATION
+FIELD	f_63847_	END_LOCATION
+FIELD	f_63848_	DEFAULT_OVERWORLD
+FIELD	f_63849_	DEFAULT_NETHER
+FIELD	f_63850_	DEFAULT_END
+FIELD	f_63851_	OVERWORLD_CAVES_LOCATION
+FIELD	f_63852_	DEFAULT_OVERWORLD_CAVES
 FIELD	f_63853_	CODEC
 FIELD	f_63854_	fixedTime
+FIELD	f_63855_	hasSkylight
 FIELD	f_63856_	hasCeiling
 FIELD	f_63857_	ultraWarm
 FIELD	f_63858_	natural
 FIELD	f_63859_	coordinateScale
+FIELD	f_63860_	createDragonFight
+FIELD	f_63861_	piglinSafe
 FIELD	f_63862_	bedWorks
 FIELD	f_63863_	respawnAnchorWorks
+FIELD	f_63864_	hasRaids
 FIELD	f_63865_	logicalHeight
 FIELD	f_63970_	CODEC
 FIELD	f_63971_	OVERWORLD
@@ -8329,6 +8371,7 @@ FIELD	f_64979_	AIR
 FIELD	f_64980_	CAVE_AIR
 FIELD	f_64981_	WATER
 FIELD	f_64982_	LAVA
+FIELD	f_64983_	replaceableBlocks
 FIELD	f_64984_	liquids
 FIELD	f_64986_	configuredCodec
 FIELD	f_65131_	BAMBOO_TRUNK
@@ -8819,6 +8862,68 @@ FIELD	f_76192_	FLOWING_WATER
 FIELD	f_76193_	WATER
 FIELD	f_76194_	FLOWING_LAVA
 FIELD	f_76195_	LAVA
+FIELD	f_76361_	COLOR_BLUE
+FIELD	f_76362_	COLOR_BROWN
+FIELD	f_76363_	COLOR_GREEN
+FIELD	f_76364_	COLOR_RED
+FIELD	f_76365_	COLOR_BLACK
+FIELD	f_76366_	GOLD
+FIELD	f_76367_	DIAMOND
+FIELD	f_76368_	LAPIS
+FIELD	f_76369_	EMERALD
+FIELD	f_76370_	PODZOL
+FIELD	f_76371_	NETHER
+FIELD	f_76372_	TERRACOTTA_WHITE
+FIELD	f_76373_	TERRACOTTA_ORANGE
+FIELD	f_76374_	TERRACOTTA_MAGENTA
+FIELD	f_76375_	TERRACOTTA_LIGHT_BLUE
+FIELD	f_76376_	TERRACOTTA_YELLOW
+FIELD	f_76377_	TERRACOTTA_LIGHT_GREEN
+FIELD	f_76378_	TERRACOTTA_PINK
+FIELD	f_76379_	TERRACOTTA_GRAY
+FIELD	f_76380_	TERRACOTTA_LIGHT_GRAY
+FIELD	f_76381_	TERRACOTTA_CYAN
+FIELD	f_76382_	TERRACOTTA_PURPLE
+FIELD	f_76383_	TERRACOTTA_BLUE
+FIELD	f_76384_	TERRACOTTA_BROWN
+FIELD	f_76385_	TERRACOTTA_GREEN
+FIELD	f_76386_	TERRACOTTA_RED
+FIELD	f_76387_	MATERIAL_COLORS
+FIELD	f_76388_	TERRACOTTA_BLACK
+FIELD	f_76389_	CRIMSON_NYLIUM
+FIELD	f_76390_	CRIMSON_STEM
+FIELD	f_76391_	CRIMSON_HYPHAE
+FIELD	f_76392_	WARPED_NYLIUM
+FIELD	f_76393_	WARPED_STEM
+FIELD	f_76394_	WARPED_HYPHAE
+FIELD	f_76395_	WARPED_WART_BLOCK
+FIELD	f_76396_	col
+FIELD	f_76397_	id
+FIELD	f_76398_	NONE
+FIELD	f_76399_	GRASS
+FIELD	f_76400_	SAND
+FIELD	f_76401_	WOOL
+FIELD	f_76402_	FIRE
+FIELD	f_76403_	ICE
+FIELD	f_76404_	METAL
+FIELD	f_76405_	PLANT
+FIELD	f_76406_	SNOW
+FIELD	f_76407_	CLAY
+FIELD	f_76408_	DIRT
+FIELD	f_76409_	STONE
+FIELD	f_76410_	WATER
+FIELD	f_76411_	WOOD
+FIELD	f_76412_	QUARTZ
+FIELD	f_76413_	COLOR_ORANGE
+FIELD	f_76414_	COLOR_MAGENTA
+FIELD	f_76415_	COLOR_LIGHT_BLUE
+FIELD	f_76416_	COLOR_YELLOW
+FIELD	f_76417_	COLOR_LIGHT_GREEN
+FIELD	f_76418_	COLOR_PINK
+FIELD	f_76419_	COLOR_GRAY
+FIELD	f_76420_	COLOR_LIGHT_GRAY
+FIELD	f_76421_	COLOR_CYAN
+FIELD	f_76422_	COLOR_PURPLE
 FIELD	f_77078_	heap
 FIELD	f_77079_	size
 FIELD	f_77117_	malus
@@ -13962,6 +14067,9 @@ FIELD	f_122774_	defaultValue
 FIELD	f_122798_	x
 FIELD	f_122799_	y
 FIELD	f_122800_	z
+FIELD	f_122818_	DIMENSION_TYPE_REGISTRY
+FIELD	f_122819_	DIMENSION_REGISTRY
+FIELD	f_122861_	RULE_TEST
 FIELD	f_122881_	CONFIGURED_FEATURE_REGISTRY
 FIELD	f_122885_	BIOME_REGISTRY
 FIELD	f_123047_	LOGGER
@@ -30209,6 +30317,7 @@ METHOD	m_5818_	matches
 METHOD	m_5819_	get
 METHOD	m_5820_	codec
 METHOD	m_5821_	handle
+METHOD	m_5822_	getRandom
 METHOD	m_5823_	followLeashSpeed
 METHOD	m_5824_	dispenseFrom
 METHOD	m_5825_	fireImmune
@@ -31137,6 +31246,7 @@ METHOD	m_7096_	x
 METHOD	m_7097_	getMaxSpeed
 METHOD	m_7098_	y
 METHOD	m_7099_	canHarmPlayer
+METHOD	m_7100_	animateTick
 METHOD	m_7101_	getUncertainty
 METHOD	m_7103_	getSections
 METHOD	m_7104_	getPower
@@ -31989,6 +32099,7 @@ METHOD	m_8860_	tryAddFreshEntityWithPassengers
 METHOD	m_8871_	getPortalForcer
 METHOD	m_8872_	addEntity
 METHOD	m_8874_	isHandlingTick
+METHOD	m_8875_	getStructureManager
 METHOD	m_8878_	updateSleepingPlayerList
 METHOD	m_8886_	resetEmptyTime
 METHOD	m_8890_	getRandomPlayer
@@ -32504,6 +32615,7 @@ METHOD	m_14045_	clamp
 METHOD	m_14049_	binarySearch
 METHOD	m_14057_	getSeed
 METHOD	m_14059_	getInt
+METHOD	m_14072_	nextInt
 METHOD	m_14082_	equal
 METHOD	m_14085_	clampedLerp
 METHOD	m_14089_	cos
@@ -32967,6 +33079,7 @@ METHOD	m_19293_	getDeathMessage
 METHOD	m_19295_	getCombatDuration
 METHOD	m_19296_	recheckStatus
 METHOD	m_19298_	getMostSignificantFall
+METHOD	m_19372_	isExplosion
 METHOD	m_19377_	getFoodExhaustion
 METHOD	m_19385_	getMsgId
 METHOD	m_19390_	isCreativePlayer
@@ -33360,6 +33473,7 @@ METHOD	m_21335_	setLastHurtMob
 METHOD	m_21373_	spawnAnim
 METHOD	m_21376_	rotlerp
 METHOD	m_21391_	lookAt
+METHOD	m_21400_	checkMobSpawnRules
 METHOD	m_21406_	convertTo
 METHOD	m_21409_	setDropChance
 METHOD	m_21412_	getEquipmentForSlot
@@ -33845,6 +33959,7 @@ METHOD	m_27056_	ensureLoadedAndValid
 METHOD	m_27060_	mayHavePoi
 METHOD	m_27069_	updateFromSection
 METHOD	m_27079_	remove
+METHOD	m_27085_	add
 METHOD	m_27091_	exists
 METHOD	m_27098_	sectionsToVillage
 METHOD	m_27117_	getInChunk
@@ -34460,6 +34575,7 @@ METHOD	m_32865_	getSpikesAnimation
 METHOD	m_32931_	createAttributes
 METHOD	m_32939_	getIllusionOffsets
 METHOD	m_33000_	createAttributes
+METHOD	m_33008_	isDarkEnoughToSpawn
 METHOD	m_33035_	createMonsterAttributes
 METHOD	m_33065_	getPatrolTarget
 METHOD	m_33066_	hasPatrolTarget
@@ -35429,6 +35545,7 @@ METHOD	m_41619_	isEmpty
 METHOD	m_41620_	split
 METHOD	m_41622_	hurtAndBreak
 METHOD	m_41626_	shouldShowInTooltip
+METHOD	m_41629_	hurt
 METHOD	m_41636_	setEntityRepresentation
 METHOD	m_41638_	getAttributeModifiers
 METHOD	m_41640_	hurtEnemy
@@ -35947,6 +36064,8 @@ METHOD	m_47566_	getBackgroundMusic
 METHOD	m_47570_	getGrassColorFromTexture
 METHOD	m_47571_	getFoliageColorFromTexture
 METHOD	m_47592_	build
+METHOD	m_47595_	biomeCategory
+METHOD	m_47597_	precipitation
 METHOD	m_47599_	temperatureAdjustment
 METHOD	m_47601_	generationSettings
 METHOD	m_47603_	specialEffects
@@ -35956,6 +36075,7 @@ METHOD	m_47611_	downfall
 METHOD	m_47758_	getName
 METHOD	m_47815_	getFlowerFeatures
 METHOD	m_47818_	features
+METHOD	m_47831_	getTextureLocation
 METHOD	m_47877_	obfuscateSeed
 METHOD	m_47967_	getFogColor
 METHOD	m_47972_	getWaterColor
@@ -36644,6 +36764,7 @@ METHOD	m_60750_	getMenuProvider
 METHOD	m_60753_	onRemove
 METHOD	m_60758_	updateIndirectNeighbourShapes
 METHOD	m_60762_	updateIndirectNeighbourShapes
+METHOD	m_60767_	getMaterial
 METHOD	m_60768_	getOcclusionShape
 METHOD	m_60771_	getVisualShape
 METHOD	m_60775_	getDirectSignal
@@ -36686,6 +36807,7 @@ METHOD	m_60922_	isValidSpawn
 METHOD	m_60924_	isRedstoneConductor
 METHOD	m_60926_	copy
 METHOD	m_60939_	of
+METHOD	m_60944_	of
 METHOD	m_60953_	lightLevel
 METHOD	m_60955_	noOcclusion
 METHOD	m_60956_	speedFactor
@@ -36698,6 +36820,7 @@ METHOD	m_60978_	strength
 METHOD	m_60982_	hasPostProcess
 METHOD	m_60988_	dynamicShape
 METHOD	m_60991_	emissiveRendering
+METHOD	m_60993_	noDrops
 METHOD	m_60996_	air
 METHOD	m_60999_	requiresCorrectToolForDrops
 METHOD	m_61030_	test
@@ -36969,6 +37092,7 @@ METHOD	m_63936_	moonPhase
 METHOD	m_63960_	piglinSafe
 METHOD	m_63963_	hasRaids
 METHOD	m_63967_	hasFixedTime
+METHOD	m_63990_	generator
 METHOD	m_64082_	onCrystalDestroyed
 METHOD	m_64085_	setDragonKilled
 METHOD	m_64087_	setRespawnStage
@@ -37025,6 +37149,7 @@ METHOD	m_65551_	isClear
 METHOD	m_65787_	configuredCodec
 METHOD	m_65788_	isGrassOrDirt
 METHOD	m_65807_	register
+METHOD	m_65810_	isAir
 METHOD	m_66018_	getEllipseC
 METHOD	m_66022_	signedDistanceEllipse
 METHOD	m_66035_	carve
@@ -37188,6 +37313,7 @@ METHOD	m_74381_	setBoundingBox
 METHOD	m_74383_	addProcessor
 METHOD	m_74385_	setRotationPivot
 METHOD	m_74387_	getRandomPalette
+METHOD	m_74390_	setRandom
 METHOD	m_74392_	setIgnoreEntities
 METHOD	m_74394_	clearProcessors
 METHOD	m_74397_	popProcessor
@@ -37212,6 +37338,7 @@ METHOD	m_74500_	fillEntityList
 METHOD	m_74510_	updateShapeAtEdge
 METHOD	m_74517_	processBlockInfos
 METHOD	m_74523_	placeEntities
+METHOD	m_74536_	placeInWorld
 METHOD	m_74543_	createEntityIgnoreException
 METHOD	m_74563_	calculateRelativePosition
 METHOD	m_74566_	calculateConnectedPosition
@@ -37675,6 +37802,7 @@ METHOD	m_82094_	getDispatcher
 METHOD	m_82095_	sendCommands
 METHOD	m_82097_	getParseException
 METHOD	m_82112_	fillUsableCommands
+METHOD	m_82117_	performCommand
 METHOD	m_82120_	createValidator
 METHOD	m_82127_	literal
 METHOD	m_82129_	argument
@@ -38835,6 +38963,7 @@ METHOD	m_92852_	width
 METHOD	m_92854_	substrByWidth
 METHOD	m_92863_	getFontSet
 METHOD	m_92865_	getSplitter
+METHOD	m_92883_	draw
 METHOD	m_92889_	draw
 METHOD	m_92895_	width
 METHOD	m_92920_	wordWrapHeight
@@ -41629,6 +41758,9 @@ METHOD	m_129592_	getProtocolForPacket
 METHOD	m_129600_	protocol
 METHOD	m_129625_	addFlow
 METHOD	m_129783_	overworld
+METHOD	m_129880_	getLevel
+METHOD	m_129889_	getAdvancements
+METHOD	m_129892_	getCommands
 METHOD	m_129910_	getWorldData
 METHOD	m_130012_	waitUntilNextTick
 METHOD	m_130038_	gaussianSampleVec3
@@ -42859,6 +42991,10 @@ METHOD	m_142115_	getModelRotationValues
 METHOD	m_142116_	dumpServerProperties
 METHOD	m_142121_	visitDouble
 METHOD	m_142123_	getNext
+METHOD	m_142125_	west
+METHOD	m_142126_	east
+METHOD	m_142127_	north
+METHOD	m_142128_	south
 METHOD	m_142131_	checkExtraContent
 METHOD	m_142134_	execute
 METHOD	m_142135_	get
@@ -42929,6 +43065,7 @@ METHOD	m_142292_	onOpen
 METHOD	m_142297_	getAge
 METHOD	m_142298_	getPickupSound
 METHOD	m_142299_	onInteraction
+METHOD	m_142300_	relative
 METHOD	m_142301_	get
 METHOD	m_142303_	visitCompound
 METHOD	m_142305_	overrideOtherStackedOnMe
@@ -42993,6 +43130,7 @@ METHOD	m_142460_	getListenerSource
 METHOD	m_142463_	createReload
 METHOD	m_142466_	load
 METHOD	m_142467_	setRemoved
+METHOD	m_142469_	createRenamer
 METHOD	m_142470_	tryPickup
 METHOD	m_142471_	fillCrashReportCategory
 METHOD	m_142472_	onRemove
@@ -43017,6 +43155,7 @@ METHOD	m_142525_	onBrokenAfterFall
 METHOD	m_142529_	sendCarriedChange
 METHOD	m_142531_	samplers
 METHOD	m_142535_	causeFallDamage
+METHOD	m_142538_	blockPosition
 METHOD	m_142540_	onEffectAdded
 METHOD	m_142541_	getPlaceSound
 METHOD	m_142543_	getBreakSound
@@ -43156,6 +43295,7 @@ METHOD	m_143408_	sendTexturePack
 METHOD	m_143413_	readPlayerMode
 METHOD	m_143421_	shouldFilterMessageTo
 METHOD	m_143423_	calculateGameModeForNewPlayer
+METHOD	m_143425_	setLevel
 METHOD	m_143427_	loadGameTypes
 METHOD	m_143429_	initInventoryMenu
 METHOD	m_143430_	storeGameTypes
@@ -44272,6 +44412,7 @@ METHOD	m_159753_	checkNeighbors
 METHOD	m_159759_	isDirt
 METHOD	m_159774_	level
 METHOD	m_159775_	chunkGenerator
+METHOD	m_159776_	random
 METHOD	m_159777_	origin
 METHOD	m_159778_	config
 METHOD	m_159781_	countEmptyCorners
@@ -46937,6 +47078,7 @@ METHOD	m_203443_	type
 METHOD	m_203495_	getNoiseBiome
 METHOD	m_203505_	createRegistrationLookup
 METHOD	m_203521_	freeze
+METHOD	m_203538_	getOrCreateHolder
 METHOD	m_203543_	unwrapKey
 METHOD	m_203557_	freeze
 METHOD	m_203561_	getOrCreateTag
@@ -47011,6 +47153,7 @@ METHOD	m_204145_	of
 METHOD	m_204156_	dimensionTypeRegistration
 METHOD	m_204166_	getBiome
 METHOD	m_204187_	getCarvers
+METHOD	m_204201_	addFeature
 METHOD	m_204206_	getNoiseBiomeAtPosition
 METHOD	m_204210_	getNoiseBiomeAtQuart
 METHOD	m_204214_	getBiome
@@ -47025,11 +47168,13 @@ METHOD	m_204338_	is
 METHOD	m_204341_	is
 METHOD	m_204343_	getTags
 METHOD	m_204433_	getNoiseBiome
+METHOD	m_204521_	typeHolder
 METHOD	m_204528_	is
 METHOD	m_204530_	builtInRegistryHolder
 METHOD	m_204531_	getBiomeResolver
 METHOD	m_204624_	bootstrap
 METHOD	m_204630_	bootstrap
+METHOD	m_204655_	dimensions
 METHOD	m_204673_	consume
 METHOD	m_204677_	matchesTag
 METHOD	m_204735_	isReplaceable
@@ -47109,6 +47254,7 @@ METHOD	m_206502_	inlinePlaced
 METHOD	m_206506_	inlinePlaced
 METHOD	m_206509_	register
 METHOD	m_206517_	isEmpty
+METHOD	m_206579_	registryAccess
 METHOD	m_206606_	create
 METHOD	m_206667_	homogenousList
 METHOD	m_206670_	decodeWithoutRegistry
