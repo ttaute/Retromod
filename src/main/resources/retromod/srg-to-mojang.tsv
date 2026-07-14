@@ -38165,6 +38165,7 @@ METHOD	m_85793_	uvShort
 METHOD	m_85836_	pushPose
 METHOD	m_85837_	translate
 METHOD	m_85841_	scale
+METHOD	m_85845_	mulPose
 METHOD	m_85849_	popPose
 METHOD	m_85850_	last
 METHOD	m_85851_	clear
