@@ -2140,9 +2140,11 @@ FIELD	f_19280_	combatEndTime
 FIELD	f_19281_	inCombat
 FIELD	f_19282_	takingDamage
 FIELD	f_19306_	LIGHTNING_BOLT
+FIELD	f_19307_	ON_FIRE
 FIELD	f_19312_	DROWN
 FIELD	f_19314_	CACTUS
 FIELD	f_19315_	FALL
+FIELD	f_19318_	GENERIC
 FIELD	f_19321_	ANVIL
 FIELD	f_19424_	multiplier
 FIELD	f_19446_	attributeModifiers
@@ -30558,6 +30560,7 @@ METHOD	m_6299_	getBuffer
 METHOD	m_6300_	getParticleType
 METHOD	m_6302_	getScoreboardName
 METHOD	m_6304_	getRunningThread
+METHOD	m_6305_	render
 METHOD	m_6307_	progressStage
 METHOD	m_6308_	progressStart
 METHOD	m_6309_	progressStartNoAbort
@@ -38614,6 +38617,7 @@ METHOD	m_90899_	copyCreateBlockCommand
 METHOD	m_90911_	setClipboard
 METHOD	m_90913_	debugFeedbackTranslated
 METHOD	m_90922_	copyCreateEntityCommand
+METHOD	m_90926_	setSendRepeatsToGui
 METHOD	m_90928_	copyRecreateCommand
 METHOD	m_90931_	tick
 METHOD	m_90932_	handleDebugKeys
@@ -38828,6 +38832,7 @@ METHOD	m_92852_	width
 METHOD	m_92854_	substrByWidth
 METHOD	m_92863_	getFontSet
 METHOD	m_92865_	getSplitter
+METHOD	m_92889_	draw
 METHOD	m_92895_	width
 METHOD	m_92920_	wordWrapHeight
 METHOD	m_92923_	split
