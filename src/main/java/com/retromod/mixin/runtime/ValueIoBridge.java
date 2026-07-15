@@ -26,6 +26,21 @@ import java.lang.reflect.Method;
  * {@code CompoundTag} (or {@code null} only if even that can't be constructed). A write handler then
  * writes into a throwaway tag and a read handler reads defaults, i.e. the feature goes inert, which
  * is exactly the current blocklist-strip behavior, never worse and never a crash.
+ *
+ * <p><b>Verified against the 26.2 jar (the two facts this bridge depends on):</b>
+ * <ul>
+ *   <li>{@code TagValueOutput.buildResult()} is literally {@code getfield output; areturn} over its
+ *       {@code private final CompoundTag output} accumulator, i.e. it hands back the LIVE tag that is
+ *       ultimately serialized, so a write handler writing into it at {@code @At("HEAD")} persists
+ *       (and coexists with vanilla's own subsequent writes into the same tag).</li>
+ *   <li>{@code TagValueInput} holds its source in a single {@code private final CompoundTag input}
+ *       field (the only {@code CompoundTag}-typed field on the class), so the by-type field walk
+ *       below lands on the real source unambiguously.</li>
+ * </ul>
+ * The one thing this static analysis cannot confirm is that the concrete {@code ValueOutput}/{@code
+ * ValueInput} an entity/block-entity receives at runtime is always the {@code Tag*} implementation
+ * (a wrapper would take the inert fail-safe path); that last step is what an in-game save/load
+ * round-trip verifies.
  */
 public final class ValueIoBridge {
 

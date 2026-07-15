@@ -1,0 +1,163 @@
+#member	jars	handlers	injector	targetClass	targetMethod
+member	2	2	WrapWithCondition	net/minecraft/client/multiplayer/ClientPacketListener	handleSetEntityPassengersPacket
+member	2	2	WrapOperation	net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal	tick
+member	2	1	ModifyExpressionValue	net/minecraft/client/MouseHandler	turnPlayer
+member	2	1	ModifyExpressionValue	net/minecraft/client/renderer/entity/LivingEntityRenderer	render
+member	2	1	ModifyVariable	net/minecraft/server/network/ServerGamePacketListenerImpl	handleMovePlayer
+member	2	1	ModifyReturnValue	net/minecraft/world/entity/Entity	getDefaultPassengerAttachmentPoint
+member	2	1	Inject	net/minecraft/world/entity/monster/Phantom	registerGoals
+member	2	1	ModifyArg	net/minecraft/world/entity/monster/Phantom$PhantomMoveControl	tick
+member	2	1	Inject	net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal	<init>
+member	2	1	ModifyReturnValue	net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal	canUse
+member	2	1	Inject	net/minecraft/world/entity/player/Player	addAdditionalSaveData
+member	2	1	Inject	net/minecraft/world/entity/player/Player	getCurrentItemAttackStrengthDelay
+member	2	1	Inject	net/minecraft/world/entity/player/Player	readAdditionalSaveData
+member	2	1	Inject	net/minecraft/world/entity/player/Player	wantsToStopRiding
+member	2	1	WrapOperation	net/minecraft/world/entity/projectile/ProjectileUtil	getEntityHitResult
+member	2	1	(none)	net/minecraft/world/level/block/RotatedPillarBlock	*
+member	2	1	ModifyExpressionValue	net/minecraft/world/level/levelgen/PhantomSpawner	tick
+member	2	1	Inject	net/minecraft/world/level/lighting/BlockLightEngine	getEmission
+member	1	2	WrapOperation	net/minecraft/class_1593$class_1602	method_6268
+member	1	2	WrapWithCondition	net/minecraft/class_634	method_11080
+member	1	2	Accessor	net/minecraft/world/item/alchemy/Potion	*
+member	1	2	Accessor	net/minecraft/world/level/levelgen/Beardifier	*
+member	1	1	Inject	net/minecraft/class_1043	upload
+member	1	1	ModifyReturnValue	net/minecraft/class_1297	method_55665
+member	1	1	ModifyExpressionValue	net/minecraft/class_1593	method_55694
+member	1	1	Inject	net/minecraft/class_1593	method_5959
+member	1	1	ModifyArg	net/minecraft/class_1593$class_1600	method_6240
+member	1	1	Inject	net/minecraft/class_1593$class_1602	<init>
+member	1	1	ModifyReturnValue	net/minecraft/class_1593$class_1602	method_6264
+member	1	1	Inject	net/minecraft/class_1657	method_21824
+member	1	1	Inject	net/minecraft/class_1657	method_7279
+member	1	1	WrapOperation	net/minecraft/class_1675	method_18075
+member	1	1	ModifyExpressionValue	net/minecraft/class_2910	method_6445
+member	1	1	ModifyExpressionValue	net/minecraft/class_312	method_1606
+member	1	1	Inject	net/minecraft/class_5294$class_5295	getBrightnessDependentFogColor
+member	1	1	Inject	net/minecraft/class_5294$class_5296	getBrightnessDependentFogColor
+member	1	1	Inject	net/minecraft/class_757	renderLevel
+member	1	1	Inject	net/minecraft/class_765	<init>*
+member	1	1	ModifyExpressionValue	net/minecraft/class_922	method_4054
+member	1	1	Inject	net/minecraft/client/renderer/entity/PhantomRenderer	getTextureLocation
+member	1	1	Redirect	net/minecraft/server/level/ServerPlayer	tick
+member	1	1	Redirect	net/minecraft/server/network/ServerGamePacketListenerImpl	handleContainerClick
+member	1	1	Inject	net/minecraft/world/entity/decoration/Painting	dropItem
+member	1	1	Inject	net/minecraft/world/entity/decoration/Painting	getPickResult
+member	1	1	Inject	net/minecraft/world/entity/monster/Husk	checkHuskSpawnRules
+member	1	1	ModifyExpressionValue	net/minecraft/world/entity/monster/Phantom	getDefaultDimensions
+member	1	1	Inject	net/minecraft/world/entity/monster/warden/Warden	canTargetEntity
+member	1	1	Inject	net/minecraft/world/entity/monster/zombie/Husk	checkHuskSpawnRules
+member	1	1	Redirect	net/minecraft/world/entity/player/Player	tick
+member	1	1	Inject	net/minecraft/world/inventory/AbstractFurnaceMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/BeaconMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/BrewingStandMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/CartographyTableMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/ChestMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/CraftingMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/DispenserMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/EnchantmentMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/GrindstoneMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/HopperMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/ItemCombinerMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/LoomMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/ShulkerBoxMenu	stillValid
+member	1	1	Inject	net/minecraft/world/inventory/StonecutterMenu	stillValid
+member	1	1	Inject	net/minecraft/world/item/HangingEntityItem	appendHoverText
+member	1	1	Inject	net/minecraft/world/level/block/entity/JukeboxBlockEntity	setTheItem
+member	1	1	Inject	net/minecraft/world/level/gameevent/vibrations/VibrationSystem$Listener	handleGameEvent
+member	1	1	Inject	net/minecraft/world/level/levelgen/Beardifier	compute
+member	1	1	Inject	net/minecraft/world/level/levelgen/Beardifier	forStructuresInChunk
+member	1	1	Accessor	net/minecraft/world/level/levelgen/NoiseChunk	*
+member	1	1	Inject	net/minecraft/world/level/levelgen/NoiseChunk	<init>
+member	1	1	Inject	net/minecraft/world/level/levelgen/NoiseChunk	getInterpolatedState
+member	1	1	Inject	net/minecraft/world/level/levelgen/feature/BasaltColumnsFeature	canPlaceAt
+member	1	1	Inject	net/minecraft/world/level/levelgen/feature/DeltaFeature	place
+member	1	1	Inject	net/minecraft/world/level/levelgen/feature/UnderwaterMagmaFeature	place
+member	1	1	Inject	net/minecraft/world/level/levelgen/feature/VinesFeature	place
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/BoundingBox	maxX
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/BoundingBox	maxY
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/BoundingBox	maxZ
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/BoundingBox	minX
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/BoundingBox	minY
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/BoundingBox	minZ
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/pools/FeaturePoolElement	*
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/pools/ListPoolElement	*
+member	1	1	Invoker	net/minecraft/world/level/levelgen/structure/pools/SinglePoolElement	*
+member	1	1	Accessor	net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool	*
+member	1	1	WrapOperation	net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool	lambda$static$1
+#class	jars	handlers	targetClass
+class	5	5	net/minecraft/world/entity/player/Player
+class	3	2	net/minecraft/server/network/ServerGamePacketListenerImpl
+class	2	4	net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal
+class	2	2	net/minecraft/client/multiplayer/ClientPacketListener
+class	2	2	net/minecraft/world/entity/monster/Phantom
+class	2	1	net/minecraft/client/MouseHandler
+class	2	1	net/minecraft/client/renderer/entity/LivingEntityRenderer
+class	2	1	net/minecraft/world/entity/Entity
+class	2	1	net/minecraft/world/entity/monster/Phantom$PhantomMoveControl
+class	2	1	net/minecraft/world/entity/projectile/ProjectileUtil
+class	2	1	net/minecraft/world/level/block/RotatedPillarBlock
+class	2	1	net/minecraft/world/level/levelgen/PhantomSpawner
+class	2	1	net/minecraft/world/level/lighting/BlockLightEngine
+class	1	6	net/minecraft/world/level/levelgen/structure/BoundingBox
+class	1	4	net/minecraft/class_1593$class_1602
+class	1	4	net/minecraft/world/level/levelgen/Beardifier
+class	1	3	net/minecraft/world/level/levelgen/NoiseChunk
+class	1	2	net/minecraft/class_1593
+class	1	2	net/minecraft/class_1657
+class	1	2	net/minecraft/class_634
+class	1	2	net/minecraft/world/entity/decoration/Painting
+class	1	2	net/minecraft/world/item/alchemy/Potion
+class	1	2	net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool
+class	1	1	net/minecraft/class_1043
+class	1	1	net/minecraft/class_1297
+class	1	1	net/minecraft/class_1593$class_1600
+class	1	1	net/minecraft/class_1675
+class	1	1	net/minecraft/class_2910
+class	1	1	net/minecraft/class_312
+class	1	1	net/minecraft/class_5294$class_5295
+class	1	1	net/minecraft/class_5294$class_5296
+class	1	1	net/minecraft/class_757
+class	1	1	net/minecraft/class_765
+class	1	1	net/minecraft/class_922
+class	1	1	net/minecraft/client/renderer/entity/PhantomRenderer
+class	1	1	net/minecraft/server/level/ServerPlayer
+class	1	1	net/minecraft/world/entity/monster/Husk
+class	1	1	net/minecraft/world/entity/monster/warden/Warden
+class	1	1	net/minecraft/world/entity/monster/zombie/Husk
+class	1	1	net/minecraft/world/inventory/AbstractFurnaceMenu
+class	1	1	net/minecraft/world/inventory/BeaconMenu
+class	1	1	net/minecraft/world/inventory/BrewingStandMenu
+class	1	1	net/minecraft/world/inventory/CartographyTableMenu
+class	1	1	net/minecraft/world/inventory/ChestMenu
+class	1	1	net/minecraft/world/inventory/CraftingMenu
+class	1	1	net/minecraft/world/inventory/DispenserMenu
+class	1	1	net/minecraft/world/inventory/EnchantmentMenu
+class	1	1	net/minecraft/world/inventory/GrindstoneMenu
+class	1	1	net/minecraft/world/inventory/HopperMenu
+class	1	1	net/minecraft/world/inventory/ItemCombinerMenu
+class	1	1	net/minecraft/world/inventory/LoomMenu
+class	1	1	net/minecraft/world/inventory/ShulkerBoxMenu
+class	1	1	net/minecraft/world/inventory/StonecutterMenu
+class	1	1	net/minecraft/world/item/HangingEntityItem
+class	1	1	net/minecraft/world/level/block/entity/JukeboxBlockEntity
+class	1	1	net/minecraft/world/level/gameevent/vibrations/VibrationSystem$Listener
+class	1	1	net/minecraft/world/level/levelgen/feature/BasaltColumnsFeature
+class	1	1	net/minecraft/world/level/levelgen/feature/DeltaFeature
+class	1	1	net/minecraft/world/level/levelgen/feature/UnderwaterMagmaFeature
+class	1	1	net/minecraft/world/level/levelgen/feature/VinesFeature
+class	1	1	net/minecraft/world/level/levelgen/structure/pools/FeaturePoolElement
+class	1	1	net/minecraft/world/level/levelgen/structure/pools/ListPoolElement
+class	1	1	net/minecraft/world/level/levelgen/structure/pools/SinglePoolElement
+#injector	count	name
+injector	44	Inject
+injector	14	Accessor
+injector	11	ModifyExpressionValue
+injector	7	WrapOperation
+injector	6	ModifyReturnValue
+injector	6	WrapWithCondition
+injector	3	Redirect
+injector	3	ModifyArg
+injector	2	(none)
+injector	2	ModifyVariable
+injector	1	Invoker

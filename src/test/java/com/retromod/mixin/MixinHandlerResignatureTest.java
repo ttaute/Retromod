@@ -94,6 +94,74 @@ class MixinHandlerResignatureTest {
     }
 
     @Test
+    @DisplayName("Trailing append: a param inserted just before the CallbackInfo shifts only the CI slot and verifies")
+    void insertTrailingParamVerifies() throws Exception {
+        // handler(String, CIR): one captured param, CallbackInfo at index 1. Append a ResourceKey at
+        // index 1 (== cbIndex) - the 26.1 ChunkGenerator.tryGenerateStructure trailing-param shape.
+        ClassNode cn = injectShapedClass("(Ljava/lang/String;" + CIR + ")V");
+        MethodNode h = handler(cn);
+
+        boolean applied = MixinHandlerResignature.insertParams(h,
+                List.of(new ParamInsert(1, "Lnet/minecraft/resources/ResourceKey;")));
+        assertTrue(applied, "a trailing append before the CallbackInfo must re-signature");
+
+        assertEquals("(Ljava/lang/String;Lnet/minecraft/resources/ResourceKey;" + CIR + ")V", h.desc,
+                "the new param lands just before the CallbackInfo trailer");
+        // String stays slot 1; the CI (slot 2) and body local (slot 3) each shift up by one.
+        int[] seen = new int[3]; int n = 0;
+        for (var insn : h.instructions.toArray()) if (insn instanceof VarInsnNode v && n < 3) seen[n++] = v.var;
+        assertArrayEquals(new int[]{1, 4, 4}, seen, "String stays slot 1; body local 3 -> 4");
+
+        SafeClassWriter cw = new SafeClassWriter(ClassWriter.COMPUTE_FRAMES);
+        cn.accept(cw);
+        assertNotNull(new Loader().define("test.Resign", cw.toByteArray()),
+                "the trailing-re-signatured class must load and verify");
+    }
+
+    @Test
+    @DisplayName("tryGenerateStructure: the registered entry appends ResourceKey at the capture-count index")
+    void tryGenerateStructureEntry() {
+        // A 1.21.1 @Inject capturing tryGenerateStructure's old 9 params (ending at SectionPos), then CIR.
+        String desc = "(Lnet/minecraft/world/level/levelgen/structure/StructureSet$StructureSelectionEntry;"
+                + "Lnet/minecraft/world/level/StructureManager;Lnet/minecraft/core/RegistryAccess;"
+                + "Lnet/minecraft/world/level/levelgen/RandomState;"
+                + "Lnet/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplateManager;J"
+                + "Lnet/minecraft/world/level/chunk/ChunkAccess;Lnet/minecraft/world/level/ChunkPos;"
+                + "Lnet/minecraft/core/SectionPos;" + CIR + ")V";
+        MethodNode h = new MethodNode(ACC_PRIVATE, "betterstrongholds_disableVanillaStrongholds", desc, null, null);
+        org.objectweb.asm.tree.AnnotationNode inject =
+                new org.objectweb.asm.tree.AnnotationNode(
+                        "Lorg/spongepowered/asm/mixin/injection/Inject;");
+        inject.values = new java.util.ArrayList<>(List.of("method", List.of("tryGenerateStructure")));
+        h.invisibleAnnotations = new java.util.ArrayList<>(List.of(inject));
+
+        List<ParamInsert> ins = MixinHandlerResignature.injectSignatureChange(h);
+        assertNotNull(ins, "the tryGenerateStructure signature change must be registered");
+        assertEquals(1, ins.size());
+        assertEquals(9, ins.get(0).paramIndex(), "ResourceKey is appended right before the CallbackInfo (index 9)");
+        assertEquals("Lnet/minecraft/resources/ResourceKey;", ins.get(0).typeDescriptor());
+
+        // and it actually applies (descriptor gains the trailing ResourceKey before the CIR).
+        assertTrue(MixinHandlerResignature.insertParams(h, ins));
+        assertTrue(h.desc.contains("Lnet/minecraft/core/SectionPos;Lnet/minecraft/resources/ResourceKey;" + CIR),
+                "the ResourceKey is inserted after SectionPos and before the CallbackInfoReturnable");
+    }
+
+    @Test
+    @DisplayName("tryGenerateStructure guard: a same-named handler on another class (wrong first param) is skipped")
+    void tryGenerateStructureFirstParamGuard() {
+        // Same method name but the first captured param is not StructureSet$StructureSelectionEntry.
+        MethodNode h = new MethodNode(ACC_PRIVATE, "handler",
+                "(Lnet/minecraft/world/entity/Entity;" + CIR + ")V", null, null);
+        org.objectweb.asm.tree.AnnotationNode inject =
+                new org.objectweb.asm.tree.AnnotationNode("Lorg/spongepowered/asm/mixin/injection/Inject;");
+        inject.values = new java.util.ArrayList<>(List.of("method", List.of("tryGenerateStructure")));
+        h.invisibleAnnotations = new java.util.ArrayList<>(List.of(inject));
+        assertNull(MixinHandlerResignature.injectSignatureChange(h),
+                "the first-param guard must skip a same-named method on a different class");
+    }
+
+    @Test
     @DisplayName("A handler capturing no target params is left untouched")
     void noCapturedParamsSkipped() {
         ClassNode cn = injectShapedClass("(" + CIR + ")V");

@@ -174,10 +174,81 @@ class MixinValueIoAdapterTest {
     @Test
     @DisplayName("The strip fallback removes the identified handler (soft-fail path)")
     void stripFallback() {
-        byte[] in = saveDataMixin("addAdditionalSaveData", "(L" + COMPOUND_TAG + ";" + CI + ")V");
-        byte[] stripped = MixinValueIoAdapter.stripTargetsFrom(in, List.of("onSave"));
-        assertNull(method(parse(stripped), "onSave", "(L" + COMPOUND_TAG + ";" + CI + ")V"),
+        String handlerDesc = "(L" + COMPOUND_TAG + ";" + CI + ")V";
+        byte[] in = saveDataMixin("addAdditionalSaveData", handlerDesc);
+        // strip keys are name+descriptor (identity-safe against overloads)
+        byte[] stripped = MixinValueIoAdapter.stripTargetsFrom(in, java.util.Set.of("onSave" + handlerDesc));
+        assertNull(method(parse(stripped), "onSave", handlerDesc),
                 "the broken handler is stripped on the fallback path");
+    }
+
+    /** A @Mixin with N handlers, each: name, descriptor, selectors[], and an optional CompoundTag @Local slot. */
+    private static byte[] mixin(HandlerSpec... handlers) {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, "test/mixin/M", null, "java/lang/Object", null);
+        AnnotationVisitor ma = cw.visitAnnotation("Lorg/spongepowered/asm/mixin/Mixin;", false);
+        AnnotationVisitor mav = ma.visitArray("value");
+        mav.visit(null, Type.getObjectType("java/lang/Object"));
+        mav.visitEnd(); ma.visitEnd();
+        for (HandlerSpec h : handlers) {
+            MethodVisitor mv = cw.visitMethod(Opcodes.ACC_PRIVATE, h.name, h.desc, null, null);
+            AnnotationVisitor iv = mv.visitAnnotation("Lorg/spongepowered/asm/mixin/injection/Inject;", false);
+            AnnotationVisitor arr = iv.visitArray("method");
+            for (String s : h.selectors) arr.visit(null, s);
+            arr.visitEnd(); iv.visitEnd();
+            if (h.localParamIdx >= 0) {
+                AnnotationVisitor pa = mv.visitParameterAnnotation(h.localParamIdx,
+                        "Lcom/llamalad7/mixinextras/sugar/Local;", false);
+                pa.visitEnd();
+            }
+            mv.visitCode(); mv.visitInsn(Opcodes.RETURN);
+            mv.visitMaxs(0, Type.getArgumentTypes(h.desc).length + 1); mv.visitEnd();
+        }
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    private record HandlerSpec(String name, String desc, String[] selectors, int localParamIdx) {}
+
+    @Test
+    @DisplayName("A handler shared across a write AND a read save target is declined by collect but stripped as unrepairable")
+    void dualDirectionHandlerNotAdaptedButStripped() {
+        byte[] in = mixin(new HandlerSpec("onIo", "(L" + COMPOUND_TAG + ";" + CI + ")V",
+                new String[]{"addAdditionalSaveData", "readAdditionalSaveData"}, -1));
+        ClassNode cn = parse(in);
+        var targets = MixinValueIoAdapter.collect(cn);
+        assertTrue(targets.isEmpty(), "a dual-direction (write+read) handler must NOT be adapted (its one "
+                + "CompoundTag param cannot become both ValueOutput and ValueInput)");
+        var unrepairable = MixinValueIoAdapter.collectUnrepairable(cn, targets);
+        assertEquals(1, unrepairable.size(), "it is definitionally broken on a ValueIO host, so it is stripped");
+    }
+
+    @Test
+    @DisplayName("A modern handler (ValueOutput param0) that captures a CompoundTag @Local is NOT stripped")
+    void modernHandlerWithCompoundTagLocalNotStripped() {
+        // h(ValueOutput out, CallbackInfo ci, @Local CompoundTag scratch) - valid on a ValueIO host.
+        byte[] in = mixin(new HandlerSpec("onSave", "(L" + VALUE_OUTPUT + ";" + CI + "L" + COMPOUND_TAG + ";)V",
+                new String[]{"addAdditionalSaveData"}, 2));
+        ClassNode cn = parse(in);
+        var targets = MixinValueIoAdapter.collect(cn);
+        assertTrue(targets.isEmpty(), "param0 is ValueOutput, not CompoundTag: nothing to adapt");
+        var unrepairable = MixinValueIoAdapter.collectUnrepairable(cn, targets);
+        assertTrue(unrepairable.isEmpty(), "the CompoundTag is an @Local AFTER the CallbackInfo, not a stale "
+                + "target capture; the handler is valid and must not be stripped");
+    }
+
+    @Test
+    @DisplayName("The strip fallback (name+desc keyed) leaves an unrelated overload with the same name intact")
+    void stripFallbackKeepsUnrelatedOverload() {
+        String saveDesc = "(L" + COMPOUND_TAG + ";" + CI + ")V";
+        String tickDesc = "(D" + CI + ")V";
+        byte[] in = mixin(
+                new HandlerSpec("onSave", saveDesc, new String[]{"addAdditionalSaveData"}, -1),
+                new HandlerSpec("onSave", tickDesc, new String[]{"tick"}, -1)); // unrelated overload, same name
+        byte[] stripped = MixinValueIoAdapter.stripTargetsFrom(in, java.util.Set.of("onSave" + saveDesc));
+        assertNull(method(parse(stripped), "onSave", saveDesc), "the save-data handler is stripped");
+        assertNotNull(method(parse(stripped), "onSave", tickDesc),
+                "the unrelated same-named overload must survive (name+desc keyed strip)");
     }
 
     @Test

@@ -506,6 +506,16 @@ public final class Mc26_1To26_2CoreMoves {
             "net/minecraft/client/gui/screens/inventory/AbstractContainerScreen", "extractLabels",
             "(Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V"
         );
+
+        // GameRenderer.getMainCamera() -> mainCamera() in 26.2 (getMainCamera present on 26.1, gone on
+        // 26.2 where mainCamera() is the accessor; same Camera return). Owner+desc-scoped. Corpus:
+        // 10 of the top-40 NeoForge 1.21.1 mods (camera-reading client mods) call it.
+        t.registerMethodRedirect(
+            "net/minecraft/client/renderer/GameRenderer", "getMainCamera",
+            "()Lnet/minecraft/client/Camera;",
+            "net/minecraft/client/renderer/GameRenderer", "mainCamera",
+            "()Lnet/minecraft/client/Camera;"
+        );
     }
 
     private static final String BLOCKS = "net/minecraft/world/level/block/Blocks";

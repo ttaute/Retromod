@@ -23,7 +23,7 @@
     "handlers - Retromod repoints the @Mixin annotation at a non-existent target so",
     "the framework skips it entirely (the harmless 'target not found' path). Use this",
     "for mixins that ADD AN INTERFACE to their target (handler-stripping leaves the",
-    "interface unapplied \u2192 ClassCastException downstream, #68) or that have an",
+    "interface unapplied → ClassCastException downstream, #68) or that have an",
     "interdependent critical @Inject failure where partial stripping leaves orphans (#69).",
     "",
     "RETIRED in 1.3.0 (now REAL translations, not soft-fails): #48 Darker Depths",
@@ -31,7 +31,30 @@
     "SweepAttackMixin doHurtTarget (the @At signature-drift rewrite); #50 Revamped",
     "Phantoms PhantomMixin getDefaultDimensions (the FlyingMob->Mob owner-alias redirect -",
     "getDefaultDimensions IS still declared by Phantom on 26.x, calling Mob.getDefaultDimensions",
-    "at the wrapped expression, so the @ModifyExpressionValue re-resolves)."
+    "at the wrapped expression, so the @ModifyExpressionValue re-resolves).",
+    "",
+    "RETIRED in 1.3.0 (Yung's API worldgen, NoiseChunkMixin ONLY): the whole-",
+    "class strip of NoiseChunkMixin is retired. It is repaired by MixinShadowFieldDemotion:",
+    "its @Shadow @Final noiseSettings (the field the 1.21.5 worldgen refactor deleted from",
+    "NoiseChunk) is demoted to a @Unique field and seeded from the NoiseSettings ctor param",
+    "the mixin's <init> handler already captures, so YungsApi's aquifer-override feature works",
+    "again. VERIFIED on a NeoForge 26.2 dedicated server: yungsapi loads and 49 force-loaded",
+    "chunks generate cleanly (Done reached, zero 'Exception generating new chunk'). Its",
+    "attach-to-beardifier handler is an 'instanceof EnhancedBeardifierData' no-op while",
+    "BeardifierMixin stays stripped (below), so the two are separable in practice.",
+    "",
+    "STILL STRIPPED (NOT retired): BeardifierMixin. 1.3.0 research showed it is",
+    "byte-translatable (its @Inject targets forStructuresInChunk/compute survive on 26.2) and",
+    "it APPLIES cleanly, but the headless worldgen pass proved it is NOT launch-safe: with",
+    "BeardifierMixin re-enabled, chunk generation throws 'IllegalStateException: Parent chunk",
+    "missing' (net.minecraft.server.level.ChunkMap.applyStep) during initial spawn generation",
+    "and the server never reaches Done. Its enhanced cross-chunk terrain adaptation is",
+    "incompatible with 26.2's stricter chunk-dependency scheduler - a runtime-behavior break",
+    "no bytecode remap fixes (same class as True Darkness #68, but found at launch, not",
+    "statically). A/B verified on a real 26.2 server: BOTH-translated crashes; NoiseChunk-only",
+    "(this state) and both-stripped both reach Done. So BeardifierMixin + BeardifierAccessor",
+    "stay whole-class stripped; the terrain-adaptation feature stays inert; the mod loads and",
+    "worldgen runs."
   ],
   "blocked": [
     {
@@ -66,23 +89,18 @@
       "mixin": "com/yungnickyoung/minecraft/yungsapi/mixin/BeardifierMixin",
       "strip": "class",
       "issue": "Yung's API world-gen crash on 26.2",
-      "reason": "Yung's API's enhanced terrain-adaptation. BeardifierMixin does '@Mixin(Beardifier.class) implements EnhancedBeardifierData' (ADDS an interface) plus @Unique enhanced-iterator fields and two handlers (supportCustomTerrainAdaptations - an @Inject returning a custom Beardifier - and calculateDensity), and it reads Beardifier's internals through the paired accessor.BeardifierAccessor. 26.2 rewrote Beardifier: the fastutil ObjectListIterator fields pieceIterator/junctionIterator became plain java.util.List fields pieces/junctions, so the accessor's @Accessor getPieceIterator() resolves to an abstract method and the enhanced handler hits 'AbstractMethodError: Beardifier.getPieceIterator()' on EVERY chunk -> ALL world generation crashes (the user-visible symptom is a frozen 'Preparing for world creation', because the error churns in the async chunk pipeline rather than surfacing). Because the mixin adds an interface and its handlers are interdependent, this is a whole-class strip (handler-stripping would leave the interface unapplied -> ClassCastException). Neutralized, Beardifier falls back to vanilla terrain adaptation (which still blends structures into terrain); Yung's structures generate normally. This affects EVERY Yung's structure mod (Better Strongholds, Better Mineshafts, Extras, ...), since they all depend on Yung's API. 1.3.0 RESEARCH (javap on 26.1+26.2): BeardifierMixin itself is REPAIRABLE - its two @Inject targets (forStructuresInChunk, compute) are byte-identical on 26.1/26.2 and its handlers read only @Unique mixin fields, never the renamed pieces/junctions; BeardifierAccessor is the sole broken piece and is DEAD CODE (zero .class references, confirmed by grep), so the real fix is: stop stripping BeardifierMixin and strip ONLY the dead BeardifierAccessor. HELD in this snapshot because it is interdependent with NoiseChunkMixin (which attaches the noise chunk to the beardifier) and re-enabling worldgen mixins requires a headless-server worldgen pass before the strip is retired (unit-green is not launch-green for worldgen; a mis-repair cascades to ALL chunk gen)."
+      "reason": "Yung's API's enhanced terrain-adaptation. BeardifierMixin does '@Mixin(Beardifier.class) implements EnhancedBeardifierData' (ADDS an interface) plus @Unique enhanced-iterator fields and two @Inject handlers (supportCustomTerrainAdaptations on forStructuresInChunk, and calculateDensity on compute). 1.3.0 research confirmed it is byte-TRANSLATABLE: both @Inject targets survive on 26.2 (forStructuresInChunk + compute present and matching), its fields are all @Unique (it never shadows the renamed pieces/junctions), and it APPLIES cleanly on a 26.2 server (no mixin-apply failure, no AbstractMethodError). BUT the headless worldgen pass proved it is NOT launch-safe: with BeardifierMixin active, chunk generation throws 'java.lang.IllegalStateException: Parent chunk missing' at net.minecraft.server.level.ChunkMap.applyStep during INITIAL spawn generation, and the dedicated server never reaches Done (the crash is a pure-vanilla chunk-scheduler stack, no yungsapi frame - the enhanced cross-chunk terrain adaptation reads neighbouring chunks in an order 26.2's stricter chunk-dependency scheduler rejects). This is a runtime-behaviour incompatibility, not a mapping problem, so no bytecode remap fixes it (same 'genuinely un-translatable' class as True Darkness #68, but discovered at launch rather than statically). A/B VERIFIED on a real NeoForge 26.2 dedicated server: both-mixins-translated crashes with Parent-chunk-missing; NoiseChunk-only-translated (BeardifierMixin stripped) AND both-stripped BOTH reach Done and generate 49 force-loaded chunks cleanly. So BeardifierMixin stays whole-class stripped: the enhanced terrain-adaptation feature is inert, Beardifier falls back to vanilla structure-blending, and the mod loads and worldgen runs. NoiseChunkMixin (retired above) is separable - its attach-to-beardifier handler is an 'instanceof EnhancedBeardifierData' no-op while this mixin is stripped."
     },
     {
       "mixin": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BeardifierAccessor",
       "strip": "class",
       "issue": "Yung's API world-gen crash on 26.2",
-      "reason": "The @Accessor interface paired with BeardifierMixin (above). getPieceIterator()/getJunctionIterator() target Beardifier's pieceIterator/junctionIterator fields, which 26.2 replaced with the pieces/junctions Lists, so the accessors can't bind and resolve to abstract methods -> AbstractMethodError when called. Whole-class stripped alongside BeardifierMixin so the broken accessor never applies; its only caller (EnhancedBeardifierHelper, reached via BeardifierMixin's now-stripped handler) is gone too."
-    },
-    {
-      "mixin": "com.yungnickyoung.minecraft.yungsapi.mixin.NoiseChunkMixin",
-      "strip": "class",
-      "reason": "@Shadow field noiseSettings removed from NoiseChunk on 26.x; the failed apply poisons NoiseChunk class-load, killing ALL worldgen (vanilla /place and /locate included, captured on the 26.2 dedicated server). YungsApi's noise-modification API goes inert; structure generation itself works without it. 1.3.0 RESEARCH (javap on 26.1+26.2): REPAIRABLE. Only field_35674 (noiseSettings) blocks apply - the other three @Shadow members (field_37113 -> beardifier, comp_371/372/373 -> blockX/Y/Z) re-resolve via the normal mapping, and both @Inject targets (<init>, getInterpolatedState) survive. The data is still live: NoiseSettings arrives as the 5th ctor param (verified descriptor unchanged) and the existing <init>-RETURN handler already captures it. Fix: demote noiseSettings from @Shadow @Final to a @Unique field and store the captured ctor param into it, so the lambda's noiseSettings.height()/minY() reads keep working; strip only the dead NoiseChunkAccessor (zero .class references). HELD in this snapshot pending a headless-server worldgen pass (interdependent with BeardifierMixin; re-enabling worldgen mixins un-verified could cascade to all chunk gen)."
+      "reason": "DEAD-CODE companion of BeardifierMixin (which stays whole-class stripped - see above). @Accessor getPieceIterator()/getJunctionIterator() target Beardifier's pieceIterator/junctionIterator fields, which 26.2 replaced with the pieces/junctions Lists, so the accessors can't bind and resolve to abstract methods -> AbstractMethodError if ever called. Verified zero .class references anywhere in the yungsapi jar (5.1.6), so this interface is never used; whole-class stripping it prevents the framework from failing to bind its unresolvable accessors."
     },
     {
       "mixin": "com.yungnickyoung.minecraft.yungsapi.mixin.accessor.NoiseChunkAccessor",
       "strip": "class",
-      "reason": "Companion accessor for NoiseChunkMixin, same removed-field target on 26.x."
+      "reason": "DEAD-CODE companion of NoiseChunkMixin (repaired by MixinShadowFieldDemotion, not stripped - see the RETIRED note above). Same removed-field target class on 26.x; verified zero .class references in the yungsapi jar (5.1.6), so stripping the unused accessor is harmless and avoids an unbindable @Accessor. (Kept stripped even though NoiseChunkMixin itself is now translated - the accessor targets the renamed pieces/junctions-style internals and is genuinely dead.)"
     }
   ]
 }

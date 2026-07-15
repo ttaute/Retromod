@@ -18,8 +18,10 @@ import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 1.3.0 track A / Phase 4 (#48): adapt a mixin {@code @Inject} save-data handler across the
@@ -92,8 +94,14 @@ public final class MixinValueIoAdapter {
         for (MethodNode m : cn.methods) {
             AnnotationNode inject = annotationOf(m, INJECT_DESC);
             if (inject == null) continue;
-            Boolean write = targetDirection(inject);
-            if (write == null) continue;
+            Set<Boolean> dirs = targetDirections(inject);
+            // Decline a handler whose selectors span BOTH a write (ValueOutput) and a read
+            // (ValueInput) save method: one CompoundTag param can't be re-typed to two different
+            // ValueIO types, so adapting to either would leave the other target's injection with a
+            // descriptor mismatch (InvalidInjectionException -> the exact #48 cascade). A conflicting
+            // handler falls through to collectUnrepairable and is stripped (soft-fail) instead.
+            if (dirs.size() != 1) continue;
+            boolean write = dirs.iterator().next();
             if (Type.getReturnType(m.desc).getSort() != Type.VOID) continue;  // @Inject handlers are void
             Type[] args = Type.getArgumentTypes(m.desc);
             int cb = callbackIndex(args);
@@ -125,10 +133,16 @@ public final class MixinValueIoAdapter {
         for (MethodNode m : cn.methods) {
             AnnotationNode inject = annotationOf(m, INJECT_DESC);
             if (inject == null) continue;
-            if (targetDirection(inject) == null) continue;
+            if (targetDirections(inject).isEmpty()) continue;
+            // Only a CompoundTag captured as a TARGET param (before the CallbackInfo trailer) is
+            // stale on a ValueIO host; a CompoundTag @Local captured AFTER the CallbackInfo belongs
+            // to a handler already written for the modern API and must not be stripped.
+            Type[] args = Type.getArgumentTypes(m.desc);
+            int cbLimit = callbackIndex(args);
+            if (cbLimit < 0) cbLimit = args.length;
             boolean capturesTag = false;
-            for (Type t : Type.getArgumentTypes(m.desc)) {
-                if (t.getSort() == Type.OBJECT && COMPOUND_TAG.equals(t.getInternalName())) {
+            for (int i = 0; i < cbLimit; i++) {
+                if (args[i].getSort() == Type.OBJECT && COMPOUND_TAG.equals(args[i].getInternalName())) {
                     capturesTag = true;
                     break;
                 }
@@ -233,11 +247,13 @@ public final class MixinValueIoAdapter {
      * broken injection never fires (a soft-fail, equivalent to the blocklist strip). Used only when
      * frame recomputation of the adapted class fails.
      */
-    static byte[] stripTargetsFrom(byte[] annotationOnlyBytes, List<String> originalNames) {
-        if (originalNames.isEmpty()) return annotationOnlyBytes;
+    static byte[] stripTargetsFrom(byte[] annotationOnlyBytes, Set<String> nameDescKeys) {
+        if (nameDescKeys.isEmpty()) return annotationOnlyBytes;
         ClassNode cn = new ClassNode();
         new ClassReader(annotationOnlyBytes).accept(cn, 0);
-        cn.methods.removeIf(m -> originalNames.contains(m.name) && annotationOf(m, INJECT_DESC) != null);
+        // Match on name+descriptor, not name alone: an unrelated overloaded @Inject sharing a name
+        // with a stripped save-data handler must not be collaterally deleted.
+        cn.methods.removeIf(m -> nameDescKeys.contains(m.name + m.desc) && annotationOf(m, INJECT_DESC) != null);
         ClassWriter cw = new ClassWriter(0);
         cn.accept(cw);
         return cw.toByteArray();
@@ -252,8 +268,15 @@ public final class MixinValueIoAdapter {
         return (access & Opcodes.ACC_PRIVATE) != 0 ? Opcodes.INVOKESPECIAL : Opcodes.INVOKEVIRTUAL;
     }
 
-    private static Boolean targetDirection(AnnotationNode inject) {
-        if (inject.values == null) return null;
+    /**
+     * The distinct save-data directions ({@code TRUE} write / {@code FALSE} read) this
+     * {@code @Inject}'s {@code method=} selectors resolve to. Empty if it targets no save-data
+     * method; size 1 for a normal handler; size 2 for a (broken-on-ValueIO) handler shared across a
+     * write and a read target.
+     */
+    private static Set<Boolean> targetDirections(AnnotationNode inject) {
+        Set<Boolean> dirs = new HashSet<>();
+        if (inject.values == null) return dirs;
         for (int i = 0; i + 1 < inject.values.size(); i += 2) {
             if (!"method".equals(inject.values.get(i))) continue;
             Object v = inject.values.get(i + 1);
@@ -262,10 +285,10 @@ public final class MixinValueIoAdapter {
             else if (v instanceof String s) selectors.add(s);
             for (String sel : selectors) {
                 Boolean w = SAVE_TARGETS.get(MixinHandlerResignature.bareName(sel));
-                if (w != null) return w;
+                if (w != null) dirs.add(w);
             }
         }
-        return null;
+        return dirs;
     }
 
     private static int callbackIndex(Type[] args) {

@@ -91,6 +91,20 @@ public final class AotCacheStamp {
                             + "(recorded: {}), clearing {}",
                             recorded == null ? "no stamp" : recorded, cacheDir);
                     wipe(cacheDir);
+                    // wipe() swallows per-file delete failures (read-only file, lock, permission);
+                    // if any stale entry survived, do NOT write the fresh stamp - stamping a dir that
+                    // still holds a previous build's transforms would bless them as current and the
+                    // Hybrid preload (which validates only the dir stamp) would serve them. Leaving
+                    // the stamp stale makes the next run retry the wipe.
+                    if (Files.isDirectory(cacheDir)) {
+                        try (var s = Files.list(cacheDir)) {
+                            if (s.findFirst().isPresent()) {
+                                LOGGER.warn("AOT cache wipe incomplete for {}; not re-stamping so "
+                                        + "surviving stale entries are not served as current", cacheDir);
+                                return;
+                            }
+                        }
+                    }
                 }
             }
             Files.createDirectories(cacheDir);

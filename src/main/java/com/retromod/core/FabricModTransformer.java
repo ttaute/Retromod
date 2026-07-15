@@ -845,31 +845,11 @@ public class FabricModTransformer {
                                      com.retromod.mapping.IntermediaryToMojangMapper mapper) {
         try {
             String content = Files.readString(awFile);
-            if (!content.contains("intermediary")) return;
-
-            String[] lines = content.split("\n");
-            StringBuilder patched = new StringBuilder();
-
-            for (int i = 0; i < lines.length; i++) {
-                String line = lines[i].trim();
-
-                if (i == 0) {
-                    patched.append(line.replace("intermediary", "official")).append("\n");
-                    continue;
-                }
-
-                if (line.isEmpty() || line.startsWith("#")) {
-                    patched.append(line).append("\n");
-                    continue;
-                }
-
-                String remapped = mapper.remapString(line);
-                patched.append(remapped).append("\n");
+            String remapped = AccessWidenerRemapper.remapToOfficial(content, mapper);
+            if (!remapped.equals(content)) {
+                Files.writeString(awFile, remapped);
+                LOGGER.info("  Remapped access widener: {}", awFile.getFileName());
             }
-
-            Files.writeString(awFile, patched.toString());
-            LOGGER.info("  Remapped access widener: {}", awFile.getFileName());
-
         } catch (Exception e) {
             LOGGER.warn("Failed to remap access widener {}: {}", awFile.getFileName(), e.getMessage());
         }
@@ -901,76 +881,14 @@ public class FabricModTransformer {
                               com.retromod.mapping.IntermediaryToMojangMapper mapper) {
         try {
             String content = Files.readString(refmapFile);
-            com.google.gson.JsonObject root = com.google.gson.JsonParser.parseString(content).getAsJsonObject();
-
-            boolean changed = false;
-
-            if (root.has("mappings") && root.get("mappings").isJsonObject()) {
-                com.google.gson.JsonObject mappings = root.getAsJsonObject("mappings");
-                com.google.gson.JsonObject remapped = remapRefmapSection(mappings, mapper);
-                root.add("mappings", remapped);
-                changed = true;
-            }
-
-            // Remap data.intermediary (or data.named) into a new "official" section.
-            if (root.has("data") && root.get("data").isJsonObject()) {
-                com.google.gson.JsonObject data = root.getAsJsonObject("data");
-
-                com.google.gson.JsonObject source = null;
-                if (data.has("intermediary") && data.get("intermediary").isJsonObject()) {
-                    source = data.getAsJsonObject("intermediary");
-                } else if (data.has("named") && data.get("named").isJsonObject()) {
-                    source = data.getAsJsonObject("named");
-                }
-
-                if (source != null) {
-                    com.google.gson.JsonObject officialData = remapRefmapSection(source, mapper);
-                    data.add("official", officialData);
-                    changed = true;
-                }
-            }
-
-            if (changed) {
-                com.google.gson.Gson gson = new com.google.gson.GsonBuilder()
-                    .setPrettyPrinting()
-                    .disableHtmlEscaping()
-                    .create();
-                Files.writeString(refmapFile, gson.toJson(root));
+            String remapped = MixinRefmapRemapper.remap(content, mapper);
+            if (!remapped.equals(content)) {
+                Files.writeString(refmapFile, remapped);
                 LOGGER.info("  Remapped refmap: {}", refmapFile.getFileName());
             }
-
         } catch (Exception e) {
             LOGGER.warn("Failed to remap refmap {}: {}", refmapFile.getFileName(), e.getMessage());
         }
-    }
-
-    /** Replace intermediary names with Mojang names throughout a refmap section. */
-    private com.google.gson.JsonObject remapRefmapSection(
-            com.google.gson.JsonObject section,
-            com.retromod.mapping.IntermediaryToMojangMapper mapper) {
-
-        com.google.gson.JsonObject result = new com.google.gson.JsonObject();
-
-        for (String mixinClassName : section.keySet()) {
-            if (!section.get(mixinClassName).isJsonObject()) {
-                result.add(mixinClassName, section.get(mixinClassName));
-                continue;
-            }
-
-            com.google.gson.JsonObject entries = section.getAsJsonObject(mixinClassName);
-            com.google.gson.JsonObject remappedEntries = new com.google.gson.JsonObject();
-
-            for (String key : entries.keySet()) {
-                String value = entries.get(key).getAsString();
-                String remappedKey = mapper.remapString(key);
-                String remappedValue = mapper.remapString(value);
-                remappedEntries.addProperty(remappedKey, remappedValue);
-            }
-
-            result.add(mixinClassName, remappedEntries);
-        }
-
-        return result;
     }
 
     /**

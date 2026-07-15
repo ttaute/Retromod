@@ -1,0 +1,1745 @@
+{
+  "scannedJars": 8,
+  "records": [
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BeardifierAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/Beardifier"
+      ],
+      "applied": true,
+      "handler": "getPieceIterator",
+      "handlerDesc": "()Lit/unimi/dsi/fastutil/objects/ObjectListIterator;",
+      "injector": "Accessor",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BeardifierAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/Beardifier"
+      ],
+      "applied": true,
+      "handler": "getJunctionIterator",
+      "handlerDesc": "()Lit/unimi/dsi/fastutil/objects/ObjectListIterator;",
+      "injector": "Accessor",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BoundingBoxAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/BoundingBox"
+      ],
+      "applied": true,
+      "handler": "setMinX",
+      "handlerDesc": "(I)V",
+      "injector": "Accessor",
+      "targetSelectors": [
+        "minX"
+      ],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BoundingBoxAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/BoundingBox"
+      ],
+      "applied": true,
+      "handler": "setMinY",
+      "handlerDesc": "(I)V",
+      "injector": "Accessor",
+      "targetSelectors": [
+        "minY"
+      ],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BoundingBoxAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/BoundingBox"
+      ],
+      "applied": true,
+      "handler": "setMinZ",
+      "handlerDesc": "(I)V",
+      "injector": "Accessor",
+      "targetSelectors": [
+        "minZ"
+      ],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BoundingBoxAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/BoundingBox"
+      ],
+      "applied": true,
+      "handler": "setMaxX",
+      "handlerDesc": "(I)V",
+      "injector": "Accessor",
+      "targetSelectors": [
+        "maxX"
+      ],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BoundingBoxAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/BoundingBox"
+      ],
+      "applied": true,
+      "handler": "setMaxY",
+      "handlerDesc": "(I)V",
+      "injector": "Accessor",
+      "targetSelectors": [
+        "maxY"
+      ],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/BoundingBoxAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/BoundingBox"
+      ],
+      "applied": true,
+      "handler": "setMaxZ",
+      "handlerDesc": "(I)V",
+      "injector": "Accessor",
+      "targetSelectors": [
+        "maxZ"
+      ],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/FeaturePoolElementAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/pools/FeaturePoolElement"
+      ],
+      "applied": true,
+      "handler": "getFeature",
+      "handlerDesc": "()Lnet/minecraft/core/Holder;",
+      "injector": "Accessor",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/ListPoolElementAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/pools/ListPoolElement"
+      ],
+      "applied": true,
+      "handler": "getElements",
+      "handlerDesc": "()Ljava/util/List;",
+      "injector": "Accessor",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/NoiseChunkAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/NoiseChunk"
+      ],
+      "applied": true,
+      "handler": "getNoiseSettings",
+      "handlerDesc": "()Lnet/minecraft/world/level/levelgen/NoiseSettings;",
+      "injector": "Accessor",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/PotionAccessor",
+      "targetClasses": [
+        "net/minecraft/world/item/alchemy/Potion"
+      ],
+      "applied": true,
+      "handler": "getName",
+      "handlerDesc": "()Ljava/lang/String;",
+      "injector": "Accessor",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/PotionAccessor",
+      "targetClasses": [
+        "net/minecraft/world/item/alchemy/Potion"
+      ],
+      "applied": true,
+      "handler": "setName",
+      "handlerDesc": "(Ljava/lang/String;)V",
+      "injector": "Accessor",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/SinglePoolElementAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/pools/SinglePoolElement"
+      ],
+      "applied": true,
+      "handler": "callGetTemplate",
+      "handlerDesc": "(Lnet/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplateManager;)Lnet/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplate;",
+      "injector": "Invoker",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/accessor/StructureTemplatePoolAccessor",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool"
+      ],
+      "applied": true,
+      "handler": "getRawTemplates",
+      "handlerDesc": "()Ljava/util/List;",
+      "injector": "Accessor",
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/BeardifierMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/Beardifier"
+      ],
+      "applied": true,
+      "handler": "yungsapi_supportCustomTerrainAdaptations",
+      "handlerDesc": "(Lnet/minecraft/world/level/StructureManager;Lnet/minecraft/world/level/ChunkPos;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "forStructuresInChunk"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/BeardifierMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/Beardifier"
+      ],
+      "applied": true,
+      "handler": "yungsapi_calculateDensity",
+      "handlerDesc": "(Lnet/minecraft/world/level/levelgen/DensityFunction$FunctionContext;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "compute"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/FixJukeboxCrashMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/block/entity/JukeboxBlockEntity"
+      ],
+      "applied": true,
+      "handler": "yungsapi_checkIfLevelNull",
+      "handlerDesc": "(Lnet/minecraft/world/item/ItemStack;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "setTheItem"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/level/Level;registryAccess()Lnet/minecraft/core/RegistryAccess;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/IncreaseStructureWeightLimitMixinNeoForge",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/structure/pools/StructureTemplatePool"
+      ],
+      "applied": true,
+      "handler": "yungsapi_increaseWeightLimit",
+      "handlerDesc": "(IILcom/llamalad7/mixinextras/injector/wrapoperation/Operation;)Lcom/mojang/serialization/Codec;",
+      "injector": "WrapOperation",
+      "targetSelectors": [
+        "lambda$static$1",
+        "method_28886"
+      ],
+      "at": [
+        "INVOKE:Lcom/mojang/serialization/Codec;intRange(II)Lcom/mojang/serialization/Codec;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/NoBasaltColumnsInStructuresMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/feature/BasaltColumnsFeature"
+      ],
+      "applied": true,
+      "handler": "yungsapi_noBasaltColumnsInStructures",
+      "handlerDesc": "(Lnet/minecraft/world/level/LevelAccessor;ILnet/minecraft/core/BlockPos$MutableBlockPos;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "canPlaceAt(Lnet/minecraft/world/level/LevelAccessor;ILnet/minecraft/core/BlockPos$MutableBlockPos;)Z"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/NoDeltasInStructuresMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/feature/DeltaFeature"
+      ],
+      "applied": true,
+      "handler": "yungsapi_noDeltasInStructures",
+      "handlerDesc": "(Lnet/minecraft/world/level/levelgen/feature/FeaturePlaceContext;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "place(Lnet/minecraft/world/level/levelgen/feature/FeaturePlaceContext;)Z"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/NoiseChunkMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/NoiseChunk"
+      ],
+      "applied": true,
+      "handler": "yungsapi_attachNoiseChunkToBeardifier",
+      "handlerDesc": "(ILnet/minecraft/world/level/levelgen/RandomState;IILnet/minecraft/world/level/levelgen/NoiseSettings;Lnet/minecraft/world/level/levelgen/DensityFunctions$BeardifierOrMarker;Lnet/minecraft/world/level/levelgen/NoiseGeneratorSettings;Lnet/minecraft/world/level/levelgen/Aquifer$FluidPicker;Lnet/minecraft/world/level/levelgen/blending/Blender;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "<init>"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/NoiseChunkMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/NoiseChunk"
+      ],
+      "applied": true,
+      "handler": "yungsapi_dontFillMarkedPositions",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getInterpolatedState"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/NoMagmaInStructuresMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/feature/UnderwaterMagmaFeature"
+      ],
+      "applied": true,
+      "handler": "yungsapi_noMagmaInStructures",
+      "handlerDesc": "(Lnet/minecraft/world/level/levelgen/feature/FeaturePlaceContext;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "place(Lnet/minecraft/world/level/levelgen/feature/FeaturePlaceContext;)Z"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "YungsApi-1.21.1-NeoForge-5.1.6.jar",
+      "mixinClass": "com/yungnickyoung/minecraft/yungsapi/mixin/NoVinesInStructuresMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/feature/VinesFeature"
+      ],
+      "applied": true,
+      "handler": "yungsapi_noVinesInStructures",
+      "handlerDesc": "(Lnet/minecraft/world/level/levelgen/feature/FeaturePlaceContext;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "place"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4-transformed.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/BlockLightEngineMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/lighting/BlockLightEngine"
+      ],
+      "applied": true,
+      "handler": "DD$getEmission",
+      "handlerDesc": "(JLnet/minecraft/world/level/block/state/BlockState;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getEmission"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4-transformed.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/HuskMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/zombie/Husk"
+      ],
+      "applied": true,
+      "handler": "DD$checkHuskSpawnRules",
+      "handlerDesc": "(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/ServerLevelAccessor;Lnet/minecraft/world/entity/EntitySpawnReason;Lnet/minecraft/core/BlockPos;Lnet/minecraft/util/RandomSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "checkHuskSpawnRules"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4-transformed.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "G$addAdditionalSaveData",
+      "handlerDesc": "(Lnet/minecraft/world/level/storage/ValueOutput;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "addAdditionalSaveData"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4-transformed.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "G$readAdditionalSaveData",
+      "handlerDesc": "(Lnet/minecraft/world/level/storage/ValueInput;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "readAdditionalSaveData"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4-transformed.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/RotatedPillarBlockMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/block/RotatedPillarBlock"
+      ],
+      "applied": true,
+      "handler": null,
+      "handlerDesc": null,
+      "injector": null,
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4-transformed.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/ServerGamePacketListenerImplMixin",
+      "targetClasses": [
+        "net/minecraft/server/network/ServerGamePacketListenerImpl"
+      ],
+      "applied": true,
+      "handler": "DD$modifyMovementValue",
+      "handlerDesc": "(D)D",
+      "injector": "ModifyVariable",
+      "targetSelectors": [
+        "handleMovePlayer(Lnet/minecraft/network/protocol/game/ServerboundMovePlayerPacket;)V"
+      ],
+      "at": [
+        "STORE"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/BlockLightEngineMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/lighting/BlockLightEngine"
+      ],
+      "applied": true,
+      "handler": "DD$getEmission",
+      "handlerDesc": "(JLnet/minecraft/world/level/block/state/BlockState;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getEmission"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/HuskMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Husk"
+      ],
+      "applied": true,
+      "handler": "DD$checkHuskSpawnRules",
+      "handlerDesc": "(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/ServerLevelAccessor;Lnet/minecraft/world/entity/MobSpawnType;Lnet/minecraft/core/BlockPos;Lnet/minecraft/util/RandomSource;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "checkHuskSpawnRules"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "G$addAdditionalSaveData",
+      "handlerDesc": "(Lnet/minecraft/nbt/CompoundTag;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "addAdditionalSaveData"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "G$readAdditionalSaveData",
+      "handlerDesc": "(Lnet/minecraft/nbt/CompoundTag;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "readAdditionalSaveData"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/RotatedPillarBlockMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/block/RotatedPillarBlock"
+      ],
+      "applied": true,
+      "handler": null,
+      "handlerDesc": null,
+      "injector": null,
+      "targetSelectors": [],
+      "at": [],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkerdepths-2.1.4.jar",
+      "mixinClass": "com/naterbobber/darkerdepths/mixin/ServerGamePacketListenerImplMixin",
+      "targetClasses": [
+        "net/minecraft/server/network/ServerGamePacketListenerImpl"
+      ],
+      "applied": true,
+      "handler": "DD$modifyMovementValue",
+      "handlerDesc": "(D)D",
+      "injector": "ModifyVariable",
+      "targetSelectors": [
+        "handleMovePlayer(Lnet/minecraft/network/protocol/game/ServerboundMovePlayerPacket;)V"
+      ],
+      "at": [
+        "STORE"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkness-fabric-mc119-2.0.103.jar",
+      "mixinClass": "grondag/darkness/mixin/MixinDynamicTexture",
+      "targetClasses": [
+        "net/minecraft/class_1043"
+      ],
+      "applied": true,
+      "handler": "onUpload",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "upload"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkness-fabric-mc119-2.0.103.jar",
+      "mixinClass": "grondag/darkness/mixin/MixinLightTexture",
+      "targetClasses": [
+        "net/minecraft/class_765"
+      ],
+      "applied": true,
+      "handler": "afterInit",
+      "handlerDesc": "(Lnet/minecraft/class_757;Lnet/minecraft/class_310;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "<init>*"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkness-fabric-mc119-2.0.103.jar",
+      "mixinClass": "grondag/darkness/mixin/MixinGameRenderer",
+      "targetClasses": [
+        "net/minecraft/class_757"
+      ],
+      "applied": true,
+      "handler": "onRenderLevel",
+      "handlerDesc": "(FJLnet/minecraft/class_4587;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "renderLevel"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkness-fabric-mc119-2.0.103.jar",
+      "mixinClass": "grondag/darkness/mixin/MixinNetherEffects",
+      "targetClasses": [
+        "net/minecraft/class_5294$class_5296"
+      ],
+      "applied": true,
+      "handler": "onAdjustFogColor",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getBrightnessDependentFogColor"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "darkness-fabric-mc119-2.0.103.jar",
+      "mixinClass": "grondag/darkness/mixin/MixinEndEffects",
+      "targetClasses": [
+        "net/minecraft/class_5294$class_5295"
+      ],
+      "applied": true,
+      "handler": "onAdjustFogColor",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getBrightnessDependentFogColor"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/ContainerMenuMixin",
+      "targetClasses": [
+        "net/minecraft/world/inventory/AbstractFurnaceMenu",
+        "net/minecraft/world/inventory/BeaconMenu",
+        "net/minecraft/world/inventory/BrewingStandMenu",
+        "net/minecraft/world/inventory/CartographyTableMenu",
+        "net/minecraft/world/inventory/ChestMenu",
+        "net/minecraft/world/inventory/CraftingMenu",
+        "net/minecraft/world/inventory/DispenserMenu",
+        "net/minecraft/world/inventory/EnchantmentMenu",
+        "net/minecraft/world/inventory/GrindstoneMenu",
+        "net/minecraft/world/inventory/HopperMenu",
+        "net/minecraft/world/inventory/ItemCombinerMenu",
+        "net/minecraft/world/inventory/LoomMenu",
+        "net/minecraft/world/inventory/ShulkerBoxMenu",
+        "net/minecraft/world/inventory/StonecutterMenu"
+      ],
+      "applied": true,
+      "handler": "stillValid",
+      "handlerDesc": "(Lnet/minecraft/world/entity/player/Player;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "stillValid"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/HangingEntityItemMixin",
+      "targetClasses": [
+        "net/minecraft/world/item/HangingEntityItem"
+      ],
+      "applied": true,
+      "handler": "appendHoverText",
+      "handlerDesc": "(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/item/Item$TooltipContext;Ljava/util/List;Lnet/minecraft/world/item/TooltipFlag;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "appendHoverText"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/PaintingMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/decoration/Painting"
+      ],
+      "applied": true,
+      "handler": "dropItem",
+      "handlerDesc": "(Lnet/minecraft/world/entity/Entity;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "dropItem"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/PaintingMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/decoration/Painting"
+      ],
+      "applied": true,
+      "handler": "getPickResult",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getPickResult"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/PhantomRendererMixin",
+      "targetClasses": [
+        "net/minecraft/client/renderer/entity/PhantomRenderer"
+      ],
+      "applied": true,
+      "handler": "getTextureLocation",
+      "handlerDesc": "(Lnet/minecraft/world/entity/monster/Phantom;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getTextureLocation"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "stillValid",
+      "handlerDesc": "(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Player;)Z",
+      "injector": "Redirect",
+      "targetSelectors": [
+        "tick"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/inventory/AbstractContainerMenu;stillValid(Lnet/minecraft/world/entity/player/Player;)Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/ServerGamePacketListenerImplMixin",
+      "targetClasses": [
+        "net/minecraft/server/network/ServerGamePacketListenerImpl"
+      ],
+      "applied": true,
+      "handler": "handleContainerClickStillValid",
+      "handlerDesc": "(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Player;)Z",
+      "injector": "Redirect",
+      "targetSelectors": [
+        "handleContainerClick"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/inventory/AbstractContainerMenu;stillValid(Lnet/minecraft/world/entity/player/Player;)Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/ServerPlayerMixin",
+      "targetClasses": [
+        "net/minecraft/server/level/ServerPlayer"
+      ],
+      "applied": true,
+      "handler": "stillValid",
+      "handlerDesc": "(Lnet/minecraft/world/inventory/AbstractContainerMenu;Lnet/minecraft/world/entity/player/Player;)Z",
+      "injector": "Redirect",
+      "targetSelectors": [
+        "tick"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/inventory/AbstractContainerMenu;stillValid(Lnet/minecraft/world/entity/player/Player;)Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/VibrationListenerMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/gameevent/vibrations/VibrationSystem$Listener"
+      ],
+      "applied": true,
+      "handler": "handleGameEvent",
+      "handlerDesc": "(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/core/Holder;Lnet/minecraft/world/level/gameevent/GameEvent$Context;Lnet/minecraft/world/phys/Vec3;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "handleGameEvent"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "deeperdarker-neoforge-1.21.1-1.4.1.jar",
+      "mixinClass": "com/kyanite/deeperdarker/mixin/WardenMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/warden/Warden"
+      ],
+      "applied": true,
+      "handler": "canTargetEntity",
+      "handlerDesc": "(Lnet/minecraft/world/entity/Entity;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "canTargetEntity"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/EntityMixin",
+      "targetClasses": [
+        "net/minecraft/class_1297"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$defaultPassengerAttachmentPoint",
+      "handlerDesc": "(Lnet/minecraft/class_243;Lnet/minecraft/class_1297;Lnet/minecraft/class_1297;Lnet/minecraft/class_9066;)Lnet/minecraft/class_243;",
+      "injector": "ModifyReturnValue",
+      "targetSelectors": [
+        "method_55665(Lnet/minecraft/class_1297;Lnet/minecraft/class_1297;Lnet/minecraft/class_9066;)Lnet/minecraft/class_243;"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/MoveControlMixin",
+      "targetClasses": [
+        "net/minecraft/class_1593$class_1600"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$modifyPhantomMaxSpeed",
+      "handlerDesc": "(F)F",
+      "injector": "ModifyArg",
+      "targetSelectors": [
+        "method_6240()V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/class_3532;method_15348(FFF)F"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
+      "targetClasses": [
+        "net/minecraft/class_1593"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$registerGoals",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "method_5959()V"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
+      "targetClasses": [
+        "net/minecraft/class_1593"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$getDefaultDimensions",
+      "handlerDesc": "(Lnet/minecraft/class_4048;)Lnet/minecraft/class_4048;",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "method_55694(Lnet/minecraft/class_4050;)Lnet/minecraft/class_4048;"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/class_1307;method_55694(Lnet/minecraft/class_4050;)Lnet/minecraft/class_4048;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PhantomSpawnerMixin",
+      "targetClasses": [
+        "net/minecraft/class_2910"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$makePhantomsSpawnMoreOften",
+      "handlerDesc": "(I)I",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "method_6445(Lnet/minecraft/class_3218;ZZ)I"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/class_3442;method_15025(Lnet/minecraft/class_3445;)I"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/class_1657"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$stunnedDelaying",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "method_7279()F"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/class_1657"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wantsToStopRiding",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "method_21824()Z"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/ProjectileUtilMixin",
+      "targetClasses": [
+        "net/minecraft/class_1675"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$ignorePhantomVehicle",
+      "handlerDesc": "(Lnet/minecraft/class_1297;Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;Lnet/minecraft/class_1297;Lnet/minecraft/class_243;Lnet/minecraft/class_243;Lnet/minecraft/class_238;Ljava/util/function/Predicate;D)Lnet/minecraft/class_1297;",
+      "injector": "WrapOperation",
+      "targetSelectors": [
+        "method_18075(Lnet/minecraft/class_1297;Lnet/minecraft/class_243;Lnet/minecraft/class_243;Lnet/minecraft/class_238;Ljava/util/function/Predicate;D)Lnet/minecraft/class_3966;"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/class_1297;method_5668()Lnet/minecraft/class_1297;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/class_1593$class_1602"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms_init",
+      "handlerDesc": "(Lnet/minecraft/class_1593;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "<init>(Lnet/minecraft/class_1593;)V"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/class_1593$class_1602"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$setAttackMode",
+      "handlerDesc": "(Lnet/minecraft/class_1593;Ljava/lang/Object;Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;)V",
+      "injector": "WrapOperation",
+      "targetSelectors": [
+        "method_6268()V"
+      ],
+      "at": [
+        "FIELD:Lnet/minecraft/class_1593;field_7315:Lnet/minecraft/class_1593$class_1594;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/class_1593$class_1602"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$onHurtsTarget",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "method_6268()V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/class_1593;method_6121(Lnet/minecraft/class_1297;)Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/class_1593$class_1602"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms_canUse",
+      "handlerDesc": "(Z)Z",
+      "injector": "ModifyReturnValue",
+      "targetSelectors": [
+        "method_6264()Z"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/ClientPacketListenerMixin",
+      "targetClasses": [
+        "net/minecraft/class_634"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wrapSetOverlay",
+      "handlerDesc": "(Lnet/minecraft/class_329;Lnet/minecraft/class_2561;ZLnet/minecraft/class_2752;)Z",
+      "injector": "WrapWithCondition",
+      "targetSelectors": [
+        "method_11080(Lnet/minecraft/class_2752;)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/class_329;method_1758(Lnet/minecraft/class_2561;Z)V"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/ClientPacketListenerMixin",
+      "targetClasses": [
+        "net/minecraft/class_634"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wrapSayNow",
+      "handlerDesc": "(Lnet/minecraft/class_333;Lnet/minecraft/class_2561;Lnet/minecraft/class_2752;)Z",
+      "injector": "WrapWithCondition",
+      "targetSelectors": [
+        "method_11080(Lnet/minecraft/class_2752;)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/class_333;method_37015(Lnet/minecraft/class_2561;)V"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/LivingEntityRendererMixin",
+      "targetClasses": [
+        "net/minecraft/class_922"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$renderPassengerCheck",
+      "handlerDesc": "(ZLnet/minecraft/class_1309;FFLnet/minecraft/class_4587;Lnet/minecraft/class_4597;I)Z",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "method_4054(Lnet/minecraft/class_1309;FFLnet/minecraft/class_4587;Lnet/minecraft/class_4597;I)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/class_1309;method_5765()Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-fabric.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/MouseHandlerMixin",
+      "targetClasses": [
+        "net/minecraft/class_312"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$smoothCam",
+      "handlerDesc": "(Z)Z",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "method_1606(D)V"
+      ],
+      "at": [
+        "FIELD:Lnet/minecraft/class_315;field_1914:Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/EntityMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/Entity"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$defaultPassengerAttachmentPoint",
+      "handlerDesc": "(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/EntityAttachments;)Lnet/minecraft/world/phys/Vec3;",
+      "injector": "ModifyReturnValue",
+      "targetSelectors": [
+        "getDefaultPassengerAttachmentPoint(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/EntityAttachments;)Lnet/minecraft/world/phys/Vec3;"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/MoveControlMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomMoveControl"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$modifyPhantomMaxSpeed",
+      "handlerDesc": "(F)F",
+      "injector": "ModifyArg",
+      "targetSelectors": [
+        "tick()V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/util/Mth;approach(FFF)F"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$registerGoals",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "registerGoals()V"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PhantomSpawnerMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/PhantomSpawner"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$makePhantomsSpawnMoreOften",
+      "handlerDesc": "(I)I",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "tick(Lnet/minecraft/server/level/ServerLevel;ZZ)I"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/stats/ServerStatsCounter;getValue(Lnet/minecraft/stats/Stat;)I"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$stunnedDelaying",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getCurrentItemAttackStrengthDelay()F"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wantsToStopRiding",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "wantsToStopRiding()Z"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/ProjectileUtilMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/projectile/ProjectileUtil"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$ignorePhantomVehicle",
+      "handlerDesc": "(Lnet/minecraft/world/entity/Entity;Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;D)Lnet/minecraft/world/entity/Entity;",
+      "injector": "WrapOperation",
+      "targetSelectors": [
+        "getEntityHitResult(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;D)Lnet/minecraft/world/phys/EntityHitResult;"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/entity/Entity;getRootVehicle()Lnet/minecraft/world/entity/Entity;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms_init",
+      "handlerDesc": "(Lnet/minecraft/world/entity/monster/Phantom;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "<init>(Lnet/minecraft/world/entity/monster/Phantom;)V"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$setAttackMode",
+      "handlerDesc": "(Lnet/minecraft/world/entity/monster/Phantom;Ljava/lang/Object;Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;)V",
+      "injector": "WrapOperation",
+      "targetSelectors": [
+        "tick()V"
+      ],
+      "at": [
+        "FIELD:Lnet/minecraft/world/entity/monster/Phantom;attackPhase:Lnet/minecraft/world/entity/monster/Phantom$AttackPhase;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$onHurtsTarget",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "tick()V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/entity/monster/Phantom;doHurtTarget(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/Entity;)Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms_canUse",
+      "handlerDesc": "(Z)Z",
+      "injector": "ModifyReturnValue",
+      "targetSelectors": [
+        "canUse()Z"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/ClientPacketListenerMixin",
+      "targetClasses": [
+        "net/minecraft/client/multiplayer/ClientPacketListener"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wrapSetOverlay",
+      "handlerDesc": "(Lnet/minecraft/client/gui/Gui;Lnet/minecraft/network/chat/Component;ZLnet/minecraft/network/protocol/game/ClientboundSetPassengersPacket;)Z",
+      "injector": "WrapWithCondition",
+      "targetSelectors": [
+        "handleSetEntityPassengersPacket(Lnet/minecraft/network/protocol/game/ClientboundSetPassengersPacket;)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/client/gui/Gui;setOverlayMessage(Lnet/minecraft/network/chat/Component;Z)V"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/ClientPacketListenerMixin",
+      "targetClasses": [
+        "net/minecraft/client/multiplayer/ClientPacketListener"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wrapSayNow",
+      "handlerDesc": "(Lnet/minecraft/client/GameNarrator;Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/protocol/game/ClientboundSetPassengersPacket;)Z",
+      "injector": "WrapWithCondition",
+      "targetSelectors": [
+        "handleSetEntityPassengersPacket(Lnet/minecraft/network/protocol/game/ClientboundSetPassengersPacket;)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/client/GameNarrator;sayNow(Lnet/minecraft/network/chat/Component;)V"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/LivingEntityRendererMixin",
+      "targetClasses": [
+        "net/minecraft/client/renderer/entity/LivingEntityRenderer"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$renderPassengerCheck",
+      "handlerDesc": "(ZLnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)Z",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "render(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/entity/LivingEntity;isPassenger()Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge-transformed.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/MouseHandlerMixin",
+      "targetClasses": [
+        "net/minecraft/client/MouseHandler"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$smoothCam",
+      "handlerDesc": "(Z)Z",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "turnPlayer(D)V"
+      ],
+      "at": [
+        "FIELD:Lnet/minecraft/client/Options;smoothCamera:Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/EntityMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/Entity"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$defaultPassengerAttachmentPoint",
+      "handlerDesc": "(Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/EntityAttachments;)Lnet/minecraft/world/phys/Vec3;",
+      "injector": "ModifyReturnValue",
+      "targetSelectors": [
+        "getDefaultPassengerAttachmentPoint(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/entity/EntityAttachments;)Lnet/minecraft/world/phys/Vec3;"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/MoveControlMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomMoveControl"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$modifyPhantomMaxSpeed",
+      "handlerDesc": "(F)F",
+      "injector": "ModifyArg",
+      "targetSelectors": [
+        "tick()V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/util/Mth;approach(FFF)F"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$registerGoals",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "registerGoals()V"
+      ],
+      "at": [
+        "HEAD"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PhantomMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$getDefaultDimensions",
+      "handlerDesc": "(Lnet/minecraft/world/entity/EntityDimensions;)Lnet/minecraft/world/entity/EntityDimensions;",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "getDefaultDimensions(Lnet/minecraft/world/entity/Pose;)Lnet/minecraft/world/entity/EntityDimensions;"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/entity/FlyingMob;getDefaultDimensions(Lnet/minecraft/world/entity/Pose;)Lnet/minecraft/world/entity/EntityDimensions;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PhantomSpawnerMixin",
+      "targetClasses": [
+        "net/minecraft/world/level/levelgen/PhantomSpawner"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$makePhantomsSpawnMoreOften",
+      "handlerDesc": "(I)I",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "tick(Lnet/minecraft/server/level/ServerLevel;ZZ)I"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/stats/ServerStatsCounter;getValue(Lnet/minecraft/stats/Stat;)I"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$stunnedDelaying",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "getCurrentItemAttackStrengthDelay()F"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/PlayerMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/player/Player"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wantsToStopRiding",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "wantsToStopRiding()Z"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/ProjectileUtilMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/projectile/ProjectileUtil"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$ignorePhantomVehicle",
+      "handlerDesc": "(Lnet/minecraft/world/entity/Entity;Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;D)Lnet/minecraft/world/entity/Entity;",
+      "injector": "WrapOperation",
+      "targetSelectors": [
+        "getEntityHitResult(Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/Vec3;Lnet/minecraft/world/phys/AABB;Ljava/util/function/Predicate;D)Lnet/minecraft/world/phys/EntityHitResult;"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/entity/Entity;getRootVehicle()Lnet/minecraft/world/entity/Entity;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms_init",
+      "handlerDesc": "(Lnet/minecraft/world/entity/monster/Phantom;Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "<init>(Lnet/minecraft/world/entity/monster/Phantom;)V"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$setAttackMode",
+      "handlerDesc": "(Lnet/minecraft/world/entity/monster/Phantom;Ljava/lang/Object;Lcom/llamalad7/mixinextras/injector/wrapoperation/Operation;)V",
+      "injector": "WrapOperation",
+      "targetSelectors": [
+        "tick()V"
+      ],
+      "at": [
+        "FIELD:Lnet/minecraft/world/entity/monster/Phantom;attackPhase:Lnet/minecraft/world/entity/monster/Phantom$AttackPhase;"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$onHurtsTarget",
+      "handlerDesc": "(Lorg/spongepowered/asm/mixin/injection/callback/CallbackInfo;)V",
+      "injector": "Inject",
+      "targetSelectors": [
+        "tick()V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/entity/monster/Phantom;doHurtTarget(Lnet/minecraft/world/entity/Entity;)Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/SweepAttackMixin",
+      "targetClasses": [
+        "net/minecraft/world/entity/monster/Phantom$PhantomSweepAttackGoal"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms_canUse",
+      "handlerDesc": "(Z)Z",
+      "injector": "ModifyReturnValue",
+      "targetSelectors": [
+        "canUse()Z"
+      ],
+      "at": [
+        "RETURN"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/ClientPacketListenerMixin",
+      "targetClasses": [
+        "net/minecraft/client/multiplayer/ClientPacketListener"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wrapSetOverlay",
+      "handlerDesc": "(Lnet/minecraft/client/gui/Gui;Lnet/minecraft/network/chat/Component;ZLnet/minecraft/network/protocol/game/ClientboundSetPassengersPacket;)Z",
+      "injector": "WrapWithCondition",
+      "targetSelectors": [
+        "handleSetEntityPassengersPacket(Lnet/minecraft/network/protocol/game/ClientboundSetPassengersPacket;)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/client/gui/Gui;setOverlayMessage(Lnet/minecraft/network/chat/Component;Z)V"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/ClientPacketListenerMixin",
+      "targetClasses": [
+        "net/minecraft/client/multiplayer/ClientPacketListener"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$wrapSayNow",
+      "handlerDesc": "(Lnet/minecraft/client/GameNarrator;Lnet/minecraft/network/chat/Component;Lnet/minecraft/network/protocol/game/ClientboundSetPassengersPacket;)Z",
+      "injector": "WrapWithCondition",
+      "targetSelectors": [
+        "handleSetEntityPassengersPacket(Lnet/minecraft/network/protocol/game/ClientboundSetPassengersPacket;)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/client/GameNarrator;sayNow(Lnet/minecraft/network/chat/Component;)V"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/LivingEntityRendererMixin",
+      "targetClasses": [
+        "net/minecraft/client/renderer/entity/LivingEntityRenderer"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$renderPassengerCheck",
+      "handlerDesc": "(ZLnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)Z",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "render(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V"
+      ],
+      "at": [
+        "INVOKE:Lnet/minecraft/world/entity/LivingEntity;isPassenger()Z"
+      ],
+      "capturesLocal": false
+    },
+    {
+      "jar": "revampedphantoms-1.1.2-neoforge.jar",
+      "mixinClass": "dev/lukebemish/revampedphantoms/mixin/client/MouseHandlerMixin",
+      "targetClasses": [
+        "net/minecraft/client/MouseHandler"
+      ],
+      "applied": true,
+      "handler": "revamped_phantoms$smoothCam",
+      "handlerDesc": "(Z)Z",
+      "injector": "ModifyExpressionValue",
+      "targetSelectors": [
+        "turnPlayer(D)V"
+      ],
+      "at": [
+        "FIELD:Lnet/minecraft/client/Options;smoothCamera:Z"
+      ],
+      "capturesLocal": false
+    }
+  ]
+}

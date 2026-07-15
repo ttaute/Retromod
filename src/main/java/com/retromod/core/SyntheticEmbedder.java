@@ -124,12 +124,26 @@ public final class SyntheticEmbedder {
         if (synthetics == null || synthetics.isEmpty()) return 0;
         try {
             java.util.LinkedHashMap<String, byte[]> entries = new java.util.LinkedHashMap<>();
+            long total = 0;
             try (var zis = new java.util.zip.ZipInputStream(Files.newInputStream(jarPath))) {
                 java.util.zip.ZipEntry e;
                 while ((e = zis.getNextEntry()) != null) {
+                    // Bound per-entry (50MB) and aggregate (500MB) like the other extract paths:
+                    // this reads an UNTRUSTED jar fully into memory, so an unbounded read is a
+                    // decompression-bomb DoS (many-entry variant, since upstream passes stream one
+                    // entry at a time and enforce no total). On overflow, bail: the outer catch
+                    // returns 0 and the jar is written only via the temp-then-move below, so the
+                    // original is left untouched.
+                    byte[] data = e.isDirectory() ? new byte[0]
+                            : com.retromod.util.ZipSecurity.safeReadAllBytes(zis);
+                    total += data.length;
+                    if (total > com.retromod.util.ZipSecurity.DEFAULT_MAX_TOTAL_SIZE) {
+                        throw new java.io.IOException("jar exceeds max total size during synthetic embed: "
+                                + jarPath.getFileName());
+                    }
                     // directory entries are retained: dropping them breaks package-resource
                     // lookups and classpath scanners in the rewritten jar
-                    entries.put(e.getName(), e.isDirectory() ? new byte[0] : zis.readAllBytes());
+                    entries.put(e.getName(), data);
                 }
             }
             Set<String> referenced = new HashSet<>();

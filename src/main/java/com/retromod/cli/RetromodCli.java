@@ -24,7 +24,7 @@ import java.util.*;
  */
 public class RetromodCli {
     
-    private static final String VERSION = "1.3.0-snapshot.1";
+    private static final String VERSION = "1.3.0-snapshot.2";
     // Overridable per-invocation via `--target <mc-version>`.
     private static String TARGET_MC_VERSION = "26.1";
     
@@ -106,6 +106,7 @@ public class RetromodCli {
                 case "devhelp", "migrate" -> devhelpCommand(args);
                 case "autofix" -> autofixCommand(args);
                 case "gaps" -> gapsCommand(args);
+                case "mixin-scan" -> mixinScanCommand(args);
                 case "help", "-h", "--help" -> printUsage();
                 case "version", "-v", "--version" -> 
                     System.out.println("Retromod CLI v" + VERSION + " (Target: MC " + TARGET_MC_VERSION + ")");
@@ -470,6 +471,10 @@ public class RetromodCli {
             for (VersionShim shim : shimRegistry.getAllShims()) {
                 shim.registerRedirects(transformer);
             }
+            // Removed-API polyfills (LazyLoadedValue, etc.), mirroring the runtime entrypoints and
+            // the analyze/batch paths. Without these the output keeps references to removed vanilla
+            // classes that the runtime redirects, so a transform-only pass understates compatibility.
+            new com.retromod.polyfill.PolyfillRegistry().loadAndRegister(transformer);
             transformJar(modPath, outputPath, transformer, info);
             // Embed referenced deleted-class synthetics: the all-shims pass registers redirects
             // onto them (e.g. the EventBus 7 bridge), so their classes must be copied in too or
@@ -493,6 +498,11 @@ public class RetromodCli {
             System.out.println("Applying: " + shim.getShimName());
             shim.registerRedirects(transformer);
         }
+
+        // Removed-API polyfills (LazyLoadedValue, etc.), mirroring the runtime entrypoints and the
+        // analyze/batch paths. Without these the output keeps references to removed vanilla classes
+        // that the runtime redirects, so a transform-only pass understates compatibility.
+        new com.retromod.polyfill.PolyfillRegistry().loadAndRegister(transformer);
 
         // API shims are keyed on Fabric API release numbers, not MC versions, so the MC
         // version-graph BFS never reaches them. Mirror what RetromodPreLaunch does at runtime.
@@ -614,6 +624,12 @@ public class RetromodCli {
     // Package-private for RetromodCliAuxRedirectsTest (loader-gating regression).
     static String registerAuxiliaryRedirects(
             RetromodTransformer transformer, ModVersionInfo info, List<VersionShim> chain) {
+        // Removed-API polyfills (Tuple, LazyLoadedValue, ...). The single-mod `transform` path loads
+        // these itself; `batch` (and AOT) reach the transformer ONLY through this shared step, so
+        // without this a batch-transformed mod that references a removed-vanilla class is left
+        // dangling (batch is the recommended offline flow; parity with the transform-polyfill fix).
+        // PolyfillRegistry version-gates each provider internally.
+        new com.retromod.polyfill.PolyfillRegistry().loadAndRegister(transformer);
         java.util.Set<VersionShim> chainSet = new java.util.HashSet<>(chain);
         int apiApplied = 0;
         // shimRegistry is null only in unit tests exercising the gating directly.
@@ -1036,6 +1052,10 @@ public class RetromodCli {
                     && inJar.getEntry("META-INF/neoforge.mods.toml") == null;
 
             var entries = inJar.entries();
+            // Aggregate decompression cap: the per-entry safeReadAllBytes below bounds MEMORY, but a
+            // high-entry-count jar could still force hundreds of GB of inflate/deflate work (CPU DoS).
+            // The runtime extractJar paths cap the total; match that here for the offline path.
+            long totalRead = 0;
             while (entries.hasMoreElements()) {
                 var entry = entries.nextElement();
 
@@ -1052,9 +1072,19 @@ public class RetromodCli {
                     try (var is = inJar.getInputStream(entry)) {
                         // bounded read against falsified-size entries
                         byte[] data = com.retromod.util.ZipSecurity.safeReadAllBytes(is);
+                        totalRead += data.length;
+                        if (totalRead > com.retromod.util.ZipSecurity.DEFAULT_MAX_TOTAL_SIZE) {
+                            throw new IOException("mod jar exceeds max total decompressed size: " + input);
+                        }
 
                         if (entry.getName().endsWith(".class")) {
                             if (shouldTransformClass(entry.getName(), info)) {
+                                // 26.x GUI 2D-transform migration (peephole), before the class redirect
+                                // renames GuiGraphics -> GuiGraphicsExtractor. NeoForge/Forge (Mojang-
+                                // named); the string pre-filter no-ops on intermediary Fabric bytecode.
+                                if (com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
+                                    data = com.retromod.shim.common.Gui2DTransformMigration.migrate(data);
+                                }
                                 data = transformer.transformClass(data, entry.getName());
                             }
                             // neutralize blocklisted mixins; always runs since a mixin can need
@@ -1092,6 +1122,28 @@ public class RetromodCli {
                                    (entry.getName().contains("mixin") && entry.getName().endsWith(".json"))) {
                             // make mixin configs non-fatal so @Accessor/@Invoker on removed fields don't crash
                             data = makeMixinConfigNonFatal(data);
+                        } else if ((entry.getName().toLowerCase().endsWith(".accesswidener")
+                                    || entry.getName().toLowerCase().endsWith(".classtweaker"))
+                                   && com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
+                            // 26.1+ runs the OFFICIAL namespace; an intermediary access widener /
+                            // classTweaker is rejected by Fabric's classTweaker reader at load (before
+                            // any mixin/mod construction, so no crash-report - the game just dies).
+                            // Remap it to official, matching the runtime FabricModTransformer path.
+                            data = com.retromod.core.AccessWidenerRemapper.remapToOfficial(
+                                    new String(data, java.nio.charset.StandardCharsets.UTF_8),
+                                    com.retromod.mapping.IntermediaryToMojangMapper.getInstance())
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                        } else if ((entry.getName().endsWith("-refmap.json")
+                                    || entry.getName().contains("refmap"))
+                                   && com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
+                            // Remap the mixin refmap's intermediary selectors -> Mojang and add a
+                            // data.official section, so @Inject/@At target classes resolve on a 26.1+
+                            // host (else InvalidInjectionException on 'net/minecraft/class_XXXX').
+                            // Parity with the runtime FabricModTransformer refmap pass.
+                            data = com.retromod.core.MixinRefmapRemapper.remap(
+                                    new String(data, java.nio.charset.StandardCharsets.UTF_8),
+                                    com.retromod.mapping.IntermediaryToMojangMapper.getInstance())
+                                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
                         } else if (com.retromod.resources.ModDataMigrator.isMigratableData(entry.getName())) {
                             // 26.x data-only changes the bytecode pass can't reach (item renames,
                             // JSON shape changes); gated to 26.x inside migrate()
@@ -1244,6 +1296,26 @@ public class RetromodCli {
                             byte[] patched = makeMixinConfigNonFatal(data);
                             if (patched != data) modified = true;
                             data = patched;
+                        } else if ((name.toLowerCase().endsWith(".accesswidener")
+                                    || name.toLowerCase().endsWith(".classtweaker"))
+                                   && com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
+                            // Nested-jar access widener (e.g. cloth-config bundled inside a mod): an
+                            // intermediary AW crashes Fabric's classTweaker reader on a 26.1+ host.
+                            // Remap it to official (parity with the runtime nested-jar path).
+                            String remapped = com.retromod.core.AccessWidenerRemapper.remapToOfficial(
+                                    new String(data, java.nio.charset.StandardCharsets.UTF_8),
+                                    com.retromod.mapping.IntermediaryToMojangMapper.getInstance());
+                            byte[] t = remapped.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                            if (!java.util.Arrays.equals(t, data)) { data = t; modified = true; }
+                        } else if ((name.endsWith("-refmap.json") || name.contains("refmap"))
+                                   && com.retromod.core.RetromodVersion.isUnobfuscatedTarget(TARGET_MC_VERSION)) {
+                            // Nested-jar mixin refmap: remap intermediary selectors -> Mojang + add
+                            // data.official (parity with the runtime nested-jar refmap pass).
+                            String rf = com.retromod.core.MixinRefmapRemapper.remap(
+                                    new String(data, java.nio.charset.StandardCharsets.UTF_8),
+                                    com.retromod.mapping.IntermediaryToMojangMapper.getInstance());
+                            byte[] t2 = rf.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                            if (!java.util.Arrays.equals(t2, data)) { data = t2; modified = true; }
                         } else if (name.equals("fabric.mod.json") || name.equals("quilt.mod.json")) {
                             data = relaxFabricModDependencies(data);
                             modified = true;
@@ -1755,7 +1827,8 @@ public class RetromodCli {
     /** Score a mod JAR for compatibility with the target MC version. */
     private static void scoreCommand(String[] args) throws Exception {
         if (args.length < 2) {
-            System.err.println("Usage: score <mod.jar> [--mc-jar <path>] [--fabric-api <path>] [--verbose]");
+            System.err.println("Usage: score <mod.jar|dir> [--mc-jar <path>] [--fabric-api <path>] [--verbose] [--json <out>]");
+            System.err.println("       a directory scores every jar in one JVM; --json dumps residual missing members for aggregation");
             System.exit(1);
         }
 
@@ -1768,6 +1841,7 @@ public class RetromodCli {
         boolean verbose = false;
         Path mcJarPath = null;
         Path fabricApiPath = null;
+        Path jsonOut = null;
 
         for (int i = 2; i < args.length; i++) {
             switch (args[i]) {
@@ -1777,6 +1851,9 @@ public class RetromodCli {
                 }
                 case "--fabric-api" -> {
                     if (i + 1 < args.length) fabricApiPath = Path.of(args[++i]);
+                }
+                case "--json" -> {
+                    if (i + 1 < args.length) jsonOut = Path.of(args[++i]);
                 }
             }
         }
@@ -1818,6 +1895,13 @@ public class RetromodCli {
         if (fabricApiPath != null && Files.exists(fabricApiPath)) {
             System.err.println("Loading Fabric API index from: " + fabricApiPath.getFileName());
             scorer.loadFabricApiJar(fabricApiPath);
+        }
+
+        // Directory (corpus) mode: score every jar reusing the loaded index, dump residual
+        // missing members as JSON for aggregation. One JVM for the whole corpus.
+        if (Files.isDirectory(modPath)) {
+            scoreDirectory(scorer, modPath, jsonOut);
+            return;
         }
 
         ModVersionInfo info = detector.detectVersion(modPath);
@@ -1924,6 +2008,49 @@ public class RetromodCli {
                 System.out.println();
             }
         }
+    }
+
+    /**
+     * Corpus mode for {@code score <dir>}: score every jar in the directory reusing the already-loaded
+     * MC/Fabric index (one JVM for the whole corpus), and dump each jar's residual missing members as
+     * JSON for aggregation. Score a directory of ALREADY-TRANSFORMED jars against the host jar to get
+     * the breaks Retromod does NOT yet cover.
+     */
+    private static void scoreDirectory(ModScorer scorer, Path dir, Path jsonOut) throws Exception {
+        java.util.List<Path> jars = new ArrayList<>();
+        try (var s = Files.list(dir)) {
+            s.filter(p -> p.toString().endsWith(".jar")).sorted().forEach(jars::add);
+        }
+        com.google.gson.JsonArray arr = new com.google.gson.JsonArray();
+        for (Path jar : jars) {
+            try {
+                ModVersionInfo info = detector.detectVersion(jar);
+                ModScorer.ScoreResult r = scorer.analyze(jar, info);
+                com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+                o.addProperty("jar", jar.getFileName().toString());
+                o.addProperty("overallScore", r.overallScore);
+                o.add("missingClasses", strArray(r.missingClasses));
+                o.add("missingMethods", strArray(r.missingMethods));
+                o.add("missingFields", strArray(r.missingFields));
+                arr.add(o);
+                System.err.println(String.format("scored %-52s %3d/100  (%dC %dM %dF)",
+                        jar.getFileName(), r.overallScore,
+                        r.missingClasses.size(), r.missingMethods.size(), r.missingFields.size()));
+            } catch (Exception e) {
+                System.err.println("skip " + jar.getFileName() + ": " + e);
+            }
+        }
+        if (jsonOut != null) {
+            Files.writeString(jsonOut,
+                    new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(arr));
+            System.err.println("wrote " + jsonOut + " (" + arr.size() + " jars)");
+        }
+    }
+
+    private static com.google.gson.JsonArray strArray(java.util.List<String> list) {
+        com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+        for (String s : list) a.add(s);
+        return a;
     }
 
     private static void printBoxTop(int w) {
@@ -2076,6 +2203,7 @@ public class RetromodCli {
         System.out.println("Analysis Commands:");
         System.out.println("  score <mod.jar> [options]      Score mod compatibility with 26.1");
         System.out.println("  autofix <log-file> [--apply]   Analyze crash log, suggest/apply fixes");
+        System.out.println("  mixin-scan <dir-or-jar>...     Inventory mixin injectors (JSON via --json)");
         System.out.println();
         System.out.println("Utility Commands:");
         System.out.println("  diff <loader> <v1> <v2>        Show API differences");
@@ -2109,6 +2237,54 @@ public class RetromodCli {
         System.out.println();
         System.out.println("Target Minecraft version: " + TARGET_MC_VERSION);
         System.out.println();
+    }
+
+    /**
+     * Inventory the mixin injectors across one or more mod JARs (or directories recursed for
+     * {@code *.jar}). Reads {@code @Mixin}/injector annotations with ASM and emits the frozen JSON
+     * schema the mixin-discovery Python tools consume, plus a human summary and a top-N table.
+     */
+    private static void mixinScanCommand(String[] args) throws Exception {
+        List<Path> inputs = new ArrayList<>();
+        Path jsonOut = null;
+        int topN = 20;
+
+        for (int i = 1; i < args.length; i++) {
+            String a = args[i];
+            if ("--json".equals(a)) {
+                if (i + 1 >= args.length) { System.err.println("--json needs a path"); System.exit(1); }
+                jsonOut = Path.of(args[++i]);
+            } else if ("--top".equals(a)) {
+                if (i + 1 >= args.length) { System.err.println("--top needs a number"); System.exit(1); }
+                try {
+                    topN = Integer.parseInt(args[++i].trim());
+                } catch (NumberFormatException e) {
+                    System.err.println("--top expects an integer, got: " + args[i]);
+                    System.exit(1);
+                }
+            } else if (a.startsWith("--")) {
+                // consumed elsewhere (e.g. --target); ignore unknown flags here
+            } else {
+                inputs.add(Path.of(a));
+            }
+        }
+
+        if (inputs.isEmpty()) {
+            System.err.println("Usage: mixin-scan <dir-or-jar>... [--json <out>] [--top N]");
+            System.exit(1);
+        }
+
+        MixinScanner.ScanResult result = MixinScanner.scan(inputs);
+        MixinScanner.printSummary(result, topN, System.out);
+
+        if (jsonOut != null) {
+            String json = MixinScanner.toJson(result);
+            if (jsonOut.getParent() != null) {
+                Files.createDirectories(jsonOut.getParent());
+            }
+            Files.writeString(jsonOut, json, java.nio.charset.StandardCharsets.UTF_8);
+            System.out.println("Wrote JSON: " + jsonOut + " (" + result.records.size() + " records)");
+        }
     }
 
     /**

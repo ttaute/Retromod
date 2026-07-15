@@ -199,6 +199,14 @@ public class MixinCompatibilityTransformer {
             modified |= transformFieldAnnotations(field);
         }
 
+        // Demote a @Shadow @Final field whose target vanilla field was removed in the 1.21.5
+        // worldgen refactor to a @Unique mixin field seeded from the ctor param the mixin's
+        // @Inject handler already captures (YUNG's API NoiseChunkMixin.noiseSettings). Gated to
+        // 1.21.5+ hosts (where the field is gone); on older hosts the @Shadow still resolves.
+        if (refactorHost && MixinShadowFieldDemotion.handles(classNode.name)) {
+            modified |= MixinShadowFieldDemotion.apply(classNode);
+        }
+
         if (!modified && resignTargets.isEmpty() && driftRepairs.isEmpty()) {
             return classBytes;
         }
@@ -292,8 +300,10 @@ public class MixinCompatibilityTransformer {
             MixinValueIoAdapter.ensureBridgeRegistered(transformer);
         }
 
-        List<String> names = new ArrayList<>();
-        for (MixinValueIoAdapter.Target t : targets) names.add(t.originalName);
+        // name+descriptor keys (captured BEFORE apply() renames the handlers) for the identity-safe
+        // strip fallback: keying on name alone could collaterally delete an unrelated overload.
+        java.util.Set<String> targetKeys = new java.util.HashSet<>();
+        for (MixinValueIoAdapter.Target t : targets) targetKeys.add(t.originalName + t.handler.desc);
         try {
             int applied = MixinValueIoAdapter.apply(classNode, targets);
             if (!unrepairable.isEmpty()) {
@@ -317,10 +327,11 @@ public class MixinCompatibilityTransformer {
             LOGGER.debug("ValueIO adaptation could not verify in {} ({}); stripping the handler(s) (soft-fail)",
                     classNode.name, t.toString());
             // The fallback strips from the PRISTINE original bytes (a fresh ClassNode with no
-            // synthesized adapters), so name-based selection is correct there.
-            List<String> all = new ArrayList<>(names);
-            for (MethodNode m : unrepairable) all.add(m.name);
-            return MixinValueIoAdapter.stripTargetsFrom(classBytes, all);
+            // synthesized adapters); it matches on name+descriptor so an unrelated overloaded
+            // @Inject sharing a stripped handler's name is not collaterally deleted.
+            java.util.Set<String> allKeys = new java.util.HashSet<>(targetKeys);
+            for (MethodNode m : unrepairable) allKeys.add(m.name + m.desc);
+            return MixinValueIoAdapter.stripTargetsFrom(classBytes, allKeys);
         }
     }
 

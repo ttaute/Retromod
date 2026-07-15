@@ -101,6 +101,20 @@ public class Forge_1_21_11_to_26_1 implements VersionShim {
             "(Ljava/lang/String;)Lnet/minecraft/resources/Identifier;"
         );
 
+        // 26.1 renamed the Registry value getter get(Identifier) -> getValue(Identifier) (the
+        // ResourceLocation -> Identifier companion). Shared with the NeoForge/Fabric path.
+        com.retromod.shim.common.Common_1_21_11_to_26_1_ClassMoves
+            .registerRegistryValueGetterRename(transformer);
+        // Vanilla client accessor renames that landed by 26.1 (Minecraft.getTimer -> getDeltaTracker,
+        // Camera.getPosition -> position). Shared with the NeoForge/Fabric path.
+        com.retromod.shim.common.Common_1_21_11_to_26_1_ClassMoves
+            .registerClientAccessorRenames26_1(transformer);
+        // Corpus-mined 26.x descriptor adaptations (Mth.cos/sin arg widen, Window.getGuiScale return
+        // narrow, SoundManager.play now-returns, CompoundTag.getList type-hint drop, Screen.hasX ->
+        // Minecraft.getInstance().hasX). Shared with the NeoForge/Fabric path.
+        com.retromod.shim.common.Common_1_21_11_to_26_1_ClassMoves
+            .registerCorpus26xDescriptorAdaptations(transformer);
+
         // EntityType.BOAT/CHEST_BOAT split into per-wood types in 26.1; OAK is
         // the common default for old mods.
         transformer.registerFieldRedirect(

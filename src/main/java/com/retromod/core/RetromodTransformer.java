@@ -67,6 +67,21 @@ public class RetromodTransformer implements ClassFileTransformer {
     private final Map<MethodKey, MethodTarget> argDropRedirects = new ConcurrentHashMap<>();
     private final Set<String> argDropOwners = ConcurrentHashMap.newKeySet();
 
+    // Converting redirects: retarget a call AND adapt the last arg and/or the return value with a
+    // single primitive conversion or a POP. Covers corpus-mined 26.x descriptor adaptations where
+    // the target method still exists but a primitive widened or the return type changed:
+    // Mth.cos(F)F -> cos(D)F (F2D the arg), Window.getGuiScale()D -> ()I (I2D the result),
+    // SoundManager.play(SoundInstance)V -> ()PlayResult (POP the now-returned result). Same opcode.
+    private final Map<MethodKey, ConvertingTarget> convertingRedirects = new ConcurrentHashMap<>();
+    private final Set<String> convertingOwners = ConcurrentHashMap.newKeySet();
+
+    // Singleton-static redirects: a NO-ARG static helper that became an INSTANCE method on a
+    // singleton, e.g. Screen.hasControlDown() -> Minecraft.getInstance().hasControlDown(). The call
+    // is re-expressed as [INVOKESTATIC getter][INVOKEVIRTUAL name]; no-arg only (else the pushed
+    // receiver would land under the args).
+    private final Map<MethodKey, SingletonTarget> singletonRedirects = new ConcurrentHashMap<>();
+    private final Set<String> singletonOwners = ConcurrentHashMap.newKeySet();
+
     // Indy-typed call rewrites: a call immediately preceded by a Consumer LambdaMetafactory indy
     // is retargeted with the lambda's reified event type appended as a Class constant
     // (EventBus 7 addListener bridging; see registerIndyTypedCallRewrite).
@@ -371,6 +386,48 @@ public class RetromodTransformer implements ClassFileTransformer {
         argDropRedirects.put(new MethodKey(oldOwner, oldName, oldDesc),
                 new MethodTarget(newOwner, newName, newDesc));
         argDropOwners.add(oldOwner);
+    }
+
+    /**
+     * Register a converting redirect: retarget {@code oldOwner.oldName(oldDesc)} to
+     * {@code newOwner.newName(newDesc)} (same invoke opcode) and, if the descriptors differ only by
+     * a primitive widening/narrowing on the LAST argument or the return, splice in one conversion
+     * insn. {@code argConvOpcode} (e.g. {@link Opcodes#F2D}) is emitted BEFORE the call to convert
+     * the top-of-stack last argument; {@code retAdaptOpcode} (a conversion like {@link Opcodes#I2D},
+     * or {@link Opcodes#POP}/{@link Opcodes#POP2} to discard a result the old void call didn't have)
+     * is emitted AFTER. Pass 0 for either to skip it.
+     *
+     * <p>Corpus-mined 26.x cases (top-50 Fabric+NeoForge 1.21.1 audit): {@code Mth.cos(F)F}/{@code
+     * sin(F)F} widened to {@code (D)F} (arg F2D), {@code Window.getGuiScale()D} narrowed to {@code
+     * ()I} (return I2D), {@code SoundManager.play(SoundInstance)V} now returns a {@code PlayResult}
+     * (return POP). The last-arg rule is safe because a widened arg is the final value pushed before
+     * the call; multi-arg conversions on non-top slots are NOT expressible here (register those a
+     * different way).
+     */
+    public void registerConvertingRedirect(
+            String oldOwner, String oldName, String oldDesc,
+            String newOwner, String newName, String newDesc,
+            int argConvOpcode, int retAdaptOpcode) {
+        convertingRedirects.put(new MethodKey(oldOwner, oldName, oldDesc),
+                new ConvertingTarget(newOwner, newName, newDesc, argConvOpcode, retAdaptOpcode));
+        convertingOwners.add(oldOwner);
+    }
+
+    /**
+     * Register a singleton-static redirect: a NO-ARG {@code static} helper that moved to an INSTANCE
+     * method on a singleton. {@code oldOwner.oldName(oldDesc)} (an {@code invokestatic} taking no
+     * args) is re-emitted as {@code [invokestatic singletonOwner.getter:getterDesc]} then
+     * {@code [invokevirtual singletonOwner.newName:newDesc]}, so the pushed singleton instance is
+     * the receiver. e.g. {@code Screen.hasControlDown()Z} ->
+     * {@code Minecraft.getInstance().hasControlDown()Z}. No-arg only.
+     */
+    public void registerSingletonStaticRedirect(
+            String oldOwner, String oldName, String oldDesc,
+            String singletonOwner, String getter, String getterDesc,
+            String newName, String newDesc) {
+        singletonRedirects.put(new MethodKey(oldOwner, oldName, oldDesc),
+                new SingletonTarget(singletonOwner, getter, getterDesc, newName, newDesc));
+        singletonOwners.add(oldOwner);
     }
 
     /**
@@ -824,6 +881,10 @@ public class RetromodTransformer implements ClassFileTransformer {
         interfaceSyntheticTargets.clear();
         argDropRedirects.clear();
         argDropOwners.clear();
+        convertingRedirects.clear();
+        convertingOwners.clear();
+        singletonRedirects.clear();
+        singletonOwners.clear();
         staticFieldNullers.clear();
         mojangMethodRenames.clear();
         // These member-name maps drive the remap gate (hasIntermediaryNames); leaving them
@@ -1968,7 +2029,8 @@ public class RetromodTransformer implements ClassFileTransformer {
                     && fieldAccessorRedirects.isEmpty() && superclassRedirects.isEmpty()
                     && superCtorRedirects.isEmpty()
                     && neutralizedMethods.isEmpty() && staticFieldAccessors.isEmpty()
-                    && argDropRedirects.isEmpty()) {
+                    && argDropRedirects.isEmpty()
+                    && convertingRedirects.isEmpty() && singletonRedirects.isEmpty()) {
                 return mv;
             }
             return new RetromodMethodVisitor(api, mv, currentClassName, currentSuperName,
@@ -2660,7 +2722,8 @@ public class RetromodTransformer implements ClassFileTransformer {
 
             // Fast path: owner not in the redirect set. Still try pattern heuristics and fuzzy
             // resolution for unresolved references, since they cover the whole MC API surface.
-            if (!methodRedirectOwners.contains(owner) && !argDropOwners.contains(owner)) {
+            if (!methodRedirectOwners.contains(owner) && !argDropOwners.contains(owner)
+                    && !convertingOwners.contains(owner) && !singletonOwners.contains(owner)) {
                 // Try pattern heuristics FIRST; faster and more reliable than fuzzy
                 PatternHeuristics patterns = patternHeuristics;
                 if (patterns != null) {
@@ -2736,6 +2799,35 @@ public class RetromodTransformer implements ClassFileTransformer {
                         super.visitInsn(oldArgs[i].getSize() == 2 ? Opcodes.POP2 : Opcodes.POP);
                     }
                     super.visitMethodInsn(opcode, drop.owner, drop.name, drop.desc, isInterface);
+                    return;
+                }
+            }
+
+            // Converting redirect: retarget + adapt the last arg and/or the return value.
+            if (target == null && !convertingRedirects.isEmpty()) {
+                ConvertingTarget conv = convertingRedirects.get(key);
+                if (conv == null && !classRedirects.isEmpty()) {
+                    String rd = resolveDescriptor(descriptor);
+                    if (!rd.equals(descriptor)) conv = convertingRedirects.get(new MethodKey(owner, name, rd));
+                }
+                if (conv != null) {
+                    markFrameInvalidatingRewrite();
+                    if (conv.argConvOpcode() != 0) super.visitInsn(conv.argConvOpcode());
+                    super.visitMethodInsn(opcode, conv.owner(), conv.name(), conv.desc(), isInterface);
+                    if (conv.retAdaptOpcode() != 0) super.visitInsn(conv.retAdaptOpcode());
+                    return;
+                }
+            }
+
+            // Singleton-static redirect: no-arg static helper -> SINGLETON.getInstance().method().
+            if (target == null && !singletonRedirects.isEmpty()) {
+                SingletonTarget s = singletonRedirects.get(key);
+                if (s != null) {
+                    markFrameInvalidatingRewrite();
+                    super.visitMethodInsn(Opcodes.INVOKESTATIC, s.singletonOwner(), s.getter(),
+                            s.getterDesc(), false);
+                    super.visitMethodInsn(Opcodes.INVOKEVIRTUAL, s.singletonOwner(), s.name(),
+                            s.desc(), false);
                     return;
                 }
             }
@@ -3015,6 +3107,16 @@ public class RetromodTransformer implements ClassFileTransformer {
             this(owner, name, desc, false);
         }
     }
+    /**
+     * Target of a converting redirect: retarget plus one optional primitive conversion on the last
+     * arg ({@code argConvOpcode}, emitted before the call) and one on the return value
+     * ({@code retAdaptOpcode}, emitted after; may be {@code POP}/{@code POP2} to discard). 0 = none.
+     */
+    public record ConvertingTarget(String owner, String name, String desc,
+            int argConvOpcode, int retAdaptOpcode) {}
+    /** Target of a singleton-static redirect: {@code singletonOwner.getter():..} then instance call. */
+    public record SingletonTarget(String singletonOwner, String getter, String getterDesc,
+            String name, String desc) {}
     /** Lookup key for field redirects: matches (owner class, field name). */
     public record FieldKey(String owner, String name) {}
     /** Target of a field redirect. If newDesc starts with "(", this is a field-to-method redirect. */

@@ -303,6 +303,15 @@ public class ForgeModTransformer {
                 // Strip blocklisted mixin handlers first (the Fabric path does this
                 // inside FabricModTransformer) (#48).
                 byte[] preStripped = mixinTransformer.stripBlocklistedHandlers(original);
+                // 26.x GUI 2D-transform migration (peephole): rewrite the immediate
+                // guiGraphics.pose().pushPose()/popPose() chain to the 2D Matrix3x2fStack ops.
+                // Runs on the Mojang-named bytecode BEFORE the class redirect renames GuiGraphics ->
+                // GuiGraphicsExtractor. Gated to 26.1+ where pose() returns the 2D stack; a no-op (and
+                // never a regression) otherwise. See docs/design/gui-2d-transform-migration.md.
+                if (com.retromod.core.RetromodVersion.isUnobfuscatedTarget(
+                        com.retromod.core.RetromodVersion.TARGET_MC_VERSION)) {
+                    preStripped = com.retromod.shim.common.Gui2DTransformMigration.migrate(preStripped);
+                }
                 byte[] transformed = bytecodeTransformer.transformClass(preStripped, className);
                 // Phase 4 (#48): ValueIO save-data adapter, POST-remap (NeoForge/Forge names are
                 // already Mojang, but running it here keeps identification uniform with Fabric).

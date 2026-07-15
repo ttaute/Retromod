@@ -108,6 +108,20 @@ public final class MixinHandlerResignature {
         reg("checkWalls", sl, "Lnet/minecraft/world/phys/AABB;");
         reg("onCrystalDestroyed", sl, "Lnet/minecraft/world/entity/boss/enderdragon/EndCrystal;");
         reg("onDestroyedBy", sl, DAMAGE);
+
+        // TRAILING insert (not a leading ServerLevel): 26.1 appended a ResourceKey<Level> (the
+        // dimension key) to the end of ChunkGenerator.tryGenerateStructure's params (private method;
+        // verified present on 26.1+26.2, absent on 1.21.1). A 1.21.1 @Inject that captured the old
+        // 9 params (ending at SectionPos, index 8) is now missing that trailing arg, so its descriptor
+        // is no longer a valid prefix of the target -> InvalidInjectionException. Append the unused
+        // ResourceKey right before the CallbackInfo trailer (at the capture-count index 9), which
+        // shifts only the CallbackInfo slot. First-param guard: StructureSet$StructureSelectionEntry
+        // (YUNG's Better Strongholds DisableVanillaStrongholdsMixin, verified). The index equals the
+        // full old-capture count, so a handler that captured fewer params (or none) is declined by
+        // insertParams' shape guard rather than mis-shifted.
+        SIGNATURE_CHANGES.put("tryGenerateStructure", new SigChange(
+                Set.of("Lnet/minecraft/world/level/levelgen/structure/StructureSet$StructureSelectionEntry;"),
+                List.of(new ParamInsert(9, "Lnet/minecraft/resources/ResourceKey;"))));
     }
 
     /** Restricting registration: the handler's Mojang-MC first captured param must be in {@code acceptableFirstParams}. */
@@ -233,9 +247,14 @@ public final class MixinHandlerResignature {
         for (ParamInsert ins : inserts) {                  // every insert must land in the captured region
             if (ins.paramIndex() < 0 || ins.paramIndex() > cbIndex) return false;
         }
-        boolean anyBeforeCi = false;                       // handler must capture something that changed
-        for (ParamInsert ins : inserts) if (ins.paramIndex() < cbIndex) { anyBeforeCi = true; break; }
-        if (!anyBeforeCi) return false;
+        // The handler must already capture >=1 target param. A zero-capture handler ((CallbackInfo)V)
+        // is a valid prefix of ANY target signature, so it never needs re-signaturing (and a trailing
+        // append at index 0 would wrongly turn it into a 1-param capture). Inserts are already
+        // constrained to [0, cbIndex] above; combined with this, that admits both a leading insert
+        // (#69, index 0) and a TRAILING append right before the CallbackInfo trailer (index == cbIndex,
+        // which pushes the CallbackInfo back one slot). Equivalent to the old "some insert < cbIndex"
+        // for the leading case, since those entries always insert at index 0.
+        if (cbIndex < 1) return false;
 
         // Decline if any parameter carries an annotation (@Local/@Coerce/@Share): insertRawParams
         // shifts slots and the LVT but not the param-annotation arrays, so an inserted leading param
@@ -301,6 +320,7 @@ public final class MixinHandlerResignature {
         handler.desc = Type.getMethodDescriptor(ret, newArgs.toArray(new Type[0]));
 
         handler.parameters = null;                         // drop optional MethodParameters (names) to avoid a count mismatch
+        handler.signature = null;                          // drop the now-stale generic signature (descriptor is authoritative)
         int totalWidth = 0; for (int w : insWidth) totalWidth += w;
         handler.maxLocals += totalWidth;                   // COMPUTE_FRAMES recomputes, but keep it consistent
         return true;
