@@ -42952,6 +42952,7 @@ METHOD	m_140918_	onLevelChange
 METHOD	m_140932_	haveTicketFor
 METHOD	m_141902_	getBlockEntity
 METHOD	m_141913_	setSubtitleText
+METHOD	m_141914_	getBaseColumn
 METHOD	m_141919_	closeScreen
 METHOD	m_141921_	findCollisionPiece
 METHOD	m_141928_	getHeight
@@ -44283,6 +44284,8 @@ METHOD	m_156093_	isWithinBounds
 METHOD	m_156096_	removeListener
 METHOD	m_156104_	getSection
 METHOD	m_156110_	getBlockState
+METHOD	m_156174_	getFirstFreeHeight
+METHOD	m_156179_	getFirstOccupiedHeight
 METHOD	m_156185_	getStatusAroundFullChunk
 METHOD	m_156322_	doWork
 METHOD	m_156341_	layerToString
@@ -47456,6 +47459,7 @@ METHOD	m_210257_	getSourceGroundY
 METHOD	m_210258_	getSourceZ
 METHOD	m_210259_	getDeltaY
 METHOD	m_210260_	getDestProjection
+METHOD	m_210284_	addPieces
 METHOD	m_210406_	setProjectionOnEachElement
 METHOD	m_210424_	encodeTemplate
 METHOD	m_210462_	processorsCodec
