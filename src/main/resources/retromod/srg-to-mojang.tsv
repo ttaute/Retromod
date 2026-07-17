@@ -35554,6 +35554,7 @@ METHOD	m_41647_	interactLivingEntity
 METHOD	m_41651_	getTooltipLines
 METHOD	m_41654_	hideTooltipPart
 METHOD	m_41656_	isSameItem
+METHOD	m_41658_	tagMatches
 METHOD	m_41661_	useOn
 METHOD	m_41663_	enchant
 METHOD	m_41666_	inventoryTick
@@ -35577,6 +35578,7 @@ METHOD	m_41737_	getTagElement
 METHOD	m_41739_	save
 METHOD	m_41741_	getMaxStackSize
 METHOD	m_41742_	setRepairCost
+METHOD	m_41746_	isSame
 METHOD	m_41749_	removeTagKey
 METHOD	m_41751_	setTag
 METHOD	m_41753_	isStackable
