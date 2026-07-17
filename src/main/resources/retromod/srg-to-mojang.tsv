@@ -9095,6 +9095,7 @@ FIELD	f_78194_	baseDir
 FIELD	f_78195_	backupDir
 FIELD	f_78196_	fixerUpper
 FIELD	f_78270_	lock
+FIELD	f_78271_	levelPath
 FIELD	f_78272_	levelId
 FIELD	f_78273_	resources
 FIELD	f_78344_	settings
