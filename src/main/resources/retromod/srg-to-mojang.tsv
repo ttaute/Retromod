@@ -42982,6 +42982,7 @@ METHOD	m_141989_	onCreated
 METHOD	m_141991_	unsetDefaultColor
 METHOD	m_141992_	tryCast
 METHOD	m_141994_	onAttack
+METHOD	m_141995_	send
 METHOD	m_141997_	handlePrecipitation
 METHOD	m_142002_	getType
 METHOD	m_142003_	containsKey
