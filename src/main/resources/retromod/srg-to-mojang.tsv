@@ -42976,6 +42976,7 @@ METHOD	m_142074_	sendSlotChange
 METHOD	m_142075_	usePlayerItem
 METHOD	m_142078_	getListenerRadius
 METHOD	m_142079_	canFreeze
+METHOD	m_142081_	getUUID
 METHOD	m_142082_	offset
 METHOD	m_142085_	canBeReplaced
 METHOD	m_142087_	canReceiveStalactiteDrip
