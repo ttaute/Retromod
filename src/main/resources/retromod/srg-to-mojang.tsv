@@ -36010,6 +36010,7 @@ METHOD	m_46741_	isInSpawnableBounds
 METHOD	m_46745_	getChunkAt
 METHOD	m_46747_	removeBlockEntity
 METHOD	m_46749_	isLoaded
+METHOD	m_46753_	hasNeighborSignal
 METHOD	m_46755_	getBestNeighborSignal
 METHOD	m_46758_	isRainingAt
 METHOD	m_46791_	getDifficulty
@@ -44301,6 +44302,8 @@ METHOD	m_156612_	getTimestamp
 METHOD	m_156613_	clear
 METHOD	m_156627_	getKey
 METHOD	m_156630_	outsideStoredRange
+METHOD	m_156732_	minY
+METHOD	m_156733_	height
 METHOD	m_156767_	player
 METHOD	m_156768_	addStat
 METHOD	m_156771_	setLookingAt
