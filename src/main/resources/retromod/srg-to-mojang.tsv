@@ -32346,6 +32346,7 @@ METHOD	m_11241_	broadcast
 METHOD	m_11255_	getPlayerByName
 METHOD	m_11259_	getPlayer
 METHOD	m_11261_	placeNewPlayer
+METHOD	m_11264_	broadcastMessage
 METHOD	m_11268_	broadcastAll
 METHOD	m_11270_	broadcastAll
 METHOD	m_11273_	updateEntireScoreboard
@@ -36669,6 +36670,7 @@ METHOD	m_59693_	loadFromTag
 METHOD	m_59700_	getAnimationStatus
 METHOD	m_59701_	getColor
 METHOD	m_59702_	isClosed
+METHOD	m_59732_	setMessage
 METHOD	m_59769_	setOwner
 METHOD	m_59779_	getOwnerProfile
 METHOD	m_59780_	updateOwnerProfile
