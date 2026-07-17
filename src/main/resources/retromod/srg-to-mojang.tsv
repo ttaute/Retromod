@@ -4446,6 +4446,7 @@ FIELD	f_39138_	resultContainer
 FIELD	f_39221_	container
 FIELD	f_39222_	containerRows
 FIELD	f_39287_	NULL
+FIELD	f_39320_	items
 FIELD	f_39348_	craftSlots
 FIELD	f_39349_	resultSlots
 FIELD	f_39350_	access
@@ -10912,6 +10913,7 @@ FIELD	f_92999_	bossOverlay
 FIELD	f_93000_	titleTime
 FIELD	f_93001_	title
 FIELD	f_93002_	subtitle
+FIELD	f_93098_	GUI_ICONS_LOCATION
 FIELD	f_93253_	MAP_ICONS_LOCATION
 FIELD	f_93254_	MAP_ICONS
 FIELD	f_93255_	textureManager
@@ -31281,6 +31283,7 @@ METHOD	m_7098_	y
 METHOD	m_7099_	canHarmPlayer
 METHOD	m_7100_	animateTick
 METHOD	m_7101_	getUncertainty
+METHOD	m_7102_	get
 METHOD	m_7103_	getSections
 METHOD	m_7104_	getPower
 METHOD	m_7105_	setTame
@@ -33114,6 +33117,7 @@ METHOD	m_19295_	getCombatDuration
 METHOD	m_19296_	recheckStatus
 METHOD	m_19298_	getMostSignificantFall
 METHOD	m_19372_	isExplosion
+METHOD	m_19375_	setExplosion
 METHOD	m_19377_	getFoodExhaustion
 METHOD	m_19378_	isBypassInvul
 METHOD	m_19385_	getMsgId
@@ -37686,6 +37690,7 @@ METHOD	m_78799_	createFunctionSerializer
 METHOD	m_78800_	createLootTableSerializer
 METHOD	m_78801_	builder
 METHOD	m_78822_	build
+METHOD	m_78933_	getRandom
 METHOD	m_78936_	hasParam
 METHOD	m_78942_	addDynamicDrops
 METHOD	m_78945_	getLuck
@@ -38742,6 +38747,7 @@ METHOD	m_90584_	setPosition
 METHOD	m_90588_	getBlockPosition
 METHOD	m_90589_	getXRot
 METHOD	m_90590_	getYRot
+METHOD	m_90591_	rotation
 METHOD	m_90592_	getEntity
 METHOD	m_90593_	isInitialized
 METHOD	m_90594_	isDetached
@@ -38761,6 +38767,8 @@ METHOD	m_90705_	handleResponse
 METHOD	m_90708_	queryBlockEntityTag
 METHOD	m_90711_	startTransaction
 METHOD	m_90774_	byId
+METHOD	m_90793_	getMessage
+METHOD	m_90794_	getAddedTime
 METHOD	m_90805_	save
 METHOD	m_90806_	get
 METHOD	m_90808_	load
@@ -39000,6 +39008,7 @@ METHOD	m_92689_	register
 METHOD	m_92718_	isBidirectional
 METHOD	m_92719_	adjustColor
 METHOD	m_92724_	width
+METHOD	m_92756_	drawShadow
 METHOD	m_92801_	bidirectionalShaping
 METHOD	m_92834_	plainSubstrByWidth
 METHOD	m_92837_	plainSubstrByWidth
@@ -39033,6 +39042,8 @@ METHOD	m_93090_	getBossOverlay
 METHOD	m_93091_	clearCache
 METHOD	m_93092_	getCameraPlayer
 METHOD	m_93093_	getPlayerVehicleWithHealth
+METHOD	m_93143_	blit
+METHOD	m_93228_	blit
 METHOD	m_93260_	resetData
 METHOD	m_93290_	updateTexture
 METHOD	m_93291_	draw
@@ -39333,6 +39344,7 @@ METHOD	m_97058_	getColumnIndex
 METHOD	m_97091_	renderStat
 METHOD	m_97151_	scroll
 METHOD	m_97154_	isMouseOver
+METHOD	m_97163_	drawContents
 METHOD	m_97170_	create
 METHOD	m_97175_	addWidget
 METHOD	m_97178_	addAdvancement
@@ -41008,6 +41020,7 @@ METHOD	m_122428_	getCounterClockWise
 METHOD	m_122429_	getStepX
 METHOD	m_122430_	getStepY
 METHOD	m_122431_	getStepZ
+METHOD	m_122432_	step
 METHOD	m_122433_	getName
 METHOD	m_122434_	getAxis
 METHOD	m_122435_	toYRot
@@ -41108,6 +41121,7 @@ METHOD	m_123718_	getItem
 METHOD	m_123742_	getOverrideLimiter
 METHOD	m_123743_	getDeserializer
 METHOD	m_123824_	register
+METHOD	m_123914_	addProvider
 METHOD	m_123917_	run
 METHOD	m_123937_	purgeStaleAndWrite
 METHOD	m_124058_	dumpRegistry
@@ -41433,6 +41447,7 @@ METHOD	m_126089_	stainedGlassPaneFromStainedGlass
 METHOD	m_126093_	stainedGlassPaneFromGlassPaneAndDye
 METHOD	m_126097_	coloredTerracottaFromTerracottaAndDye
 METHOD	m_126101_	concretePowder
+METHOD	m_126116_	shaped
 METHOD	m_126124_	define
 METHOD	m_126127_	define
 METHOD	m_126130_	pattern
@@ -43111,6 +43126,7 @@ METHOD	m_142279_	onReturn
 METHOD	m_142280_	getType
 METHOD	m_142281_	read
 METHOD	m_142282_	dispatch
+METHOD	m_142284_	unlockedBy
 METHOD	m_142289_	onClose
 METHOD	m_142291_	updateNarration
 METHOD	m_142292_	onOpen
@@ -43280,6 +43296,7 @@ METHOD	m_142690_	get
 METHOD	m_142693_	set
 METHOD	m_142694_	get
 METHOD	m_142696_	handleSetBorderWarningDistance
+METHOD	m_142700_	save
 METHOD	m_142703_	fill
 METHOD	m_142706_	cutoutTexture
 METHOD	m_142708_	process
