@@ -4589,6 +4589,7 @@ FIELD	f_40615_	ENTITY_PREDICATE
 FIELD	f_40616_	type
 FIELD	f_40687_	content
 FIELD	f_40715_	LOGGER
+FIELD	f_40756_	TAB_TOOLS
 FIELD	f_40759_	TAB_MATERIALS
 FIELD	f_40764_	displayName
 FIELD	f_40766_	backgroundSuffix
@@ -30534,6 +30535,7 @@ METHOD	m_6106_	getLevelData
 METHOD	m_6107_	isImmobile
 METHOD	m_6108_	getWaterSlowDown
 METHOD	m_6109_	isControlledByLocalInstance
+METHOD	m_6111_	getContents
 METHOD	m_6112_	getDelay
 METHOD	m_6113_	getSpeed
 METHOD	m_6114_	checkExtraStartConditions
@@ -30704,6 +30706,7 @@ METHOD	m_6347_	getCenterX
 METHOD	m_6348_	mouseReleased
 METHOD	m_6350_	getDirection
 METHOD	m_6351_	findHitEntity
+METHOD	m_6352_	sendMessage
 METHOD	m_6355_	getLightColor
 METHOD	m_6357_	getComputedLevel
 METHOD	m_6358_	getLevelY
@@ -30952,6 +30955,7 @@ METHOD	m_6673_	isInvulnerableTo
 METHOD	m_6674_	swing
 METHOD	m_6675_	currentBlockPosition
 METHOD	m_6677_	playHurtSound
+METHOD	m_6679_	getInputStream
 METHOD	m_6681_	wrapRunnable
 METHOD	m_6683_	getOpenNess
 METHOD	m_6685_	isRandomlyTicking
@@ -33401,6 +33405,7 @@ METHOD	m_21183_	createLivingAttributes
 METHOD	m_21184_	spawnSoulSpeedParticle
 METHOD	m_21185_	removeSoulSpeed
 METHOD	m_21186_	tryAddSoulSpeed
+METHOD	m_21187_	getRandom
 METHOD	m_21188_	getLastHurtByMob
 METHOD	m_21190_	broadcastBreakEvent
 METHOD	m_21195_	removeEffect
@@ -37759,6 +37764,7 @@ METHOD	m_81346_	withRotation
 METHOD	m_81348_	withPosition
 METHOD	m_81350_	withAnchor
 METHOD	m_81352_	sendFailure
+METHOD	m_81354_	sendSuccess
 METHOD	m_81357_	getDisplayName
 METHOD	m_81358_	withMaximumPermission
 METHOD	m_81364_	facing
@@ -39254,6 +39260,7 @@ METHOD	m_96479_	select
 METHOD	m_96579_	wrapScreenError
 METHOD	m_96583_	isValidCharacterForName
 METHOD	m_96589_	openLink
+METHOD	m_96597_	renderComponentTooltip
 METHOD	m_96622_	confirmLink
 METHOD	m_96628_	isCut
 METHOD	m_96630_	isPaste
@@ -41902,6 +41909,7 @@ METHOD	m_131268_	parseColor
 METHOD	m_131270_	fromLegacyFormat
 METHOD	m_131274_	serialize
 METHOD	m_131277_	formatValue
+METHOD	m_131328_	getKey
 METHOD	m_131359_	ensureRunningOnSameThread
 METHOD	m_131363_	ensureRunningOnSameThread
 METHOD	m_131496_	getId
@@ -43183,6 +43191,7 @@ METHOD	m_142587_	getType
 METHOD	m_142588_	setMat2x2
 METHOD	m_142589_	sendInitialData
 METHOD	m_142590_	getFrameItemStack
+METHOD	m_142591_	getResource
 METHOD	m_142593_	getMeleeAttackRangeSqr
 METHOD	m_142594_	isChatAllowed
 METHOD	m_142595_	canBeLit
