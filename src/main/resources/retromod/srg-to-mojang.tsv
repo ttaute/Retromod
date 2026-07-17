@@ -44226,6 +44226,7 @@ METHOD	m_155672_	tick
 METHOD	m_155679_	updateAnimation
 METHOD	m_155683_	moveCollidedEntities
 METHOD	m_155687_	doNeighborUpdates
+METHOD	m_155706_	getMessage
 METHOD	m_155713_	setAllowedPlayerEditor
 METHOD	m_155726_	getPlayerWhoMayEdit
 METHOD	m_155728_	markUpdated
