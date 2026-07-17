@@ -42962,6 +42962,7 @@ METHOD	m_142044_	onMove
 METHOD	m_142045_	visitInt
 METHOD	m_142046_	visitLong
 METHOD	m_142047_	nest
+METHOD	m_142049_	getId
 METHOD	m_142051_	getSpawnHeight
 METHOD	m_142052_	addDestroyBlockEffect
 METHOD	m_142056_	handleSetBorderWarningDelay
