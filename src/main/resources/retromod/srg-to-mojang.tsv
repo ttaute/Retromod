@@ -36728,6 +36728,7 @@ METHOD	m_60436_	getToPush
 METHOD	m_60437_	getToDestroy
 METHOD	m_60589_	getLootTable
 METHOD	m_60611_	initCache
+METHOD	m_60616_	tick
 METHOD	m_60625_	getDestroyProgress
 METHOD	m_60629_	canBeReplaced
 METHOD	m_60631_	propagatesSkylightDown
@@ -36757,6 +36758,7 @@ METHOD	m_60722_	canBeReplaced
 METHOD	m_60726_	getSeed
 METHOD	m_60728_	updateShape
 METHOD	m_60734_	getBlock
+METHOD	m_60735_	randomTick
 METHOD	m_60739_	getLightBlock
 METHOD	m_60742_	getCollisionShape
 METHOD	m_60746_	getSignal
