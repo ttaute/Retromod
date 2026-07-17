@@ -33115,6 +33115,7 @@ METHOD	m_19296_	recheckStatus
 METHOD	m_19298_	getMostSignificantFall
 METHOD	m_19372_	isExplosion
 METHOD	m_19377_	getFoodExhaustion
+METHOD	m_19378_	isBypassInvul
 METHOD	m_19385_	getMsgId
 METHOD	m_19390_	isCreativePlayer
 METHOD	m_19453_	byId
@@ -40996,6 +40997,7 @@ METHOD	m_122387_	fromAxisAndDirection
 METHOD	m_122390_	get
 METHOD	m_122398_	makeDirectionArray
 METHOD	m_122402_	byName
+METHOD	m_122406_	getRotation
 METHOD	m_122407_	from2DDataValue
 METHOD	m_122411_	get3DDataValue
 METHOD	m_122416_	get2DDataValue
