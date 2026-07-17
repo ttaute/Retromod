@@ -46054,6 +46054,7 @@ METHOD	m_182741_	getStateId
 METHOD	m_182755_	getPages
 METHOD	m_182761_	getTitle
 METHOD	m_183134_	getEntityCollisions
+METHOD	m_183216_	getUpdatePacket
 METHOD	m_183230_	findSpawnPosition
 METHOD	m_183237_	save
 METHOD	m_183243_	stop
