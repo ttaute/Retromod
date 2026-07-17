@@ -43568,6 +43568,7 @@ METHOD	m_146904_	getBlockY
 METHOD	m_146907_	getBlockZ
 METHOD	m_146908_	getYRot
 METHOD	m_146909_	getXRot
+METHOD	m_146910_	isRemoved
 METHOD	m_146911_	getRemovalReason
 METHOD	m_146912_	unsetRemoved
 METHOD	m_146915_	setGlowingTag
