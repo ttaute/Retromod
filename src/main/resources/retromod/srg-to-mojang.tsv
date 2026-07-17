@@ -46634,6 +46634,7 @@ METHOD	m_191715_	spread
 METHOD	m_191731_	of
 METHOD	m_191756_	of
 METHOD	m_191781_	getFeatures
+METHOD	m_191782_	place
 METHOD	m_191821_	getCarvingMask
 METHOD	m_191824_	getHeight
 METHOD	m_191828_	getBlockState
