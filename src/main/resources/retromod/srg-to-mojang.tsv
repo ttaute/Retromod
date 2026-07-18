@@ -18579,14 +18579,23 @@ FIELD	f_157700_	pos
 FIELD	f_157725_	CODEC
 FIELD	f_157769_	FLUID_PLACE
 FIELD	f_157770_	HIT_GROUND
+FIELD	f_157771_	MOB_INTERACT
 FIELD	f_157772_	LIGHTNING_STRIKE
+FIELD	f_157773_	MINECART_MOVING
+FIELD	f_157774_	PISTON_CONTRACT
+FIELD	f_157775_	PISTON_EXTEND
 FIELD	f_157776_	PRIME_FUSE
 FIELD	f_157777_	PROJECTILE_LAND
 FIELD	f_157778_	PROJECTILE_SHOOT
+FIELD	f_157779_	RAVAGER_ROAR
+FIELD	f_157780_	RING_BELL
 FIELD	f_157781_	SHEAR
+FIELD	f_157782_	SHULKER_CLOSE
+FIELD	f_157783_	SHULKER_OPEN
 FIELD	f_157784_	SPLASH
 FIELD	f_157785_	STEP
 FIELD	f_157786_	SWIM
+FIELD	f_157787_	WOLF_SHAKING
 FIELD	f_157788_	DEFAULT_NOTIFICATION_RADIUS
 FIELD	f_157789_	name
 FIELD	f_157790_	notificationRadius
@@ -18597,12 +18606,23 @@ FIELD	f_157794_	BLOCK_DESTROY
 FIELD	f_157795_	BLOCK_DETACH
 FIELD	f_157796_	BLOCK_OPEN
 FIELD	f_157797_	BLOCK_PLACE
+FIELD	f_157798_	BLOCK_PRESS
+FIELD	f_157799_	BLOCK_SWITCH
+FIELD	f_157800_	BLOCK_UNPRESS
+FIELD	f_157801_	BLOCK_UNSWITCH
 FIELD	f_157802_	CONTAINER_CLOSE
 FIELD	f_157803_	CONTAINER_OPEN
+FIELD	f_157804_	DISPENSE_FAIL
+FIELD	f_157805_	DRINKING_FINISH
 FIELD	f_157806_	EAT
+FIELD	f_157807_	ELYTRA_FREE_FALL
+FIELD	f_157808_	ENTITY_DAMAGED
+FIELD	f_157809_	ENTITY_KILLED
 FIELD	f_157810_	ENTITY_PLACE
 FIELD	f_157811_	EQUIP
 FIELD	f_157812_	EXPLODE
+FIELD	f_157813_	FISHING_ROD_CAST
+FIELD	f_157814_	FISHING_ROD_REEL_IN
 FIELD	f_157815_	FLAP
 FIELD	f_157816_	FLUID_PICKUP
 FIELD	f_157868_	CODEC
@@ -31720,6 +31740,7 @@ METHOD	m_7453_	build
 METHOD	m_7454_	canEnchant
 METHOD	m_7456_	beforeDestroyingBlock
 METHOD	m_7457_	getRemainingItems
+METHOD	m_7458_	tick
 METHOD	m_7462_	disconnect
 METHOD	m_7464_	onDestroyBlock
 METHOD	m_7465_	getRecipeManager
@@ -32275,6 +32296,7 @@ METHOD	m_8583_	getAllEntities
 METHOD	m_8584_	isFlat
 METHOD	m_8586_	getDragonFight
 METHOD	m_8590_	getWatchdogStats
+METHOD	m_8595_	structureFeatureManager
 METHOD	m_8602_	setChunkForced
 METHOD	m_8606_	setWeatherParameters
 METHOD	m_8615_	setDayTime
@@ -32837,6 +32859,8 @@ METHOD	m_14045_	clamp
 METHOD	m_14049_	binarySearch
 METHOD	m_14057_	getSeed
 METHOD	m_14059_	getInt
+METHOD	m_14062_	createInsecureUUID
+METHOD	m_14064_	nextDouble
 METHOD	m_14068_	nextFloat
 METHOD	m_14072_	nextInt
 METHOD	m_14082_	equal
@@ -32846,6 +32870,7 @@ METHOD	m_14091_	positiveModulo
 METHOD	m_14094_	rotateIfNecessary
 METHOD	m_14098_	wrapDegrees
 METHOD	m_14100_	positiveModulo
+METHOD	m_14103_	color
 METHOD	m_14107_	floor
 METHOD	m_14109_	positiveModulo
 METHOD	m_14112_	inverseLerp
@@ -33558,6 +33583,7 @@ METHOD	m_20431_	notRiding
 METHOD	m_20584_	canSerialize
 METHOD	m_20585_	getAABB
 METHOD	m_20592_	spawn
+METHOD	m_20600_	spawn
 METHOD	m_20613_	getKey
 METHOD	m_20615_	create
 METHOD	m_20620_	updateCustomEntityTag
@@ -33758,6 +33784,7 @@ METHOD	m_21533_	isWithinRestriction
 METHOD	m_21534_	getRestrictCenter
 METHOD	m_21535_	getRestrictRadius
 METHOD	m_21536_	hasRestriction
+METHOD	m_21540_	equipItemIfPossible
 METHOD	m_21551_	resetAmbientSoundTime
 METHOD	m_21552_	createMobAttributes
 METHOD	m_21553_	setCanPickUpLoot
@@ -35751,6 +35778,7 @@ METHOD	m_41060_	getId
 METHOD	m_41061_	byFireworkColor
 METHOD	m_41065_	getName
 METHOD	m_41068_	getTextureDiffuseColors
+METHOD	m_41069_	getMaterialColor
 METHOD	m_41070_	getFireworkColor
 METHOD	m_41071_	getTextColor
 METHOD	m_41082_	byColor
@@ -36336,6 +36364,7 @@ METHOD	m_47528_	getHeightAdjustedTemperature
 METHOD	m_47536_	getGenerationSettings
 METHOD	m_47539_	getFogColor
 METHOD	m_47542_	getFoliageColor
+METHOD	m_47548_	getDownfall
 METHOD	m_47554_	getBaseTemperature
 METHOD	m_47557_	getSpecialEffects
 METHOD	m_47560_	getWaterColor
@@ -36612,6 +36641,8 @@ METHOD	m_54217_	attachsTo
 METHOD	m_54245_	canAttach
 METHOD	m_54250_	getFrontFacing
 METHOD	m_54252_	getTopFacing
+METHOD	m_54260_	dropRecording
+METHOD	m_54269_	setRecord
 METHOD	m_54348_	canAttachTo
 METHOD	m_54435_	updateDistance
 METHOD	m_54463_	getDistanceAt
@@ -37382,10 +37413,17 @@ METHOD	m_63818_	get
 METHOD	m_63823_	getOrLoad
 METHOD	m_63825_	writeColumn
 METHOD	m_63827_	getOrCreate
+METHOD	m_63900_	fillBrightnessRamp
+METHOD	m_63902_	brightness
 METHOD	m_63904_	timeOfDay
 METHOD	m_63908_	getTeleportationScale
 METHOD	m_63911_	parseLegacy
+METHOD	m_63935_	hasSkyLight
 METHOD	m_63936_	moonPhase
+METHOD	m_63946_	hasCeiling
+METHOD	m_63951_	ultraWarm
+METHOD	m_63956_	natural
+METHOD	m_63959_	coordinateScale
 METHOD	m_63960_	piglinSafe
 METHOD	m_63961_	bedWorks
 METHOD	m_63962_	respawnAnchorWorks
@@ -39039,6 +39077,7 @@ METHOD	m_90702_	queryEntityTag
 METHOD	m_90705_	handleResponse
 METHOD	m_90708_	queryBlockEntityTag
 METHOD	m_90711_	startTransaction
+METHOD	m_90773_	getId
 METHOD	m_90774_	byId
 METHOD	m_90793_	getMessage
 METHOD	m_90794_	getAddedTime
@@ -39284,6 +39323,7 @@ METHOD	m_92724_	width
 METHOD	m_92733_	drawInBatch
 METHOD	m_92750_	drawShadow
 METHOD	m_92756_	drawShadow
+METHOD	m_92763_	drawShadow
 METHOD	m_92801_	bidirectionalShaping
 METHOD	m_92811_	drawInBatch
 METHOD	m_92834_	plainSubstrByWidth
@@ -39322,8 +39362,11 @@ METHOD	m_93092_	getCameraPlayer
 METHOD	m_93093_	getPlayerVehicleWithHealth
 METHOD	m_93133_	blit
 METHOD	m_93143_	blit
+METHOD	m_93160_	blit
+METHOD	m_93172_	fill
 METHOD	m_93215_	drawCenteredString
 METHOD	m_93228_	blit
+METHOD	m_93252_	getArrow
 METHOD	m_93260_	resetData
 METHOD	m_93290_	updateTexture
 METHOD	m_93291_	draw
@@ -39517,6 +39560,7 @@ METHOD	m_94968_	hide
 METHOD	m_95006_	createFont
 METHOD	m_95011_	setRenames
 METHOD	m_95064_	whiteGlyph
+METHOD	m_95065_	getGlyphInfo
 METHOD	m_95067_	getRandomGlyph
 METHOD	m_95071_	reload
 METHOD	m_95077_	closeProviders
@@ -39587,6 +39631,7 @@ METHOD	m_96579_	wrapScreenError
 METHOD	m_96583_	isValidCharacterForName
 METHOD	m_96589_	openLink
 METHOD	m_96597_	renderComponentTooltip
+METHOD	m_96617_	renderTooltip
 METHOD	m_96622_	confirmLink
 METHOD	m_96628_	isCut
 METHOD	m_96630_	isPaste
@@ -40318,6 +40363,7 @@ METHOD	m_109311_	tick
 METHOD	m_109312_	calculateMapTilt
 METHOD	m_109314_	renderHandsWithItems
 METHOD	m_109320_	itemUsed
+METHOD	m_109322_	renderItem
 METHOD	m_109330_	applyEatTransform
 METHOD	m_109335_	applyItemArmAttackTransform
 METHOD	m_109339_	renderTwoHandedMap
@@ -40545,6 +40591,7 @@ METHOD	m_111001_	renderModelFaceFlat
 METHOD	m_111012_	renderModelFaceAO
 METHOD	m_111023_	putQuadData
 METHOD	m_111039_	calculateShape
+METHOD	m_111047_	tesselateBlock
 METHOD	m_111058_	renderQuadList
 METHOD	m_111067_	renderModel
 METHOD	m_111077_	clearCache
@@ -43482,6 +43529,7 @@ METHOD	m_142207_	overrideStackedOnOther
 METHOD	m_142208_	getGenDepth
 METHOD	m_142209_	canAttachTo
 METHOD	m_142213_	getFloorLevel
+METHOD	m_142216_	onLand
 METHOD	m_142217_	setMat3x3
 METHOD	m_142220_	isRemoved
 METHOD	m_142224_	tick
@@ -43504,6 +43552,7 @@ METHOD	m_142264_	write
 METHOD	m_142265_	mayInteract
 METHOD	m_142266_	handleEntityOnFireInside
 METHOD	m_142268_	deserialize
+METHOD	m_142270_	sample
 METHOD	m_142273_	getAll
 METHOD	m_142276_	set
 METHOD	m_142278_	loadFromBucketTag
@@ -43626,6 +43675,7 @@ METHOD	m_142555_	getSquirtSound
 METHOD	m_142558_	set
 METHOD	m_142559_	alwaysAccepts
 METHOD	m_142562_	getNarrationMessage
+METHOD	m_142563_	getBucketItemStack
 METHOD	m_142567_	cycle
 METHOD	m_142572_	getServer
 METHOD	m_142579_	getChartedPaths
@@ -43859,6 +43909,7 @@ METHOD	m_144851_	clampedMap
 METHOD	m_144888_	rayIntersectsAABB
 METHOD	m_144914_	map
 METHOD	m_144920_	clampedLerp
+METHOD	m_144924_	randomBetween
 METHOD	m_144941_	roundToward
 METHOD	m_144944_	square
 METHOD	m_144946_	smoothstepDerivative
@@ -43954,6 +44005,7 @@ METHOD	m_146305_	codec
 METHOD	m_146310_	getData
 METHOD	m_146312_	getTotalWeight
 METHOD	m_146314_	getWeightedItem
+METHOD	m_146317_	getRandomItem
 METHOD	m_146328_	create
 METHOD	m_146330_	create
 METHOD	m_146332_	create
@@ -44408,6 +44460,7 @@ METHOD	m_151500_	getShortDisplayName
 METHOD	m_151523_	setBlockEntity
 METHOD	m_151525_	addBlockEntityTicker
 METHOD	m_151543_	blockEntityChanged
+METHOD	m_151555_	gameEvent
 METHOD	m_151558_	getMaxBuildHeight
 METHOD	m_151559_	getSectionsCount
 METHOD	m_151560_	getMinSection
@@ -45426,6 +45479,7 @@ METHOD	m_169539_	getIndex
 METHOD	m_169540_	getDisplay
 METHOD	m_169554_	getWidth
 METHOD	m_169598_	updatePreviousOutput
+METHOD	m_169606_	renderSlotHighlight
 METHOD	m_169616_	addBeaconButton
 METHOD	m_169626_	updateButtons
 METHOD	m_169649_	setEffect
@@ -47030,6 +47084,7 @@ METHOD	m_190419_	replaceable
 METHOD	m_190420_	anyOf
 METHOD	m_190423_	solid
 METHOD	m_190425_	anyOf
+METHOD	m_190427_	matchesFluids
 METHOD	m_190430_	anyOf
 METHOD	m_190432_	solid
 METHOD	m_190433_	insideWorld
@@ -47672,6 +47727,7 @@ METHOD	m_204336_	is
 METHOD	m_204338_	is
 METHOD	m_204341_	is
 METHOD	m_204343_	getTags
+METHOD	m_204382_	getNearestGeneratedStructure
 METHOD	m_204433_	getNoiseBiome
 METHOD	m_204521_	typeHolder
 METHOD	m_204528_	is
@@ -47683,10 +47739,12 @@ METHOD	m_204655_	dimensions
 METHOD	m_204673_	consume
 METHOD	m_204677_	matchesTag
 METHOD	m_204735_	isReplaceable
+METHOD	m_204766_	getLocatePos
 METHOD	m_204921_	getBiome
 METHOD	m_204965_	distance
 METHOD	m_204966_	spread
 METHOD	m_204967_	count
+METHOD	m_204991_	getPotentialFeatureChunk
 METHOD	m_205003_	spacing
 METHOD	m_205004_	separation
 METHOD	m_205005_	spreadType
@@ -47819,6 +47877,12 @@ METHOD	m_207466_	getSize
 METHOD	m_207470_	getBoundingBox
 METHOD	m_207481_	findBiomeHorizontal
 METHOD	m_207488_	offsetNoise
+METHOD	m_207500_	codec
+METHOD	m_207503_	locateBiome
+METHOD	m_207514_	locate
+METHOD	m_207517_	showLocateResult
+METHOD	m_207561_	findNearestMapFeature
+METHOD	m_207571_	findNearestBiome
 METHOD	m_207630_	create
 METHOD	m_207645_	isFor
 METHOD	m_207647_	cast
@@ -47841,6 +47905,17 @@ METHOD	m_207874_	radialSearch
 METHOD	m_207879_	getSpawnPositionAndFitness
 METHOD	m_207909_	isValidBookShelf
 METHOD	m_207928_	inFeature
+METHOD	m_207930_	setFeature
+METHOD	m_207937_	getOrCreateNoiseChunk
+METHOD	m_207969_	possibleStructureSets
+METHOD	m_207970_	findNearestMapFeature
+METHOD	m_207976_	fetchReferences
+METHOD	m_208005_	commonCodec
+METHOD	m_208016_	tryGenerateStructure
+METHOD	m_208044_	allConfigurations
+METHOD	m_208059_	getNearestGeneratedStructure
+METHOD	m_208090_	getPlacementsForFeature
+METHOD	m_208097_	generatePositions
 METHOD	m_208132_	loadTicks
 METHOD	m_208154_	unpackStructureReferences
 METHOD	m_208188_	calculatePressure
@@ -47902,6 +47977,7 @@ METHOD	m_209536_	createKey
 METHOD	m_209563_	getSphaghettiRarity2D
 METHOD	m_209565_	getSpaghettiRarity3D
 METHOD	m_209667_	create
+METHOD	m_209769_	configured
 METHOD	m_209803_	withLayers
 METHOD	m_209810_	structureOverrides
 METHOD	m_209838_	register
@@ -47955,6 +48031,7 @@ METHOD	m_210782_	countryEqualsISO3
 METHOD	m_211053_	holdersInOrder
 METHOD	m_211067_	createTag
 METHOD	m_211101_	add
+METHOD	m_211103_	register
 METHOD	m_211136_	registry
 METHOD	m_211396_	mapAll
 METHOD	m_211589_	lengthSquared
