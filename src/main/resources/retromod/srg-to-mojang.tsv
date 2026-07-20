@@ -68,7 +68,7 @@
 # once. Verify after manual edits:
 #   awk -F'\t' '!/^#/&&NF{print $1,$2}' srg-to-mojang.tsv | sort | uniq -d
 #
-# Entries below: 30042 FIELD, 23691 METHOD.
+# Entries below: 30222 FIELD, 24036 METHOD.
 # =========================================================================
 
 # -------------------------------------------------------------------------
