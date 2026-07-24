@@ -68,7 +68,7 @@
 # once. Verify after manual edits:
 #   awk -F'\t' '!/^#/&&NF{print $1,$2}' srg-to-mojang.tsv | sort | uniq -d
 #
-# Entries below: 30222 FIELD, 24036 METHOD.
+# Entries below: 30222 FIELD, 24035 METHOD.
 # =========================================================================
 
 # -------------------------------------------------------------------------
@@ -36141,7 +36141,7 @@ METHOD	m_45437_	getLastOutput
 METHOD	m_45438_	getCommand
 METHOD	m_45439_	getName
 METHOD	m_45440_	isTrackOutput
-METHOD	m_45462_	setEntryId
+METHOD	m_45462_	setEntityId
 METHOD	m_45473_	getSpin
 METHOD	m_45474_	getoSpin
 METHOD	m_45517_	getBrightness
@@ -39366,7 +39366,7 @@ METHOD	m_93160_	blit
 METHOD	m_93172_	fill
 METHOD	m_93215_	drawCenteredString
 METHOD	m_93228_	blit
-METHOD	m_93252_	getArrow
+METHOD	m_93252_	getBlitOffset
 METHOD	m_93260_	resetData
 METHOD	m_93290_	updateTexture
 METHOD	m_93291_	draw
@@ -47138,7 +47138,6 @@ METHOD	m_191715_	spread
 METHOD	m_191731_	of
 METHOD	m_191756_	of
 METHOD	m_191781_	getFeatures
-METHOD	m_191782_	place
 METHOD	m_191821_	getCarvingMask
 METHOD	m_191824_	getHeight
 METHOD	m_191828_	getBlockState
@@ -50012,7 +50011,6 @@ METHOD	m_236635_	overworldOffset
 METHOD	m_236642_	overworldJaggedness
 METHOD	m_236670_	mangroveSwamp
 METHOD	m_236671_	deepDark
-METHOD	m_236738_	getStructureManager
 METHOD	m_236774_	getHeight
 METHOD	m_236778_	assertItemEntityNotPresent
 METHOD	m_236801_	readResourceKey
