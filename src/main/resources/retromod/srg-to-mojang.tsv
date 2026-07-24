@@ -50011,6 +50011,7 @@ METHOD	m_236635_	overworldOffset
 METHOD	m_236642_	overworldJaggedness
 METHOD	m_236670_	mangroveSwamp
 METHOD	m_236671_	deepDark
+METHOD	m_236738_	getStructureManager
 METHOD	m_236774_	getHeight
 METHOD	m_236778_	assertItemEntityNotPresent
 METHOD	m_236801_	readResourceKey
