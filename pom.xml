@@ -6,7 +6,7 @@
 
     <groupId>com.retromod</groupId>
     <artifactId>retromod</artifactId>
-    <version>1.4.0-snapshot.2</version>
+    <version>1.4.0-snapshot.3</version>
     <packaging>jar</packaging>
 
     <name>Retromod</name>
@@ -231,7 +231,7 @@
                                     <!--
                                         Build floor is 17 (matches the bytecode target). Maven
                                         release builds use Java 25 so generation and verification
-                                        paths can read Minecraft 26.x through ASM 9.10.1. Local
+                                        paths can read Minecraft 26.x through ASM 9.11.1. Local
                                         builds work on Java 17+ when they do not read those class
                                         files.
                                     -->
@@ -281,6 +281,57 @@
                             <outputDirectory>${project.build.directory}/boot-classes</outputDirectory>
                             <generatedSourcesDirectory>${project.build.directory}/generated-sources/boot-annotations</generatedSourcesDirectory>
                             <proc>none</proc>
+                        </configuration>
+                    </execution>
+                    <!--
+                        Loader APIs a host removed, rebuilt as real classes that Retromod embeds into
+                        each translated jar that uses them (com.retromod.legacyapi). They compile
+                        against the compile-only stubs in src/legacyapi/stubs, which mirror the few
+                        host members they call. Only com/retromod/legacyapi/** is copied into the
+                        runtime jar below, so no stub ever ships.
+                    -->
+                    <execution>
+                        <id>legacyapi-compile</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <compileSourceRoots>
+                                <compileSourceRoot>${project.basedir}/src/legacyapi/java</compileSourceRoot>
+                                <compileSourceRoot>${project.basedir}/src/legacyapi/stubs</compileSourceRoot>
+                            </compileSourceRoots>
+                            <outputDirectory>${project.build.directory}/legacyapi-classes</outputDirectory>
+                            <generatedSourcesDirectory>${project.build.directory}/generated-sources/legacyapi-annotations</generatedSourcesDirectory>
+                            <proc>none</proc>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- The rebuilt loader API classes join the runtime jar; their stubs stay behind. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.4.0</version>
+                <executions>
+                    <execution>
+                        <id>legacyapi-classes</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>copy-resources</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}</outputDirectory>
+                            <resources>
+                                <resource>
+                                    <directory>${project.build.directory}/legacyapi-classes</directory>
+                                    <filtering>false</filtering>
+                                    <includes>
+                                        <include>com/retromod/legacyapi/**</include>
+                                    </includes>
+                                </resource>
+                            </resources>
                         </configuration>
                     </execution>
                 </executions>
